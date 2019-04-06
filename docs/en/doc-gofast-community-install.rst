@@ -4,6 +4,9 @@ GoFAST Community :  Installation
 
 .. note:: If you have problems, you can ask some help on our Community forums:  https://community.ceo-vision.com
 
+.. caution:: Don't forget to check that updates are available (your environment must have internet access) 
+
+
 Instructions (for AWS Marketplace)
 ------------
 https://aws.amazon.com/marketplace/pp/B07NPZHPG3
