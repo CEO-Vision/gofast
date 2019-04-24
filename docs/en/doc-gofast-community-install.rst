@@ -24,9 +24,7 @@ Instructions (from image)
 
 –Step 2: Start the instance on your VirtualMachine (VMWare, HyperV, ...)
 
-Caution!
-
-GoFAST is an Enterprise Grade platform and needs a server (mini 2vcpu,4GB RAM,SSD if possible). The use of a Desktop PC with VirtualBox is not recommanded and it is possible to get timeouts at the first access and at the end of the configuration. A simple page refresh should solve this.
+.. caution:: GoFAST is an "Enterprise Grade" platform and needs a server (mini 2vcpu,4GB RAM,SSD if possible). The use of a Desktop PC with VirtualBox is not recommanded and it is possible to get timeouts at the first access and at the end of the configuration. A simple page refresh should solve this.
 
 –Step 3: Login in the VM and launch ``netui`` to configure the network (fix IP address, gateway, ...)
 
