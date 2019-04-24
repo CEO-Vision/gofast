@@ -24,16 +24,20 @@ Instructions (from image)
 
 –Step 2: Start the instance on your VirtualMachine (VMWare, HyperV, ...)
 
-–Step 3: Assign an IP address on the Virtual Machine: 
+Caution!
 
- For you information ``login : root`` ``password : @C0mmunity!`` (with a 0 not O)
+GoFAST is an Enterprise Grade platform and needs a server (mini 2vcpu,4GB RAM,SSD if possible). The use of a Desktop PC with VirtualBox is not recommanded and it is possible to get timeouts at the first access and at the end of the configuration. A simple page refresh should solve this.
+
+–Step 3: Login in the VM and launch ``netui`` to configure the network (fix IP address, gateway, ...)
+
+.. NOTE::  To login in SSH to the VM :  ``login : root`` ``password : @C0mmunity!`` (with a 0 not O)
 
 .. WARNING:: 
    Change immediately your root password 
 
 –Step 4: Enter ``https://your_ip_address`` and configure the platform
 
--Step 5: To access the platform via an FQDN, please configure your DNS or /etc/hosts file
+-Step 5: To access the platform via an FQDN, please configure your DNS or ``hosts`` file 
 
 Configuration
 -------------
