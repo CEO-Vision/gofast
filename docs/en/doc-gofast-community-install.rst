@@ -28,10 +28,13 @@ Instructions (from image)
 
 –Step 3: Login in the VM and launch ``netui`` to configure the network (fix IP address, gateway, ...)
 
-.. NOTE::  To login in SSH to the VM :  ``login : root`` ``password : @C0mmunity!`` (with a 0 not O)
+.. NOTE::  To login in console mode to the VM :  ``login : root`` ``password : @C0mmunity!`` (with a 0 not O)
 
 .. WARNING:: 
-   Change immediately your root password 
+   Keyboard is set to FRENCH. Be aware of that when entering the password. Once logged you can switch to english keyboard: ``localectl set-keymap us`` 
+
+.. WARNING:: 
+   The root password will be overwritten by the password you enter during the configuration process (see below) 
 
 –Step 4: Enter ``https://your_ip_address`` and configure the platform
 
