@@ -4,7 +4,7 @@ GoFAST Community :  Installation
 
 .. note:: If you have problems, you can ask some help on our Community forums:  https://community.ceo-vision.com
 
-.. caution:: After installation, don't forget to check if updates are available in the menu (your environment must have internet access) ``https://your_ip_address/admin/config/gofast/update``
+.. caution:: After installation, don't forget to check if updates are available in the menu (your environment must have internet access) or directly ``https://your_ip_address/admin/config/gofast/update``
 
 
 Instructions (for AWS Marketplace)
