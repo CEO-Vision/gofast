@@ -1,2 +1,5 @@
 
-Please see all documentation here : https://gofast-docs.readthedocs.io/
+Please see all GoFAST documentation here : 
+
+French : https://gofast-docs.readthedocs.io/
+English : https://gofast-docs.readthedocs.io/en
