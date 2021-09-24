@@ -1,0 +1,26 @@
+# Spanish translation of Node view count (7.x-2.6)
+# Copyright (c) 2017 by the Spanish translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Node view count (7.x-2.6)\n"
+"POT-Creation-Date: 2017-01-27 08:38+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Spanish\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Timestamp"
+msgstr "Sello temporal"
+msgid "Node types"
+msgstr "Tipos de nodo"
+msgid "Never"
+msgstr "Nunca"
+msgid "Id"
+msgstr "Id"
+msgid "Node count"
+msgstr "Cantidad de nodos"
+msgid "User roles"
+msgstr "Roles de usuario"

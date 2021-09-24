@@ -1,0 +1,26 @@
+<?php
+
+require_once 'gofast_mail_queue_api.inc';
+/*
+ * TODO: Document message_formated hook
+ */
+//
+//
+/**
+ * Implements hook_message_formated
+ */
+function gofast_mail_queue_message_formated($message){
+  //We won't throw a notification if the prevent notify checkbox was checked
+  if(!$_POST['prevent_notify']){
+    $decoded_message = json_decode($message[0]);
+   
+    if($decoded_message->node_type == "kanban"){ 
+        gofast_mail_queue_api_queue($message, 'message_kanban'); // Queue the message for subscribed users. 
+    }elseif($decoded_message->node_type == "kanban_prevent_notify"){
+        
+    }else{         
+        gofast_mail_queue_api_queue($message, 'message'); // Queue the message for subscribed users.
+    }
+  }
+  $_POST['prevent_notify'] = NULL;
+}

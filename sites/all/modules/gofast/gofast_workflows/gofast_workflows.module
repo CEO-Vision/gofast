@@ -1,0 +1,1344 @@
+<?php
+
+require_once(drupal_get_path('module', 'gofast_workflows') .'/gofast_workflows_replication.inc');
+require_once(drupal_get_path('module', 'gofast_workflows') .'/gofast_workflows_webservices.inc');
+require_once(drupal_get_path('module', 'gofast_workflows') .'/gofast_workflows.inc');
+require_once(drupal_get_path('module', 'gofast_workflows') .'/gofast_workflows_curl.inc');
+require_once(drupal_get_path('module', 'gofast_workflows') .'/gofast_workflows_theme.inc');
+
+//TODO le mettre dans le dossier de lib
+//drupal_add_js(drupal_get_path('module', 'gofast_workflows'). '/jquery-paginate.min.js');
+//drupal_add_js(drupal_get_path('module', 'gofast_workflows'). '/dynatable/jquery.dynatable.js');
+drupal_add_css(drupal_get_path('module', 'gofast_workflows'). '/dynatable/jquery.dynatable.css');
+drupal_add_css(drupal_get_path('module', 'gofast_workflows'). '/gofast_workflows.css');
+
+global $base_url, $conf;
+
+//credentials du user technique bonita
+define( 'BONITA_TECHNICAL_PASSWORD' , $conf['bonita_tech_password']);
+define( 'BONITA_TECHNICAL_LOGIN' , $conf['bonita_tech_user']);
+
+
+//chemin serveur de l'installation de Bonita
+define( 'SERVER_PATH_BONITA' , $conf['bonita_home_path']);
+
+//nom de la variable Drupal qui contient l'association entre les drupal_id et les bonita_id
+define( 'VARIABLE_NAME_ID_BONITA' , "gofast_bonita_ids");
+
+//nom de la variable global dans Bonita qui correspond au titre du processus
+define( 'BONITA_TITLE_PROCESS' , "gofast_titre_processus");
+
+//nom de la variable global dans Bonita qui correspond a la description du processus
+define( 'BONITA_DESCRIPTION_PROCESS' , "gofast_description_task");
+
+//nom de la variable global dans Bonita qui correspond a la deadline du processus
+define( 'BONITA_DEADLINE_PROCESS' , "gofast_date_limite");
+
+//nom de la variable global dans Bonita qui correspond a un eventuel document associé au workflow
+define( 'BONITA_DOCUMENT_PROCESS' , "gofast_document_reference");
+
+//nom de la variable activity (variable interne à une tache) dans Bonita qui indique si la tache est ré-assignable
+define( 'BONITA_TASK_REASSIGNABLE' , "is_reassignable");
+
+//nom de la variable activity (variable interne à une tache) dans Bonita qui indique le ou les variables Bonita (stock de résultats) à modifier lors de la réassignation (
+define( 'BONITA_TASK_REASSIGNABLE_RESULTS' , "is_reassignable_results");
+
+//Icons for action
+define('BONITA_WF_ICON__SHOW_PROCESS_IMG', 'fa fa-cogs fa-lg');
+define('BONITA_WF_ICON__DO_ACT', 'fa fa-check fa-lg');
+define('BONITA_WF_ICON__SEE_TODO_ACT', 'fa fa-square-o fa-lg');
+define('BONITA_WF_ICON__SEE_DONE_ACT', 'fa fa-check-square-o fa-lg');
+define('BONITA_WF_ICON__SEE_RESUME', 'fa fa-info fa-lg');
+define('BONITA_WF_ICON__DELETE_PROCESS', 'fa fa-trash-o fa-lg');
+//define('BONITA_WF_ICON__DELETE_PROCESS', 'glyphicon glyphicon-trash');
+define('BONITA_WF_ICON__START_PROCESS', 'fa fa-play fa-lg');
+
+define('BONITA_RESYNC_NEEDED_NODES_VARNAME','bonita_resync_needed_nodes');  
+/**
+ * Implements hook_menu()
+ */
+function gofast_workflows_menu() {
+  $items = array();
+
+  $items['wf/debug'] = array(
+    'page callback' => 'gofast_workflows_debug',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+    $items['workflow/dashboard'] = array(
+       'page callback' =>'gofast_workflows_dashboard',
+       'type' => MENU_CALLBACK,
+       'access arguments' =>array('access content'),
+       'access callback'=>'user_access',
+  );
+
+    $items['workflow/token'] = array(
+       'page callback' =>'gofast_workflows_get_bonita_token_display',
+       'type' => MENU_CALLBACK,
+       'access arguments' =>array('access content'),
+       'access callback'=>'user_access',
+  );
+
+   $items['workflow/rapiddashboard'] = array(
+       'page callback' =>'gofast_workflows_dashboard_rapide',
+       'type' => MENU_CALLBACK,
+       'access arguments' =>array('access content'),
+       'access callback'=>'user_access',
+  );
+
+   $items['workflow/api/process/availables'] = array(
+         'page callback' =>'gofast_workflows_get_available_processes',
+         'page arguments' => array(),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array('access content'),
+         'access callback'=>TRUE,
+    );
+
+    $items['workflow/api/edit/deadline'] = array(
+         'page callback' =>'gofast_workflows_api_edit_deadline',
+         'page arguments' => array(),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array('access content'),
+         'access callback'=>'user_access',
+    );
+
+    $items['workflow/api/edit/deadline/validate'] = array(
+         'page callback' =>'gofast_workflows_api_edit_deadline_validate',
+         'page arguments' => array(),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array('access content'),
+         'access callback'=>'user_access',
+    );
+
+    $items['workflow/api/reassign/task/validate'] = array(
+         'page callback' =>'gofast_workflows_reassign_validate',
+         'page arguments' => array(),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array('access content'),
+         'access callback'=>'user_access',
+    );
+
+  $items['workflow/number/todolist'] = array(
+       'page callback' =>'ceo_vision_workflow_api_get_number_todolist',
+       'type' => MENU_CALLBACK,
+       'access arguments' =>array('access content'),
+       'access callback'=>'user_access',
+  );
+
+
+   $items['ajax/workflow/icone/node/%node'] = array(
+       'page callback' =>'ceo_vision_get_ajax_theme_icone_node',
+       'type' => MENU_CALLBACK,
+       'page arguments'   => array(4),
+       'access arguments' =>array('access content'),
+       'access callback'=>'user_access',
+  );
+  $items['ajax/workflow/history'] = array(
+       'page callback' =>'ceo_vision_get_ajax_infos_history_workflow_tasks',
+       'type' => MENU_CALLBACK,
+       'access arguments' =>array('access content'),
+       'access callback'=>'user_access',
+  );
+  $items['ajax/workflow/courrier/next/%/%/%'] = array(
+       'page callback' =>'ceo_vision_workflow_ajax_courrier_task_next',
+       'type' => MENU_CALLBACK,
+       'page arguments' => array(4,5,6),
+       'access arguments' =>array('access content'),
+       'access callback'=>'user_access',
+  );
+
+
+   $items['workflow/tasks/list'] = array(
+       'page callback' =>'ceo_vision_get_html_list_actives_tasks',
+       'type' => MENU_CALLBACK,
+       'access arguments' =>array('access content'),
+       'access callback'=>'user_access',
+  );
+
+
+   $items['workflow/success'] = array(
+       'page callback' =>'gofast_workflows_success',
+       'type' => MENU_CALLBACK,
+       'access arguments' =>array('access content'),
+       'access callback'=>'user_access',
+  );
+
+
+
+   /* API Webservices */
+
+
+
+   $items['workflow/api/process/getgraph/%/%'] = array(
+         'page callback' =>'gofast_workflows_get_image_process',
+         'page arguments' => array(4,5,6),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array(),
+         'access callback'=>TRUE,
+    );
+
+     $items['workflow/api/liste/users'] = array(
+         'page callback' =>'gofast_workflows_api_liste_users',
+         //'page arguments' => array(4),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array(),
+         'access callback'=>TRUE,
+    );
+
+     $items['workflow/api/get/nodefromurl'] = array(
+         'page callback' =>'gofast_workflows_api_get_node_from_url',
+         'page arguments' => array(),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array(),
+         'access callback'=>TRUE,
+    );
+
+      $items['workflow/api/validate/access_document'] = array(
+         'page callback' =>'gofast_workflows_api_validate_access_document',
+         'page arguments' => array(),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array('access content'),
+         'access callback'=>'user_access',
+    );
+
+     $items['workflow/api/process/finishedtasklist_archived/%'] = array(
+         'page callback' =>'gofast_workflows_get_process_finishedtasklist_archived',
+         'page arguments' => array(4),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array('access content'),
+         'access callback'=>'user_access',
+    );
+
+    $items['workflow/api/process/activetasklist/%'] = array(
+         'page callback' =>'gofast_workflows_get_process_tasklist',
+         'page arguments' => array(4),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array('access content'),
+         'access callback'=>'user_access',
+    );
+
+       $items['workflow/api/timer/sendmail'] = array(
+         'page callback' =>'gofast_workflows_api_sendmail_timer',
+         //'page arguments' => array(4),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array(),
+         'access callback'=>TRUE,
+    );
+
+    $items['workflow/api/sendmail'] = array(
+         'page callback' =>'gofast_workflows_api_sendmail',
+         //'page arguments' => array(4),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array(),
+         'access callback'=>TRUE,
+    );
+
+   $items['workflow/api/liste/locations'] = array(
+         'page callback' =>'gofast_workflows_api_liste_emplacements',
+         //'page arguments' => array(4),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array(),
+         'access callback'=>TRUE,
+    );
+
+     $items['workflow/api/move/document'] = array(
+         'page callback' =>'gofast_workflows_api_move_document',
+         //'page arguments' => array(4),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array(),
+         'access callback'=>TRUE,
+    );
+
+     $items['workflow/api/delete/case'] = array(
+         'page callback' =>'gofast_workflows_api_delete_case',
+         //'page arguments' => array(4),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array('access content'),
+         'access callback'=>'user_access',
+    );
+
+     $items['workflow/api/update/history'] = array(
+         'page callback' =>'gofast_workflows_api_update_history',
+         'page arguments' => array(),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array(),
+         'access callback'=>TRUE,
+    );
+
+     $items['workflow/get_bonitaids_from_uids'] = array(
+         'page callback' =>'gofast_workflows_get_bonitaids_from_uids',
+         'page arguments' => array(),
+         'type' => MENU_CALLBACK,
+         'access arguments' =>array('access content'),
+         'access callback'=>'user_access',
+    );
+
+
+   /* END API Webservices */
+
+  $items['signature/yousign/api/validate/procedure'] = array(
+    'title' => t('Yousign check type', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_workflows_yousign_check_can_create_procedure',
+    'page arguments' => array(),
+    'type' => MENU_CALLBACK,
+    'access arguments' =>array('access content'),
+    'access callback'=>'user_access',
+  );
+
+  return $items;
+}
+
+/* 
+ * hook cron()
+
+Resyncronise Bonita group with drupal
+
+*/
+
+function gofast_workflows_cron(){  
+     $resync_nodes=variable_get(BONITA_RESYNC_NEEDED_NODES_VARNAME,array());
+     if(count($resync_nodes)){
+         foreach($resync_nodes as $nid){
+             $node=node_load($nid);
+             gofast_workflows_synchronize_members_group($node);
+         }
+         variable_set(BONITA_RESYNC_NEEDED_NODES_VARNAME,array());
+     }
+    
+}
+
+/*
+ * Called by UI designer forms after completion
+ */
+function gofast_workflows_success(){
+    print "<script>if(window.parent.Drupal.settings.isMobile){window.parent.location.reload();}else{window.parent.Gofast.toast(\"" . t($_GET['message'], array(), array('context' => "gofast:gofast_workflows")) . "\", 'success');window.parent.document.getElementById('refresh-lightdashboard').click();  window.parent.modalContentClose();}</script>";
+}
+
+
+/**
+ * @package gofast_cmis
+ * Implements hook_block_info
+ *
+ * @return type
+ */
+function gofast_workflows_block_info() {
+  $blocks['gofast_workflows_light_dashboard'] = array(
+    'info' => t('Workflows', array(), array('context' => 'gofast:gofast_workflows')),
+    'cache' => DRUPAL_CACHE_GLOBAL,
+  );
+
+  return $blocks;
+}
+
+/**
+ * @package gofast_cmis
+ * Implements hook_block_info
+ *
+ * @global type $user
+ * @param type $delta
+ * @return string
+ */
+function gofast_workflows_block_view($delta = '') {
+  $block = array();
+  switch ($delta) {
+    case 'gofast_workflows_light_dashboard':
+
+      // disable page caching if this block is displayed
+      $content = theme("workflow_rapide_dashboard");
+
+      $block['content'] = $content;
+      $block['subject'] = t('Workflows', array(), array('context' => 'gofast:gofast_workflows'));
+      break;
+  }
+  return $block;
+}
+
+function gofast_workflows_init(){
+ //Define base variables
+    error_reporting(0);
+ $base_url_standard = variable_get_value('base_url_standard');
+ define( 'URL_BONITA' , str_replace("https://", "http://", $base_url_standard)."/bonita/");
+  global $user;
+  if($user->uid !== "1" && user_is_logged_in() && !isset($_SESSION['pass_reset_' . $user->uid]) && !isset($_SESSION['bonita_cookie_problem_' . $user->uid])){
+     //Authentify against Bonita
+     $username = $user->name;
+     $settings = array('bonita_username' => $username, "bonita_id" => gofast_workflows_get_user_id($user));
+     drupal_add_js(array('gofast_workflows' => $settings), 'setting');
+
+     //I don't know why, on the mobile domaine, the cookie creation doesn't work during login phase.Must to call it again here
+      if(gofast_mobile_is_mobile_domain() == TRUE ){
+          gofast_workflows_get_cookie();
+      }
+
+  }else{
+     if(isset($_SESSION['pass_reset_' . $user->uid])){
+         $user_cookie_name = "cookie_bonita".$user->name.".txt";
+         gofast_workflows_delete_cookie($user_cookie_name);
+     }
+
+     if(isset($_SESSION['bonita_cookie_problem_' . $user->uid])){
+         drupal_add_js(array('bonita_authentification_problem' => "true"), 'setting');
+         $add_message = true;
+         $warning_message = t('There is a problem with your authentication against Workflow system. Please try to logout and login', array(), array('context' => 'gofast'));
+         $all_messages = drupal_get_messages("warning", false);
+         if(count($all_messages["warning"]) > 0){
+             foreach($all_messages["warning"] as $message){
+                 if($warning_message == $message){
+                     $add_message = false;
+                 }
+             }
+         }
+         if($add_message == true){
+             drupal_set_message($warning_message, "warning");
+         }
+     }
+     $settings = array('bonita_username' => $username);
+     drupal_add_js(array('gofast_workflows' => $settings), 'setting');
+  }
+}
+
+
+/**
+ * Implementation of hook_theme().
+ */
+function gofast_workflows_theme() {
+  return array(
+
+       'mobile_home' => array(
+            'variables' => array(),
+            'template' => 'page-mobile.tpl.php',
+        ),
+
+
+    'task_line' => array(
+      'arguments' => array('variables' => array('task' => NULL, 'todo_liste' => true)),
+    ),
+    'task_line_archived' => array(
+      'arguments' => array('variables' => array('task' => NULL))
+    ),
+
+    'archived_task_line' => array(
+      'arguments' => array('archivedtask' => NULL, 'case' => NULL),
+    ),
+
+    'case_variables' => array(
+      'arguments' => array('variables' => array('task' => NULL, 'case' => true)),
+    ),
+    'process_description' => array(
+      'arguments' => array('process' => NULL),
+    ),
+    'available_document_processes' => array(
+      'arguments' => array('processes' => NULL, "reference" => NULL),
+    ),
+    'case_details' => array(
+      'arguments' => array('case' => NULL, 'specific_case_variables' => NULL),
+    ),
+    'task_details' => array(
+      'arguments' => array('task' => NULL, 'specific_case_variables' => NULL),
+    ),
+    'task_in_details_case' => array(
+      'arguments' => array('task' => NULL),
+    ),
+    'picture_bonita' => array(
+      'arguments' => array('variables' => array('bonita_uid' => NULL)),
+      //'arguments' => array('bonita_uid' => NULL),
+    ),
+    'document_link_bonita' => array(
+      'arguments' => array('bonita_reference' => NULL),
+    ),
+    'workflow_complete_dashboard' => array(
+      'template' => 'gofast_workflows_complete_dashboard',
+      'arguments' => array(),
+    ),
+    'workflow_rapide_dashboard' => array(
+      'template' => 'gofast_workflows_rapide_dashboard',
+      'arguments' => array('variables' => array('node' => NULL)),
+    ),
+    'workflow_rapide_dashboard_icone' => array(
+      'arguments' => array(),
+    ),
+    'workflow_rapide_dashboard_icone_document' => array(
+      'arguments' => array('node' => NULL),
+    ),
+
+    'link_start_process_popup' => array(
+       'variables' => array(
+        'process' => NULL,
+        'reference' => NULL,
+        'content' => NULL
+      )
+      //'arguments' => array('process' => NULL, 'reference' => NULL, 'content' => NULL),
+    ),
+    'workflows_process_model' => array(
+      'template' => 'gofast_workflows_process_model',
+      'variables' => array(
+        'profils' => NULL,
+        'process_id' => NULL,
+        'addOnclick' => NULL
+      )
+    ),
+    'link_show_diagram_popup' => array(
+      'arguments' => array('variables' => array('process' => NULL, 'style' => "float:right;")),
+    ),
+    'link_show_task_details_popup' => array(
+      'arguments' => array('task' => NULL),
+    ),
+    'link_show_pageflow_popup' => array(
+      'arguments' => array("variables" => array('case' => NULL,  'process' => NULL, 'taskId' => NULL, 'archived' => NULL, 'style' => NULL)),
+    ),
+    'link_show_taskform_popup' => array(
+      'arguments' => array('variables' => array('task' => NULL, 'content' => NULL)),
+    ),
+     'link_show_taskdescription_popup' => array(
+      'arguments' => array('variables' => array('task' => NULL, 'style' => ""))
+    ),
+    'link_show_delete_case_popup' => array(
+      'arguments' => array('variables' => array('case' => NULL, "style" => NULL)),
+    ),
+
+    'link_show_actives_tasklist_from_process_popup' => array(
+      'arguments' => array('variables' => array('processId' => NULL)),
+    ),
+    'link_show_finished_tasklist_from_process_popup' => array(
+      'arguments' => array('variables' => array('processId' => NULL)),
+      //'arguments' => array('processId' => NULL),
+    ),
+    'link_show_finished_tasklist_archived_from_process_popup' => array(
+      'arguments' => array('variables' => array('processId' => NULL)),
+    ),
+    'link_show_reassign_task_popup' => array(
+      'arguments' => array('task' => NULL),
+    ),
+    'list_tasks_from_document' => array(
+      'arguments' => array('task' => NULL),
+    ),
+
+    'link_show_tasktitle_help_popup' => array(
+      'arguments' => array(),
+    ),
+    'link_show_processtitle_help_popup' => array(
+      'arguments' => array(),
+    ),
+
+
+
+  );
+}
+
+
+/**
+ * Hook login
+ */
+function gofast_workflows_user_login(&$edit, $account) {
+    $bonita_id = gofast_workflows_get_user_id($account);
+
+    if(!$bonita_id){
+      //The user doesn't exists, let's create it
+      watchdog("GoFAST Workflows", "Creating user : ".$account->uid);
+      gofast_workflows_create_user($account);
+    }else{
+         gofast_workflows_get_cookie(true);
+         $return_cookie = gofast_workflows_get_cookie();
+
+        if($return_cookie === "" || $return_cookie == false){
+            //Update bonita password for this user
+            gofast_workflows_get_bonita_token($bonita_id);
+
+            $return_cookie = gofast_workflows_get_cookie();
+            if($return_cookie === "" || $return_cookie == false){
+                //Update bonita password for this user
+                gofast_workflows_get_bonita_token($bonita_id, true);
+
+                $return_cookie = gofast_workflows_get_cookie();
+                if($return_cookie === "" || $return_cookie == false){
+                    //impossible de generer la session vers Bonita donc je créer un cookie qui indique de ne pas tenter de se connecter à Bonita
+                    watchdog("GoFAST Workflows", "Unable tu authenticate against bonita for user : ".$account->uid);
+                }
+            }
+        }
+    }
+
+}
+
+function gofast_workflows_get_bonita_token($bonita_id = null, $force = false){
+    global $user;
+    $thisuser = user_load($user->uid);
+    if($bonita_id == null){
+        $bonita_id = gofast_workflows_get_user_id($user);
+    }
+    if(!isset($thisuser->data['BONITA_TOKEN']['token']) || empty($thisuser->data['BONITA_TOKEN']['token']) || $thisuser->data['BONITA_TOKEN']['expiration'] < time() || $force){
+        $token = "TOKEN_" . sha1(mt_rand(1, 90000) . 'TOKEN');
+        $expiration = time() + 36000;
+        $thisuser->data['BONITA_TOKEN'] = array(
+            'token' => $token,
+            'expiration' => $expiration,
+        );
+        gofast_workflows_update_user_password($bonita_id, $token);
+        //be sure to not have removed spaces into account
+        foreach($thisuser->og_user_node[LANGUAGE_NONE] as $key=>$og){
+            $node = node_load($og["target_id"]);
+            if(!isset($node->nid)){
+                unset($thisuser->og_user_node[LANGUAGE_NONE][$key]);
+            }
+        } 
+        //bypass password sync only if it's not a SASL authentication
+        if($thisuser->sasl_auth[LANGUAGE_NONE][0]['value'] != 1){
+            global $bypass_ldap_password_sync;
+            $bypass_ldap_password_sync = true;
+            user_save($thisuser);
+        }
+    }else{
+        $token = $thisuser->data['BONITA_TOKEN']['token'];
+    }
+
+    return $token;
+}
+
+function gofast_workflows_get_bonita_token_display(){
+    print gofast_workflows_get_bonita_token();
+    exit;
+}
+
+function gofast_workflows_user_insert(&$edit, $account, $category) {
+     gofast_workflows_create_user($account);
+}
+
+
+/**
+ * Implements hook_entity_insert()
+ */
+function gofast_workflows_entity_insert($entity, $entity_type) {
+  //create space on Bonita
+  if ($entity_type === 'node' && gofast_og_is_space($entity, FALSE)) {
+      watchdog("debug create group", $entity->title);
+      gofast_workflows_create_group($entity);
+  }
+}
+
+function gofast_workflows_debug(){
+
+    $node = array();
+   return gofast_workflows_dashboard_rapide($node);
+
+
+    /*$group_node = node_load(248);
+
+    //gofast_workflows_get_bonitagroup_from_gofastgroup($group_node);
+    //gofast_workflows_create_group($group_node);
+    gofast_workflows_synchronize_members_group($group_node);*/
+}
+
+
+function gofast_workflows_prepare_post_fields($array) {
+        $params = array();
+        foreach ($array as $key => $value) {
+            $params[] = $key . '=' . urlencode($value);
+        }
+        return implode('&', $params);
+}
+
+
+/*
+ * fonction qui renvoit l'id bonita du user recu en parametre
+ */
+function gofast_workflows_get_user_id($myuser){
+   $cookie_name = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
+
+   if(!isset($myuser->uid)){
+       return null;
+   }
+
+    if($myuser->name == BONITA_TECHNICAL_LOGIN){
+         return true;
+    }
+
+    //on charge la variable Drupal qui contient l'association entre le drupal_id et le bonita_id
+    $variable_association = variable_get(VARIABLE_NAME_ID_BONITA, array());
+
+    if(isset($variable_association[$myuser->uid])){
+        return $variable_association[$myuser->uid];
+    }else{
+       gofast_workflows_get_cookie(true);
+       $array_results = gofast_workflows_curl_get_user($myuser,$cookie_name);
+
+       if(count($array_results) > 0){
+           if(isset($array_results[0])){
+            $id = $array_results[0]["id"];
+           }
+         $variable_association[$myuser->uid] = $id;
+          variable_set(VARIABLE_NAME_ID_BONITA, $variable_association);
+
+       }else{
+           $id = null;
+       }
+
+
+        return $id;
+    }
+
+}
+
+/*
+ * Dashboard menu entry
+ */
+function gofast_workflows_dashboard(){
+    drupal_set_title(t("Workflows dashboard", array(), array('context' =>"gofast:gofast_workflows")));
+
+    //Retrieve search form
+    $search_form = drupal_render(drupal_get_form("gofast_workflow_dashboard_search_form"));
+
+    //Render and return the dashboard page
+    $output = theme("workflow_complete_dashboard", array('search_form' => $search_form));
+    $output = gofast_normalize_string_from_ajaxifying($output);
+    return $output;
+}
+
+/*
+ * Search form for workflows full dashboard
+ */
+function gofast_workflow_dashboard_search_form(){
+    $form['title'] = array(
+        '#type' => 'textfield',
+        '#title' => t("Process title", array(), array("context" => "gofast:gofast_workflows")),
+        '#prefix' => '<div class="form-wrapper form-group"><div class="col-md-4">',
+        '#suffix' => '</div>'
+    );
+
+    libraries_load('bootstrap-datetimepicker');
+
+    $form['started'] = array(
+        '#type' => 'textfield',
+        '#title' => t("Started after", array(), array("context" => "gofast:gofast_workflows")),
+        '#prefix' => '<div class="col-md-4">',
+        '#suffix' => "</div>",
+        '#attached' => array(
+            'js' => array(
+               array(
+                  'data' => drupal_get_path('module', 'gofast_workflows') . '/js/gofast_workflows_datetimepicker.js',
+                  'type' => 'file',
+                  'scope' => 'footer'
+               )
+            )
+       ),
+       '#input_group' => TRUE,
+       '#field_suffix' => _bootstrap_icon("calendar")
+    );
+
+    $form['deadline'] = array(
+        '#type' => 'textfield',
+        '#title' => t("Deadline before", array(), array("context" => "gofast:gofast_workflows")),
+        '#prefix' => "<div class='col-md-4'>",
+        '#suffix' => "</div></div>",
+        '#attached' => array(
+            'js' => array(
+               array(
+                  'data' => drupal_get_path('module', 'gofast_workflows') . '/js/gofast_workflows_datetimepicker_deadline.js',
+                  'type' => 'file',
+                  'scope' => 'footer'
+               )
+            )
+       ),
+       '#input_group' => TRUE,
+       '#field_suffix' => _bootstrap_icon("calendar")
+    );
+
+    $workflow_definitions = array();
+    foreach(gofast_workflows_get_list_available_processes(false, false) as $definition){
+        $workflow_definitions[$definition['name']] = t($definition['displayName'], array(), array('context' => 'gofast:gofast_workflows'));
+    }
+    $form['type'] = array(
+        '#type' => 'select',
+        '#title' => t("Workflow type", array(), array("context" => "gofast:gofast_workflows")),
+        '#prefix' => '<div class="form-wrapper form-group"><div class="col-md-4">',
+        '#suffix' => '</div>',
+        '#options' => array_merge(array("all" => t("All", array(), array('context' => 'gofast:gofast_workflows'))), $workflow_definitions),
+        '#default_value' => "all"
+    );
+
+    $form['state'] = array(
+        '#type' => 'select',
+        '#title' => t("Workflow state", array(), array("context" => "gofast:gofast_workflows")),
+        '#prefix' => '<div class="col-md-4">',
+        '#suffix' => "</div>",
+        '#options' => array("progress" => t("In progress", array(), array('context' => 'gofast:gofast_workflows')), "finished" => t("Finished", array(), array('context' => 'gofast:gofast_workflows'))),
+        '#default_value' => "progress"
+    );
+
+    $form['creator'] = array(
+        '#type' => 'textfield',
+        '#title' => t("Started by", array(), array("context" => "gofast:gofast_workflows")),
+        '#prefix' => '<div class="col-md-4">',
+        '#suffix' => "</div></div>",
+        "#autocomplete_path" => "gofast/user-autocomplete"
+    );
+
+    $form['documents'] = array(
+        '#type' => 'textfield',
+        '#title' => t("Associated documents", array(), array("context" => "gofast:gofast_workflows")),
+        '#prefix' => '<div class="form-wrapper form-group"><div class="col-md-6">',
+        '#suffix' => '</div>',
+        '#autocomplete_path' => 'gofast/documents-autocomplete',
+        '#attributes' => array('class' => array('labelize-autocomplete labelize-insert')),
+        "#no_icon" => TRUE
+    );
+
+    $form['users'] = array(
+        '#type' => 'textfield',
+        '#title' => t("Associated users", array(), array("context" => "gofast:gofast_workflows")),
+        '#prefix' => '<div class="col-md-6">',
+        '#suffix' => "</div></div>",
+        '#autocomplete_path' => 'gofast_user_autocomplete',
+        '#attributes' => array('class' => array('labelize-autocomplete labelize-insert')),
+        "#no_icon" => TRUE
+    );
+
+    //Create hook to retrieve custom form fields
+    $fields = array();
+    foreach(module_implements("workflow_dashboard_search_fields") as $module){
+        $fields += call_user_func($module . "_workflow_dashboard_search_fields", $form);
+    }
+
+    $pos = 0;
+    foreach($fields as $k => $field){
+        //Set suffix and prefix to our form elements
+        switch($pos){
+            case 0:
+                $field['#prefix'] = '<div class="form-wrapper form-group"><div class="col-md-4">';
+                $field['#suffix'] = '</div>';
+                $pos = 1;
+                break;
+            case 1:
+                $field['#prefix'] = '<div class="col-md-4">';
+                $field['#suffix'] = '</div>';
+                $pos = 2;
+                break;
+            case 2:
+                $field['#prefix'] = '<div class="col-md-4">';
+                $field['#suffix'] = '</div></div>';
+                $pos = 0;
+                break;
+            default:
+                break;
+        }
+
+        //Close last element
+        if(count($fields) == ($k+1)){
+            $field['#suffix'] = '</div></div>';
+        }
+
+        //Set field in the form
+        $form['custom_' . $k] = $field;
+    }
+
+    $form['search'] = array(
+        '#type' => 'button',
+        '#value' => t("Search", array(), array("context" => "gofast:gofast_workflows")),
+        '#prefix' => "<div style='clear: both;'></div>",
+        '#attributes' => array('onclick' => "Gofast.gofast_workflow_search(event)")
+    );
+
+    return $form;
+}
+
+/*
+ * Return bonita ids from an array of uids
+ */
+function gofast_workflows_get_bonitaids_from_uids($uids = null){
+    if($uids == null){
+        //This is an ajax call
+        $ajax = true;
+
+        $uids = $_GET['uids'];
+    }
+
+    $output = array();
+
+    foreach($uids as $uid){
+        $output[] = gofast_workflows_get_user_id(user_load($uid));
+    }
+
+    if($ajax){
+        print json_encode($output);
+        exit;
+    }else{
+        return $output;
+    }
+}
+
+function gofast_workflows_dashboard_rapide($node = NULL){
+
+    if(isset($_GET["async"])){
+        $api = true;
+    }else{
+        $api = false;
+    }
+    drupal_set_title(t("Workflow"));
+    $output = theme("workflow_rapide_dashboard", array("node" => $node));
+
+    if($api == true){
+        print $output;
+    }else{
+        return $output;
+    }
+
+}
+
+function gofast_workflows_user_logout($account){
+    setcookie('bonita_sess_timestamp', '0', 0, '/', "", true);
+}
+
+
+ function gofast_workflows_og_membership_insert(OgMembership $og_membership) {
+  if ($og_membership->entity_type === 'user' || $og_membership->entity_type === 'userlist') {
+       $group_node = node_load($og_membership->gid);
+     if($group_node->type == "public"){
+         return;
+     }
+      if($og_membership->entity_type === 'userlist' && !gofast_og_is_root_space($group_node)){
+          gofast_workflows_add_node_to_resync_oncron($group_node->nid);
+      }elseif($og_membership->entity_type === 'user' && !gofast_og_is_root_space($group_node)){
+         $myuser = user_load($og_membership->etid);
+         $bonita_uid = gofast_workflows_get_user_id($myuser);
+          if($bonita_uid !== null){
+              //on recupere le groupe Bonita qui correspond au groupe drupal recu en parametre
+              $bonita_group = gofast_workflows_get_bonitagroup_from_gofastgroup($group_node);
+              watchdog("debug workflow", "add user ".$bonita_uid." into space ".$bonita_group["id"]);
+              gofast_workflows_curl_add_user_into_bonitagroup($bonita_uid, $bonita_group["id"]);
+          }
+      }
+
+   }
+ }
+
+ function gofast_workflows_og_membership_delete(OgMembership $og_membership) {
+  if ($og_membership->entity_type === 'user' || $og_membership->entity_type === 'userlist') {
+      $group_node = node_load($og_membership->gid);
+      if($og_membership->entity_type === 'userlist' && !gofast_og_is_root_space($group_node)){
+          gofast_workflows_add_node_to_resync_oncron($group_node->nid);
+          
+      }elseif($og_membership->entity_type === 'user' && !gofast_og_is_root_space($group_node)){
+         $myuser = user_load($og_membership->etid);
+         $bonita_uid = gofast_workflows_get_user_id($myuser);
+          if($bonita_uid !== null){
+              //on recupere le groupe Bonita qui correspond au groupe drupal recu en parametre
+              $bonita_group = gofast_workflows_get_bonitagroup_from_gofastgroup($group_node);
+              watchdog("debug workflow", "remove user ".$bonita_uid." into space ".$bonita_group["id"]);
+              //gofast_workflows_curl_add_user_into_bonitagroup($bonita_uid, $bonita_group["id"]);
+              gofast_workflows_curl_delete_user_from_bonitagroup($bonita_uid, $bonita_group["id"]);
+          }
+      }
+  }
+ }
+
+ function gofast_workflows_entity_update($entity, $type) {
+     if($type == "userlist"){
+         //check old members
+        $old_members = $entity->original->field_userlist_members;
+        $new_members = $entity->field_userlist_members;
+
+        if($new_members !== $old_members){
+            $og_userlist_node = $entity->og_userlist_node[LANGUAGE_NONE];
+            if(count($og_userlist_node) > 0){
+                foreach($og_userlist_node as $array_node){
+                    $node = node_load($array_node['target_id']);
+                    if(!gofast_og_is_root_space($node) && $node->type !== "public"){
+                        gofast_workflows_add_node_to_resync_oncron($node->nid);
+                        
+                    }
+                }
+            }
+        }
+     }elseif(gofast_og_is_space($entity)){
+        $old_title = $entity->original->title;
+        $new_title = $entity->title;
+        if($old_title !== $new_title){
+            gofast_workflows_update_group($entity, $entity->original);
+        }
+     }
+ }
+
+ /*
+  * Return permissions for the search API
+  * Default behavior of the permissions will be to restrict the search to our current user, let's allow modules to alter this
+  */
+function gofast_api_workflows_search_permissions(){
+    $output = array(
+        array(
+            'type' => 'process_name',
+            'condition' => "*",
+            'action' => 'default',
+            'exclusion_condition' => "",
+        ),
+    );
+
+    foreach(module_implements("workflows_search_permissions") as $module){
+        $output = call_user_func_array($module . '_workflows_search_permissions', array($output));
+    }
+
+    return $output;
+}
+
+ /*
+  * Implements GoFAST API
+  * Ressource : workflows
+  * Action : dashboard
+  * Method : GET
+  *
+  * This API replaces the old Java / Bonita API to retrieve elements to display in
+  * the workflows dashboard with filters, sorting and pagination
+  */
+function gofast_api_workflows_dashboard($params){
+    //Don't allow external access to this API as it's called by the old Java API internally
+    if($_SERVER['REMOTE_ADDR'] !== "127.0.0.1" && $_SERVER['REMOTE_ADDR'] !== "localhost" && $_SERVER['REMOTE_ADDR'] !== "::1"){
+        gofast_api_forbidden("Unavailable action for external requester");
+    }
+
+    //Prepare output
+    $output = array();
+
+    //Extract pagination parameters
+    $p = intval(trim($params['p']));
+    $c = intval(trim($params['c']));
+
+    //Extract filters params
+    $startedby = trim($params['startedby']);
+    $type = trim($params['type']);
+    $state = trim($params['state']);
+    $title = trim($params['title']);
+    $started = trim($params['started']);
+    $deadline = trim($params['deadline']);
+    $documents = json_decode(trim($params['documents']), TRUE);
+    $users = json_decode(trim($params['users']), TRUE);
+    $bonita_id = trim($params['current_user']);
+    $current_user = gofast_workflows_get_drupalid_from_bonitaid($bonita_id);
+    $current_user_object = user_load($current_user);
+    $custom = json_decode(trim($params['custom']), TRUE);
+
+    //Parse custom params
+    $custom_parsed = array();
+    foreach($custom as $custom_element){
+        $custom_element = explode('|', $custom_element);
+        $custom_parsed[$custom_element[0]][] = $custom_element[1];
+    }
+
+    //Start to build the query
+    $query = "SET @@sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''));";
+    $query .= "SELECT readresults.rootProcessInstanceId,readresults.name,readresults.startDate,readresults.startedBy FROM (";
+
+    if($state == "progress"){
+        //Search for active cases
+        $query .= 'SELECT DISTINCT bonita.process_instance.rootProcessInstanceId,bonita.process_instance.name,bonita.process_instance.startDate,bonita.process_instance.startedBy ';
+        $query .= 'FROM bonita.process_instance ';
+    }else{
+        //Search for archived cases
+        $query .= 'SELECT DISTINCT bonita.arch_process_instance.rootProcessInstanceId,bonita.arch_process_instance.name,bonita.arch_process_instance.startDate,bonita.arch_process_instance.startedBy ';
+        $query .= 'FROM bonita.arch_process_instance ';
+        $suffix = "arch_";
+    }
+
+    //Associate initiator user informations as we may need it
+    $query .= 'LEFT JOIN bonita.user_ ON ';
+    $query .= 'bonita.user_.id=bonita.' . $suffix . 'process_instance.startedBy ';
+
+    //We may need to associate the processCurrent for some filters, prepare placeholders to join it
+    $join_process_current .= 'INNER JOIN bonita_bdm.PROCESSCURRENT ON ';
+    $join_process_current .= 'bonita.' . $suffix . 'process_instance.rootProcessInstanceId=bonita_bdm.PROCESSCURRENT.PID ';
+
+    $join_process_current_content .= 'LEFT JOIN bonita_bdm.PROCESSCURRENT_CONTENTS ON ';
+    $join_process_current_content .= 'bonita_bdm.PROCESSCURRENT.persistenceId=bonita_bdm.PROCESSCURRENT_CONTENTS.PROCESSCURRENT_PID ';
+
+    $join_process_current_content .= 'LEFT JOIN bonita_bdm.CONTENTCURRENT ON ';
+    $join_process_current_content .= 'bonita_bdm.PROCESSCURRENT_CONTENTS.CONTENTCURRENT_PID=bonita_bdm.CONTENTCURRENT.persistenceId ';
+
+    $query .= "JOIN_PROCESS_CURRENT_PLACEHOLDER JOIN_PROCESS_CURRENT_CONTENT_PLACEHOLDER ";
+
+    //Check if we have filters to display and filter the query
+
+    //Start to build conditions
+    $query .= 'WHERE ';
+
+    //Exclude subprocesses
+    $query .= 'bonita.' . $suffix . 'process_instance.callerId=-1 ';
+
+    if($state != "progress"){
+        //Filter archived processes containing an end date only (really finished)
+        $query .= 'AND bonita.' . $suffix . 'process_instance.endDate!=0 ';
+    }
+
+    //Filter by creator
+    if(!empty($startedby)){
+        $query .= 'AND bonita.' . $suffix . 'process_instance.startedBy="' . $startedby . '" ';
+    }
+
+    //Filter by type (of workflow)
+    if(!empty($type) && $type != "all"){
+        $query .= 'AND bonita.' . $suffix . 'process_instance.name="' . $type . '" ';
+    }
+
+    //Filter by title
+    $title = trim($title);
+    if(!empty($title)){
+        //Join process current and append the query
+        $query = str_replace("JOIN_PROCESS_CURRENT_PLACEHOLDER", $join_process_current, $query);
+
+        $query .= 'AND bonita_bdm.PROCESSCURRENT.TITLE LIKE "%' . $title . '%" ';
+    }
+
+    //Filter by start date
+    if(!empty($started)){
+        $query .= 'AND bonita.' . $suffix . 'process_instance.startDate>' . date("U", strtotime($started)) . "000 ";
+    }
+
+    //Filter by deadline
+    if(!empty($deadline)){
+        //Join process current and append the query
+        $query = str_replace("JOIN_PROCESS_CURRENT_PLACEHOLDER", $join_process_current, $query);
+
+        $query .= 'AND bonita_bdm.PROCESSCURRENT.END_DATE<"' . $deadline . '" ';
+    }
+
+    //Get Bonita search permissions
+    usurp($current_user);
+    $permissions = gofast_api_workflows_search_permissions();
+    usurp(FALSE);
+
+    //Implements default permissions
+    foreach(gofast_workflows_get_list_available_processes(false, false, $current_user) as $definition){
+        if(!empty($type) && $type != "all" && $type != $definition['name']){
+            //We are filtering on a single process so we won't implement other processes permissions
+            continue;
+        }
+
+        foreach($permissions as $permission){
+            //Prepare / Reset variables
+            $rule_action = "default";
+
+            //Process name condition
+            if($permission['type'] == "process_name"){
+                //Check if our condition is matching the current process_name
+                if(($permission['condition'] == $definition['name'] || $permission['condition'] == "*") && $definition['name'] != $permission['exclusion_condition']){
+                    $rule_action = $permission['action'];
+                }
+            }
+        }
+
+        if($rule_action == "deny"){
+            //Don't display this process
+            $query .= 'AND bonita.' . $suffix . 'process_instance.name!="' . $definition['name'] . '" ';
+        }else if($rule_action == "default"){
+            //Display this process only if we created it or if we are being part of it
+            $query .= "AND (";
+
+            $query .= 'bonita.' . $suffix . 'process_instance.name!="' . $definition['name'] . '" ';
+            $query .= 'OR bonita.' . $suffix . 'process_instance.startedBy="' . $bonita_id . '" ';
+
+            if(empty($documents) || empty($users) || empty($custom_parsed['contents'])){
+                //Join process current and process current contents (!performance!)
+                $query = str_replace("JOIN_PROCESS_CURRENT_PLACEHOLDER", $join_process_current, $query);
+                $query = str_replace("JOIN_PROCESS_CURRENT_CONTENT_PLACEHOLDER", $join_process_current_content, $query);
+
+                //Check if we are part of the process
+                $query .= 'OR (bonita_bdm.CONTENTCURRENT.NAME="User" AND bonita_bdm.CONTENTCURRENT.CONTENT_VALUE LIKE "%' . $current_user_object->name . '%")';
+            }
+
+            $query .= ") ";
+        }
+    }
+
+    //Filter by documents or users
+    if(!empty($documents) || !empty($users) || !empty($custom_parsed['contents'])){
+        //Join process current and process current contents (!performance!)
+        $query = str_replace("JOIN_PROCESS_CURRENT_PLACEHOLDER", $join_process_current, $query);
+        $query = str_replace("JOIN_PROCESS_CURRENT_CONTENT_PLACEHOLDER", $join_process_current_content, $query);
+
+        //Implements permissions based on grouped BDM query
+        $query = str_replace("SELECT DISTINCT ", "SELECT DISTINCT GROUP_CONCAT(bonita_bdm.CONTENTCURRENT.NAME,bonita_bdm.CONTENTCURRENT.TYPE,TRIM(bonita_bdm.CONTENTCURRENT.CONTENT_VALUE)) as contents,", $query);
+
+        //Start grouping now and filter after grouping and concat
+        $query .= "GROUP BY bonita." . $suffix . "process_instance.rootProcessInstanceId HAVING ";
+        $first_condition = true;
+
+        foreach($documents as $document){
+            if($first_condition){
+                $first_condition = false;
+            }else{
+                $query .= 'AND ';
+            }
+
+            $query .= 'contents LIKE "%Documentnode' . trim($document) . '%" ';
+        }
+
+        foreach($users as $user){
+            if($first_condition){
+                $first_condition = false;
+            }else{
+                $query .= 'AND ';
+            }
+
+            $query .= 'contents LIKE \'%Useruser["' . user_load(gofast_workflows_get_drupalid_from_bonitaid(trim($user)))->name . '"%\' ';
+        }
+
+        foreach($custom_parsed['contents'] as $custom_parsed_element){
+            if($first_condition){
+                $first_condition = false;
+            }else{
+                $query .= 'AND ';
+            }
+
+            $query .= 'contents LIKE \'' . $custom_parsed_element . '\' ';
+        }
+    }
+
+    if(!empty($custom_parsed['order'])){
+        $query .= 'ORDER BY ' . $custom_parsed['order'][0] . ' ';
+    }
+
+    //Remove unused placeholders
+    $query = str_replace("JOIN_PROCESS_CURRENT_PLACEHOLDER", "", $query);
+    $query = str_replace("JOIN_PROCESS_CURRENT_CONTENT_PLACEHOLDER", "", $query);
+
+    //Paginate the result
+    $first_index = ($p*$c);
+
+    $query .= 'LIMIT ' . $c . ' OFFSET ' . $first_index . ' ';
+    $query .= ") as readresults ";
+
+    //Get the query results
+    $results = ceo_vision_workflow_execute_bonita_query_bdm_mysqli($query);
+
+    //Extract results and needed field to build the output array
+    foreach($results as $result){
+        //Retrive case variables
+        $pid = $result->rootProcessInstanceId;
+        $start = date('c', substr($result->startDate, 0, -3));
+
+        $tasks = gofast_workflows_get_list_actives_tasks(FALSE, $pid, FALSE, FALSE);
+        $archived_tasks = gofast_workflows_get_list_actives_tasks(TRUE, $pid, FALSE, FALSE);
+
+        $process_current = gofast_workflows_get_processcurrent_from_pid($pid);
+
+        $process_current_infos = gofast_workflows_get_processcurrent_infos_from_pid($pid)[0];
+        $process_history_infos = gofast_workflows_get_processhistory_infos_from_pid($pid)[0];
+
+        //Parse the ProcessCurrent to retrieve some variables
+        $documents = array();
+        foreach($process_current as $content_current){
+            switch($content_current->NAME){
+                case "Document":
+                    $documents[] = trim($content_current->CONTENT_VALUE);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        //Retrieve some variables in the processCurrent and processHistory infos
+        $deadline = $process_current_infos->END_DATE;
+        $title = $process_current_infos->TITLE;
+        $hid = $process_history_infos->persistenceId;
+
+        $output[] = array(
+            'id' => $pid,
+            'start' => $start,
+            'deadline' => $deadline,
+            'title' => $title,
+            'type'=> $result->name,
+            'startedby' => $result->startedBy,
+            'todo_count' => count($tasks),
+            'done_count' => count($archived_tasks),
+            'hid' => $hid,
+            'documents' => $documents,
+            'state' => $state,
+        );
+    }
+
+    gofast_api_success($output);
+}
+
+/*
+ * Implements GoFAST API
+ * Ressource : process
+ * Action : filter_light_dashboard
+ *
+ * Filter processes to display in the light dashboard, used by LightDashboard page
+ *
+ */
+function gofast_api_process_filter_light_dashboard($params){
+    $output = array();
+
+    //Check authentication
+    global $user;
+    if($user->uid == 0){
+       gofast_api_not_authorized("Unavailable ressource for anonymous user");
+    }
+
+    //Check mathod
+    if($params['method'] != "GET"){
+        gofast_api_not_implemented("This method");
+    }
+
+    gofast_workflows_get_cookie();
+    $cookie_name = "cookie_bonita".$user->name.".txt";
+    $bonita_user_id = gofast_workflows_get_user_id($user);
+
+    $processes = gofast_workflows_get_list_available_processes(false, false, null, false);
+
+    foreach(module_implements("workflows_processes_light_dashboard") as $module){
+        $processes = call_user_func($module . "_workflows_processes_light_dashboard", $processes);
+    }
+
+    $processes = array_keys($processes);
+
+    //Get tasks
+    foreach($processes as $process){
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_HEADER, 0);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
+        curl_setopt($ch, CURLOPT_POST, 0);
+        curl_setopt($ch, CURLOPT_COOKIEFILE, "sites/default/files/swf/".$cookie_name);
+
+        $url = URL_BONITA."API/bpm/humanTask" . "?p=0&c=99999&f=processId=" . $process . "&f=user_id=" . $bonita_user_id . "&o=dueDate";
+        curl_setopt($ch, CURLOPT_URL, $url);
+        $buf = gofast_workflows_curl_exec($ch);
+
+        $buf = json_decode($buf);
+        if(!empty($buf)){
+            foreach($buf as $task){
+                $output[] = $task;
+            }
+        }
+    }
+
+    gofast_api_success($output);
+}
+
+function gofast_workflows_yousign_check_can_create_procedure(){
+    print 0; exit;
+}
+
+function gofast_api_workflow_profil($params){
+    switch($params['method']){
+        case 'GET':
+            gofast_api_get_workflow_profil($params);
+          break;
+        case 'PUT':
+            gofast_api_put_workflow_profil($params);
+          break;
+        case 'PATCH':
+            gofast_api_patch_workflow_profil($params);
+          break;
+        case 'DELETE':
+            gofast_api_delete_workflow_profil($params);
+          break;
+        default:
+            gofast_api_not_implemented("This method");
+          break;
+    }
+}
+function gofast_workflows_add_node_to_resync_oncron($nid){
+    $resync_nodes=variable_get(BONITA_RESYNC_NEEDED_NODES_VARNAME,array());
+    $resync_nodes[]=$nid;
+    variable_set(BONITA_RESYNC_NEEDED_NODES_VARNAME, $resync_nodes);
+}

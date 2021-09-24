@@ -1,0 +1,216 @@
+<?php
+require_once('gofast_subscription_ui_api.inc');
+require_once('gofast_subscription_ui_form.inc');
+
+/**
+ * Display an interface to manage user's subscriptions
+ */
+
+/**
+ * Implements hook_menu()
+ */
+function gofast_subscription_ui_menu() {
+  $items = array();
+  
+  $items['modal/%ctools_js/subscriptions'] = array(
+    'title' => t('Subscriptions', array(), array('context' => 'gofast:subscription_ui')),
+    'description' => t('Subscriptions', array(), array('context' => 'gofast:subscription_ui')),
+    'page callback' => 'gofast_subscription_ui_display_modal',
+    'type' => MENU_NORMAL_ITEM,
+    'page arguments' => array(1),
+    'options' => array(
+      'attributes' => array(
+        'class' => 'ctools-use-modal'
+      ),
+    ),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+  $items['subscriptions'] = array(
+    'title' => t('Subscriptions', array(), array('context' => 'gofast:subscription_ui')),
+    'description' => t('Subscriptions', array(), array('context' => 'gofast:subscription_ui')),
+    'page callback' => 'gofast_subscription_ui_display_ui',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+  $items['admin/subscriptions/%'] = array(
+    'title' => t('Manage users subscriptions', array(), array('context' => 'gofast:subscription_ui')),
+    'description' => t('Manage users subscriptions', array(), array('context' => 'gofast:subscription_ui')),
+    'page callback' => 'gofast_subscription_ui_manage_subscriptions',
+    'page arguments' => array(2),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('administer site configuration'),
+  );
+  return $items;
+}
+
+/*
+ * Page callback /admin/subscriptions/X
+ */
+function gofast_subscription_ui_manage_subscriptions($action){
+  drupal_add_js(drupal_get_path('module', 'gofast_subscription_ui')."/js/gofast_subscription_ui_reset_subscriptions.js");
+  
+  switch($action){
+    case 'reset':
+      $info = t("You are going to erase and rebuild the subscriptions of everyone. This operation cannot be undone. Are you sure you want to continue ?", array(), array('context' => 'gofast:subscription_ui'));
+      $page = theme('gofast_subscription_ui_reset_subscriptions', array('info' => $info, 'continue' => TRUE));
+      break;
+    case 'process-reset':
+      set_time_limit(0);
+      gofast_subscription_ui_api_reset_subscriptions();
+      $page = gofast_subscription_ui_manage_subscriptions('complete');
+      break;
+    case 'complete':
+      $info = t("The operation has been successfully completed.", array(), array('context' => 'gofast:subscription_ui'));
+      $page = theme('gofast_subscription_ui_reset_subscriptions', array('info' => $info, 'continue' => NULL));
+      break;
+    default:
+      drupal_not_found();
+      module_invoke_all('exit');
+      drupal_exit();
+      break;
+  }
+  return $page;
+}
+
+/**
+ * Get user subscriptions according to the current UID
+ * 
+ * Display a table
+ */
+function gofast_subscription_ui_display_ui(){
+  global $user;
+  //Get an array of user's subscriptions
+  $items = gofast_subscription_ui_get_user_subscriptions($user->uid);
+  
+  //No subscription case
+  if($items == NULL){
+    $page = t("You haven't any subscription !", array(), array('context' => 'gofast:gofast_subscription_ui'));
+  }
+  
+  else{
+    //Build a table
+    $header = array(t('Manage', array(), array('context' => 'gofast:subscription')), t('Type', array(), array('context' => 'gofast:subscription')), t('Name', array(), array('context' => 'gofast:subscription')), t('Frequency', array(), array('context' => 'gofast:subscription')), t('Method', array(), array('context' => 'gofast:subscription')));
+    $rows = array();
+    
+    foreach($items as $item){
+      //String replacement
+      if($item['type'] == "Term"){
+          $item['type'] = t("Tag");
+      }
+      //Get form in *_frequency_form.inc to manage frequency parameter
+      $form = drupal_get_form('gofast_subscription_ui_frequency_form', $item['fid'], $item['machine_type']);
+      //Split user's subscriptions datas into the table
+      $rows[] = array(
+        $item['x_link'],
+        $item['type'],
+        $item['name_id'],
+        drupal_render($form),
+        t("Mail", array(), array('context' => 'gofast:subscription')), //TODO: Create a 'method' field + Get user's sending method
+      );
+    }
+    
+    $page = theme('table', array('header' => $header, 'rows' => $rows, 'sticky' => FALSE)); 
+    }
+
+  return($page);
+}
+
+/*
+ * Modal for subscription UI
+ */
+function gofast_subscription_ui_display_modal($js){
+  ctools_include('ajax');
+  ctools_include('modal');
+  
+  if (!$js) {
+    return drupal_goto('subscriptions');
+  }
+  $render = gofast_subscription_ui_display_ui();
+  $modal = ctools_modal_form_render(NULL, $render);
+  print ajax_render($modal);
+  return;
+}
+
+/*
+ * Implements hook_theme
+ */
+function gofast_subscription_ui_theme(){
+  $themes = array (
+		'gofast_subscription_ui_reset_subscriptions' => array(
+			'template' => 'theme/gofast-subscription-ui-reset-subscriptions',
+			'arguments' => array(),
+		),
+	);
+	return $themes;
+}
+
+/*
+ * Implements hook_membership_insert
+ */
+function gofast_subscription_ui_og_membership_insert($og_membership){
+  $gid = $og_membership->gid;
+  $node = node_load($gid);
+  if(gofast_og_is_root_space($node) || $node->type == "public"){
+    return;
+  }
+  
+  if($og_membership->entity_type == 'user'){
+    $uid = $og_membership->etid;
+    $og_flag = flag_get_flag('subscribe_og');
+    if(! $og_flag->is_flagged($gid, $uid)){
+      $og_flag->flag('flag', $gid, user_load($uid)); 
+    } 
+    
+  }else if ($og_membership->entity_type == 'userlist'){
+    $ulid = $og_membership->etid;
+    
+    $uids = gofast_userlist_get_members($ulid);   
+    foreach($uids as $uid => $member){
+      //check if user is member of space without userlist
+      if( !(og_get_membership('node', $gid, 'user', $uid))){       
+        $og_flag = flag_get_flag('subscribe_og');
+        $og_flag->flag('flag', $gid, user_load($uid)); 
+      }
+    }   
+  }
+ 
+}
+
+/*
+ * Implements hook_membership_insert
+ */
+function gofast_subscription_ui_og_membership_delete($og_membership){
+  $gid = $og_membership->gid;
+  $node = node_load($gid);
+  if(gofast_og_is_root_space($node) || $node->type == "public"){
+    return;
+  }
+  
+  if($og_membership->entity_type == 'user'){
+    $uid = $og_membership->etid;
+    
+    $ulids = gofast_userlist_get_userlists_by_user(user_load($uid));
+    $member_from_userlist = FALSE;
+    foreach($ulids as $ulid=> $userlist){
+      if( (og_get_membership('node', $gid, 'userlist', $ulid))){
+        $member_from_userlist = TRUE;
+      }
+    }    
+    if(! $member_from_userlist){
+      gofast_subscription_ui_api_delete_subscriptions_by_uid_gid($uid, $gid);
+    }
+    
+  }else if ($og_membership->entity_type == 'userlist'){
+    $ulid = $og_membership->etid;
+    $uids = gofast_userlist_get_members($ulid);   
+    foreach($uids as $uid => $member){
+      //check if user is member of space without userlist
+      if( !(og_get_membership('node', $gid, 'user', $uid))){
+         gofast_subscription_ui_api_delete_subscriptions_by_uid_gid($uid, $gid);
+      }
+    }  
+  }
+  
+}

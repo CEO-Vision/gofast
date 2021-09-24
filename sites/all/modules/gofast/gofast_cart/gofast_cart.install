@@ -1,0 +1,32 @@
+<?php
+
+/**
+ * Implements hook_install()
+ */
+function gofast_cart_install() {
+  //get parent menu_link 'Directories'
+  $parent_title = 'My profile dropdown';
+  $query = db_query("SELECT * FROM {menu_links} WHERE link_title='".$parent_title."'");
+  $plid = $query->fetch()->mlid;
+  
+  $links = array(
+    'link_title' => t('Cart', array(), array('context' => 'gofast')),
+    'link_path' => 'modal/nojs/cart',
+    'router_path' => 'modal/nojs/cart',
+    'menu_name' => 'user-menu',
+    'plid' => $plid,
+    'weight' => 0,
+    'expanded' => 0,
+    'cutomized' => 1,
+    'uuid' => '6e18e237-f8be-459d-a5b9-1c7a9d26e315',
+    'options' => array(
+       'attributes' => array(
+        'class' => 'ctools-use-modal'
+      ),
+    ), 
+  );
+
+    menu_link_save($links);
+
+}
+

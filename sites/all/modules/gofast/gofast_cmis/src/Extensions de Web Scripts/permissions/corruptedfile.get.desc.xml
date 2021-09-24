@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Corrputed file detect</shortname>
+    <description>Corrputed file detect aspect using javascript API</description>
+    <url>/corruptedfile</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

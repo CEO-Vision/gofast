@@ -1,0 +1,27 @@
+#gofast_mobile_panel .region-sidebar-second {
+  width: auto !important;
+  position: inherit !important;
+}
+
+#gofast_mobile_panel, #gofast_mobile_arrow {
+  z-index: 111;
+}
+
+
+/*
+#gofast_mobile_panel .facetapi-collapsible-handle:before, #gofast_mobile_panel .facetapi-handle-leaf:before {
+  margin: 30px 40px 30px 0px;
+  right: 0px;
+}
+
+#gofast_mobile_panel .facetapi-collapsible-handle {
+  height: 40px;
+  display: inline-block;
+}
+
+#gofast_mobile_panel .facet-count {
+  margin-top: 25px;
+}
+
+*/
+

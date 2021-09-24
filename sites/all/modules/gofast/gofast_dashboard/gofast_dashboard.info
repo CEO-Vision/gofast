@@ -1,0 +1,11 @@
+name        = Gofast Dashboard
+description = "This is the module that handle the global dashboard"
+core        = 7.x
+package     = Gofast
+
+version = "7.x-3.10.0_r2"
+core = "7.x"
+project = "gofast_dashboard"
+
+dependencies[] = gofast
+files[] = gofast_dashboard_handler_field_node_actions.inc

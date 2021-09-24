@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Del Permission</shortname>
+    <description>Set Permission using javascript API</description>
+    <url>/del/folder/permission/?folderName={folderName}&amp;username={username}</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

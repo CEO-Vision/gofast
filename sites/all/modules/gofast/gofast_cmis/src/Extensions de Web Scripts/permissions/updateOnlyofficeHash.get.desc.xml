@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Update Onlyoffice hash</shortname>
+    <description>Update Onlyoffice hash using javascript API</description>
+    <url>/updateOnlyofficeHash?reference={reference}</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

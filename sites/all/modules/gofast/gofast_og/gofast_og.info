@@ -1,0 +1,15 @@
+name = Gofast OG
+description = "Gofast Organic Groups. Provides customized OG functionalities."
+package = Gofast
+core = 7.x
+
+dependencies[] = gofast
+dependencies[] = ctools
+dependencies[] = og
+
+; Views Handlers
+files[] = views/gofast_og_handler_field_og_membership_link_edit.inc
+files[] = views/gofast_og_handler_field_og_membership_link_delete.inc
+
+;scripts[] = gofast_og.js
+version = "7.x-3.10.0_r2"

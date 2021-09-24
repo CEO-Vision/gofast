@@ -1,0 +1,23 @@
+<div class="table-responsive">
+    <table class="table table-striped" ng-class="{'table-hover': ctrl.isClickable()}">
+        <thead>
+            <tr>
+                <th ng-repeat="header in properties.headers">
+                    {{ header | uiTranslate }}
+                </th>
+            </tr>
+        </thead>
+        <tbody ng-if="ctrl.isArray(properties.content) && ctrl.isArray(properties.columnsKey)">
+            <tr ng-repeat="row in properties.content" ng-click="ctrl.selectRow(row)" ng-class="{'info': ctrl.isSelected(row)}" >
+                <td ng-repeat="column in properties.columnsKey track by $index">
+                    <span ng-bind-html="ctrl.trust($eval(column, row))"></span>
+                </td>
+            </tr>
+        </tbody>
+        <tbody ng-if="ctrl.isArray(properties.content) && !ctrl.isArray(properties.columnsKey)">
+            <tr ng-repeat="row in properties.content" ng-click="ctrl.selectRow(row)" ng-class="{'info': ctrl.isSelected(row)}">
+                <td ng-bind-html="ctrl.trust(row)"> </td>
+            </tr>
+        </tbody>
+    </table>
+</div>

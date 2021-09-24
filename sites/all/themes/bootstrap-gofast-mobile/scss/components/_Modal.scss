@@ -1,0 +1,21 @@
+@media (max-width: $breakpoint-sm-device) {
+    #modalContent {
+        width: 100% !important;
+        height: 100%;
+        top: 0;
+        left: 0;
+        background-color: rgba(10,10,10,0.5);
+
+        .modal-content {
+            & > .ui-resizable {
+                max-width: none !important;
+                display: flex !important;
+            }
+
+            .modal-body {
+                max-width: none !important;
+                padding: 1rem !important;
+            }
+        }
+    }
+}

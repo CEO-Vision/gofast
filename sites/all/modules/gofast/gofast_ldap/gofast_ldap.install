@@ -1,0 +1,230 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the GoFast LDAP module.
+ */
+
+
+/**
+ * Helper function that defines fields which extend the user profile bundle.
+ * @return array
+ */
+function gofast_ldap_fields(){
+  return array(
+    array(
+      'field_name' => 'ldap_user_givenname',
+      'label' => t('Firstname', array(), array('context' => 'gofast')),
+      'element' => 'text::textfield',
+      'required' => true
+    ),
+    array(
+      'field_name' => 'ldap_user_sn',
+      'label' => t('Lastname', array(), array('context' => 'gofast')),
+      'element' => 'text::textfield',
+      'required' => true
+    ),    
+    array(
+      'field_name' => 'ldap_user_displayname',
+      'label' => t('Display name', array(), array('context' => 'gofast')),
+      'element' => 'text::textfield'
+    ),
+    array(
+      'field_name' => 'ldap_user_ou',
+      'label' => t('Main space', array(), array('context' => 'gofast')),
+      'element' => 'list_text::options_select',
+      'required' => true
+    ),
+    array(
+      'field_name' => 'ldap_user_manager',
+      'label' => t('Manager', array(), array('context' => 'gofast')),
+      'element' => 'list_text::options_select',
+      'required' => true
+    ),
+    array(
+      'field_name' => 'ldap_user_title',
+      'label' => t('Title', array(), array('context' => 'gofast')),
+      'element' => 'text::textfield',
+    ),
+    array(
+      'field_name' => 'ldap_user_o',
+      'label' => t('Company', array(), array('context' => 'gofast')),
+      'element' => 'text::textfield',
+    ),
+    array(
+      'field_name' => 'ldap_user_telephonenumber',
+      'label' => t('Phone number', array(), array('context' => 'gofast')),
+      'element' => 'text::textfield',
+    ),
+    array(
+      'field_name' => 'ldap_user_mobile',
+      'label' => t('Mobile phone number', array(), array('context' => 'gofast')),
+      'element' => 'text::textfield',
+    ),
+    // Note : Replication from AD can bring data from both 'ou' AND 'department' 
+    // attributes. In such cases 'departmentnumber' (alphanum attr.) will handle
+    // 'department' data.
+    array(
+      'field_name' => 'ldap_user_departmentnumber',
+      'label' => t('Department', array(), array('context' => 'gofast')),
+      'element' => 'text::ldap_user_hidden',
+    )
+//    array( // création programmatique non testé car ajouté après coup via l'interface ou drush
+//      'field_name' => 'ldap_user_description',
+//      'label' => t('About me'),
+//      'element' => 'text_long::textarea',
+//    )
+  );
+}
+
+
+/**
+ * Implements hook_install()
+ */
+function gofast_ldap_install() {
+    // Cannot create server configuration here cause only .module file is being 
+    // loaded (cannot rely on LdapServerAdmin.class).  
+    gofast_ldap_fields_create();
+}
+
+
+/**
+ * Implements hook_uninstall()
+ * Delete fields created by hook_install()
+ */
+function gofast_ldap_uninstall() {
+  // @todo : prevent loss of data (export or use of Features to save ldap conf)
+  foreach (gofast_ldap_fields() as $_field) {
+    field_delete_field($_field['field_name']);
+  }
+}
+
+
+/**
+ * Creates additional ldap fields.
+ * Binds fields to user bundle if needed.
+ */
+function gofast_ldap_fields_create() {
+  
+  foreach (gofast_ldap_fields() as $_field) {
+
+    $field_name = $_field['field_name'];
+    $label = $_field['label'];
+    $required = isset($_field['required']) && $_field['required'];
+    list ($field_type, $widget_type) = explode('::', $_field['element']);
+    
+    // Create ldap field if needed.
+    if (!field_read_field($field_name, array('include_inactive' => true))) {
+      $field = array(
+        'field_name' => $field_name,
+        'type' => $field_type,
+        'entity_types' => array('user'),
+      );
+      field_create_field($field);
+    }
+    
+    // Attach field to bundle if needed.
+    if (!field_read_instance('user', $field_name, 'user', array('include_inactive' => true))) {
+      $instance = array(
+        'field_name' => $field_name,
+        'entity_type' => 'user',
+        'bundle' => 'user',
+        'label' => $label,
+        'default_value_function' => '',
+        'description' => '',
+        'settings' => array(
+          'text_processing' => 0,
+          'user_register_form' => 1),
+        'required' => $required,
+        'widget' => array('type' => $widget_type),
+        'display' => array(
+          'default' => array(
+            'label' => 'inline',
+            'type' => 'text_default',
+            'weight' => 0
+          ),
+        )
+      );
+      
+      field_create_instance($instance);
+    }
+  }
+}
+
+ function gofast_ldap_update_7332(){ 
+     //force hash all password if the sasl flag is not set on the account
+     set_time_limit(3000);
+     $LdapServer = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
+     $LdapServer->connectAndBindIfNotAlready();
+     $query = "SELECT u.name FROM {users} u";
+
+        $results = db_query( $query)->fetchAll();
+      
+        if(count( $results) > 0){
+            foreach( $results as $result){             
+                 $username =  $result->name;
+                 $myuser = user_load_by_name($username);
+                 if($myuser->sasl_auth[LANGUAGE_NONE][0]['value'] !== 1){
+                     $dn = 'uid=' . $myuser->name . ',' . GOFAST_LDAP_INT_REALM_USERS;                
+                    //get current password
+                    $current_pass_encrypt = gofast_ldap_get_user_pwd($myuser);
+                    $cur_val = base64_decode($current_pass_encrypt);
+
+                    if (strpos($cur_val, "{SASL}") === FALSE && strpos($cur_val, "{MD5}") === FALSE) {
+                       $encoded_password = ldap_servers_encode_text($cur_val, "md5");
+                       if($encoded_password !== FALSE) { 
+                         watchdog('update 3.3.2', 'Hash password for user '.$myuser->name);
+                         $LdapServer->modifyLdapEntry($dn, array('userPassword' => $encoded_password));
+                       }
+                       else {
+                          watchdog('update 3.3.2', 'Could not Hash password for user '.$myuser->name);
+                        
+                       }
+                     }                   
+                 }
+
+            }
+        }
+      
+  return;
+     
+  }
+  
+  /*
+   * GOFAST-3881
+   */
+   function gofast_ldap_update_7334(){  
+        set_time_limit(0);
+        ini_set("memory_limit", -1);
+           
+        $request = db_query("select * from field_data_field_ldap_group_dn")->fetchAllAssoc('entity_id');
+
+        foreach($request as $occurence){
+            $value = $occurence->field_ldap_group_dn_value;
+            $etid = $occurence->entity_id;
+
+            //Transform values
+            $value = explode("_#", $value);
+            $end_value = "cn=_#" . array_pop($value);
+            array_shift($value);
+            foreach($value as $val){
+                $val = explode(",cn=", $val);
+                $new_value[] = "cn=_#" . $val[0] . ',';
+            }
+            $new_value[] = $end_value;
+            $value = implode("", $new_value);
+            unset($new_value);
+
+            db_query("UPDATE field_data_field_ldap_group_dn SET field_ldap_group_dn_value='" . $value . "' WHERE entity_id=" . $etid);
+            db_query("UPDATE field_revision_field_ldap_group_dn SET field_ldap_group_dn_value='" . $value . "' WHERE entity_id=" . $etid);
+        }
+    
+  }
+  
+  
+  function gofast_ldap_update_7335(){  
+     #GOFAST-6544 
+     $current_ldap_conf = variable_get("ldap_user_conf", array());
+     $current_ldap_conf["ldapEntryProvisionTriggers"][7] = 0;
+     variable_set("ldap_user_conf", $current_ldap_conf);
+  }

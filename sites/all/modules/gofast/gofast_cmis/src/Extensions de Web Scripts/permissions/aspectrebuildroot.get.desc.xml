@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Apply aspects on root folders</shortname>
+    <description>Apply custom aspect using javascript API on root folders</description>
+    <url>/aspectrebuildroot</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

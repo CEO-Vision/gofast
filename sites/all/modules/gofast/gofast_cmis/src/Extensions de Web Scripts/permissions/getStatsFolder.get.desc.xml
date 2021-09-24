@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Show folder stats</shortname>
+    <description>Show folder stats using javascript API</description>
+    <url>/get/stats/?reference={reference}&amp;history={history}</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

@@ -1,0 +1,128 @@
+.view-display-id-user_directory table {
+    -webkit-box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+            box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+    border-radius: 5px;
+    text-align: left;
+  }
+
+  .view-display-id-user_directory table thead {
+    -webkit-box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+            box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+    border-radius: 5px;
+  }
+
+  .view-display-id-user_directory table thead th {
+    border-bottom: none;
+    background-color: rgba(34, 34, 34, 0.904) !important;
+    color: white;
+  }
+
+  .view-display-id-user_directory table thead th a {
+    color: white;
+    font-weight: 400;
+  }
+
+  .view-display-id-user_directory table img {
+    border-radius: 5px;
+    -webkit-box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+  }
+
+  .view-display-id-user_directory table tbody td {
+    vertical-align: initial;
+    font-weight: 300;
+    background-color: white !important;
+  }
+
+  .view-display-id-user_directory .views-field-points {
+    text-align: center;
+  }
+
+  .view-display-id-user_directory .views-field-status {
+    text-align: center;
+  }
+
+  .view-display-id-user_directory thead tr th:last-child {
+    border-radius: 0 5px 0 0;
+  }
+
+  .view-display-id-user_directory thead tr th:first-child {
+    border-radius: 5px 0 0 0;
+  }
+
+
+.view-display-id-user_directory th a:hover, .view-display-id-user_directory th a:focus {
+  color: white;
+  text-decoration: underline;
+}
+
+.gofast_block_user_quick_actions ul {
+  display: flex;
+}
+.view-display-id-user_directory tbody .views-field-gofast-views-handler-field-user-quick-actions div ul li span a {
+  font-size: 1.3em;
+  margin-top: 0px !important;
+  padding: 0;
+
+}
+
+
+
+/* User list theme style */
+
+.view-gofast-userlist-directory table{
+  -webkit-box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+          box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+  border-radius: 5px;
+  text-align: left;
+}
+
+.view-gofast-userlist-directory table thead th {
+  border-bottom: none;
+  background-color: rgba(34, 34, 34, 0.904) !important;
+  color: white;
+  font-weight: 400;
+}
+
+.view-gofast-userlist-directory table tbody td {
+  vertical-align: initial;
+  font-weight: 300;
+  background-color: white !important;
+}
+
+.view-gofast-userlist-directory table thead th:first-child {
+  border-radius: 5px 0 0 0;
+}
+
+.view-gofast-userlist-directory table thead th:last-child {
+  border-radius: 0 5px 0 0;
+}
+
+  #block-gofast-user-gofast-user-directory-filters,
+  #block-gofast-user-gofast-user-inactive-filters,
+  #block-gofast-user-gofast-user-active-filters{
+    line-height: 25px;
+  }
+
+  #edit-status-sidebar {
+    width: auto;
+  }
+
+  #edit-submit-user-filters-sidebar,
+  #edit-submit-user-inactive-filters-sidebar,
+  #edit-submit-user-active-filters-sidebar {
+    margin-top: 20px;
+  }
+
+  #edit-reset-user-filters-sidebar,
+  #edit-reset-user-inactive-filters-sidebar,
+  #edit-reset-user-active-filters-sidebar{
+    margin-top: 20px;
+    margin-left: 20px;
+  }
+
+  .view-display-id-user_directory td.views-field.views-field-uid,
+  .view-display-id-user_directory th.views-field.views-field-uid {
+    display: none;
+  }
+

@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Manage Workflow</shortname>
+    <description>Manage Workflow using Javascript API</description>
+    <url>/get/workflow/?reference={reference}&amp;op={op}&amp;task_id={task_id}&amp;assignee={assignee}&amp;description={description}&amp;transitionID={transitionID}&amp;date={date}&amp;type_workflow={type_workflow}</url>
+    <format default="html"/>
+    <authentication>user</authentication>
+</webscript>

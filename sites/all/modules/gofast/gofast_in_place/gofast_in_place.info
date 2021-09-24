@@ -1,0 +1,11 @@
+name        = Gofast In Place
+description = "Extends Edit module. Provides in place edition."
+core        = 7.x
+package     = Gofast
+
+version = "7.x-3.10.0_r2"
+core = "7.x"
+datestamp = "1393593253"
+
+scripts[] = gofast_in_place.js
+stylesheets[all][] = gofast_in_place.css

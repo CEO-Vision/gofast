@@ -1,0 +1,329 @@
+<?php
+
+//Definition of the run states
+define("GOFAST_INTEGRITY_RUN_STATE_OFF", 0);
+define("GOFAST_INTEGRITY_RUN_STATE_FOLDERS", 1);
+define("GOFAST_INTEGRITY_RUN_STATE_SPACES", 2);
+define("GOFAST_INTEGRITY_RUN_STATE_DOCUMENTS", 3);
+define("GOFAST_INTEGRITY_RUN_STATE_RESULTS", 4);
+
+//Definition of batch sizes
+define('GOFAST_INTEGRITY_FOLDERS_BATCH_SIZE', 300);
+define('GOFAST_INTEGRITY_SPACES_BATCH_SIZE', 300);
+define('GOFAST_INTEGRITY_DOCUMENTS_BATCH_SIZE', 500);
+
+module_load_include("alfresco.inc", "gofast_integrity");
+module_load_include("drupal.inc", "gofast_integrity");
+module_load_include("ldap.inc", "gofast_integrity");
+module_load_include("solr.inc", "gofast_integrity");
+
+/*
+ * @package gofast_integrity
+ * Implements hook_cron
+ * 
+ * Trigger steps of the integrity check and coordinate the run
+ */
+function gofast_integrity_cron(){
+    $running = variable_get("gofast_integrity_is_running", false);
+    
+    /*
+     * Check for time conditions : 
+     * SAT : 12am - 7am // 6pm - 
+     * SUN : 12am - 8am // 5pm - 
+     * MON : 12am - 6am
+     * TUE : 12am - 6am
+     * WED : 12am - 6am
+     * THU : 12am - 6am
+     * FRI : 12am - 6am
+     * 
+     * Total run time : 30H
+     */
+    $in_time_range = gofast_integrity_check_date();
+            
+    //Check for immediate exit conditions
+    if($running || !$in_time_range){
+        watchdog('gofast_integrity', "Immediate exit condition triggered : r:" . intval($running) . " / t:" . intval($in_time_range));
+        variable_set("gofast_integrity_time_range", false);
+        variable_set("gofast_integrity_is_running", false);
+        return;
+    }
+    
+    //Tells other modules that we are in the integrity time range (prevent replication, indexation)    
+    variable_set("gofast_integrity_time_range", true);
+    
+    //Run an integrity process batch
+    variable_set("gofast_integrity_is_running", true);
+    gofast_integrity_run_batch();
+    variable_set("gofast_integrity_is_running", false);    
+}
+
+/*
+ * @package gofast_integrity
+ * Check if we are in a run time range
+ * @return boolean TRUE if we are in a run time, FALSE if not
+ */
+function gofast_integrity_check_date(){
+    //Saturday morning
+    $saturday_morning_start = strtotime("Saturday this week");
+    $saturday_morning_end = strtotime("Saturday this week +7 hours");
+    
+    //Saturday night
+    $saturday_night_start = strtotime("Saturday this week +18 hours");
+    $saturday_night_end = strtotime("Sunday this week");
+    
+    //Sunday morning
+    $sunday_morning_start = strtotime("Sunday this week");
+    $sunday_morning_end = strtotime("Sunday this week +8 hours");
+    
+    //Sunday night
+    $sunday_night_start = strtotime("Sunday this week +17 hours");
+    $sunday_night_end = strtotime("Monday this week");
+            
+    //Monday morning
+    $monday_morning_start = strtotime("Monday this week");
+    $monday_morning_end = strtotime("Monday this week +6 hours");
+    
+    //Monday morning
+    $tuesday_morning_start = strtotime("Tuesday this week");
+    $tuesday_morning_end = strtotime("Tuesday this week +6 hours");
+    
+    //Monday morning
+    $wednesday_morning_start = strtotime("Wednesday this week");
+    $wednesday_morning_end = strtotime("Wednesday this week +6 hours");
+    
+    //Monday morning
+    $thursday_morning_start = strtotime("Thursday this week");
+    $thursday_morning_end = strtotime("Thursday this week +6 hours");
+    
+    //Monday morning
+    $friday_morning_start = strtotime("Friday this week");
+    $friday_morning_end = strtotime("Friday this week +6 hours");
+    
+    //Check if current time is in these ranges
+    $time = time();
+    
+    $is_in_range = ($time > $saturday_morning_start && $time < $saturday_morning_end) ||
+            ($time > $saturday_night_start && $time < $saturday_night_end) ||
+            ($time > $sunday_morning_start && $time < $sunday_morning_end) ||
+            ($time > $sunday_night_start && $time < $sunday_night_end) ||
+            ($time > $monday_morning_start && $time < $monday_morning_end) || 
+            ($time > $tuesday_morning_start && $time < $tuesday_morning_end) ||
+            ($time > $wednesday_morning_start && $time < $wednesday_morning_end) ||
+            ($time > $thursday_morning_start && $time < $thursday_morning_end) || 
+            ($time > $friday_morning_start && $time < $friday_morning_end);
+    return $is_in_range;
+}
+
+/*
+ * @package gofast_integrity
+ * 
+ * Dispatch the integrity batch
+ */
+function gofast_integrity_run_batch(){
+    $run_state = variable_get("gofast_integrity_run_state", GOFAST_INTEGRITY_RUN_STATE_OFF);
+    $week_number = (date("W", (time()-259200)));
+    
+    //Dispach this batch regarding the current run state
+    switch($run_state){
+        case GOFAST_INTEGRITY_RUN_STATE_OFF:
+            //Reset variables
+            variable_set('gofast_integrity_folders_skip', 0);
+            variable_set('gofast_integrity_spaces_skip', 0);
+            variable_set('gofast_integrity_documents_skip', 0);
+            
+            variable_set("gofast_integrity_invalid_folders", array());
+            variable_set("gofast_integrity_invalid_spaces", array());
+            variable_set("gofast_integrity_invalid_documents", array());
+            
+            //Prepare for next cron
+            watchdog('gofast_integrity', "Starting integrity process at next cron");
+            variable_set("gofast_integrity_run_state", GOFAST_INTEGRITY_RUN_STATE_FOLDERS);
+            break;
+        case GOFAST_INTEGRITY_RUN_STATE_FOLDERS:
+            watchdog('gofast_integrity', "Starting integrity folders process");
+            gofast_integrity_process_folders();
+            break;
+        case GOFAST_INTEGRITY_RUN_STATE_SPACES:
+            watchdog('gofast_integrity', "Starting integrity spaces process");
+            gofast_integrity_process_spaces();
+            break;
+        case GOFAST_INTEGRITY_RUN_STATE_DOCUMENTS:
+            watchdog('gofast_integrity', "Starting integrity documents process");
+            gofast_integrity_process_documents();
+            break;
+        case GOFAST_INTEGRITY_RUN_STATE_RESULTS:
+            if($week_number != variable_get("gofast_integrity_week_number", 0)){
+                watchdog('gofast_integrity', "Week " . $week_number . " is starting !");
+                variable_set("gofast_integrity_run_state", GOFAST_INTEGRITY_RUN_STATE_OFF);
+            }else{
+                watchdog('gofast_integrity', "That's all for week " . $week_number);
+            }
+            break;
+        default:
+            watchdog('gofast_integrity', "Invalid state : " . $run_state);
+            variable_set("gofast_integrity_run_state", GOFAST_INTEGRITY_RUN_STATE_OFF);
+            break;
+    }
+}
+
+/*
+ * @package gofast_integrity
+ * 
+ * Process folders batch
+ */
+function gofast_integrity_process_folders(){
+    $skip = variable_get('gofast_integrity_folders_skip', 0);
+    
+    watchdog('gofast_integrity', "Getting folders with range " . $skip . "-" . ($skip+GOFAST_INTEGRITY_FOLDERS_BATCH_SIZE));
+    $folders = gofast_integrity_alfresco_get_folders($skip, GOFAST_INTEGRITY_FOLDERS_BATCH_SIZE);
+    
+    if(count($folders) == 0){
+        //End of folders batch
+        watchdog('gofast_integrity', "End of folders batch, preparing spaces integrity for next batch");
+        variable_set("gofast_integrity_run_state", GOFAST_INTEGRITY_RUN_STATE_SPACES);
+    }else{
+        //Process checks on retrieved folder
+        watchdog('gofast_integrity', "Starting folders metadata check");
+        $metadata = gofast_integrity_alfresco_identify_folders_spaces_metadata($folders);
+        if(count($metadata['invalid']) != 0){
+            watchdog('gofast_integrity', count($metadata['invalid']) . " invalid folders identified in metadata check !");
+            $invalid_folders = variable_get("gofast_integrity_invalid_folders", array());
+            $invalid_folders = array_merge($invalid_folders, $metadata['invalid']);
+            variable_set("gofast_integrity_invalid_folders", $invalid_folders);
+        }
+        
+        watchdog('gofast_integrity', "Starting folders permissions check");
+        $permissions = gofast_integrity_alfresco_identify_folders_spaces_permissions($folders);
+        if(count($permissions['invalid']) != 0){
+            watchdog('gofast_integrity', count($permissions['invalid']) . " invalid folders identified in permissions check !");
+            $invalid_folders = variable_get("gofast_integrity_invalid_folders", array());
+            $invalid_folders = array_merge($invalid_folders, $permissions['invalid']);
+            variable_set("gofast_integrity_invalid_folders", $invalid_folders);
+        }
+    
+        watchdog('gofast_integrity', "End of folders batch, preparing folders integrity for next batch");
+        variable_set('gofast_integrity_folders_skip', ($skip+GOFAST_INTEGRITY_FOLDERS_BATCH_SIZE));
+    }
+}
+
+/*
+ * @package gofast_integrity
+ * 
+ * Process spaces batch
+ */
+function gofast_integrity_process_spaces(){
+    $skip = variable_get('gofast_integrity_spaces_skip', 0);
+    
+    watchdog('gofast_integrity', "Getting spaces with range " . $skip . "-" . ($skip+GOFAST_INTEGRITY_SPACES_BATCH_SIZE));
+    $spaces = gofast_integrity_alfresco_get_supposed_spaces($skip, GOFAST_INTEGRITY_SPACES_BATCH_SIZE);
+    
+    if(count($spaces) == 0){
+        //End of spaces batch
+        watchdog('gofast_integrity', "End of spaces batch, preparing documents integrity for next batch");
+        variable_set("gofast_integrity_run_state", GOFAST_INTEGRITY_RUN_STATE_DOCUMENTS);
+    }else{
+        //Process checks on retrieved spaces
+        watchdog('gofast_integrity', "Starting spaces metadata check");
+        $metadata = gofast_integrity_alfresco_identify_folders_spaces_metadata($spaces);
+        if(count($metadata['invalid']) != 0){
+            watchdog('gofast_integrity', count($metadata['invalid']) . " invalid spaces identified in metadata check !");
+            $invalid_spaces = variable_get("gofast_integrity_invalid_spaces", array());
+            $invalid_spaces = array_merge($invalid_spaces, $metadata['invalid']);
+            variable_set("gofast_integrity_invalid_spaces", $invalid_spaces);
+        }
+        
+        watchdog('gofast_integrity', "Starting spaces permissions check");
+        $permissions = gofast_integrity_alfresco_identify_folders_spaces_permissions($spaces);
+        if(count($permissions['invalid']) != 0){
+            watchdog('gofast_integrity', count($permissions['invalid']) . " invalid spaces identified in permissions check !");
+            $invalid_spaces = variable_get("gofast_integrity_invalid_spaces", array());
+            $invalid_spaces = array_merge($invalid_spaces, $permissions['invalid']);
+            variable_set("gofast_integrity_invalid_spaces", $invalid_spaces);
+        }
+        
+        watchdog('gofast_integrity', "Starting spaces ogs check");
+        $ogs = gofast_integrity_drupal_identify_spaces($spaces);
+        if(count($ogs['invalid']) != 0){
+            watchdog('gofast_integrity', count($ogs['invalid']) . " invalid spaces identified in Drupal OG check !");
+            $invalid_spaces = variable_get("gofast_integrity_invalid_spaces", array());
+            $invalid_spaces = array_merge($invalid_spaces, $ogs['invalid']);
+            variable_set("gofast_integrity_invalid_spaces", $invalid_spaces);
+        }
+        
+        watchdog('gofast_integrity', "End of spaces batch, preparing spaces integrity for next batch");
+        variable_set('gofast_integrity_spaces_skip', ($skip+GOFAST_INTEGRITY_SPACES_BATCH_SIZE));
+    }
+}
+
+/*
+ * @package gofast_integrity
+ * 
+ * Process documents batch
+ */
+function gofast_integrity_process_documents(){
+    $skip = variable_get('gofast_integrity_documents_skip', 0);
+    
+    watchdog('gofast_integrity', "Getting documents with range " . $skip . "-" . ($skip+GOFAST_INTEGRITY_DOCUMENTS_BATCH_SIZE));
+    $documents = gofast_integrity_alfresco_get_documents($skip, GOFAST_INTEGRITY_DOCUMENTS_BATCH_SIZE);
+    
+    if(count($documents) == 0){
+        //End of documents batch
+        $week_number = (date("W", (time()-259200)));
+        watchdog('gofast_integrity', "End of documents batch, that's all for week " . $week_number);
+        variable_set("gofast_integrity_run_state", GOFAST_INTEGRITY_RUN_STATE_RESULTS);
+        variable_set("gofast_integrity_week_number", $week_number);
+    }else{
+        //Process checks on retrieved documents
+        watchdog('gofast_integrity', "Starting documents metadata check");
+        $metadata = gofast_integrity_alfresco_identify_documents_metadata($documents);
+        if(count($metadata['invalid']) != 0){
+            watchdog('gofast_integrity', count($metadata['invalid']) . " invalid documents identified in metadata check !");
+            $invalid_documents = variable_get("gofast_integrity_invalid_documents", array());
+            $invalid_documents = array_merge($invalid_documents, $metadata['invalid']);
+            variable_set("gofast_integrity_invalid_documents", $invalid_documents);
+        }
+        
+        watchdog('gofast_integrity', "Starting documents aspects check");
+        $aspects = gofast_integrity_alfresco_identify_documents_aspects($documents);
+        if(count($aspects['invalid']) != 0){
+            watchdog('gofast_integrity', count($aspects['invalid']) . " invalid documents identified in aspects check !");
+            $invalid_documents = variable_get("gofast_integrity_invalid_documents", array());
+            $invalid_documents = array_merge($invalid_documents, $aspects['invalid']);
+            variable_set("gofast_integrity_invalid_documents", $invalid_documents);
+        }
+        
+        watchdog('gofast_integrity', "Starting documents permissions check");
+        $permissions = gofast_integrity_alfresco_identify_documents_permissions($documents);
+        if(count($permissions['invalid']) != 0){
+            watchdog('gofast_integrity', count($permissions['invalid']) . " invalid documents identified in permissions check !");
+            $invalid_documents = variable_get("gofast_integrity_invalid_documents", array());
+            $invalid_documents = array_merge($invalid_documents, $permissions['invalid']);
+            variable_set("gofast_integrity_invalid_documents", $invalid_documents);
+        }
+        
+        watchdog('gofast_integrity', "Starting documents Drupal metadata check");
+        $drupal_metadata = gofast_integrity_drupal_identify_documents_metadata($documents);
+        if(count($drupal_metadata['invalid']) != 0){
+            watchdog('gofast_integrity', count($drupal_metadata['invalid']) . " invalid documents identified in Drupal metadata check !");
+            $invalid_documents = variable_get("gofast_integrity_invalid_documents", array());
+            $invalid_documents = array_merge($invalid_documents, $drupal_metadata['invalid']);
+            variable_set("gofast_integrity_invalid_documents", $invalid_documents);
+        }
+        
+        watchdog('gofast_integrity', "Starting documents Drupal OG check");
+        $ogs = gofast_integrity_drupal_identify_documents_ogs($documents);
+        if(count($ogs['invalid']) != 0){
+            watchdog('gofast_integrity', count($ogs['invalid']) . " invalid documents identified in Drupal OG check !");
+            $invalid_documents = variable_get("gofast_integrity_invalid_documents", array());
+            $invalid_documents = array_merge($invalid_documents, $ogs['invalid']);
+            variable_set("gofast_integrity_invalid_documents", $invalid_documents);
+        }
+        
+        watchdog('gofast_integrity', "End of documents batch, preparing documents integrity for next batch");
+        variable_set('gofast_integrity_documents_skip', ($skip+GOFAST_INTEGRITY_DOCUMENTS_BATCH_SIZE));
+    }
+}
+
+//Translations
+t("GoFAST Integrity status : ", array(), array("context" => "gofast:gofast_integrity"));
+t("Current week : ", array(), array("context" => "gofast:gofast_integrity"));

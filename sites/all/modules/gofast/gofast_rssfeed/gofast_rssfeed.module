@@ -1,0 +1,136 @@
+<?php
+
+/**
+ * 
+ */
+require_once 'gofast_rssfeed_form.inc';
+
+/**
+ * @Implement HOOK_theme()
+ * @return type
+ */
+function gofast_rssfeed_theme() {
+    
+  return array(
+    'gofast_rssfeed_container_list_rssfeed' => array(
+       'render element' => 'fieldset',
+       'template' => 'tpl/gofast_rssfeed-container_list_rssfeed',
+     )
+  );
+  
+}
+
+function gofast_rssfeed_menu() {
+    
+    $items['rssfeed/add'] = array(
+      'title' => 'Add RSS Feed',
+      'page callback' => 'gofast_add_rssfeed',
+      'page arguments' => array('gofast_admin_settings'),
+      'access arguments' => array('administer site configuration'),
+    );
+    
+    $items['rssfeed/edit'] = array(
+      'title' => 'Edit RSS Feed',
+      'page callback' => 'gofast_edit_rssfeed',
+      'page arguments' => array('gofast_admin_settings'),
+      'access arguments' => array('administer site configuration'),
+    );
+    
+    $items['rssfeed/delete'] = array(
+      'title' => 'Delete RSS Feed',
+      'page callback' => 'gofast_delete_rssfeed',
+      'page arguments' => array('gofast_admin_settings'),
+      'access arguments' => array('administer site configuration'),
+    );
+    
+    return $items;
+}
+
+function gofast_add_rssfeed(){
+    $add = "false";
+    $title = $_POST['rssfeed_title'];
+    $url = trim($_POST['url']);
+    
+    if (!valid_url($url, true)) {
+        $add = "false";
+        print $add;
+        exit;
+    } else {
+        $values = array(
+          'title' => $title,
+          'url' => $url,
+          'link' => '',
+          'description' => '',
+          'image' => '',
+          'refresh' => '3600',
+          'block' => '5',
+          'category' => array(
+              '1' => '1',
+          ),
+        );
+        aggregator_save_feed($values);
+        
+        $query = db_query('SELECT MAX(fid) as fid FROM {aggregator_feed}');
+        $result = $query->fetch();
+        $fid = $result->fid;
+        
+        //clear drupal caching variable (required to be able to refresh properly the RSS Feed)
+        drupal_static_reset('aggregator_feed_load');
+        $feed = aggregator_feed_load($fid);
+        aggregator_refresh($feed);
+        
+        $add = "true";
+        print $add;
+        exit;
+    }
+}
+
+function gofast_edit_rssfeed(){
+    $edit = "false";
+    $title = $_POST['rssfeed_title'];
+    $url = trim($_POST['url']);
+    $fid = $_POST['rssfeed_fid'];
+    if (!valid_url($url, true)) {
+        $edit = "false";
+        print $edit;
+        exit;
+    } else {
+        $feed = aggregator_feed_load(intval($fid));
+        $edit = "true";
+        $values = array(
+          'fid' => $fid,
+          'title' => $title,
+          'url' => $url,
+          'link' => $feed->link,
+          'description' => $feed->description,
+          'image' => $feed->image,
+          'refresh' => $feed->refresh,
+          'block' => '5',
+          'category' => array(
+              '1' => '1',
+          ),
+        );
+        aggregator_save_feed($values);
+        
+        //clear drupal caching variable (required to be able to refresh properly the RSS Feed)
+        drupal_static_reset('aggregator_feed_load');
+        $feed = aggregator_feed_load($fid);
+        aggregator_refresh($feed);
+        
+        print $edit;
+        exit;
+    }
+}
+
+function gofast_delete_rssfeed(){
+    $fid = $_POST['rssfeed_fid'];
+    $values = array(
+        'fid' => $fid,
+    );
+    aggregator_save_feed($values);
+    
+    $delete = "true";
+    
+    print $delete;
+    exit;
+}

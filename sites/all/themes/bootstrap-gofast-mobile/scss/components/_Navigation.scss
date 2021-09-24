@@ -1,0 +1,36 @@
+.Navigation {
+
+    @media (max-width: $breakpoint-sm-device) {
+        .Navigation__tabs {
+            & > ul {
+                display: flex;
+                & > li {
+                    width: 33%;
+
+                    & > a {
+                        display: flex;
+                        flex-direction: column;
+                        font-size: 0.8rem;
+                        height: 100%;
+
+                        & > i {
+                            font-size: 2rem;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    @media (min-width: $breakpoint-smlg-device) {
+      
+    }
+    @media (min-width: $breakpoint-tablet) {
+
+    }
+    @media (min-width: $breakpoint-laptop) {
+    
+    }
+    @media (min-width: $breakpoint-extra) {
+    
+    }
+}

@@ -1,0 +1,9 @@
+name = Gofast PrivateMsg
+description = "This module is used to implement the specific functionnalities dedicated to GoFast"
+package = Gofast
+core = 7.x
+
+dependencies[] = gofast
+dependencies[] = privatemsg
+
+version = "7.x-3.10.0_r2"

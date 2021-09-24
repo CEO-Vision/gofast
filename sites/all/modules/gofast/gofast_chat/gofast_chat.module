@@ -1,0 +1,536 @@
+<?php
+
+global $conf;
+define('XMPP_DOMAIN', $conf['gofast-comm_domain']);
+define('XMPP_CHAT_URL', 'https://'.$conf['gofast-comm_domain'].'/http-bind/');
+define('XMPP_CHROME_EXT_URL', $conf['chrome-ext-jsxc']);
+
+/**
+ * Implements hook_library()
+ * Import the JSXC libraries
+ */
+function gofast_chat_library() {
+  $path = drupal_get_path('module', 'gofast_chat');
+  $lib = 'sites/all/libraries';
+  $libraries['jsxc'] = array(
+    'title' => 'Gofast JSXC XMPP Chat Client',
+    'version' => '1.0',
+    'js' => array(
+      $lib . '/jsxc/libsignal-protocol.js' => array(
+        'group' => JS_LIBRARY,
+        'every_page' => TRUE,
+        'weight' => 1,
+        'scope' => 'footer',
+        'defer' => TRUE,
+        'cache' => TRUE
+      ),
+      $lib . '/jsxc/jsxc.bundle.js' => array(
+        'group' => JS_LIBRARY,
+        'every_page' => TRUE,
+        'weight' => 2,
+        'scope' => 'footer',
+        'defer' => TRUE,
+        'cache' => TRUE
+      ),
+      $path . '/gofast_chat.js' => array(
+        'group' => JS_DEFAULT,
+        'every_page' => TRUE,
+        'weight' => 4,
+        'scope' => 'footer',
+        'defer' => TRUE,
+        'cache' => TRUE
+      )
+    ),
+    'css' => array(
+      $lib . '/jsxc/styles/jsxc.bundle.css' => array(
+        'type' => 'file',
+        'media' => 'screen',
+        'every_page' => TRUE,    
+        'group' => CSS_DEFAULT
+      )
+    )
+  );
+
+  return $libraries;
+}
+
+function gofast_chat_preprocess_page(&$variables){  
+  $params = array();
+  /**
+  * XMPP Server's domain (Ejabberd)
+  */
+  $params['XMPP_DOMAIN'] = XMPP_DOMAIN;
+  $params['XMPP_CHAT_URL'] = XMPP_CHAT_URL;
+  $params['XMPP_CHROME_EXT_URL'] = XMPP_CHROME_EXT_URL;
+  
+  
+  // Due to some limitations, the logout function was implemented in hook_preprocess_page
+  if (!user_is_logged_in()) {
+    return;
+  } else { // If this is a normal user, enable chat feature
+    global $user;
+    // Disable the chat feature if the user is admin or is using mobile Gofast's version
+    if ($user->uid != 1 && !gofast_mobile_is_mobile_domain()) {      
+      drupal_add_js($params, 'setting');
+      drupal_add_library('gofast_chat', 'jsxc', TRUE); // Load library declared in the hook_library()
+    }
+  }
+}
+
+/*
+ * Implements hook_api_RESSOURCE_ACTION
+ * makes a call to the GoFAST COMM server to retrieve an ejabberd token for the current user
+ */
+function gofast_api_login_ejabberd($params){
+    //Check content type
+    if(strpos($params['Content-Type'], "application/json") === FALSE){
+        return gofast_api_not_implemented("This Content-Type");
+    }
+    
+    //Check method
+    if($params['method'] != "GET"){
+        gofast_api_not_implemented("This method");
+    }
+    
+    //Check authentication
+    global $user;
+    if($user->uid == 0){
+       gofast_api_not_authorized("Unavailable ressource for anonymous user");
+    }
+    
+    //Get force param
+    $force = $params['force'];
+    
+    global $user;
+    
+    //Retrieve potential active token
+    $ejabberd_token = variable_get("ejabberd_token_" . $user->uid);
+    if($ejabberd_token['expire'] > time() && !$force){
+        gofast_api_success(array('token' => $ejabberd_token['token']));
+    }
+    
+    //Prepare CURL call
+    $command = "oauth_issue_token " . $user->name . "@" . XMPP_DOMAIN . " 36000 \"sasl_auth\" | cut -c1-32";
+    $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    curl_setopt($ch, CURLOPT_PROXY, '');
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+    $result = curl_exec($ch);
+    $result = str_replace("\n", "", $result);
+    
+    if(strlen($result) == 32){
+        $ejabberd_token = array(
+            'expire' => time() + 36000,
+            'token' => $result
+        );
+        variable_set("ejabberd_token_" . $user->uid, $ejabberd_token);
+        gofast_api_success(array('token' => $result));
+    }else{
+        gofast_api_internal_server_error("Unable to retrieve an Ejabberd token");
+    }
+}
+
+function gofast_chat_form_user_relationships_ui_pending_requested_alter(&$form, $form_state){
+    $form['#submit'][] = "gofast_chat_form_user_relationships_ui_pending_requested_submit";
+}
+
+function gofast_chat_form_user_relationships_ui_pending_requested_submit($form, $form_state){
+    if($form_state['values']['action'] == "approve"){
+        $rid = $form_state['values']['rid'];
+        $relation = user_relationships_load(array('rid' => $rid));
+        
+        $requester = user_load(reset($relation)->requester_id);
+        $requestee = user_load(reset($relation)->requestee_id);
+        
+        //We have a new relationship, let's send the subscription to ejabberd
+        $ch = curl_init();
+        //Prepare CURL call
+        $command = "add_rosteritem " . $requester->name . " " . XMPP_DOMAIN . " " . $requestee->name . " " . XMPP_DOMAIN . " \"" . gofast_user_display_name($requestee) . "\" \"\" both";
+        $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_PROXY, '');
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+        curl_exec($ch);
+        
+        //__________________________________
+        
+        $ch = curl_init();
+        $command = "add_rosteritem " . $requestee->name . " " . XMPP_DOMAIN . " " . $requester->name . " " . XMPP_DOMAIN . " \"" . gofast_user_display_name($requester) . "\" \"\" both";
+        $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_PROXY, '');
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+        curl_exec($ch);
+    }else{
+        $relation = $form_state['build_info']['args'][2];
+        $requester = user_load($relation->requester_id);
+        $requestee = user_load($relation->requestee_id);
+        //Cancel the relation
+        $ch = curl_init();
+        $command = "delete_rosteritem " . $requester->name . " " . XMPP_DOMAIN . " " . $requestee->name . " " . XMPP_DOMAIN;
+        $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_PROXY, '');
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+        curl_exec($ch);
+        
+        //__________________________________
+        
+        $ch = curl_init();
+        $command = "delete_rosteritem " . $requestee->name . " " . XMPP_DOMAIN . " " . $requester->name . " " . XMPP_DOMAIN;
+        $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_PROXY, '');
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+        curl_exec($ch);
+    }
+}
+
+function gofast_chat_form_user_relationships_ui_remove_alter(&$form, $form_state){
+    $form['#submit'][] = "gofast_chat_form_user_relationships_ui_remove_submit";
+}
+
+function gofast_chat_form_user_relationships_ui_remove_submit($form, $form_state, $force = FALSE){
+    if($form_state['values']['user_relationships_remove_confirm'] == 1 || $force){
+        $requester = user_load($form_state['build_info']['args'][1]->requester_id);
+        $requestee = user_load($form_state['build_info']['args'][1]->requestee_id);
+        
+        //We have a deleted relationship, let's remove the subscription in ejabberd
+        $ch = curl_init();
+        //Prepare CURL call
+        $command = "delete_rosteritem " . $requester->name . " " . XMPP_DOMAIN . " " . $requestee->name . " " . XMPP_DOMAIN;
+        $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_PROXY, '');
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+        curl_exec($ch);
+        
+        //__________________________________
+        
+        $ch = curl_init();
+        $command = "delete_rosteritem " . $requestee->name . " " . XMPP_DOMAIN . " " . $requester->name . " " . XMPP_DOMAIN;
+        $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_PROXY, '');
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+        curl_exec($ch);
+    }
+}
+
+/**
+ * This is the form that allow to join a chat room
+ */
+function gofast_chat_join_space_room_form($form, &$form_state) {
+  $node = isset($form_state['build_info']['args'][0]->nid) ? $form_state['build_info']['args'][0] : FALSE;
+
+  //Build a spaces ztree  
+  global $user;
+  $ogs = gofast_og_get_spaces_by_user($user, FALSE);
+  foreach($ogs as $gid => &$path){
+      $path = gofast_cmis_space_get_webdav_path($gid);
+  }
+  $form['spaces'] = array(
+    '#type' => 'select',
+    '#multiple' => TRUE,
+    '#options' => $ogs,
+    '#required' => TRUE,
+    '#attributes' => array('class' => array('edit-spaces')),
+    '#prefix' => "<p>".t('Select a space to join its discussion room', array(), array('context' => 'gofast:gofast_chat'))."</p><br /><div class='loader-ztree'></div>"
+  );
+  gofast_ztree_form_alter($form, $form_state);
+  $form['#after_build'][] = 'gofast_ztree_after_build';
+  
+  $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t("Join the room", array(), array('context' => 'gofast:gofast_chat')),
+      '#prefix' => "<div style='clear:both;'></div>"
+  );
+  return $form;
+}
+
+function gofast_chat_join_space_room_form_submit($form, &$form_state) {
+  $nid = $form_state['input']['spaces'][0];
+  $node = node_load($nid);
+  
+  $rooms_tokens = variable_get('ejabberd_rooms_tokens', array());
+  
+  if(isset($rooms_tokens[$nid])){
+      //Room is already created
+      $creation = FALSE;
+      $password = $rooms_tokens[$nid];
+  }else{
+      $creation = TRUE;
+      $password = md5(rand(0, getrandmax()) + $node->title);
+      
+      //Set drupal variable
+      $rooms_tokens[$nid] = $password;
+      variable_set('ejabberd_rooms_tokens', $rooms_tokens);
+  }
+  
+  $commands[] = gofast_command_toast_message(t("You will join this space room in a few seconds...", array(), array('context' => 'gofast:gofast_chat')), "success");
+  
+  $commands[] = ctools_modal_command_dismiss();
+  
+  $commands[] = gofast_command_callback("Gofast.join_space_room", array(
+      $node->nid,
+      $node->title,
+      $creation,
+      $password
+  ));
+  
+  print ajax_render($commands);
+  exit;
+}
+
+/*
+ * Remove a user from a space room
+ */
+function gofast_chat_remove_user_from_room($uid, $gid){
+    //Retrieve the private data of the user
+    $user = user_load($uid);
+    
+    $ch = curl_init();
+    $command = "private_get " . $user->name . " " . XMPP_DOMAIN . " storage storage:bookmarks";
+    $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_PROXY, '');
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+    $xml_string = curl_exec($ch);
+    
+    //Check if this user is in the space room
+    try{
+        $storage = new SimpleXMLElement($xml_string);
+    }catch(Exception $e){
+        //The private bookmark is empty, get out
+        return;
+    }
+    $storage_object = $storage->storage;
+    
+    if(!isset($storage_object->conference)){
+        return;
+    }
+    
+    if(is_object($storage_object->conference)){
+        $storage_object->conference = array($storage_object->conference);
+    }
+    
+    $i = 0;
+    foreach($storage_object->conference as $conference){
+        if($conference->attributes()->jid && $conference->attributes()->jid->__toString() == $gid . "@conference." . XMPP_DOMAIN){
+            //This user is in the room of the targeted space, kick them
+            $ch = curl_init();
+            $command = "set_room_affiliation " . $gid . " conference." . XMPP_DOMAIN . " " . $user->name . "@" . XMPP_DOMAIN . " outcast";
+            $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_PROXY, '');
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+            curl_exec($ch);
+            
+            //Then, rewrite they private data to remove the bookmark
+            if(count($storage_object->conference) == 1){
+                unset($storage->storage->conference);
+            }else{
+                unset($storage->storage->conference[$i]);
+            }
+            $xml_result = $storage->asXML();
+            $xml_result = html_entity_decode($xml_result);
+            $xml_result = str_replace("'", "&apos;", $xml_result);
+            $xml_result = str_replace('"', "'", $xml_result);
+            $xml_result = str_replace("#", "\\#", $xml_result);
+            $xml_result = str_replace("!", "\\!", $xml_result);
+            $xml_result = str_replace("<?xml version='1.0'?>\n<query xmlns='jabber:iq:private'>", "", $xml_result);
+            $xml_result = str_replace("</query>", "", $xml_result);
+            $xml_result = str_replace("\n", "", $xml_result);
+            $xml_result = str_replace("\r", "", $xml_result);
+            
+            //Set the private data
+            $ch = curl_init();
+            $command = "private_set " . $user->name . " " . XMPP_DOMAIN . " \"" . $xml_result . "\"";
+            $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_PROXY, '');
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+            curl_exec($ch);
+            
+            //Finally, unban them
+            $ch = curl_init();
+            $command = "set_room_affiliation " . $gid . " conference." . XMPP_DOMAIN . " " . $user->name . "@" . XMPP_DOMAIN . " member";
+            $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_PROXY, '');
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+            curl_exec($ch);
+        }
+        $i ++;
+    }
+}
+
+/**
+ * This is the form that allow to join a chat room
+ */
+function gofast_chat_start_conversation_form($form, &$form_state) {
+  $form['contact'] = array(
+    '#title' => t('Search for people to start a conversation',array(),array('context' => 'gofast:gofast_chat')),
+    '#type' => 'textfield',
+    '#size' => 130,
+    '#maxlength' => '', // no maxlength
+    '#autocomplete_path' => 'gofast_user_autocomplete',
+    '#attributes' => array('class' => array('labelize-autocomplete pm')),
+  );
+  $form['message'] = array(
+    '#title' => t('Send a message with your request',array(),array('context' => 'gofast:gofast_chat')),
+    '#type' => 'textarea',
+  );  
+  $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t("Add a contact", array(), array('context' => 'gofast:gofast_chat')),
+  );
+  return $form;
+}
+
+function gofast_chat_start_conversation_form_submit($form, &$form_state) {
+    set_time_limit(0);
+    //Stop front request because it can take a while
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_toast_message(t("Your conversations are starting...", array(), array("context", "gofast:gofast_chat")), "success");
+    print ajax_render($commands);
+    fastcgi_finish_request();
+    
+    $contacts = json_decode($form_state['input']["edit-contact-hidden-values"]);
+    global $user;
+    $loaded_user = user_load($user->uid);
+    foreach($contacts as $contact){
+        if($user->uid == $contact->id || $contact->id == 0 || $contact->id == 1){
+            continue;
+        }else{
+            $user_contact = user_load($contact->id);
+            if($user_contact != NULL){                
+                //Send the relationship request
+                $_POST['relationship_message'] = str_replace("\n", "<br />", $form_state['input']['message']);
+                $relationship = user_relationships_load(array(
+                    'requester_id' => $user->uid,
+                    'requestee_id' => $user_contact->uid,
+                    'approved' => 1
+                ));
+                if(count($relationship) == 0){
+                    user_relationships_request_relationship($user, $user_contact, 1, FALSE);
+                    //Add to pending roster
+                    $ch = curl_init();
+                    //Prepare CURL call
+                    $command = "add_rosteritem " . $user->name . " " . XMPP_DOMAIN . " " . $user_contact->name . " " . XMPP_DOMAIN . " \"" . gofast_user_display_name($user_contact) . "\" \"\" none";
+                    $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+                    curl_setopt($ch, CURLOPT_URL, $url);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_PROXY, '');
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+                    curl_exec($ch);
+                    
+                    $command = "add_rosteritem " . $user_contact->name . " " . XMPP_DOMAIN . " " . $user->name . " " . XMPP_DOMAIN . " \"" . gofast_user_display_name($loaded_user) . "\" \"\" none";
+                    $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+                    curl_setopt($ch, CURLOPT_URL, $url);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_PROXY, '');
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+                    curl_exec($ch);
+                }else{
+                    $requester = user_load($user->uid);
+                    $requestee = user_load($user_contact->uid);
+
+                    //We have a new relationship, let's send the subscription to ejabberd
+                    $ch = curl_init();
+                    //Prepare CURL call
+                    $command = "add_rosteritem " . $requester->name . " " . XMPP_DOMAIN . " " . $requestee->name . " " . XMPP_DOMAIN . " \"" . gofast_user_display_name($requestee) . "\" \"\" both";
+                    $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+                    curl_setopt($ch, CURLOPT_URL, $url);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_PROXY, '');
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+                    curl_exec($ch);
+
+                    //__________________________________
+
+                    $ch = curl_init();
+                    $command = "add_rosteritem " . $requestee->name . " " . XMPP_DOMAIN . " " . $requester->name . " " . XMPP_DOMAIN . " \"" . gofast_user_display_name($requester) . "\" \"\" both";
+                    $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+                    curl_setopt($ch, CURLOPT_URL, $url);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_PROXY, '');
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+                    curl_exec($ch);
+                }
+                
+                //Send the XMPP message
+                $ch = curl_init();
+                $command = "send_message chat " . $user->name . "@" . XMPP_DOMAIN . " " . $user_contact->name . "@" . XMPP_DOMAIN . " \"\" \"" . str_replace("\r", "", str_replace("\n", " ", str_replace('"', '\\"', $form_state['input']['message']))) . "\"";
+                $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+                curl_setopt($ch, CURLOPT_URL, $url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_PROXY, '');
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+                curl_exec($ch);
+                
+                if(count($relationship) == 0){
+                    $ch = curl_init();
+                    $command = "send_message chat " . $user->name . "@" . XMPP_DOMAIN . " " . $user_contact->name . "@" . XMPP_DOMAIN . " \"\" \"" . t("INFO : ", array(), array('context' => 'gofast:gofast_chat')) . gofast_user_display_name($loaded_user) . " " . t("wants to start a conversation with you. You can manage this relationship request in the \\\"Manage my relations\\\" chat menu.\"", array(), array('context' => 'gofast:gofast_chat'));
+                    $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+                    curl_setopt($ch, CURLOPT_URL, $url);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_PROXY, '');
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+                    curl_exec($ch);
+                }
+            }
+        }
+    }
+}
+
+function gofast_chat_manage_relations(){
+    $output = "";
+    include_once DRUPAL_ROOT . "/" .  drupal_get_path("module", "user_relationships_ui") . "/user_relationships_ui.pages.inc";
+    
+    $output .= "<div class='panel panel-info'><div class='panel-heading'><h3 class='panel-title'>" . t("My pending received requests", array(), array('context' => "gofastt:gofast_chat")) . "</h3></div><div class='panel-body'>";
+    $output .= drupal_render(user_relationships_pending_requests_page("requestee_id"));
+    $output .= "</div></div>";
+    
+    $output .= "<div class='panel panel-info'><div class='panel-heading'><h3 class='panel-title'>" . t("My pending sent requests", array(), array('context' => "gofastt:gofast_chat")) . "</h3></div><div class='panel-body'>";
+    $output .= str_replace("user_relationships_popup_link", "ctools-use-modal", str_replace("/cancel?destination=modal/ajax/manage-relations", "/cancel", str_replace("/user/", "/modal/nojs/user/", drupal_render(user_relationships_pending_requests_page("requester_id")))));
+    $output .= "</div></div>";
+    
+    $output .= "<div class='panel panel-info'><div class='panel-heading'><h3 class='panel-title'>" . t("My relations", array(), array('context' => "gofastt:gofast_chat")) . "</h3></div><div class='panel-body'>";
+    $output .= str_replace("user_relationships_popup_link", "ctools-use-modal", str_replace("/remove?destination=modal/ajax/manage-relations", "/remove", str_replace("/user/", "/modal/nojs/user/", drupal_render(user_relationships_page()))));
+    $output .= "</div></div>";
+    
+    return $output;
+}

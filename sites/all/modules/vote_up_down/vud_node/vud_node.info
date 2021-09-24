@@ -1,0 +1,14 @@
+name = Vote Up/Down Nodes
+description = "Allows adding an up/down voting widget to selected content types."
+dependencies[] = vud
+package = Voting
+core = 7.x
+files[] = views/vud_node.views.inc
+files[] = views/vud_node_handler_field_widget.inc
+
+; Information added by Drupal.org packaging script on 2017-10-26
+version = "7.x-1.0-beta2"
+core = "7.x"
+project = "vote_up_down"
+datestamp = "1508990648"
+

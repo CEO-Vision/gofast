@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Get last versions of multiple nodes</shortname>
+    <description>Get last versions of multiple nodes webservice</description>
+    <url>/post/last_version_multiple</url>
+    <authentication>user</authentication>
+    <format default="html"/>
+</webscript>

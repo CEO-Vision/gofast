@@ -1,0 +1,97 @@
+<?php
+
+/**
+ * @file
+ * Install, update, and uninstall functions for Gofast OG module.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function gofast_og_install() {
+  $field_name = GOFAST_OG_CONTENT_VISIBILITY;
+  
+  // Gofast OG content types 
+  // @todo: add webform when implemented + maintain according to gofast_og_content_bundles().
+  $bundles = array('article', 'alfresco_item', 'forum'); 
+  
+  // Create field if needed.
+  if (!field_read_field($field_name, array('include_inactive' => true))) {
+    $field = array(
+      'field_name' => $field_name,
+      'type' => 'list_boolean',
+      'entity_types' => array('node'),
+      'cardinality' => 1,
+      'translatable' => FALSE,
+      'locked' => FALSE,
+      'settings' => array(),
+      'storage' => array(),
+      'deleted' => 0,
+      'locked' => FALSE,
+      'settings' => array(
+        'allowed_values_function' => '',
+        'allowed_values' => array(
+            GOFAST_OG_GROUP_ACCESS_PUBLIC => t('Public', array(), array('context' => 'gofast')), 
+            GOFAST_OG_GROUP_ACCESS_PRIVATE => t('Private', array(), array('context' => 'gofast'))
+          )
+      ),      
+    );
+    $field = field_create_field($field);
+  }
+  
+  foreach ($bundles as $bundle) {
+    // Attach field to bundle if needed.
+    if (!field_read_instance('node', $field_name, $bundle, array('include_inactive' => true))) {
+      $instance = array(
+        'field_name' => $field_name,
+        'bundle' => $bundle,
+        'entity_type' => 'node',
+        'label' => t('Content visibility', array(), array('context' => 'gofast')),
+        'description' => t('Whether a content is private or public. A public content is necessarily part of a public OG node.', array(), array('context' => 'gofast:gofast_og')),
+        'required' => TRUE,
+        'widget' => array(
+          'module' => 'options',
+          'type' => 'options_buttons',
+          'settings' => array(
+            'gofast_hide' => TRUE,
+          )
+        ),
+        'default_value_function' => '_gofast_og_content_visibility',
+        'default_value' => array(0 => array('value' => GOFAST_OG_GROUP_ACCESS_DEFAULT)),
+        'display' => array(
+          'default' => array(
+            'label' => 'hidden',
+            'type' => 'hidden'
+          )
+        )
+      );
+      field_create_instance($instance);
+    }    
+  }  
+  
+  if(!db_index_exists("og_membership", "gfindex_og_membership_1")){
+      db_add_index("og_membership", "gfindex_og_membership_1", array('entity_type', 'gid', 'etid'));
+  }
+    
+  if(!db_index_exists("og_membership", "gfindex_og_membership_2")){
+      db_add_index("og_membership", "gfindex_og_membership_2", array('entity_type', 'etid', 'gid'));
+  }
+}
+
+/*
+ * Implements hook_update
+ */
+function gofast_og_update_7100(){
+    if(!db_index_exists("og_membership", "gfindex_og_membership_1")){
+        db_add_index("og_membership", "gfindex_og_membership_1", array('entity_type', 'gid', 'etid'));
+    }
+    
+    if(!db_index_exists("og_membership", "gfindex_og_membership_2")){
+        db_add_index("og_membership", "gfindex_og_membership_2", array('entity_type', 'etid', 'gid'));
+    }
+}
+
+
+function gofast_og_uninstall() {
+  field_delete_field(GOFAST_OG_CONTENT_VISIBILITY);
+}

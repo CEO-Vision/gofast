@@ -1,0 +1,516 @@
+.archived_case{
+    border : solid;
+    padding : 5px;
+}
+
+.case_details_title{
+    font-size:16px;
+    /*color:black;*/
+    margin-left:5px;
+    
+    background-color: #eeeeee;
+    border-bottom: 1px solid #c0c0c0;
+    margin: 0;
+    padding: 5px;
+    color: #636363 !important;
+    
+}
+
+.case_details_properties{
+    background-color:#F9F9F9;
+    border:1px solid #EEEEEE;
+    list-style:none;
+    margin:6px;
+    padding:6px 9px;
+    position:relative;
+
+    /* CSS3 text shadow and rounded corners: */
+    text-shadow:1px 1px 0 white;
+    -moz-border-radius:6px;
+    -webkit-border-radius:6px;
+    border-radius:6px;
+}
+
+.case_details_comment{
+    background-color:#F9F9F9;
+    border:1px solid #EEEEEE;
+    list-style:none;
+    margin:6px;
+    padding:6px 9px;
+    position:relative;
+
+    /* CSS3 text shadow and rounded corners: */
+    text-shadow:1px 1px 0 white;
+    -moz-border-radius:6px;
+    -webkit-border-radius:6px;
+    border-radius:6px;
+}
+
+.case_details_description{
+    background-color:#F9F9F9;
+    border:1px solid #EEEEEE;
+    list-style:none;
+    margin:6px;
+    padding:6px 9px;
+    position:relative;
+
+    /* CSS3 text shadow and rounded corners: */
+    text-shadow:1px 1px 0 white;
+    -moz-border-radius:6px;
+    -webkit-border-radius:6px;
+    border-radius:6px;
+}
+
+
+.current_task_in_details_case{
+    background-color:#F9F9F9;
+    border:1px solid #EEEEEE;
+    list-style:none;
+    margin:6px;
+    padding:6px 9px;
+    position:relative;
+
+    /* CSS3 text shadow and rounded corners: */
+    text-shadow:1px 1px 0 white;
+    -moz-border-radius:6px;
+    -webkit-border-radius:6px;
+    border-radius:6px;
+}
+
+.task_in_todoliste{
+    background-color:#F9F9F9;
+    border:1px solid #EEEEEE;
+    list-style:none;
+    /*margin:6px;*/
+    padding:6px 9px;
+    position:relative;
+
+/*     CSS3 text shadow and rounded corners: 
+    text-shadow:1px 1px 0 white;*/
+}
+
+#tabs_wf_rapid .nav > li > a {
+    padding: 5px 8px;
+}
+
+.deadline_box_in_rapide_todoliste{
+    border:1px solid #EEEEEE;
+    list-style:none;
+    margin:1px;
+    padding:2px 2px;
+    position:relative;
+
+    /* CSS3 text shadow and rounded corners: */   
+    -moz-border-radius:6px;
+    -webkit-border-radius:6px;
+    border-radius:6px;
+    font-size: small;
+}
+
+.gofast-block2 .ui-tabs-nav li.ui-tabs-selected a,.gofast-block2 .ui-tabs-nav li.ui-tabs-selected a:hover{
+    background-color:#2b2b2b;
+    color:#ffffff;
+}
+
+
+
+/* dynatable */
+table {
+    background-color: transparent;
+    border-collapse: collapse;
+    border-spacing: 0;
+    max-width: 100%;
+}
+.table {
+    margin-bottom: 20px;
+    width: 100%;
+}
+.table th, .table td {
+    border-top: 1px solid #ddd;
+    line-height: 20px;
+    padding: 8px;
+    text-align: left;
+    vertical-align: top;
+}
+.table th {
+    font-weight: bold;
+}
+.table thead th {
+    vertical-align: bottom;
+}
+.table caption + thead tr:first-child th, .table caption + thead tr:first-child td, .table colgroup + thead tr:first-child th, .table colgroup + thead tr:first-child td, .table thead:first-child tr:first-child th, .table thead:first-child tr:first-child td {
+    border-top: 0 none;
+}
+.table tbody + tbody {
+    border-top: 2px solid #ddd;
+}
+.table .table {
+    background-color: #fff;
+}
+.table-condensed th, .table-condensed td {
+    padding: 4px 5px;
+}
+.table-bordered {
+    -moz-border-bottom-colors: none;
+    -moz-border-left-colors: none;
+    -moz-border-right-colors: none;
+    -moz-border-top-colors: none;
+    border-collapse: separate;
+    border-color: #ddd #ddd #ddd -moz-use-text-color;
+    border-image: none;
+    border-radius: 4px;
+    border-style: solid solid solid none;
+    border-width: 1px 1px 1px 0;
+}
+.table-bordered th, .table-bordered td {
+    border-left: 1px solid #ddd;
+}
+.table-bordered caption + thead tr:first-child th, .table-bordered caption + tbody tr:first-child th, .table-bordered caption + tbody tr:first-child td, .table-bordered colgroup + thead tr:first-child th, .table-bordered colgroup + tbody tr:first-child th, .table-bordered colgroup + tbody tr:first-child td, .table-bordered thead:first-child tr:first-child th, .table-bordered tbody:first-child tr:first-child th, .table-bordered tbody:first-child tr:first-child td {
+    border-top: 0 none;
+}
+.table-bordered thead:first-child tr:first-child > th:first-child, .table-bordered tbody:first-child tr:first-child > td:first-child, .table-bordered tbody:first-child tr:first-child > th:first-child {
+    border-top-left-radius: 4px;
+}
+.table-bordered thead:first-child tr:first-child > th:last-child, .table-bordered tbody:first-child tr:first-child > td:last-child, .table-bordered tbody:first-child tr:first-child > th:last-child {
+    border-top-right-radius: 4px;
+}
+.table-bordered thead:last-child tr:last-child > th:first-child, .table-bordered tbody:last-child tr:last-child > td:first-child, .table-bordered tbody:last-child tr:last-child > th:first-child, .table-bordered tfoot:last-child tr:last-child > td:first-child, .table-bordered tfoot:last-child tr:last-child > th:first-child {
+    border-bottom-left-radius: 4px;
+}
+.table-bordered thead:last-child tr:last-child > th:last-child, .table-bordered tbody:last-child tr:last-child > td:last-child, .table-bordered tbody:last-child tr:last-child > th:last-child, .table-bordered tfoot:last-child tr:last-child > td:last-child, .table-bordered tfoot:last-child tr:last-child > th:last-child {
+    border-bottom-right-radius: 4px;
+}
+.table-bordered tfoot + tbody:last-child tr:last-child td:first-child {
+    border-bottom-left-radius: 0;
+}
+.table-bordered tfoot + tbody:last-child tr:last-child td:last-child {
+    border-bottom-right-radius: 0;
+}
+.table-bordered caption + thead tr:first-child th:first-child, .table-bordered caption + tbody tr:first-child td:first-child, .table-bordered colgroup + thead tr:first-child th:first-child, .table-bordered colgroup + tbody tr:first-child td:first-child {
+    border-top-left-radius: 4px;
+}
+.table-bordered caption + thead tr:first-child th:last-child, .table-bordered caption + tbody tr:first-child td:last-child, .table-bordered colgroup + thead tr:first-child th:last-child, .table-bordered colgroup + tbody tr:first-child td:last-child {
+    border-top-right-radius: 4px;
+}
+.table-striped tbody > tr:nth-child(2n+1) > td, .table-striped tbody > tr:nth-child(2n+1) > th {
+    background-color: #f9f9f9;
+}
+.table-hover tbody tr:hover > td, .table-hover tbody tr:hover > th {
+    background-color: #f5f5f5;
+}
+table td[class*="span"], table th[class*="span"], .row-fluid table td[class*="span"], .row-fluid table th[class*="span"] {
+    display: table-cell;
+    float: none;
+    margin-left: 0;
+}
+.table td.span1, .table th.span1 {
+    float: none;
+    margin-left: 0;
+    width: 44px;
+}
+.table td.span2, .table th.span2 {
+    float: none;
+    margin-left: 0;
+    width: 124px;
+}
+.table td.span3, .table th.span3 {
+    float: none;
+    margin-left: 0;
+    width: 204px;
+}
+.table td.span4, .table th.span4 {
+    float: none;
+    margin-left: 0;
+    width: 284px;
+}
+.table td.span5, .table th.span5 {
+    float: none;
+    margin-left: 0;
+    width: 364px;
+}
+.table td.span6, .table th.span6 {
+    float: none;
+    margin-left: 0;
+    width: 444px;
+}
+.table td.span7, .table th.span7 {
+    float: none;
+    margin-left: 0;
+    width: 524px;
+}
+.table td.span8, .table th.span8 {
+    float: none;
+    margin-left: 0;
+    width: 604px;
+}
+.table td.span9, .table th.span9 {
+    float: none;
+    margin-left: 0;
+    width: 684px;
+}
+.table td.span10, .table th.span10 {
+    float: none;
+    margin-left: 0;
+    width: 764px;
+}
+.table td.span11, .table th.span11 {
+    float: none;
+    margin-left: 0;
+    width: 844px;
+}
+.table td.span12, .table th.span12 {
+    float: none;
+    margin-left: 0;
+    width: 924px;
+}
+.table tbody tr.success > td {
+    background-color: #dff0d8;
+}
+.table tbody tr.error > td {
+    background-color: #f2dede;
+}
+.table tbody tr.warning > td {
+    background-color: #fcf8e3;
+}
+.table tbody tr.info > td {
+    background-color: #d9edf7;
+}
+.table-hover tbody tr.success:hover > td {
+    background-color: #d0e9c6;
+}
+.table-hover tbody tr.error:hover > td {
+    background-color: #ebcccc;
+}
+.table-hover tbody tr.warning:hover > td {
+    background-color: #faf2cc;
+}
+.table-hover tbody tr.info:hover > td {
+    background-color: #c4e3f3;
+}
+
+.table-bordered th{
+    background-color: #eeeeee;
+    border-bottom: 1px solid #c0c0c0;
+    margin: 0;
+    padding: 5px;
+    color: #636363 !important;
+}
+.table-bordered td{
+    /*background-color: #ffffff;*/
+    border-bottom: 1px solid #c0c0c0;
+    margin: 0;
+    padding: 5px;
+}
+
+/* end dynatable*/
+
+
+/*largeur des headers de colonnes des vues de liste des taches */
+#th___gofast_titre_processus__{
+    width:18%;
+}
+
+#th_displayName{
+    width:18%;
+}
+
+#th___processName__{
+    width:18%;
+}
+
+#th___started_date__{
+   width:10%; 
+}
+
+#th___gofast_date_limite__{
+     width:10%; 
+}
+
+#th___userId__{
+     width:5%; 
+}
+
+#th___gofast_document_reference__{
+     width:15%; 
+}
+
+#th___bpm_actions__{
+     width:5%; 
+}
+/*END largeur des headers de colonnes des vues de liste des taches */
+
+/*largeur des headers de colonnes des vues de liste des processus */
+#th_process_title{
+    width:30%;
+}
+
+#th_process_type{
+    width:30%;
+}
+
+#th_process_tasks{
+    width:12%;
+}
+
+#th_process_dl{
+   width:15%; 
+}
+
+#th_process_start{
+   width:15%
+}
+
+/*END largeur des headers de colonnes des vues de liste des processus */
+
+
+
+
+
+/* end dynatable */
+
+
+/*jquery pajinate */
+#gofast_block-workflow-workflow_bloc li, #gofast_block-workflow-workflow_document_bloc li, #colonne_droite li{
+	list-style: none;	
+}
+
+#wrapper{
+	margin: 0px auto;
+	text-align: left;
+	width: 960px;
+}
+
+.ellipse{
+	float: left;
+}
+
+/*.container{
+	width: 260px;
+	float: left;
+	margin: 50px 10px 10px;
+	padding: 20px;
+	background-color: white;
+}*/
+
+.page_navigation , .alt_page_navigation , .page_navigation2{
+	padding-bottom: 10px;
+}
+
+.page_navigation a, .alt_page_navigation a, .page_navigation2 a{
+	padding:3px 5px;
+	margin:2px;
+	color:white;
+	text-decoration:none;
+	float: left;
+	font-family: Tahoma;
+	font-size: 12px;
+	background-color:#DB5C04;
+}
+.active_page{
+	background-color:white !important;
+	color:black !important;
+}	
+
+
+.content {
+     list-style: none;
+}
+/*.content li, .alt_content li, .content > p{
+	padding: 5px
+}*/
+
+/* end jquery pajinate */
+
+/*reduce margin for pager: */
+.container_wf .pagination{
+  margin-bottom : 0px;
+  margin-top : 5px;
+}
+
+
+.modal-content-workflow{
+    padding : 0 !important;
+    background-color:#ffffff !important;
+}
+
+#tabs_doc_wf ul, ol {
+    padding-left: 5px;
+}
+
+#tabs_wf th a{
+    color : #333;
+}
+
+.workflow_unread_count {
+    background-color: #777;
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: bold;
+    line-height: 1.5em;
+    padding: 5px;
+    /*position: fixed;*/
+    display: inline-block;
+    min-width: 10px;
+    padding: 3px 7px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #ffffff;
+    line-height: 1;
+    vertical-align: middle;
+    white-space: nowrap;
+    text-align: center;
+    background-color: #777777;
+    border-radius: 10px;
+}
+
+#container_wf_dashboard td {
+    padding : 4px;
+}
+
+.gofast_workflows_title_task_doit:hover{
+   outline: medium none;
+   color: #337ab7;
+}
+
+.gofast_wf_link{
+  padding-right: 2px;
+  padding-left: 2px;
+}
+
+.gofast_wf_actions{
+   white-space: nowrap;
+   text-align : center;
+}
+
+.gofast_wf_table th a{
+  color : #333;
+}
+
+.wf-button{
+  padding:1px 4px 1px 4px !important;
+}
+
+.wf-button-green{
+  color: #2ecc71 !important;
+}
+
+.wf-button-blue{
+  color: #337ab7 !important;
+}
+
+.wf-button-red{
+  color: #c0392b !important;
+}
+
+#wf-buttons{
+  float:right;
+  margin-right: 15px;
+  margin-top: 5px;
+}
+
+#wf-buttons-info{
+  float:right;
+  margin-right: -80px;
+  margin-top: 5px;
+}

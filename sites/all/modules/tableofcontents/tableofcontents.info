@@ -1,0 +1,13 @@
+name = Table of Contents
+description = Versatile system for generating Tables of Contents for fields.
+package = Input filters
+core = 7.x
+
+;-> Reworked version from this thread:
+;   http://drupal.org/node/1424896
+; Information added by Drupal.org packaging script on 2015-03-19
+version = "7.x-2.x-dev"
+core = "7.x"
+project = "tableofcontents"
+datestamp = "1426794784"
+

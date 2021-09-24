@@ -1,0 +1,3 @@
+This file must be present !
+If not, the folder "gofast_graphic_config_switchSSL_exec" can not exit in GIT
+It must be present for the process of switch SSL for the community

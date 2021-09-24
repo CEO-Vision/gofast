@@ -1,0 +1,110 @@
+<?php
+
+function gofast_calendar_enable() {
+  $gofast_og_weight = db_select('system')
+          ->fields('system', array('weight'))
+          ->condition('name', 'gofast_og', '=')
+          ->execute()
+          ->fetchField();
+
+  db_update('system')
+          ->fields(array('weight' => $gofast_og_weight + 1))
+          ->condition('name', 'gofast_calendar')
+          ->execute();
+
+}
+
+function gofast_calendar_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id === 'article_node_form' || $form_id === 'conference_node_form') {
+    $queryStrings = drupal_get_query_parameters();
+    if (!empty($queryStrings) && isset($queryStrings['deadline'])) {
+      $form['field_date'][LANGUAGE_NONE][0]['#default_value']['value'] = $queryStrings['deadline']." 09:00";
+      $form['field_end_date'][LANGUAGE_NONE][0]['#default_value']['value'] = $queryStrings['deadline']." 10:00";
+    }
+    if (!empty($queryStrings) && isset($queryStrings['gid'])) {
+        //print_r("<pre>");print_r($form["field_existing_participants"][LANGUAGE_NONE][0]["target_id"]['#default_value']);exit;
+      //$form["field_existing_participants"][LANGUAGE_NONE][0]["target_id"]['#default_value'] = $queryStrings['gid'];
+      // $form[GOFAST_OG_CONTENT_MEMBERSHIP_FIELD][LANGUAGE_NONE][0]['default']['#default_value'] = $queryStrings['gid'];
+      // print_r("<pre>");print_r($form[GOFAST_OG_CONTENT_MEMBERSHIP_FIELD][LANGUAGE_NONE][0]['default']);exit;
+    }
+  }
+}
+
+/*
+ * Implements hook_views_pre_view
+ * Alter the calendar query to make it able to add the subspaces events in the calendar
+ */
+function gofast_calendar_views_query_alter(&$view, &$query){
+  switch($view->name){
+    case 'calendar':
+      global $user;
+      //We retrieve the filters of the query
+      $filters = $view->args;
+      if(gofast_og_is_user_private_space(node_load($filters[1])) || $view->current_display == "page_4"){
+        //This is a private space, we retrieve the user spaces
+        $subspaces = array_keys(gofast_og_get_user_visible_spaces($user));
+      }
+      else{
+        //This is a space, we retrieve the space childrens and fetch into them, verifying rights
+        $subspaces = gofast_og_get_children($filters[1], TRUE, FALSE, TRUE);
+        foreach($subspaces as $k => $gid){
+          if(og_get_membership('node', $gid, 'user', $user->uid) == FALSE){ //Check membership
+            unset($subspaces[$k]);
+          }
+        }
+      }
+
+      $subspaces[] = $filters[1];
+      $subspaces = array_values($subspaces);
+      $query->where[2]['conditions'][1]['field'] = "og_membership.gid";
+      $query->where[2]['conditions'][1]['operator'] = "IN";
+      $query->where[2]['conditions'][1]['value'] = $subspaces;
+
+      //report period filter on subconditions
+      $query->where[2]['conditions'][] = $query->where['date']['conditions'][0];
+
+      unset($query->where[0]);
+    case 'upcoming':
+        if($view->current_display == "upcoming_meetings"){
+            global $user;
+            $current_user = user_load($user->uid);
+            $pid = $current_user->og_private[LANGUAGE_NONE][0]['target_id'];
+
+            $query->where[1]['conditions'][3]['field'] = "og_membership.gid";
+            $query->where[1]['conditions'][3]['operator'] = "IN";
+            $query->where[1]['conditions'][3]['value'] = array($pid);
+        }
+    break;
+  }
+}
+
+/*
+ * Implements hook_views_pre_render
+ * Alter the calendar data to format the date
+ */
+function gofast_calendar_views_post_execute(&$view){
+  if($view->name === "calendar"){
+    foreach($view->result as $k => $result){
+      global $user;
+      $node_type = $view->result[$k]->_field_data["nid"]["entity"]->type;
+      if($node_type == "conference"){
+            $old_date = $view->result[$k]->field_field_date[0]['raw']['value'];
+            $new_date = format_date(strtotime(gofast_change_time_zone($old_date, 'UTC', $user->timezone)), "short");
+            $old_end_date = $view->result[$k]->_field_data["nid"]["entity"]->field_end_date[LANGUAGE_NONE][0]['value'];
+            $new_end_date = format_date(strtotime(gofast_change_time_zone($old_end_date, 'UTC', $user->timezone)), "short");
+            $view->result[$k]->field_field_date[0]['rendered']['#markup'] = "<span class='date-display-single' property='dc:date' datatype='xsd:dateTime'>".$new_date."  < > ".$new_end_date."</span>";
+      }else{
+           $date_format = $user->language === 'fr' ? 'd/m/Y H:i' :  'm/d/Y h:i';
+           $new_date = date($date_format, strtotime($view->result[$k]->field_field_date[0]['raw']['value']));
+           $view->result[$k]->field_field_date[0]['rendered']['#markup'] = "<span class='date-display-single' property='dc:date' datatype='xsd:dateTime'>".$new_date."</span>";
+      }
+    }
+  }
+}
+// Add a css to fix the width of cell calendar
+drupal_add_css(drupal_get_path('module', 'gofast_calendar') . "/css/gofast_calendar.css");
+drupal_add_css(drupal_get_path('module', 'gofast_calendar') . "/css/calendar_multiday.css");
+
+function gofast_calendar_init(){
+  drupal_add_js(drupal_get_path('module', 'gofast_calendar') . "/js/gofast_calendar.js");
+}

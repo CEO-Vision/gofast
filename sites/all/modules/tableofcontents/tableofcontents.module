@@ -1,0 +1,338 @@
+<?php
+/**
+ * @file
+ * This is a filter module to generate a collapsible jquery enabled mediawiki
+ * style table of contents based on <h[1-6]> tags. Transforms header tags into
+ * named anchors.
+ *
+ * It is a complete rewrite of the original non-jquery enabled tableofcontents
+ * filter module as follows:
+ *   +added jquery to make ToC collapsible
+ *   +preserves attributes on the header tags
+ *   +checks for existing ID on headers and uses that if found (if none,
+ *    creates one)
+ *   +extends the minimum header level to 1
+ *   +header conversion is case insensitive
+ *   +made the regex match for options on the <!--tableofcontents-->
+ *    marker tolerant of spaces
+ *   +replaced the comment with [tag ...]
+ *   +added a more explanatory error message for invalid options & concatenated
+ *    it into one string to prevent duplicates from being displayed
+ *   +added several divs to make ToC themable via CSS
+ *   +provided basic CSS
+ */
+
+define('TABLEOFCONTENTS_REMOVE_PATTERN', '/(?:<p(?:\s[^>]*)?'.'>)?\[toc(?:\s[^]]*?)?\](?:<\/p\s*>)?/');
+define('TABLEOFCONTENTS_ALLOWED_TAGS', '<em> <i> <strong> <b> <u> <del> <ins> <sub> <sup> <cite> <strike> <s> <tt> <span> <font> <abbr> <acronym> <dfn> <q> <bdo> <big> <small>');
+
+/**
+ * Implementation of hook_help().
+ */
+function tableofcontents_help($section) {
+  switch ($section) {
+    case 'admin/modules#description':
+      return t('A module to create a table of contents based on HTML header tags. Changes headers to anchors for processing so it may be incompatible with other filters that process header tags. It does use existing IDs on the header tags if already present and only operates on header levels 1 - 6.');
+  }
+}
+
+/**
+ * Implements hook_filter_info().
+ */
+function tableofcontents_filter_info() {
+  module_load_include('filters.inc', 'tableofcontents');
+  return _tableofcontents_filter_info();
+}
+
+/**
+ * Implements hook_filter_FILTER_prepare(). (sort of)
+ */
+function tableofcontents_filter_prepare($text, $filter, $format, $langcode, $cache, $cache_id) {
+  module_load_include('filter.inc', 'tableofcontents');
+  return _tableofcontents_filter_prepare($text, $filter, $format, $langcode, $cache, $cache_id);
+}
+
+/**
+ * Implements hook_filter_FILTER_process(). (sort of)
+ */
+function tableofcontents_filter_process($text, $filter, $format, $langcode, $cache, $cache_id) {
+  module_load_include('filter.inc', 'tableofcontents');
+  return _tableofcontents_filter_process($text, $filter, $format, $langcode, $cache, $cache_id);
+}
+
+/**
+ * Implements hook_filter_FILTER_tips(). (sort of)
+ */
+function tableofcontents_tips($filter, $format, $long) {
+  module_load_include('filter.inc', 'tableofcontents');
+  return _tableofcontents_tips($filter, $format, $long);
+}
+
+/**
+ * Return the form used for the filter settings.
+ *
+ * @param $format_array The currently selected input $format_array.
+ */
+function tableofcontents_filter_settings($format_array) {
+  module_load_include('admin.inc', 'tableofcontents');
+  return _tableofcontents_filter_settings($format_array);
+}
+
+function tableofcontents_filter_settings_submit($form, &$form_state) {
+  module_load_include('admin.inc', 'tableofcontents');
+  return _tableofcontents_filter_settings_submit($form, $form_state);
+}
+
+/**
+ * Implementation of hook_field_attach_view_alter(&$output, $context)
+ */
+function tableofcontents_field_attach_view_alter(&$output, $context) {
+  foreach ($output as $value) {
+    // Find out if we're processing this 'field' : text_with_summary for  body , text_long for comments
+    if ( isset($value['#field_type']) && (strpos($value['#field_type'], 'text')!==FALSE) )  {
+      $field_name = $value['#field_name'];
+      if ($context['view_mode']=='full') {
+        $entity_type = $context['entity_type'];
+        list($id, $vid, $bundle) = entity_extract_ids($entity_type, $context['entity']);
+        $text = $original = $output{$field_name}[0]['#markup'];
+        // Apply some tests to see if we're putting a [toc] on this page
+        if (_tableofcontents_apply_toc($text, $entity_type, $bundle)) {
+          // Process the headers on this page (we have to do this)
+          module_load_include('inc', 'tableofcontents');
+          $toc =& tableofcontents_toc();
+          $text = _tableofcontents_headers($text);
+          // Check to see if we have a cached copy of the [toc]
+          if (!($html = tableofcontents_cache_get($entity_type, $bundle, $vid, $field_name, $text))) {
+            // We haven't. So produce the [toc] fully rendered
+            $html =  theme('tableofcontents_toc', array('toc' => $toc));
+            tableofcontents_cache_set($entity_type, $bundle, $vid, $field_name, $text, $html);
+          }
+          // Insert the rendered [toc] in the right place.
+          if ($toc['on_off']['automatic']!=3) {
+            // Automatic "3" means don't put it on the page (it may go into a block).
+            $output{$field_name}[0]['#markup'] = preg_replace(TABLEOFCONTENTS_REMOVE_PATTERN, $html, $text);
+          }
+
+          // Add the styling and controls
+          $settings = array('tableofcontents' => array(
+            'collapse' => !!$toc['box']['collapsed'],
+            'scroll' => !!$toc['back_to_top']['scroll'],
+          ));
+          drupal_add_js($settings, 'setting');
+          $path = drupal_get_path('module', 'tableofcontents');
+          if (!empty($toc['back_to_top']['scroll'])) {
+            drupal_add_js($path . '/js/jquery.scrollTo-min.js');
+            drupal_add_js($path . '/js/jquery.localscroll-min.js');
+          }
+          drupal_add_js($path . '/js/tableofcontents.js');
+          drupal_add_css($path . '/tableofcontents.css');
+        }
+      }
+      // Remove any leftover [toc]
+      $output{$field_name}[0]['#markup'] = preg_replace(TABLEOFCONTENTS_REMOVE_PATTERN, '', $output{$field_name}[0]['#markup']);
+      if (strpos($output{$field_name}[0]['#markup'], '[toc')!==FALSE) {
+        $output{$field_name}[0]['#markup'] = preg_replace(TABLEOFCONTENTS_REMOVE_PATTERN, '', $output{$field_name}[0]['#markup'] . ']');
+      }
+    }
+  }
+}
+
+function _tableofcontents_apply_toc($text, $entity_type, $bundle) {
+  // There's no [toc] in this field, skip it.
+  if (strpos($text, '[toc')===FALSE) {
+    return FALSE;
+  }
+  // We're not touching this type of entity/bundle
+  if (!variable_get("tableofcontents_{$entity_type}_{$bundle}", TRUE)) {
+    return FALSE;
+  }
+  // Okay let's take a look at the settings
+  $toc = _tableofcontents_toc_extract($text);
+  if ($toc['on_off']['hide']) {
+    // we're not displaying anything for this field anyway at present
+    return FALSE;
+  }
+  // Set the [toc] globally
+  tableofcontents_toc($toc);
+  return TRUE;
+}
+
+/**
+ * Extract a [toc] encoding from the text
+ */
+function _tableofcontents_toc_extract($text) {
+  $matches = array();
+  if (!preg_match('%\[toc ([^\]]*)\]%', $text, $matches)) {
+    return array();
+  }
+  $new_toc = array();
+  foreach (explode(' ', $matches[1]) as $part) {
+    $tmp =& $new_toc;
+    while ($part) {
+      if (strpos($part, '::')===FALSE) {
+        list($k, $v) = explode('=', $part);
+        $tmp[$k] = urldecode($v);
+        break;
+      }
+      else {
+        list($k, $part) = explode('::', $part, 2);
+        if (!isset($tmp[$k])) {
+          $tmp[$k] = array();
+        }
+        $tmp =& $tmp[$k];
+      }
+    }
+  }
+  return $new_toc;
+}
+
+/**
+ * TOC cache management
+ */
+function tableofcontents_cache_get($entity_type, $bundle, $vid, $field, $raw) {
+  $cid = tableofcontents_cache_key($entity_type, $bundle, $vid, $field, $raw);
+  if ($cached = cache_get($cid, 'cache_tableofcontents')) {
+    return $cached->data;
+  }
+  // We didn't find it, so the text may have changed,
+  // remove any other version that may exist
+  list($cid, ) = explode(':', $cid);
+  db_delete('cache_tableofcontents')->condition('cid', "$cid%", 'LIKE')->execute();
+  return FALSE;
+}
+
+function tableofcontents_cache_set($entity_type, $bundle, $vid, $field, $raw, $html) {
+  $cid = tableofcontents_cache_key($entity_type, $bundle, $vid, $field, $raw);
+  cache_set($cid, $html, 'cache_tableofcontents');
+}
+
+function tableofcontents_cache_key($entity_type, $bundle, $vid, $field, $raw) {
+  return md5("$entity_type-$bundle-$vid-$field") . md5($raw);
+}
+
+/**
+ * Add a field in nodes so one can mark the node as using a TOC without
+ * the need for the [toc] tag.
+ */
+function tableofcontents_form_alter(&$form, $form_state, $form_id) {
+  if (!$form_state['submitted']) {
+    if (substr($form_id, -10) == '_node_form' && isset($form['nid'])) {
+      module_load_include('admin.inc', 'tableofcontents');
+      _tableofcontents_node_form_alter($form);
+    }
+    elseif ($form_id == 'node_type_form') {
+      module_load_include('admin.inc', 'tableofcontents');
+      _tableofcontents_nodetype_form_alter($form);
+    }
+    elseif ($form_id == 'filter_admin_format_form') {
+      $form['#submit'][] = 'tableofcontents_filter_settings_submit';
+    }
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function tableofcontents_theme() {
+  return array(
+    'tableofcontents_toc' => array(
+      'render element' => 'toc',
+      'variables' => array(
+        'toc' => array(),
+      ),
+      'file' => 'tableofcontents.themes.inc',
+    ),
+    'tableofcontents_toc_text' => array(
+      'render element' => 'toc',
+      'arguments' => array(
+        'toc' => array(),
+        'output' => '',
+      ),
+      'file' => 'tableofcontents.themes.inc',
+    ),
+    'tableofcontents_back_to_top' => array(
+      'render element' => 'toc',
+      'variables' => array(
+        'toc' => array(),
+      ),
+      'file' => 'tableofcontents.themes.inc',
+    ),
+    'tableofcontents_number' => array(
+      'render element' => 'toc',
+      'variables' => array(
+        'toc' => array(),
+      ),
+      'file' => 'tableofcontents.themes.inc',
+    ),
+    'tableofcontents_number_text' => array(
+      'render element' => 'text',
+      'arguments' => array(
+        'text' => '',
+      ),
+      'file' => 'tableofcontents.themes.inc',
+    ),
+  );
+}
+
+/**
+ * Returns a static TOC variable for fast loading
+ */
+function &tableofcontents_toc($toc = NULL) {
+  static $drupal_static_fast;
+  if (!isset($drupal_static_fast)) {
+    $drupal_static_fast[__FUNCTION__] = &drupal_static(__FUNCTION__);
+  }
+  if (is_array($toc)) {
+    $drupal_static_fast[__FUNCTION__] = $toc;
+  }
+  return $drupal_static_fast[__FUNCTION__];
+}
+
+/**
+ * Developer function to apply TOC to any text
+ * $body has two assumptions for this function to work
+ * 1. It must have [toc] located somewhere in the text
+ * 2. It has already been processed by an input filter with toc enabled
+ */
+function _tableofcontents_process_text(&$body) {
+  // store body text in a temp variable for comparison
+  $text = $body;
+  // locate the toc settings in the text
+  $toc = _tableofcontents_toc_extract($text);
+  // Set the [toc] globally
+  tableofcontents_toc($toc);
+  // Process the headers on this page (we have to do this)
+  module_load_include('inc', 'tableofcontents');
+  // load the global toc instance
+  $toc =& tableofcontents_toc();
+  // add the headers
+  $text = _tableofcontents_headers($text);
+  // theme the toc output
+  $html =  theme('tableofcontents_toc', array('toc' => $toc));
+  // Insert the rendered [toc] in the right place.
+  if ($toc['on_off']['automatic']!=3) {
+    // Automatic "3" means don't put it on the page (it may go into a block).
+    $body = preg_replace(TABLEOFCONTENTS_REMOVE_PATTERN, $html, $text);
+  }
+  // Add the styling and controls
+  $settings = array('tableofcontents' => array(
+    'collapse' => !!$toc['box']['collapsed'],
+    'scroll' => !!$toc['back_to_top']['scroll'],
+  ));
+  // append settings to the page
+  drupal_add_js($settings, 'setting');
+  // add correct js libraries based on settings
+  $path = drupal_get_path('module', 'tableofcontents');
+  if (!empty($toc['back_to_top']['scroll'])) {
+    drupal_add_js($path . '/js/jquery.scrollTo-min.js');
+    drupal_add_js($path . '/js/jquery.localscroll-min.js');
+  }
+  drupal_add_js($path . '/js/tableofcontents.js');
+  drupal_add_css($path . '/tableofcontents.css');
+  // Remove any leftover [toc]
+  $body = preg_replace(TABLEOFCONTENTS_REMOVE_PATTERN, '', $body);
+  if (strpos($body, '[toc')!==FALSE) {
+    $body = preg_replace(TABLEOFCONTENTS_REMOVE_PATTERN, '', $body . ']');
+  }
+  // append the back to top link at the bottom of the page
+  $body .= theme('tableofcontents_back_to_top', array('toc' => $toc));
+}

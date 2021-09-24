@@ -1,0 +1,881 @@
+<?php
+
+/**
+ * Implements hook_init
+ */
+function gofast_menu_init()
+{
+  //Define context for blocks of the menu
+  if (module_exists('gofast_privatemsg')) {
+    gofast_menu_set_context();
+  }
+  $lib = 'sites/all/libraries';
+  drupal_add_css($lib . '/smartmenus-1.1.0/addons/bootstrap/jquery.smartmenus.bootstrap.css');
+  drupal_add_js($lib . '/smartmenus-1.1.0/jquery.smartmenus.js');
+  drupal_add_js($lib . '/smartmenus-1.1.0/addons/bootstrap/jquery.smartmenus.bootstrap.js');
+}
+
+function gofast_menu_enable()
+{
+  $gofast_privatemsg_weight = db_select('system')
+    ->fields('system', array('weight'))
+    ->condition('name', 'gofast_privatemsg', '=')
+    ->execute()
+    ->fetchField();
+
+  db_update('system')
+    ->fields(array('weight' => $gofast_privatemsg_weight + 1))
+    ->condition('name', 'gofast_menu')
+    ->execute();
+}
+
+function gofast_menu_preprocess_page(&$variables)
+{
+  ctools_add_js('ajax-responder');
+  $path = drupal_get_path('module', 'gofast');
+  drupal_add_js($path . '/gofast_menu/gofast_menu.js');
+}
+
+/**
+ * Implements hook_block_info
+ */
+function gofast_menu_block_info()
+{
+  $blocks['gofast_menu_icons'] = array(
+    'info' => t('Icons in top menu', array(), array('context' => 'gofast')),
+    'cache' => DRUPAL_CACHE_GLOBAL,
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_info
+ */
+function gofast_menu_block_view($delta = '')
+{
+  $block = array();
+  switch ($delta) {
+    case 'gofast_menu_icons':
+      $block['subject'] = '';
+
+      if (gofast_mobile_is_mobile_domain()) {
+        $content = gofast_menu_mobile_get_html_icons_menu();
+      } else {
+        $content = gofast_menu_get_html_icons_menu();
+      }
+
+      $block['content'] = $content;
+      break;
+    case 'gofast_custom_test':
+      $block['subject'] = 'test block';
+      $block['content']['#markup'] = '<p class="test">Ceci est un contenu</p>';
+      $block['content']['#attached']['css'][] = '.test{color:red;}';
+      break;
+  }
+  return $block;
+}
+
+function gofast_menu_get_html_icons_menu()
+{
+  $unread_notifications_count = json_decode(gofast_menu_get_unread_notifications())->count;
+  $unread_messages_count = json_decode(gofast_menu_get_unread_messages())->count;
+  $unread_workflows_count = json_decode(gofast_menu_get_unread_workflows())->count;
+
+  $return = '<div class="visible-lg gofast-blocks-wrapper">
+
+    <!-- gofast_view-view_name-display_id -->
+    <!-- gofast_menu_magical_menu function -->
+    <!-- gofast_block_delta-gofast_workflows-gofast_workflows_light_dashboard -->
+              <div class="gofast-block block-workflow" id="gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows" data-pinned="false" data-unread="' . $unread_workflows_count . '">
+                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
+                  <i class="fa fa-cogs fa-2x"></i>
+                  <span class="updated-workflow unread_count badge badge-notify-menu badge-notify">0</span>
+                  <div class="gofast-block-outer" >
+                      <div class="pointeur"></div>
+                      <div class="gofast-block-inner">
+                          <!-- workflow_bloc view -->
+                          <div style="text-align: center;">
+                            <div class="loader-blog"></div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              <div class="gofast-block block-privatemsg" block_title="Internal Private Message" id="gofast_view-gofast_private_msg-gofast_inbox" data-pinned="false" data-unread="' . $unread_messages_count . '">
+                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
+                  <i class="fa fa-envelope-o fa-2x"></i>
+                  <span id="unread_pm_count" class="unread_messages unread_count badge badge-notify badge-notify-menu">0</span>
+                  <div class="gofast-block-outer" >
+                      <div class="pointeur"></div>
+                      <div id="gofast_pm_block" class="gofast-block-inner">
+                          <!-- privatemsg-privatemsg_bloc view -->
+                          <div style="text-align: center;">
+                            <div class="loader-blog"></div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              <div class="gofast-block block-notifications" id="gofast_view-gofast_private_msg-gofast_notifications" data-pinned="false" data-unread="' . $unread_notifications_count . '">
+                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
+                  <i class="fa fa-flag-o fa-2x" ></i>
+                  <span class="unread_notifications unread_count badge badge-notify">0</span>
+                  <div class="gofast-block-outer">
+                      <div class="pointeur"></div>
+                      <div class="gofast-block-inner">
+                          <!-- privatemsg-privatemsg_bloc_notifications view -->
+                          <div style="text-align: center;">
+                            <div class="loader-blog"></div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              <div class="gofast-block block-feeds" id="gofast_view-gofast_aggregator-gofast_aggregator" data-pinned="false">
+                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
+                  <i class="fa fa-rss-square fa-2x"></i>
+                  <div class="gofast-block-outer">
+                      <div class="pointeur"></div>
+                      <div class="gofast-block-inner">
+                          <!-- aggregator module block view (category-1) -->
+                          <div style="text-align: center;">
+                            <div class="loader-blog"></div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              <div class="gofast-block block-bookmarks" id="gofast_view-gofast_flag_bookmarks-gofast_flag_bookmarks" data-pinned="false">
+                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
+                  <i class="fa fa-star-o fa-2x"></i>
+                  <div class="gofast-block-outer">
+                    <!-- tab headers -->
+                    <ul class="nav nav-tabs" >
+                      <li id="contentFavoritesTab" class="active" onclick="Gofast.Display_ContentFolders(event);">
+                        <a class="bookmarksTab">
+                          <tab-heading translate="" ><span onclick="Gofast.Display_ContentFolders(event);">'  . t("Favorites content", array(), array("gofast")) . '</span></tab-heading>
+                        </a>
+                      </li>
+                      <li id="foldersFavoritesTab" class="" onclick="Gofast.Display_FavoritesFolders(event);">
+                        <a class="bookmarksTab">
+                          <tab-heading translate=""><span onclick="Gofast.Display_FavoritesFolders(event);">' .  t("Favorites folders", array(), array("gofast")) . '</span></tab-heading>
+                        </a>
+                      </li>
+                    </ul>
+                      <div class="pointeur"></div>
+                      <div class="gofast-block-inner">
+                          <!-- flag_bookmarks-block_1 view -->
+                          <div style="text-align: center;">
+                            <div class="loader-blog"></div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>';
+
+  return $return;
+}
+
+function gofast_menu_mobile_get_html_icons_menu()
+{
+  $unread_messages_count = json_decode(gofast_menu_get_unread_messages())->count;
+  $unread_workflows_count = json_decode(gofast_menu_get_unread_workflows())->count;
+
+  $return = '<div class="visible-lg gofast-blocks-wrapper">
+
+    <!-- gofast_view-view_name-display_id -->
+    <!-- gofast_menu_magical_menu function -->
+    <!-- gofast_block_delta-gofast_workflows-gofast_workflows_light_dashboard -->
+              <div class="gofast-block block-workflow" id="gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows" data-pinned="false" data-unread="' . $unread_workflows_count . '">
+                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
+                  <i class="fa fa-cogs fa-2x"></i>
+                  <span class="updated-workflow unread_count badge badge-notify-menu badge-notify">0</span>
+                  <div class="gofast-block-outer" >
+                      <div class="pointeur"></div>
+                      <div class="gofast-block-inner">
+                          <!-- workflow_bloc view -->
+                          <div style="text-align: center;">
+                            <div class="loader-blog"></div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              <div class="gofast-block block-privatemsg" block_title="Internal Private Message" id="gofast_view-gofast_private_msg-gofast_inbox" data-pinned="false" data-unread="' . $unread_messages_count . '">
+                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
+                  <i class="fa fa-envelope-o fa-2x"></i>
+                  <span id="unread_pm_count" class="unread_messages unread_count badge badge-notify badge-notify-menu">0</span>
+                  <div class="gofast-block-outer" >
+                      <div class="pointeur"></div>
+                      <div id="gofast_pm_block" class="gofast-block-inner">
+                          <!-- privatemsg-privatemsg_bloc view -->
+                          <div style="text-align: center;">
+                            <div class="loader-blog"></div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              <div class="gofast-block block-bookmarks" id="gofast_view-gofast_flag_bookmarks-gofast_flag_bookmarks" data-pinned="false">
+                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
+                  <i class="fa fa-star-o fa-2x"></i>
+                  <div class="gofast-block-outer">
+                    <!-- tab headers -->
+                    <ul class="nav nav-tabs" >
+                      <li id="contentFavoritesTab" class="active" onclick="Gofast.Display_ContentFolders(event);">
+                        <a class="bookmarksTab">
+                          <tab-heading translate="" ><span onclick="Gofast.Display_ContentFolders(event);">'  . t("Favorites content", array(), array("gofast")) . '</span></tab-heading>
+                        </a>
+                      </li>
+                      <li id="foldersFavoritesTab" class="" onclick="Gofast.Display_FavoritesFolders(event);">
+                        <a class="bookmarksTab">
+                          <tab-heading translate=""><span onclick="Gofast.Display_FavoritesFolders(event);">' .  t("Favorites folders", array(), array("gofast")) . '</span></tab-heading>
+                        </a>
+                      </li>
+                    </ul>
+                      <div class="pointeur"></div>
+                      <div class="gofast-block-inner">
+                          <!-- flag_bookmarks-block_1 view -->
+                          <div style="text-align: center;">
+                            <div class="loader-blog"></div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+                <div class="gofast-block block-recently-read" id="block-views-gofast-recently-read-block" data-pinned="false">
+                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
+                  <i class="fa fa-eye fa-2x"></i>
+                  <div class="gofast-block-outer">
+                    <h2 class="block-title block-recently-read-title">' . t("Recently Read") . '</h2>
+                    <div style="text-align:center;">
+                        <div id="recently-read-actions-loading" class="recenlty-read-actions-loading loader-actions not-processed" style="width:50px;height:50px;display:none;"></div>
+                    </div>
+                  </div>
+                </div>';
+
+
+  return $return;
+}
+
+function gofast_menu_magical_menu(){
+    global $user;
+    $path_exist = 0;
+    $block = module_invoke_all('menu');
+    if (count($block['dashboard']) != NULL){
+        $path_exist = 1;
+        $frontpage = variable_get('site_frontpage');
+    }
+
+    $block_recenlty_read = module_invoke('views', 'block_view', 'gofast_recently_read-block');
+    $block_recenlty_read_content = $block_recenlty_read['content'];
+
+    if (gofast_user_has_role('administrator',$user) == 1){
+        $is_admin = true;
+    }
+
+    $content = '<div id="dropdown-menu-page" class="gofast-magical-menu">
+                  <i class="fa fa-2x fa-bars dropbtn"></i>
+                  <ul class="dropdown-menu dropdown-content" style="margin:0px !important;">
+                      <li>
+                          <a class="dropdown-item" href="/activity">'. t('Activity feed') . '</a>
+                      </li>';
+    if ($path_exist){
+    $content .=
+                     '<li>
+                      <a class="dropdown-item" href="/dashboard">'. t('Dashboard') . '</a>
+                      </li>';
+    }
+    $content .=
+                     '<li>
+                      <a class="dropdown-item" href="/workflow/dashboard">'. t('Workflows dashboard', array(), array('gofast:gofast_workflows')) . '</a>
+                      </li>';
+    $content .=
+                     '<li>
+                      <a class="dropdown-item" href="/conversation">'. t('Chat') . '</a>
+                      </li>';
+    $content .=
+                      '<li>
+                        <a class="dropdown-item" href="http://community.ceo-vision.com" target="_blank"> ' .  t("Forum", array(), array("context" => "gofast")) . '</a>
+                      </li>';
+    $content .=
+                     '<li role="separator" class="divider"></li>
+                      <li class="dropdown-submenu" id="recenlty_read_dropdown">
+                        <a href="#" id="async_recently_read">'. t('Last recently read') . '<span class="fa fa-caret-right" aria-hidden="true" style="position:absolute; right:5px; margin-top:2px;"></span></a>
+                        <ul class="dropdown-menu">
+                            <div id="block-views-gofast-recently-read-block">
+                                  <h2>
+                                      '. t('Recently Read') .
+                                 '</h2>
+				 <div style="text-align:center;"><div id="recently-read-actions-loading" class="recenlty-read-actions-loading loader-actions not-processed" style="width:50px;height:50px;display:none;"></div></div>
+                            </div>
+                        </ul>
+                      </li>';
+    
+    foreach (module_implements('override_magical_menu') as $module) {
+          $process_results_callback .= $module . '_override_magical_menu'; 
+          $content .= $process_results_callback($content);
+    }
+    
+    if ($is_admin){
+    $content .=
+                      '<li role="separator" class="divider"></li>
+		       <li class="dropdown-submenu" id="admin_options_dropdown">
+			    <a href="#" id="admin_options">'. t('Administration') . '<span class="fa fa-caret-right" aria-hidden="true" style="position:absolute; right:5px; margin-top:2px;"></span></a>
+			<ul class="dropdown-menu">
+			    <li>
+				<a href="/admin/config/gofast/global" title="">' . t('GoFAST Configuration') . '</a>
+			    </li>
+			    <li>
+				<a href="/admin/config/gofast/ldap/manage" title="">' . t('Import Users From LDAP') . '</a>
+			    </li>
+			    <li>
+				<a href="/gofast_audit" title="">' . t('Audit') . '</a>
+			    </li>
+			    <li>
+				<a href="/gofast_stats/dashboard" title="">' . t('Statistics') . '</a>
+			    </li>
+			</ul>
+			</li>';
+    }
+    $content .=   '</ul>
+                </div>';
+
+        return $content;
+}
+
+function gofast_menu_mobile_magical_menu()
+{
+  global $user;
+  $path_exist = 0;
+  $block = module_invoke_all('menu');
+  if (count($block['dashboard']) != NULL) {
+    $path_exist = 1;
+    $frontpage = variable_get('site_frontpage');
+  }
+
+  $block_recenlty_read = module_invoke('views', 'block_view', 'gofast_recently_read-block');
+  $block_recenlty_read_content = $block_recenlty_read['content'];
+
+  if (gofast_user_has_role('administrator', $user) == 1) {
+    $is_admin = true;
+  }
+  return theme('gofast_menu_mobile_magical_menu', array('is_admin' => $is_admin));
+}
+
+
+/**
+ * Implements hook_menu().
+ */
+function gofast_menu_menu()
+{
+  $items = array();
+
+  $items['gofast_get_block'] = array(
+    'title' => 'debug',
+    'description' => 'debug',
+    'page callback' => 'gofast_get_block_menu',
+    'access arguments' => array('access content'),
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+
+  $items['messages/get_unread_count'] = array(
+    'page callback' => 'gofast_menu_get_unread_messages',
+    'access callback' => 'privatemsg_user_access',
+    'access arguments' => array("read privatemsg"),
+    'type' => MENU_CALLBACK,
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+
+  //Disabled until this is finished
+  /*$items['notifications/get_unread_count'] = array(
+        'page callback' => 'gofast_menu_get_unread_notifications',
+        'access callback' => TRUE,
+        'type' => MENU_CALLBACK,
+        'delivery callback' => 'gofast_ajax_delivery'
+    );*/
+
+  $items['workflows/get_unread_count'] = array(
+    'page callback' => 'gofast_menu_get_unread_workflows',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+
+  $items['gofast/menu/get'] = array(
+    'page callback' => 'gofast_menu_get_html_menu_from_gid',
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['gofast/last_recenlty_read'] = array(
+    'page callback' => 'gofast_menu_get_last_recenlty_read',
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['gofast/get/personnal_favorites'] = array(
+    'page callback' => 'gofast_menu_get_favorites',
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function gofast_menu_theme()
+{
+  $themes = array();
+  $themes = array(
+    'gofast_menu_magical_menu' => array(
+      'template'  => 'tpl/gofast-menu-magical-menu',
+      'arguments' => array(
+        'path_exist' => NULL,
+        'is_admin' => NULL
+      ),
+    ),
+    'gofast_menu_mobile_magical_menu' => array(
+      'template'  => 'tpl/gofast-menu-mobile-magical-menu',
+      'arguments' => array(
+        'is_admin' => NULL
+      ),
+    ),
+  );
+
+  return $themes;
+}
+
+
+function gofast_menu_get_html_menu_from_gid()
+{
+  $gid = $_GET["gid"];
+  if (!isset($gid)) {
+    return;
+  }
+
+  global $user;
+  $my_user = user_load($user->uid);
+  $all_groups_member = array();
+  foreach ($my_user->og_user_node[LANGUAGE_NONE] as $membership) {
+    $all_groups_member[$membership["target_id"]] = $membership["target_id"];
+  }
+
+  //get membership from user's userlists
+  $groups_by_user = gofast_userlist_og_get_groups_by_user($user, 'node');
+  foreach ($groups_by_user as $group_id) {
+    $all_groups_member[$group_id] = $group_id;
+  }
+
+  $children =  gofast_og_get_children($gid);
+  $output = "";
+  if (count($children) > 0) {
+
+    //alphabetic order
+    $children_sorted = array();
+    foreach ($children as $nid) {
+      $children_sorted[gofast_get_node_title($nid)] = $nid;
+    }
+    ksort($children_sorted);
+    foreach ($children_sorted as $name => $nid) {
+      if (!isset($all_groups_member[$nid])) {
+        continue;
+      } else {
+        $child_children =  gofast_og_get_children($nid);
+        $classe_li = "";
+        $class_a = "";
+        $caret = "";
+        $ul = "";
+
+        if (count($child_children) > 0 && count(array_intersect($child_children, $all_groups_member)) > 0) {
+          $classe_li .= "expanded";
+          $class_a .= "dropdown-toggle has-submenu";
+          $caret .= "<span class='fa fa-caret-right' aria-hidden='true' style='position:absolute; right:5px; margin-top:2px;'></span>";
+          $ul = "<ul class='dropdown-menu gofast_menu_async' id='main_menu_" . $nid . "' gid='" . $nid . "'></ul>";
+        }
+        $output .= "<li class='$classe_li'><a class='$class_a' href='/node/" . $nid . "'>" . $name . $caret . "</a></i>" . $ul . "</li>";
+      }
+    }
+  }
+
+
+  $output .= '<script>var $ = jQuery;
+              var $this = $(".navbar-nav");
+              $this.smartmenus({
+                subMenusSubOffsetX: 2,
+                subMenusSubOffsetY: -6,
+						})';
+  print $output;
+  exit;
+}
+
+/**
+ * This method fetch private messages for global (current) user
+ * @return int
+ */
+function gofast_menu_get_unread_messages()
+{
+  global $user;
+  $count = gofast_privatemsg_unread_count($user);
+  return json_encode(array('count' => $count));
+}
+
+/**
+ * This method fetch private messages for global (current) user
+ * @return int
+ */
+function gofast_menu_get_unread_notifications()
+{
+  global $user;
+  $count = 0;
+  return json_encode(array('count' => $count));
+}
+
+/**
+ * This method fetch private messages for global (current) user
+ * @return int
+ */
+function gofast_menu_get_unread_workflows()
+{
+  if (module_exists("gofast_workflows")) {
+    global $user;
+    $count = 0;
+    $_SESSION['bonita_init_load'] = true;
+
+    //Init workflow count context
+    gofast_poll_set_context('workflows', 'count', $count);
+  } else {
+    $count = 0;
+  }
+  return json_encode(array('count' => $count));
+}
+
+/**
+ * This method renders the menu blocks from view or block depending the case
+ */
+function gofast_get_block_menu()
+{
+  if (gofast_request_is_ajax()) {
+    $is_block = $_POST['isBloc'];
+    $block_delta = $_POST['isBlockDelta'];
+    $view_name = $_POST['viewName'];
+    $display_id = $_POST['displayID'] ? $_POST['displayID'] : 'default';
+    $subject = $_POST['subject'] ? t($_POST['subject']) : $view_name;
+    $path = $_POST['original_path'];
+    $query = isset($path['query']) && parse_url($path)['query'] ? '?' . parse_url($path)['query'] : '';
+    $_GET['q'] = '/' . $view_name . '/' . $display_id . $query;
+    $_REQUEST = $_POST = array();
+    $view = views_get_view($view_name, true);
+    $view_data = array();
+    if (!is_null($view)) {
+      $preview = $view->preview($display_id);
+      $view_data = array(
+        'view_dom_id:' . $view->dom_id => array(
+          'view_base_path' => $view->display[$display_id]->display_options['path'],
+          'view_display_id' => $display_id,
+          'view_dom_id' => $view->dom_id,
+          'view_name' => $view->name,
+          'view_path' => $view->display[$display_id]->display_options['path']
+        )
+      );
+    }
+
+
+    // This is for a block of a view
+    if ($is_block && $view_name && !$block_delta) {
+      $block = block_load('views', $view_name . '-' . $display_id);
+      //$block = block_load('views', $view_name);
+      $blockLoaded = _block_render_blocks(array($block));
+      $blockObject = $blockLoaded['views_' . $view_name . '-' . $display_id];
+      //$blockObject = $blockLoaded['views_' . $view_name];
+      // We add custom data to the blocks depending of delta
+      $blockObject->content['#markup'] .= appendCustomData($view_name);
+    } // A standard view as a page
+    elseif ($view_name && !$block_delta) {
+      $blockObject = new stdClass();
+
+      $blockObject->subject = $subject;
+      $blockObject->content['#markup'] = $preview;
+      // We add custom data to the blocks depending of delta
+      $blockObject->content['#markup'] .= appendCustomData($display_id);
+    } // A block
+    elseif ($is_block && $block_delta) {
+      $block = block_load($display_id, $view_name);
+      $blockLoaded = _block_render_blocks(array($block));
+      $blockObject = $blockLoaded[$display_id . "_" . $view_name];
+      // We add custom data to the blocks depending of delta
+      $blockObject->content['#markup'] .= appendCustomData($view_name);
+    }
+
+    $blockObject->module = 'gofast';
+    $blockObject->region = '';
+    $blockObject->delta = '';
+
+    $arrayBlock = _block_get_renderable_array(array($blockObject));
+    $output = drupal_render($arrayBlock);
+
+    return json_encode(array(
+      'output' => $output,
+      'view' => $view_data
+    ));
+  }
+}
+
+/**
+ * This method adds custom data to loaded blocks based on delta
+ * @param type $display_id the delta we load.
+ * @return string
+ */
+function appendCustomData($display_id)
+{
+  $output = '';
+  $path = drupal_get_path('module', 'gofast_views');
+  switch ($display_id) {
+      //Disabled until this is finished
+      /*case 'gofast_notifications':
+            $output .= '<script src="/' . $path . '/js/gofast_notifications_popup.js"></script>';
+            break;*/
+    case 'gofast_inbox':
+      $output .= '<a href="/gofast/nojs/messages/new" class="btn btn-info ctools-use-modal btn-sm ctools-modal-center" style=" top: 37px; left: 10px;" title="' . t('Compose') . '"><span class="glyphicon glyphicon-send" style="margin: 1px 8px 0 0;"></span>' . t('Compose', array(), array('context' => 'gofast')) . '</a>';
+      $output .= '<script src="/' . $path . '/js/gofast_inbox_popup.js"></script>';
+      break;
+    case 'bookmarks':
+      $output .= '<script src="/' . $path . '/js/gofast_mybookmarks_popup.js"></script>';
+      break;
+    case 'gofast_aggregator':
+      $output .= '<script src="/' . $path . '/js/gofast_headlines_popup.js"></script>';
+      break;
+  }
+  return $output;
+}
+
+/**
+ * Implements hook_poll_info()
+ *
+ * @return array
+ */
+function gofast_menu_poll_info()
+{
+  return array(
+    'private_messages' => array(
+      'label' => 'Private message',
+      'description' => 'Get and set new private messages',
+      'interval' => 5,
+      'context' => TRUE,
+      'selector' => '#gofast_pm_block'
+    ),
+    /*'workflows' => array(
+      'label' => 'Workflows',
+      'description' => 'Get and set new workflows',
+      'interval' => 10,
+      'context' => TRUE,
+      'selector' => NULL
+    )*/
+  );
+}
+
+/**
+ * Set context for menu's blocks
+ * @param $element
+ *  The element in the block.
+ * @param $key
+ *  The key for the block's element
+ * @param $value
+ *  The value to assign
+ *
+ * Without params, it will set context for all blocks
+ */
+function gofast_menu_set_context($element = FALSE, $key = NULL, $value = NULL)
+{
+  if (!$element) { //Initialize all values
+    $block_context = array(
+      'block_menu' => array(
+        'private_message' => array(
+          'unread_count' => json_decode(gofast_menu_get_unread_messages())->count
+        )
+      )
+    );
+  } else { //Set a value for a given association of element and key
+    $block_context = array(
+      'block_menu' => array(
+        $element => array(
+          $key => $value
+        )
+      )
+    );
+  }
+
+  gofast_set_context($block_context);
+}
+
+/**
+ * Implements hook_poll()
+ */
+function gofast_menu_poll($poll_name, $poll_info, $context)
+{
+  $commands = array();
+  drupal_static_reset('gofast_privatemsg_unread_count'); //To rebuild the static cache
+  $block_context = $context['block_menu']; //Block infos in global context
+
+  $pm_context = $block_context['private_message']; //Private message infos in block menu context
+
+  $pm_unread_count_context = $pm_context['unread_count']; //Count of unread PM in context
+  $pm_unread_count = json_decode(gofast_menu_get_unread_messages())->count; //Count of unread PM at this time
+
+  $isNewPM = ($pm_unread_count > 0 && $pm_unread_count > $pm_unread_count_context); //TODO: Read a new message + receive a new one in 1 poll interval will result in no action
+
+  if ($poll_name == 'private_messages' && $isNewPM) {
+    $display_id = 'gofast_inbox';
+    $blockObject = new stdClass();
+    $view = views_get_view('gofast_private_msg', true);
+    $blockObject->subject = t('Messages', array(), array('context' => 'gofast'));
+    $blockObject->content['#markup'] = $view->preview($display_id);
+    // We add custom data to the blocks depending of delta
+    $blockObject->content['#markup'] .= appendCustomData($display_id);
+    $blockObject->module = 'gofast';
+    $blockObject->region = '';
+    $blockObject->delta = '';
+    $arrayBlock = _block_get_renderable_array(array($blockObject));
+    $output = drupal_render($arrayBlock);
+    $commands[] = ajax_command_html($poll_info['selector'], $output);
+
+    $commands[] = ajax_command_html('#unread_pm_count', $pm_unread_count);
+    $commands[] = ajax_command_invoke('#unread_pm_count', 'css', array(array('visibility' => 'visible')));
+    $commands[] = gofast_command_toast_message(t('You just received a new private message !', array(), array('context' => 'gofast')));
+
+    global $user;
+    $threads_id = array_keys(gofast_privatemsg_get_unread_messages($user));
+
+    //privatemsg_operation_execute(privatemsg_privatemsg_thread_operations()['mark as unread'], $threads_id, $user);
+    foreach ($threads_id as $thread_id) {
+      $unread_count_for_thread = gofast_privatemsg_count_unread_message_for_thread($thread_id, $user);
+      $commands[] = ajax_command_replace('#is_new_' . $thread_id, '<span class="badge badge-notify" id="badge-message-' . $thread_id . '" style="visibility: visible;">' . $unread_count_for_thread . '</span><img id="msg-new-' . $thread_id . '" class="msg-new" src="/sites/all/themes/bootstrap-gofast/img/newMessage.gif" width="16px" height="16px" alt="edit" />');
+    }
+
+    gofast_menu_set_context('private_message', 'unread_count', $pm_unread_count);
+  }
+  return $commands;
+}
+
+function gofast_menu_form_views_exposed_form_alter(&$form, $form_state, $form_id)
+{
+  if ($form_id === 'views_exposed_form' && $form_state['view']->name === 'gofast_private_msg') {
+    $form['author_1']['#autocomplete_path'] = 'gofast_og_user_autocomplete';
+  }
+}
+
+
+function gofast_menu_rebuild_og_menu($node_type = null)
+{
+  usurp(1);
+  //todo take care of $node_type param
+
+  //first, remove all menu item corresponding to nodes
+  $main_menu_links = menu_load_links("main-menu");
+
+  foreach ($main_menu_links as $key => $item) {
+    if ($item["router_path"] == "node/%") {
+      menu_link_delete($item["mlid"]);
+    }
+  }
+
+
+  //get all group's nodes, from parents to children
+  module_load_include('inc', 'gofast_og', 'gofast_og.admin');
+  $roots = gofast_og_get_root_spaces(FALSE, TRUE);
+  foreach ($roots as $gid) {
+    $node = node_load($gid);
+    if (!isset($node->nid)) {
+      continue;
+    }
+    $root_plid =  gofast_get_mlid_by_uuid('5af2180e-ccd8-4953-8d32-8e2ecd7bb78b');
+    if (!isset($root_plid) || $root_plid == FALSE) {
+      $root_plid =  gofast_get_mlid_by_title('Spaces');
+    }
+
+    $options = array(
+      "node_type" => "group",
+      "alter" => 1,
+      "attributes" => array("title" => "")
+    );
+
+    $item = array(
+      'link_title' => $node->title,
+      'link_path' => 'node/' . $node->nid,
+      'menu_name' => 'main-menu',
+      'weight' => 0,
+      'plid' => $root_plid,
+      'has_children' => 1,
+      'expanded' => 1,
+      'options' => $options
+    );
+    menu_link_save($item);
+  }
+
+  //we add a fake item that represent the private space
+  $options = array(
+    "node_type" => "group",
+    "alter" => 1,
+    "attributes" => array("title" => "")
+  );
+
+  $item = array(
+    'link_title' => t("My Private Space"),
+    'link_path' => 'node/' . array_shift(array_values($roots)),
+    'menu_name' => 'main-menu',
+    'weight' => 0,
+    'plid' => $root_plid,
+    'has_children' => 1,
+    'expanded' => 1,
+    'options' => $options
+  );
+  menu_link_save($item);
+}
+
+/**
+ *
+ * Asynchronous function called by "Drupal.behaviors.async_last_recently_read_menu"
+ *
+ * @return recently read block
+ */
+function gofast_menu_get_last_recenlty_read()
+{
+  $block_recenlty_read = module_invoke('views', 'block_view', 'gofast_recently_read-block');
+  $block_recenlty_read_content = $block_recenlty_read['content'];
+  print render($block_recenlty_read_content);
+}
+
+/**
+ *
+ * Asynchronous function called by "Drupal.behaviors.async_last_recently_read_menu"
+ *
+ * @return recently read block
+ */
+function gofast_menu_get_favorites(){
+
+  $view = '<div class="block-bookmarks" id="gofast_view-gofast_flag_bookmarks-gofast_flag_bookmarks"><ul class="nav nav-tabs" >
+                <li id="contentFavoritesTab" class="active" onclick="Gofast.Display_ContentFolders(event);">
+                  <a class="bookmarksTab">
+                    <tab-heading translate="" ><span onclick="Gofast.Display_ContentFolders(event);">'  . t("Favorites content", array(), array("gofast")) . '</span></tab-heading>
+                  </a>
+                </li>
+                <li id="foldersFavoritesTab" class="" onclick="Gofast.Display_FavoritesFolders(event);">
+                  <a class="bookmarksTab">
+                    <tab-heading translate=""><span onclick="Gofast.Display_FavoritesFolders(event);">' .  t("Favorites folders", array(), array("gofast")) . '</span></tab-heading>
+                  </a>
+                </li>
+              </ul>
+              <div class="pointeur"></div>
+              <div class="gofast-block-inner">
+                <section></section>
+              </div>
+              </div></div>';
+  print render($view);
+}

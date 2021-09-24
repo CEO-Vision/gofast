@@ -1,0 +1,9 @@
+name = Gofast OnlyOffice
+description = "Gofast OnlyOffice."
+package = Gofast
+core = 7.x
+
+dependencies[] = gofast
+dependencies[] = gofast_cmis
+
+version = "7.x-3.10.0_r2"

@@ -1,0 +1,6 @@
+<webscript>
+  <shortname>Handles impersonation</shortname>
+  <description>Impersonate a user and return an Alfresco session ticket</description>
+  <url>/impersonate?username={name}</url>
+  <authentication>admin</authentication>
+</webscript>

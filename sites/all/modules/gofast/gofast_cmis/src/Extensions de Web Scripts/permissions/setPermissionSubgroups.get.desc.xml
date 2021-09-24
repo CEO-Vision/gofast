@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Set Permission</shortname>
+    <description>Set Permission using javascript API</description>
+    <url>/set/subfolder/permission/?nodeRef={nodeRef}&amp;unique_name={unique_name}&amp;node_type={node_type}</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

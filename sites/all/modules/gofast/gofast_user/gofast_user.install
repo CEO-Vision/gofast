@@ -1,0 +1,179 @@
+<?php
+
+
+/**
+ * Implements hook_install()
+ */
+function gofast_user_install() {
+  
+}
+
+/**
+ * Implements hook_schema().
+ */
+function gofast_user_schema(){
+  $schema = array();
+  
+  $schema['gofast_token'] = array(
+    'description' => 'Login tokens for API authentication',
+    'fields' => array(
+      'tid' => array(
+        'description' => 'Unique ID to identify the token',
+        'type' => 'serial',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'uid' => array(
+        'description' => 'References the user ID target {user}',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'token' => array(
+        'description' => 'The token (UUID)',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'timestamp' => array(
+        'description' => 'UNIX timestamp representing when the bookmark was created',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-size' => 11,
+      ),
+    ),
+    'primary key' => array('tid'),
+  );
+  return $schema;
+}
+
+/**
+ * Implements hook_update()
+ * GOFAST-3832 - GoFAST-3.1.0
+ * Added a new menu "Users Blocked"
+ */
+function gofast_user_update_7301(){
+  
+  //get parent menu_link 'Directories'
+  $parent_link_mlid = db_query("SELECT mlid from {menu_links} WHERE link_title=:link_title AND link_path=:link_path", array(':link_title' => 'Directories', ':link_path' => 'og/list_grid/directories'))->fetchField();
+  
+  $links = array(
+    'link_title' => 'Users Blocked',
+    'link_path' => 'user_blocked',
+    'router_path' => 'user_blocked',
+    'menu_name' => 'main-menu',
+    'plid' => $parent_link_mlid,
+    'weight' => 0,
+    'expanded' => 0,
+    'cutomized' => 1,
+    'uuid' => '51d841c2-cc80-4091-9c23-5815e870e6ac'
+  );
+  
+  // Look the table first if the data does exist
+  $exists_link = db_query("SELECT mlid from {menu_links} WHERE link_title=:link_title AND link_path=:link_path", array(':link_title' =>  $links['link_title'], ':link_path' => $links['link_path']))->fetchField();
+  // Save the record if the data does not exist
+  if (!$exists_link) {
+    menu_link_save($links);
+  }
+}
+
+/**
+ * Implements hook_update()
+ * GOFAST-4227 - GoFAST-3.3.1
+ * Fix the scores error.
+ */
+
+function gofast_user_update_7302(){
+    // SELECT uid, points,max_points FROM userpoints.
+    $users=db_select('userpoints', 'up')
+    ->fields('up',array('uid','points','max_points'))
+    ->execute()
+    ->fetchAll();
+
+    //UPDATE userpoints_total SET points=userpoints->points, max_points=userpoints->max_points WHERE uid=userpoints->uid
+    foreach($users as $user){
+        db_update('userpoints_total')
+        ->fields(array('points'=>$user->points))
+        ->condition('uid',$user->uid, '=')
+        ->execute();
+        
+       db_update('userpoints_total')
+        ->fields(array('max_points'=>$user->points))
+        ->condition('uid',$user->uid, '=')
+        ->execute();
+    }
+}
+
+/**
+ * Implements hook_update()
+ * Create gofast_token table
+ */
+
+function gofast_user_update_7303(){
+    drupal_install_schema("gofast_user");
+}
+
+ /*
+  * Implements hook_update
+  * Alter themes configuration variables to manage jquery_update versions
+  */
+function gofast_user_update_7304(){
+    $cart_menu = 'Cart';
+    $query = db_query("SELECT * FROM {menu_links} WHERE link_title='".$cart_menu."'");
+    $mlid = $query->fetch()->mlid;
+    $link = menu_link_load($mlid);
+    $link['hidden'] = 1;
+    menu_link_save($link);
+}
+
+ /*
+  * Implements hook_update
+  * disabled conf menu 
+  */
+function gofast_user_update_7305(){
+    $cart_menu = 'Cart';
+    $query = db_query("SELECT * FROM {menu_links} WHERE link_title='".$cart_menu."'");
+    $mlid = $query->fetch()->mlid;
+    $link = menu_link_load($mlid);
+    $link['hidden'] = 0;
+    menu_link_save($link);
+    
+    $conf_menu = 'GoFAST configuration';
+    $conf_menu_name = 'user-menu';
+    $query = db_query("SELECT * FROM {menu_links} WHERE link_title='".$conf_menu."' AND menu_name='".$conf_menu_name."'");
+    $mlid = $query->fetch()->mlid;
+    $link = menu_link_load($mlid);
+    $link['hidden'] = 1;
+    menu_link_save($link);
+    
+    $audit_menu = 'Audit';
+    $query = db_query("SELECT * FROM {menu_links} WHERE link_title='".$audit_menu."'");
+    $mlid = $query->fetch()->mlid;
+    $link = menu_link_load($mlid);
+    $link['hidden'] = 1;
+    menu_link_save($link);
+    
+    $ldap_conf_menu = 'Import Users From LDAP';
+    $query = db_query("SELECT * FROM {menu_links} WHERE link_title='".$ldap_conf_menu."'");
+    $mlid = $query->fetch()->mlid;
+    $link = menu_link_load($mlid);
+    $link['hidden'] = 1;
+    menu_link_save($link);
+    
+    $stat_menu = 'Statistics';
+    $query = db_query("SELECT * FROM {menu_links} WHERE link_title='".$stat_menu."'");
+    $mlid = $query->fetch()->mlid;
+    $link = menu_link_load($mlid);
+    $link['hidden'] = 1;
+    menu_link_save($link);
+}
+  
+
+ /*
+  * Implements hook_update 
+  * Fix weight of this module
+  */
+function gofast_user_update_7306(){
+    db_query("UPDATE system SET weight=1 WHERE name='gofast_user'");
+}
+  

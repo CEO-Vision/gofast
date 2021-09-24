@@ -1,0 +1,17 @@
+name        = Gofast
+description = "Gofast core module."
+core        = 7.x
+package     = Gofast
+version = "7.x-3.10.0_r2"
+
+dependencies[] = i18n
+dependencies[] = facetapi_i18n
+dependencies[] = i18n_menu_uuid
+dependencies[] = i18n_node
+dependencies[] = i18n_taxonomy_uuid
+dependencies[] = i18n_translation
+dependencies[] = i18n_menu
+dependencies[] = i18n_taxonomy
+dependencies[] = i18n_string
+dependencies[] = vud_comment
+dependencies[] = gofast_user

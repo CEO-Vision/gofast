@@ -1,0 +1,18 @@
+<?php
+
+/**
+ * @file
+ * UUID support for i18n_menu.
+ */
+
+/**
+ * Implements hook_i18n_object_info_alter().
+ *
+ * Use UUID if available as key for entities:
+ *   - menu_link
+ */
+function i18n_menu_uuid_i18n_object_info_alter(&$object_info) {
+
+  $object_info['menu_link']['key'] = 'uuid';
+
+}

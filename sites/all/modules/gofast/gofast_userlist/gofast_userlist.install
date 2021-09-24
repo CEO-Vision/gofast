@@ -1,0 +1,184 @@
+<?php
+
+define('GOFAST_USERLIST_MEMBERS', 'field_userlist_members');
+
+/**
+ * Implements hook_schema().
+ */
+function gofast_userlist_schema() {
+  $schema = array();
+
+  $schema['gofast_userlists'] = array(
+    'description' => 'The base table for the UserList entity',
+    'fields' => array(
+      'ulid' => array(
+        'description' => 'Primary key of the UserList entity',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'description' => 'Primary key of the UserList node',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0
+      ),
+      'name' => array(
+        'description' => 'UserList name.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+      'from_ldap' => array(
+        'description' => 'UserList imported from LDAP',
+        'type' => 'int',
+        'length' => 1,
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0
+      ),
+    ),
+    'primary key' => array('ulid'),
+    'foreign keys' => array(
+      'nid' => array(
+        'table' => 'node',
+        'columns' => array('nid' => 'nid')
+      )
+    )
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function gofast_userlist_install() {
+  
+  //Customized module weight so it's called after OG
+  
+  // Get the weight of the module we want to compare against
+  $result = db_select('system', 's')
+              ->fields('s', array('weight'))
+              ->condition('name', 'og', '=')
+              ->execute();
+  $weight = !empty($result) ? $result->fetchField() : 0;
+
+  // Set our module to a weight 1 heavier, so ours moves lower in execution order
+  db_update('system')
+    ->fields(array('weight' => $weight + 1))
+    ->condition('name', 'gofast_userlist', '=')
+    ->execute();
+  
+  usurp(1);
+  //Create menus
+  gofast_userlist_create_menus();
+  usurp(FALSE);
+  
+
+  // Create the field that will store members of a userlist entity
+  if (!field_read_field(GOFAST_USERLIST_MEMBERS, array('include_inactive' => true))) {
+    $field = array(
+      'field_name' => GOFAST_USERLIST_MEMBERS,
+      'type' => 'list_integer',
+      'entity_types' => array('userlist'),
+      'cardinality' => -1,
+      'translatable' => FALSE,
+      'locked' => FALSE,
+      'settings' => array(),
+      'storage' => array()
+    );
+    field_create_field($field);
+  }
+
+  //associate field to content-type alfresco item
+  $field_instance = array(
+    'field_name' => GOFAST_USERLIST_MEMBERS,
+    'bundle' => 'userlist',
+    'entity_type' => 'userlist'
+  );
+  field_create_instance($field_instance);
+
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function gofast_userlist_uninstall() {
+
+  //dissociate field to entity userlist
+  $field_instance = array(
+    'field_name' => GOFAST_USERLIST_MEMBERS,
+    'entity_type' => 'userlist'
+  );
+
+  field_delete_instance(GOFAST_USERLIST_MEMBERS);
+  field_delete_field(GOFAST_USERLIST_MEMBERS);
+}
+
+function gofast_userlist_create_menus() {
+
+  //Menu create new userList
+  //get parent menu_link
+  $parent_link_mlid = db_query("SELECT mlid from {menu_links} WHERE link_title=:link_title AND link_path=:link_path", array(':link_title' => 'Create', ':link_path' => 'node/add/alfresco-item'))->fetchField();
+
+  $links = array(
+    'link_title' => t('UserList', array(), array('context' => 'gofast:userlist')),
+    'link_path' => 'userlist/add',
+    'router_path' => 'userlist/add',
+    'menu_name' => 'main-menu',
+    'plid' => $parent_link_mlid,
+    'weight' => 0,
+    'expanded' => 0,
+    'cutomized' => 1,
+    'uuid' => '45a60e2c-9dd5-4cbe-b297-008dff0c110b'
+  );
+
+  // Look the table first if the data does exist
+  $exists_link = db_query("SELECT mlid from {menu_links} WHERE link_title=:link_title AND link_path=:link_path", array(':link_title' => $links['link_title'], ':link_path' => $links['link_path']))->fetchField();
+  // Save the record if the data does not exist
+  if (!$exists_link) {
+    menu_link_save($links);
+    
+    //rebuild menu cache
+    menu_cache_clear_all();
+  }
+  
+  
+  
+  //Menu show userlist
+  //get parent menu_link
+  $parent_link_mlid = db_query("SELECT mlid from {menu_links} WHERE link_title=:link_title AND link_path=:link_path", array(':link_title' => 'Directories', ':link_path' => 'user_listing_grid'))->fetchField();
+
+  $links = array(
+    'link_title' => t('UserLists', array(), array('context' => 'gofast:userlist')),
+    'link_path' => 'userlists',
+    'router_path' => 'userlists',
+    'menu_name' => 'main-menu',
+    'plid' => $parent_link_mlid,
+    'weight' => 0,
+    'expanded' => 0,
+    'cutomized' => 1,
+    'uuid' => 'b4a3f752-fd5a-438b-8757-21fec2b7a6d8'
+  );
+
+  // Look the table first if the data does exist
+  $exists_link = db_query("SELECT mlid from {menu_links} WHERE link_title=:link_title AND link_path=:link_path", array(':link_title' => $links['link_title'], ':link_path' => $links['link_path']))->fetchField();
+  // Save the record if the data does not exist
+  if (!$exists_link) {
+    menu_link_save($links);
+    
+    //rebuild menu cache
+    menu_cache_clear_all();
+  }
+
+}
+
+/**
+ * Implements hook_update()
+ * GOFAST-3588 Add public space userlist
+ */
+function gofast_userlist_update_7304(){
+  gofast_userlist_create_public_userlist();
+}

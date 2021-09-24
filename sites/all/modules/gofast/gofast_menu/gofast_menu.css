@@ -1,0 +1,95 @@
+/*** Blocs Header GoFast ***/
+
+#block-gofast-menu-gofast-menu-icons{
+  height:37px;
+  float:left;
+}
+
+.gofast-blocks-wrapper{
+  float:left;
+}
+
+.gofast-block{/*  url("/sites/all/modules/fbsmp/images/icon_tool_arrow.png") no-repeat scroll left bottom transparent */
+  float:left;
+  min-height:10px;
+  min-width:35px;
+  width: 55px;
+  padding:12px 5px 12px 5px;
+  cursor:pointer;
+  position: relative;
+}
+
+.gofast-magical-menu{
+  text-align: center;
+  float:left;
+  min-height:10px;
+  min-width:35px;
+  width: 55px;
+  padding:12px 5px 12px 5px;
+  cursor:pointer;
+  position: relative;
+}
+.gofast-magical-menu #block-views-gofast-recently-read-block{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gofast-magical-menu:hover > .fa-bars{
+  color: #ddd;
+}
+
+.gofast-block-outer {
+  display: none;
+  color: rgb(119, 119, 119);
+  margin-top: -10px;
+  padding: 10px;
+  border: 1px solid rgba(0,0,0,0.15);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.175);
+  background-clip: padding-box;
+  border-radius: 4px;
+  background: white;
+  position: relative;
+  top: 21px;
+/*  float: right;*/
+  left: 0;
+  z-index: 999;
+}
+
+.gofast-block .views-widget-filter-subject {
+  clear:both;
+}
+
+.badge{
+  visibility: hidden;
+}
+
+.badge-notify {
+  background:#DA292F !important;
+  position:absolute;
+}
+
+.badge-notify-menu {
+  top: 7px;
+  left: 35px;
+}
+
+.pinned{
+  opacity: 0;
+  color:#DA292F;
+  position:relative;
+  top: -40px;
+  left: 10px;
+}
+
+#admin_options:after,
+#async_recently_read:after{
+    content:none;
+}
+
+.block-recently-read-title{
+    margin-top: 0;
+    font-size: 1.2em;
+    color: #777;
+    border-bottom: 1px solid #cecece;
+}

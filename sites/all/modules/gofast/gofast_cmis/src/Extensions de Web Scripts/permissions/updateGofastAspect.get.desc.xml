@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Clear node aspects</shortname>
+    <description>Clears node aspects using javascript API</description>
+    <url>/updateGofastAspect?reference={reference}&amp;nid={nid}&amp;bundle={bundle}&amp;isgroup={isgroup}&amp;preventDelete={preventDelete}&amp;summary={summary}&amp;tags={tags}&amp;category={category}&amp;criticity={criticity}&amp;state={state}</url>
+    <format default="html"/>
+    <authentication>user</authentication>
+</webscript>

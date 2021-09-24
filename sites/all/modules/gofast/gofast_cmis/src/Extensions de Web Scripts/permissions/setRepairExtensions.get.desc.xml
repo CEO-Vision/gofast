@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Repair extensions</shortname>
+    <description>Repair extensions</description>
+    <url>/set/extension/repair/?reference={reference}</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

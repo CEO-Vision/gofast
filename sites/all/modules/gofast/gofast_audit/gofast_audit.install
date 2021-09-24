@@ -1,0 +1,68 @@
+<?php
+
+/**
+ * Implements hook_schema().
+ */
+function gofast_audit_schema(){
+  $schema = array();
+  
+  $schema["ceo_vision_audit"] = array(
+            'description' => t("Table to store informations about events into the GoFast plateform"),
+            'fields' => array(
+                    'id' => array(
+                        'type' => 'serial',
+                        'unsigned' => TRUE,
+                        'not null' => TRUE,                      
+                        'description' => t("Primary Key"),
+                            ),
+                    'nid' => array(
+                        'type' => 'int',
+                        'unsigned' => TRUE,
+                        'not null' => TRUE,
+                        'default' => 0,
+                        'description' => t("Nid of node relates to the action"),
+                    ),
+                    'timestamp' => array(
+                        'type' => 'varchar',
+                        'length' => 50,                      
+                        'not null' => TRUE,
+                        'default' => "0",
+                        'description' => t("Nid of node relates to the action"),
+                    ),
+                    'uid' => array(
+                        'type' => 'int',
+                        'unsigned' => TRUE,
+                        'not null' => TRUE,
+                        'default' => 0,
+                        'description' => t("Uid of user relates to the action"),
+                    ),
+                    'event_type' => array(
+                        'type' => 'varchar',
+                        'length' => 256,                      
+                        'not null' => TRUE,
+                        'default' => "0",
+                        'description' => t("String that contains type of event"),
+                    ),
+                     'details' => array(
+                        'type' => 'text', 
+                        'size'  => 'big',
+                        'not null' => TRUE,                      
+                        'description' => t("Serialized string relates to the action"),
+                    ),
+                 ),
+                 'primary key' => array('id'),
+                 'indexes' => array(
+                     'gfindex_ceo_vision_audit_1' => array('nid', 'event_type'),
+                 )
+            );
+  return $schema;
+}
+
+/*
+ * Implements hook_update
+ */
+function gofast_audit_update_7100(){
+    if(!db_index_exists("ceo_vision_audit", "gfindex_ceo_vision_audit_1")){
+        db_add_index("ceo_vision_audit", "gfindex_ceo_vision_audit_1", array('nid', 'event_type'));
+    }
+}

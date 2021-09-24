@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Manage Versions</shortname>
+    <description>Manage Versions using javascript API</description>
+    <url>/set/version/major/?comment={comment}&amp;reference={reference}</url>
+    <format default="html"/>
+    <authentication>user</authentication>
+</webscript>

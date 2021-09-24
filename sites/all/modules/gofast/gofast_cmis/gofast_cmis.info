@@ -1,0 +1,12 @@
+name        = Gofast CMIS
+description = "Extend the CMIS Module"
+core        = 7.x
+package     = Gofast
+;configure   = admin/config/content/ckeditor
+
+version = "7.x-3.10.0_r2"
+core = "7.x"
+project = "gofast_cmis"
+datestamp = "1393593253"
+
+scripts[] = gofast_cmis.js

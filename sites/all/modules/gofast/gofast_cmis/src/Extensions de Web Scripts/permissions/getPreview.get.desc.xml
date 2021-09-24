@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Create preview</shortname>
+    <description>Create preview using Javascript API</description>
+    <url>/get/preview/?reference={reference}</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

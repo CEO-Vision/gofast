@@ -1,0 +1,407 @@
+<?php
+
+/**
+ * This module extends OG module 
+ * It offers the capability to associate permission on Userlist entities 
+ * as OG only allow it for User entity.
+ */
+define('GOFAST_USERLIST_OG', 'og_userlist_node');
+define('GOFAST_USER_USERLIST_OG', 'og_user_userlist');
+
+/**
+ * Implements hook_schema().
+ */
+function gofast_userlist_og_schema() {
+
+  $schema = array();
+
+  $schema['gofast_og_userlists_roles'] = array(
+    'description' => 'Maps userslists to roles.',
+    'fields' => array(
+      'ulid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Primary Key: {gofast_userlists}.ulid for userlist.',
+      ),
+      'rid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Primary Key: {og_role}.rid for role.',
+      ),
+      'gid' => array(
+        'description' => "The group's unique ID.",
+        'type' => 'int',
+        'size' => 'normal',
+        'not null' => TRUE,
+      ),
+      'group_type' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => "The group's entity type.",
+      ),
+    ),
+    'primary key' => array('ulid', 'rid', 'gid'),
+    'indexes' => array(
+      'rid' => array('rid'),
+    ),
+    'foreign keys' => array(
+      'gofast_userlists' => array(
+        'table' => 'gofast_userlists',
+        'columns' => array('ulid' => 'ulid'),
+      ),
+      'og_role' => array(
+        'table' => 'og_role',
+        'columns' => array('rid' => 'rid'),
+      ),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function gofast_userlist_og_install() {
+
+  //Create field for og module to store node of a userlist
+  if (!field_read_field(GOFAST_USERLIST_OG, array('include_inactive' => true))) {
+    $field_og = array(
+      'entity_types' => array(),
+      'foreign keys' => array(
+        'node' => array(
+          'table' => 'node',
+          'columns' => array(
+            'target_id' => 'nid',
+          ),
+        ),
+      ),
+      'indexes' => array(
+        'target_id' => array(
+          0 => 'target_id',
+        ),
+      ),
+      'settings' => array(
+        'target_type' => 'node',
+        'handler' => 'og',
+        'handler_settings' => array(
+          'target_bundles' => array(
+            'extranet' => 'extranet',
+            'group' => 'group',
+            'organisation' => 'organisation',
+            'public' => 'public',
+          ),
+          'sort' => array(
+            'type' => 'none',
+          ),
+          'membership_type' => 'og_membership_type_default',
+          'behaviors' => array(
+            'og_behavior' => array(
+              'status' => TRUE,
+            ),
+            'views-select-list' => array(
+              'status' => 0,
+            ),
+          ),
+        ),
+        'handler_submit' => 'Change handler',
+      ),
+      'translatable' => '0',
+      'storage' => array(
+        'type' => 'field_sql_storage',
+        'settings' => array(),
+        'module' => 'field_sql_storage',
+        'active' => '1',
+        'details' => array(
+          'sql' => array(
+            'FIELD_LOAD_CURRENT' => array(
+              'field_data_' . GOFAST_USERLIST_OG => array(
+                'target_id' => 'og_userlist_node_target_id',
+              ),
+            ),
+            'FIELD_LOAD_REVISION' => array(
+              'field_revision_' . GOFAST_USERLIST_OG => array(
+                'target_id' => 'og_userlist_node_target_id',
+              ),
+            ),
+          ),
+        ),
+      ),
+      'field_name' => GOFAST_USERLIST_OG,
+      'type' => 'entityreference',
+      'module' => 'entityreference',
+      'active' => '1',
+      'locked' => '0',
+      'cardinality' => '-1',
+      'deleted' => '0',
+      'columns' => array(
+        'target_id' => array(
+          'description' => 'The id of the target entity.',
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ),
+      ),
+      'bundles' => array(
+        'userlist' => array(
+          0 => 'userlist',
+        ),
+      ),
+    );
+    field_create_field($field_og);
+  }
+
+  //associate field to content-type userlist	
+  $field_instance_og = array(
+    'default_value' => NULL,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'type' => 'hidden',
+        'weight' => '8',
+        'settings' => array(),
+      ),
+      'full' => array(
+        'label' => 'above',
+        'module' => 'og_ui',
+        'settings' => array(
+          'edit' => array(
+            'editor' => 'form',
+          ),
+          'quickedit' => array(
+            'editor' => 'form',
+          ),
+        ),
+        'type' => 'og_list_default',
+        'weight' => 7,
+      ),
+      'search_index' => array(
+        'label' => 'above',
+        'type' => 'hidden',
+        'weight' => '8',
+        'settings' => array(),
+      ),
+    ),
+    'label' => 'Group membership',
+    'required' => 0,
+    'settings' => array(
+      'behaviors' => array(
+        'og_widget' => array(
+          'status' => TRUE,
+          'default' => array(
+            'widget_type' => 'options_select',
+          ),
+          'admin' => array(
+            'widget_type' => 'entityreference_autocomplete',
+          ),
+          'access_override' => 1,
+        ),
+      ),
+      'userlist_form' => 1,
+    ),
+    'view modes' => array(
+      'full' => array(
+        'custom settings' => FALSE,
+        'label' => 'Full',
+        'type' => 'og_list_default',
+      ),
+      'teaser' => array(
+        'custom settings' => FALSE,
+        'label' => 'Teaser',
+        'type' => 'og_list_default',
+      ),
+    ),
+    'widget' => array(
+      'weight' => '9',
+      'type' => 'og_complex',
+      'module' => 'og',
+      'active' => 0,
+      'settings' => array(),
+    ),
+    'field_name' => GOFAST_USERLIST_OG,
+    'entity_type' => 'userlist',
+    'bundle' => 'userlist',
+    'deleted' => '0',
+  );
+  field_create_instance($field_instance_og);
+  
+  
+    //Create field for og module to store userlist created by the user
+  if (!field_read_field(GOFAST_USER_USERLIST_OG, array('include_inactive' => true))) {
+    $field_og_userlist = array(
+      'entity_types' => array(),
+      'foreign keys' => array(
+        'node' => array(
+          'table' => 'node',
+          'columns' => array(
+            'target_id' => 'nid',
+          ),
+        ),
+      ),
+      'indexes' => array(
+        'target_id' => array(
+          0 => 'target_id',
+        ),
+      ),
+      'settings' => array(
+        'target_type' => 'node',
+        'handler' => 'og',
+        'handler_settings' => array(
+          'target_bundles' => array(
+            'userlist' => 'userlist',
+          ),
+          'sort' => array(
+            'type' => 'none',
+          ),
+          'membership_type' => 'og_membership_type_default',
+          'behaviors' => array(
+            'og_behavior' => array(
+              'status' => TRUE,
+            ),
+            'views-select-list' => array(
+              'status' => 0,
+            ),
+          ),
+        ),
+        'handler_submit' => 'Change handler',
+      ),
+      'translatable' => '0',
+      'storage' => array(
+        'type' => 'field_sql_storage',
+        'settings' => array(),
+        'module' => 'field_sql_storage',
+        'active' => '1',
+        'details' => array(
+          'sql' => array(
+            'FIELD_LOAD_CURRENT' => array(
+              'field_data_' . GOFAST_USER_USERLIST_OG => array(
+                'target_id' => 'og_user_userlist_target_id',
+              ),
+            ),
+            'FIELD_LOAD_REVISION' => array(
+              'field_revision_' . GOFAST_USER_USERLIST_OG => array(
+                'target_id' => 'og_user_userlist_target_id',
+              ),
+            ),
+          ),
+        ),
+      ),
+      'field_name' => GOFAST_USER_USERLIST_OG,
+      'type' => 'entityreference',
+      'module' => 'entityreference',
+      'active' => '1',
+      'locked' => '0',
+      'cardinality' => '-1',
+      'deleted' => '0',
+      'columns' => array(
+        'target_id' => array(
+          'description' => 'The id of the target entity.',
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ),
+      ),
+      'bundles' => array(
+        'userlist' => array(
+          0 => 'userlist',
+        ),
+      ),
+    );
+    field_create_field($field_og_userlist);
+  }
+
+  //associate field to content-type userlist	
+  $field_instance_userlist_og = array(
+    'default_value' => NULL,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'type' => 'hidden',
+        'weight' => '8',
+        'settings' => array(),
+      ),
+      'full' => array(
+        'label' => 'above',
+        'module' => 'og_ui',
+        'settings' => array(
+          'edit' => array(
+            'editor' => 'form',
+          ),
+          'quickedit' => array(
+            'editor' => 'form',
+          ),
+        ),
+        'type' => 'og_list_default',
+        'weight' => 7,
+      ),
+      'search_index' => array(
+        'label' => 'above',
+        'type' => 'hidden',
+        'weight' => '8',
+        'settings' => array(),
+      ),
+    ),
+    'label' => 'Userlist ownership',
+    'required' => 0,
+    'settings' => array(
+      'behaviors' => array(
+        'og_widget' => array(
+          'status' => TRUE,
+          'default' => array(
+            'widget_type' => 'options_select',
+          ),
+          'admin' => array(
+            'widget_type' => 'entityreference_autocomplete',
+          ),
+          'access_override' => 1,
+        ),
+      ),
+      'userlist_form' => 1,
+    ),
+    'view modes' => array(
+      'full' => array(
+        'custom settings' => FALSE,
+        'label' => 'Full',
+        'type' => 'og_list_default',
+      ),
+      'teaser' => array(
+        'custom settings' => FALSE,
+        'label' => 'Teaser',
+        'type' => 'og_list_default',
+      ),
+    ),
+    'widget' => array(
+      'weight' => '9',
+      'type' => 'og_complex',
+      'module' => 'og',
+      'active' => 0,
+      'settings' => array(),
+    ),
+    'field_name' => GOFAST_USER_USERLIST_OG,
+    'entity_type' => 'user',
+    'bundle' => 'user',
+    'deleted' => '0',
+  );
+  field_create_instance($field_instance_userlist_og);
+
+  
+  
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function gofast_userlist_og_uninstall() {
+
+  //delete field created in install HOOK
+  $instance = field_info_instance('userlist', 'og_userlist_node', 'userlist');
+  field_delete_instance($instance, FALSE);
+}

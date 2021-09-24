@@ -1,0 +1,303 @@
+<?php
+
+/**
+ * @file
+ * Installation schema for Gofast CMIS module
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function gofast_cmis_schema(){
+  $schema = array();
+
+  $schema['alfresco_replication'] = array(
+    'description' => 'Alfresco replication table (replace the legacy table)',
+    'fields' => array(
+      'aid' => array(
+        'description' => 'Unique ID to identify an item in queue',
+        'type' => 'serial',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'noderef' => array(
+        'description' => 'Alfresco node reference',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'name' => array(
+        'description' => 'Alfresco node reference',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'person' => array(
+        'description' => 'Alfresco node reference',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'path' => array(
+        'description' => 'Alfresco node reference',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'gid' => array(
+        'description' => 'Alfresco node reference',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'author' => array(
+        'description' => 'Alfresco node reference',
+        'type' => 'text',
+      ),
+      'uid' => array(
+        'description' => 'References the user ID target',
+        'type' => 'int',
+        'not null' => TRUE,
+        'disp-size' => 11,
+      ),
+      'op' => array(
+        'description' => 'The replication operation',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'state' => array(
+        'description' => 'Current state of the element in queue',
+        'type' => 'int',
+        'not null' => TRUE,
+        'disp-size' => 11,
+        'default' => 0,
+      ),
+      'runsince' => array(
+        'description' => 'UNIX timestamp representing when the item was updated',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-size' => 11,
+      )
+    ),
+    'primary key' => array('aid'),
+  );
+  return $schema;
+}
+
+/**
+ * Add the runsince field
+ */
+function gofast_cmis_update_7100() {
+  $spec = array(
+    'description' => 'UNIX timestamp representing when the item was updated',
+    'type' => 'int',
+    'not null' => TRUE,
+    'default' => 0,
+    'disp-size' => 11,
+  );
+  db_add_field('alfresco_replication', 'runsince', $spec);
+}
+
+/**
+ * Implements hook_update_7200
+ * Prevent table to be full
+ */
+function gofast_cmis_update_7200(){
+    $field = array(
+        'description' => 'Unique ID to identify an item in queue',
+        'type' => 'serial',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+  );
+    db_change_field('alfresco_replication', 'aid', 'aid', $field);
+}
+
+/**
+ * Add the runsince field
+ */
+function gofast_cmis_update_7210() {
+  $spec = array(
+    'description' => 'UNIX timestamp representing when the item was updated',
+    'type' => 'int',
+    'not null' => TRUE,
+    'default' => 0,
+    'disp-size' => 11,
+  );
+  if(!db_field_exists('alfresco_replication', 'runsince')){
+    db_add_field('alfresco_replication', 'runsince', $spec);
+  }
+
+  $field = array(
+        'description' => 'Unique ID to identify an item in queue',
+        'type' => 'serial',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+  );
+  db_change_field('alfresco_replication', 'aid', 'aid', $field);
+}
+
+/**
+ * Update location field size
+ */
+function gofast_cmis_update_7700() {
+  $field = array(
+        'description' => 'Field location',
+        'type' => 'varchar',
+        'not null' => FALSE,
+        'default' => NULL,
+        'length' => 500,
+  );
+  db_change_field('field_data_field_emplacement', 'field_emplacement_value', 'field_emplacement_value', $field);
+  db_change_field('field_revision_field_emplacement', 'field_emplacement_value', 'field_emplacement_value', $field);
+
+  $field = array(
+        'description' => 'Field main location',
+        'type' => 'varchar',
+        'not null' => FALSE,
+        'default' => NULL,
+        'length' => 500,
+  );
+  db_change_field('field_data_field_main_emplacement', 'field_main_emplacement_value', 'field_main_emplacement_value', $field);
+  db_change_field('field_revision_field_main_emplacement', 'field_main_emplacement_value', 'field_main_emplacement_value', $field);
+}
+
+/**
+ * Create folders templates folder in /Sites
+ */
+function gofast_cmis_update_7703() {
+
+    ## LDAP GOFAST ADMIN PLATFORM CREATION
+    ## get LDAP server
+    $LdapServer = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
+    $LdapServer->connectAndBindIfNotAlready();
+    $ldap_basedn = variable_get('gofast_ldap_int_base_dn');
+    $attributes = array();
+    $attributes['objectclass'] = array('groupOfNames');
+    $attributes['description'] = GOFAST_ADMIN_PLATFORM;
+    $attributes['cn'] = GOFAST_ADMIN_PLATFORM;
+    $gofast_ldap_gofast_admin_basedn = 'cn=' . $attributes['cn'] . ',ou=Groups,' . $ldap_basedn;
+
+    $LdapServer->groupAddGroup($gofast_ldap_gofast_admin_basedn, $attributes);
+
+    ## reach all admin platform user
+    $accounts_admin = array();
+    $accounts_admin = _gofast_user_load_multiple_by_roles('administrator');
+
+    foreach($accounts_admin as $account_admin){
+	    $LdapServer->groupAddMember($gofast_ldap_gofast_admin_basedn, $account_admin);
+    }
+
+    usurp(1);
+    # create folders templates folder
+    $template_folder_name = 'FOLDERS TEMPLATES';
+    gofast_cmis_item_folder_insert($template_folder_name,gofast_ajax_file_browser_get_reference_from_href('/Sites'));
+
+    $folder_template_reference = gofast_ajax_file_browser_get_reference_from_href('/Sites/FOLDERS TEMPLATES');
+    $unique_name = GOFAST_ADMIN_PLATFORM;
+    $group_type = 'folders_templates_folder';
+    # update rules
+    $res = gofast_cmis_webservice_folder_assign_permissions($folder_template_reference,$unique_name,$group_type);
+    watchdog('cmis_add_template_folder_ADMIN_PLATEFORME', GOFAST_ADMIN_PLATFORM);
+    watchdog('cmis_add_template_folder_res', $res);
+    watchdog('cmis_add_template_folder_template_reference', $folder_template_reference);
+    usurp(false);
+}
+
+/**
+ * Implements hook_update
+ */
+function gofast_cmis_update_7702() {
+    if(!db_index_exists("field_data_field_reference", "gfindex_field_data_field_reference_1")){
+        db_add_index("field_data_field_reference", "gfindex_field_data_field_reference_1", array('field_reference_value','entity_type','bundle','deleted','entity_id','revision_id','language','delta','field_reference_format'));
+    }
+}
+
+/**
+
+Implements hook_update
+
+GOFAST-6238 permissions template folders
+*/
+function gofast_cmis_update_7704() {
+    $typeSpace = array('group','extranet','organisation','public');
+    
+    for ($i = 0; $i != count($typeSpace) ; $i++) {
+    $query = new EntityFieldQuery();
+    $query->entityCondition('entity_type', 'node')
+    ->propertyCondition('type', $typeSpace[$i]);
+    $result = $query->execute();
+    foreach($result['node'] as $node_space) {
+        $node = node_load($node_space->nid);
+        $node_is_group = gofast_og_is_space($node);
+        if ($node_is_group) {
+            $unique_name = rawurlencode(str_replace(",", ",", gofast_ldap_space_cn($node)));
+            $node_location_path = gofast_cmis_space_get_webdav_path($node->nid);
+            $node_location_path .= "/TEMPLATES/";
+            $item = gofast_cmis_item_get_by_path($node_location_path);
+            $template_folder = true;
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_HEADER, 0);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_USERPWD, 'admin:' . gofast_get_admin_pwd());
+            $url = "http://localhost:8080/alfresco/service/set/subfolder/permission/?nodeRef=" . $item->properties['alfcmis:nodeRef'] . "&unique_name=" . $unique_name . "&template_folder=" . $template_folder;
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+            curl_exec($ch);
+            }
+        }
+    }
+}
+
+/**
+    Implements hook_update
+    GOFAST-6858 Update length of locations fields
+*/
+function gofast_cmis_update_7706() {
+    db_query("ALTER TABLE field_data_field_emplacement MODIFY field_emplacement_value VARCHAR(1024)");
+    db_query("ALTER TABLE field_revision_field_emplacement MODIFY field_emplacement_value VARCHAR(1024)");
+    
+    db_query("ALTER TABLE field_data_field_main_emplacement MODIFY field_main_emplacement_value VARCHAR(1024)");
+    db_query("ALTER TABLE field_data_field_main_emplacement MODIFY field_main_emplacement_format VARCHAR(1024)");
+    
+    db_query("ALTER TABLE field_revision_field_main_emplacement MODIFY field_main_emplacement_value VARCHAR(1024)");
+    db_query("ALTER TABLE field_revision_field_main_emplacement MODIFY field_main_emplacement_format VARCHAR(1024)");
+}
+
+/**
+ * Implements hook_install().
+ */
+function gofast_cmis_install(){
+  $field = array(
+        'description' => 'Field location',
+        'type' => 'varchar',
+        'not null' => FALSE,
+        'default' => NULL,
+        'length' => 500,
+  );
+  if(db_field_exists('field_data_field_emplacement', 'field_emplacement_value')){
+        db_change_field('field_data_field_emplacement', 'field_emplacement_value', 'field_emplacement_value', $field);
+  }
+   if(db_field_exists('field_revision_field_emplacement', 'field_emplacement_value')){
+        db_change_field('field_revision_field_emplacement', 'field_emplacement_value', 'field_emplacement_value', $field);
+   }
+
+  $field = array(
+        'description' => 'Field main location',
+        'type' => 'varchar',
+        'not null' => FALSE,
+        'default' => NULL,
+        'length' => 500,
+  );
+   if(db_field_exists('field_data_field_main_emplacement', 'field_main_emplacement_value')){
+                db_change_field('field_data_field_main_emplacement', 'field_main_emplacement_value', 'field_main_emplacement_value', $field);
+   }
+   if(db_field_exists('field_revision_field_main_emplacement', 'field_main_emplacement_value')){
+                db_change_field('field_revision_field_main_emplacement', 'field_main_emplacement_value', 'field_main_emplacement_value', $field);
+   }
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function gofast_cmis_uninstall(){
+  // Nothing to do !
+}

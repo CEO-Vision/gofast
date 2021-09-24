@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Apply aspects</shortname>
+    <description>Apply custom aspect using javascript API</description>
+    <url>/aspectrebuild</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

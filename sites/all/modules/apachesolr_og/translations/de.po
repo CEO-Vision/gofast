@@ -1,0 +1,20 @@
+# German translation of Apache Solr Organic Groups Integration (7.x-1.0)
+# Copyright (c) 2012 by the German translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Apache Solr Organic Groups Integration (7.x-1.0)\n"
+"POT-Creation-Date: 2012-10-23 16:41+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: German\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Apache Solr"
+msgstr "Apache Solr"
+msgid "Apache Solr Organic Groups"
+msgstr "Apache Solr Organic Groups"
+msgid "Integrates Organic Groups and Apache Solr Search"
+msgstr "Integriert Organic Groups und Apache Solr Search"

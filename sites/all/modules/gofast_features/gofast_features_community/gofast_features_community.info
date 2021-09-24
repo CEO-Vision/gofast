@@ -1,0 +1,11 @@
+name = Gofast Features Community
+core = 7.x
+package = Gofast Features
+version = 7.x-3.9
+dependencies[] = gofast_community
+dependencies[] = gofast_graphic_config
+dependencies[] = ctools
+dependencies[] = strongarm
+features[ctools][] = strongarm:strongarm:1
+features[features_api][] = api:2
+features[variable][] = theme_bootstrap_gofast_settings

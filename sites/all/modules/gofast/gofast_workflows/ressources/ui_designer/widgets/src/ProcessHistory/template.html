@@ -1,0 +1,49 @@
+<!-- view -->
+  <timeline>
+   <ul class="timeline" ng-transclude="">
+    <timeline-event ng-repeat="event in events">
+      <li class="timeline-event {{event.inverted}}" ng-class-odd="oddClass" ng-class-even="evenClass" ng-transclude="">
+        <timeline-badge class="bounce-in {{event.badgeClass}}" when-visible="animateElementIn" when-not-visible="animateElementOut">
+            <i class="glyphicon {{event.badgeIconClass}}"></i>
+        </timeline-badge>
+        <timeline-panel class="bounce-in {{event.badgeClass}}" when-visible="animateElementIn" when-not-visible="animateElementOut">
+            <timeline-heading>
+                <h4 ng-bind-html="event.title | gfdTranslate"></h4>
+            </timeline-heading>
+            <small class="text-muted ng-binding"> <i class="glyphicon glyphicon-time"></i>
+                    {{event.infos_date|date:"dd/MM/yyyy HH:mm"}}
+            </small>
+            &nbsp;
+            <small class="text-muted ng-binding"> <i class="glyphicon glyphicon-user"></i>
+                    {{event.infos_actor}}
+            </small>
+            <br>
+            <p style="margin:8px;" ng-bind-html="event.content" class="ng-binding ng-scope"></p>
+        </timeline-panel>
+      </li>
+    </timeline-event>
+    <timeline-event>
+      <li class="timeline-event" ng-class-odd="oddClass" ng-class-even="evenClass" ng-transclude="">
+        <timeline-badge class="bounce-in success" when-visible="animateElementIn" when-not-visible="animateElementOut">
+            <i class="glyphicon glyphicon-play"></i>
+        </timeline-badge>
+        <timeline-panel class="bounce-in success" when-visible="animateElementIn" when-not-visible="animateElementOut">
+            <timeline-heading>
+                <h4>{{"Starting workflow" | gfdTranslate}}</h4>
+            </timeline-heading>
+           <p class="ng-scope">
+                {{process.title}}
+                <br />
+                <small class="text-muted ng-binding"> <i class="glyphicon glyphicon-time"></i>
+                    {{process.start_date|date:"dd/MM/yyyy HH:mm"}}
+                </small>
+                 &nbsp;
+                <small class="text-muted ng-binding"> <i class="glyphicon glyphicon-user"></i>
+                    {{process.initiator}}
+                </small>
+            </p>
+        </timeline-panel>
+      </li>
+    </timeline-event>
+   </ul>
+  </timeline>

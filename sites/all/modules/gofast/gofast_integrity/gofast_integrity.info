@@ -1,0 +1,8 @@
+name = Gofast Integrity
+description = "Perform GoFAST Integrity background jobs."
+package = Gofast
+core = 7.x
+
+dependencies[] = gofast
+
+version = "7.x-3.10.0_r2"

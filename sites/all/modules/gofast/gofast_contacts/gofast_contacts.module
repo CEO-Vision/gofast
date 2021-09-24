@@ -1,0 +1,101 @@
+<?php
+
+module_load_include('inc', 'gofast_contacts', 'gofast_contacts_api');
+
+/**
+ * Implements hook_init() 
+ */
+function gofast_contacts_init() {  
+    drupal_add_css(drupal_get_path('module', 'gofast_contacts') . '/css/gofast_contacts.css');
+}
+
+function gofast_contacts_theme() {
+    $output = array();
+
+    return $output;
+}
+
+
+
+/**
+ * Implements hook_form_alter
+ * @param type $form
+ * @param type $form_state
+ * 
+ */
+function gofast_contacts_form_alter(&$form, &$form_state) {  
+    //Rename form label + translation
+    $form['title']['#title'] = t('Title', array(), array('context' => 'gofast_contacts'));
+    $form['body'][LANGUAGE_NONE][0]['value']['#title'] = t('Body', array(), array('context' => 'gofast_contacts'));
+    $form['field_contact_name'][LANGUAGE_NONE][0]['value']['#title'] = t('Last name', array(), array('context' => 'gofast_contacts'));
+    $form['field_contact_firstname'][LANGUAGE_NONE][0]['value']['#title'] = t('First name', array(), array('context' => 'gofast_contacts'));   
+    $form['field_contact_email'][LANGUAGE_NONE][0]['value']['#title'] = t('Email', array(), array('context' => 'gofast_contacts'));   
+    $form['field_contact_phone'][LANGUAGE_NONE][0]['value']['#title'] = t('Mobile', array(), array('context' => 'gofast_contacts'));   
+    $form['field_contact_entity'][LANGUAGE_NONE][0]['value']['#title'] = t('Entity', array(), array('context' => 'gofast_contacts'));   
+    $form['field_contact_address'][LANGUAGE_NONE][0]['value']['#title'] = t('Address', array(), array('context' => 'gofast_contacts'));   
+    
+    //Hide fields that we don't need now
+    if($form['#id'] == 'contact-node-form') {
+        $form['title']['#access'] = FALSE;
+        $form['title']['#required'] = FALSE;
+        $form['body']['#access'] = FALSE;
+        $form['field_contact_address']['#access'] = FALSE;
+        $form['actions']['preview']['#access'] = FALSE;
+        $form['actions']['delete']['#access'] = FALSE;     
+    }
+    
+    $form['#submit'][] = 'gofast_contacts_form_submit';
+
+}
+
+function gofast_contacts_form_submit(&$form, &$form_state) {
+    if($form['#id'] == 'contact-node-form') { 
+        $form_state['values']['title'] = $form_state['values']['field_contact_name'][LANGUAGE_NONE][0]['value'] . ' ' . $form_state['values']['field_contact_firstname'][LANGUAGE_NONE][0]['value'];
+    }
+}
+
+/**
+ * Display for node type contact
+ * Currently unused because we don't redirect to the page
+ * @param type $contents
+ * 
+ */
+function gofast_contacts_replace_display($contents) {
+    
+    foreach($contents as $key => $content) {
+        
+        //Now we have the useful fields of a contact
+        if(strpos($key, 'field_contact') !== false) {
+            $att = str_replace('field_contact_', '', $key);
+            switch($key) {
+                case 'field_contact_firstname' :     
+                    $right_block .= '<div class="field-contact-'.$att.'"><h5>'.t('First name', array(), array('context' => 'gofast_contacts')).'</h4>'.$content['#items'][0]['value'].'</div>';
+                    break;
+                case 'field_contact_name' : 
+                    $left_block .= '<div class="field-contact-'.$att.'"><h5>'.t('Last name', array(), array('context' => 'gofast_contacts')).'</h4>'.$content['#items'][0]['value'].'</div>';
+                    break;
+                case 'field_contact_email' :          
+                    $left_block .= '<div class="field-contact-'.$att.'"><h5>'.t('Email', array(), array('context' => 'gofast_contacts')).'</h4>'.$content['#items'][0]['value'].'</div>';
+                    break;
+                case 'field_contact_phone' : 
+                    $right_block .= '<div class="field-contact-'.$att.'"><h5>'.t('Mobile', array(), array('context' => 'gofast_contacts')).'</h4>'.$content['#items'][0]['value'].'</div>';
+                    break;
+                case 'field_contact_entity' : 
+                    $contact_entity = '<div class="field-contact-'.$att.'"><h5>'.t('Entity', array(), array('context' => 'gofast_contacts')).'</h4>'.$content['#items'][0]['value'].'</div>';
+                    break;
+                case 'field_contact_address' : 
+                    $contact_adress .= '<div class="field-contact-'.$att.'"><h5>'.t('Address', array(), array('context' => 'gofast_contacts')).'</h4>'.$content['#items'][0]['value'].'</div>';
+                    break;
+                default :
+                    break;
+                
+            }
+            
+        }
+    }
+    $output = '<div class="contact-left-block">'.$left_block.$contact_adress.'<br>'.$contact_entity.'</div>'
+            .'<div class="contact-right-block">'.$right_block.'</div>';
+          
+    print $output;
+ 
+}

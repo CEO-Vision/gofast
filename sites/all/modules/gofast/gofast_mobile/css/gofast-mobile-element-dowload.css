@@ -1,0 +1,40 @@
+.element-download-container{
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    text-align: center;
+}
+.element-logo{
+    margin: 20px auto;
+    width: 100%;
+}
+.element-logo img {
+    max-width: 500px;
+    border-radius: 10px;
+    width: 100%;
+}
+
+.element-download-sources {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+/* Media query */
+@media (max-width: 657px) {
+    .element-download-sources {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+}
+
+.element-download-sources .source {
+    margin: 10px;
+}
+.element-download-sources .source img{
+    height: 60px;
+} 

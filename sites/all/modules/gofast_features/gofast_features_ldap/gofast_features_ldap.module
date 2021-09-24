@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Gofast Features LDAP feature.
+ */
+
+include_once 'gofast_features_ldap.features.inc';

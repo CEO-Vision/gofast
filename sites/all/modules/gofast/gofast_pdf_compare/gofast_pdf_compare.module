@@ -1,0 +1,159 @@
+<?php
+
+/**
+ * Implements hook_menu()
+ */
+function gofast_pdf_compare_menu() {
+   $items = array();
+   
+  // Autocomplete path to find users members of a group
+  $items['pdf_compare/%/%/%'] = array(
+    'page callback' => 'gofast_pdf_compare_compare',
+    'access arguments' => array('access content'),
+    'page arguments' => array(1, 2, 3),
+    'access callback' => 'user_access',
+    'type' => MENU_CALLBACK,
+  );
+  
+  $items['pdf_compare_ajax/%/%/%'] = array(
+    'page callback' => 'gofast_pdf_compare_compare_ajax',
+    'access arguments' => array('access content'),
+    'page arguments' => array(1, 2, 3),
+    'access callback' => 'user_access',
+    'type' => MENU_CALLBACK,
+  );
+    
+  return $items;
+}
+
+function gofast_pdf_compare_compare($nid_source, $version_source, $version_dest){
+    //Format variables
+    $version_source = str_replace("_", ".", $version_source);
+    $version_dest = str_replace("_", ".", $version_dest);
+    $node = node_load($nid_source);
+    if(!node_access('view', $node)){
+        return drupal_access_denied();
+    }
+    return theme("gofast_pdf_compare_page", array(
+        "nid_source" => $nid_source,
+        "version_source" => $version_source,
+        "version_dest" => $version_dest,
+    ));
+}
+
+function gofast_pdf_compare_compare_ajax($nid_source, $version_source, $version_dest){   
+    set_time_limit(0);
+    //Get both versions download URL
+    $node = node_load($nid_source);
+    if(!node_access('view', $node)){
+        return drupal_access_denied();
+    }
+    $reference = $node->field_reference[LANGUAGE_NONE][0]['value'];
+    $versions = gofast_cmis_webservice_item_get_versions($reference);
+    foreach($versions as $version){
+        if($version->label === $version_source){
+            $version_source_uuid = $version->uuid;
+            $version_source_link = "http://localhost:8080/alfresco/service/api/node/content/versionStore/version2Store/" . $version_source_uuid . "?a=true";
+        }
+        
+        if($version->label === $version_dest){
+            $version_dest_uuid = $version->uuid;
+            $version_dest_link = "http://localhost:8080/alfresco/service/api/node/content/versionStore/version2Store/" . $version_dest_uuid . "?a=true";
+        }
+    }
+    
+    //Get both files
+    $username = "admin";
+    $password = gofast_get_admin_pwd();
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_USERPWD, $username . ":" . $password);
+    curl_setopt($ch, CURLOPT_URL, $version_source_link);
+    $old_file = curl_exec($ch);
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_USERPWD, $username . ":" . $password);
+    curl_setopt($ch, CURLOPT_URL, $version_dest_link);
+    $new_file = curl_exec($ch);
+    
+    //Write file content into files using a random generated number
+    $random = rand(0, getrandmax());
+    file_put_contents(DRUPAL_ROOT . "/sites/default/files/old_" . $random, $old_file);
+    file_put_contents(DRUPAL_ROOT . "/sites/default/files/new_" . $random, $new_file);
+    
+    //Convert PDF with soffice
+    putenv('PATH=/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin');
+    shell_exec("libreoffice6.2 --headless --convert-to pdf /var/www/d7/sites/default/files/old_" . $random . " --outdir /var/www/d7/sites/default/files");
+    shell_exec("libreoffice6.2 --headless --convert-to pdf /var/www/d7/sites/default/files/new_" . $random . " --outdir /var/www/d7/sites/default/files");
+    shell_exec("pdf-diff /var/www/d7/sites/default/files/old_" . $random . ".pdf /var/www/d7/sites/default/files/new_" . $random . ".pdf > /var/www/d7/sites/default/files/diff_" . $random . ".png");
+    
+    if(filesize("/var/www/d7/sites/default/files/diff_" . $random . ".png")){
+        print "<p style='float:left;margin-left:20px;font-size:1.5em'>" . t("Source version", array(), array('context' => 'gofast:gofast_pdf_compare')) . " : ". $version_source ."</p>";
+        print "<p style='float:right;margin-right:20px;font-size:1.5em'>" . t("Target version", array(), array('context' => 'gofast:gofast_pdf_compare')) . " : ". $version_dest ."</p>";
+        print "<img style='width: 100%;' src='/sites/default/files/diff_" . $random . ".png' />";
+    }else{
+        print "<p style='font-size: 1.5em;text-align: center;'><i class='fa fa-exchange' style='color: green;'></i> " . t("We found no differences between these versions", array(), array('context' => 'gofast:gofast_pdf_compare')) . "</p>";
+    }
+    exit;
+}
+
+/**
+ * @Implement HOOK_theme()
+ * @return type
+ */
+function gofast_pdf_compare_theme(){
+  return array(
+    'gofast_pdf_compare_page' => array(
+      'template' => 'tpl/gofast_pdf_compare-page',
+    ),
+  );
+}
+
+function gofast_pdf_compare_compare_form($form, &$form_state){
+    $node = node_load($form_state['build_info']['args'][1]);
+    
+    $reference = $node->field_reference[LANGUAGE_NONE][0]['value'];
+    $versions = gofast_cmis_webservice_item_get_versions($reference);
+    $versions_dropdown = array();
+    
+    foreach($versions as $version){
+        $versions_dropdown[str_replace(".", "_", $version->label)] = $version->label . " " . t("by", array(), array('context' => 'gofast:gofast_pdf_compare')) . " " . gofast_user_display_name(user_load_by_name($version->creator)) . " (" . date("d/m/Y H:i:s", strtotime($version->createdDate)) . ")";
+    }
+    
+    reset($versions_dropdown);
+    $form['version_source'] =  array(
+                          '#type'     => 'select',
+                          '#options'  => $versions_dropdown,
+                          '#key_type' => 'associative',
+                          '#default_value' => key($versions_dropdown),
+                          "#title" => t("Source version", array(), array('context' => 'gofast:gofast_pdf_compare')),
+                        );
+    $form['version_dest'] =  array(
+                          '#type'     => 'select',
+                          '#options'  => $versions_dropdown,
+                          '#key_type' => 'associative',
+                          '#default_value' => key($versions_dropdown),
+                          "#title" => t("Target version", array(), array('context' => 'gofast:gofast_pdf_compare')),
+                          "#prefix" => "<span style='width:50px;display:inline-block'></span>"
+                        );
+    $form['submit'] =  array(
+                          '#type'     => 'submit',
+                          '#default_value' => t("Compare", array(), array('context' => 'gofast:gofast_pdf_compare')),
+                          '#attributes' => array('class' => array('btn-success')),
+                        );
+    return $form;
+}
+
+/*
+ * Implements hook_cron
+ */
+function gofast_pdf_compare_cron(){
+    //Clean temporary files
+    shell_exec("rm -Rf /var/www/d7/sites/default/files/new_*");
+    shell_exec("rm -Rf /var/www/d7/sites/default/files/old_*");
+    shell_exec("rm -Rf /var/www/d7/sites/default/files/diff_*");
+}

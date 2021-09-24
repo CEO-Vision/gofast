@@ -1,0 +1,72 @@
+.view-id-contacts_listing table {
+    -webkit-box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+    border-radius: 5px;
+    text-align: left;
+}
+
+.view-id-contacts_listing table thead {
+    -webkit-box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+    border-radius: 5px;
+}
+
+.view-id-contacts_listing table thead th {
+    border-bottom: none;
+    background-color: rgba(34, 34, 34, 0.904) !important;
+    color: white;
+}
+
+.view-id-contacts_listing table thead th a {
+    color: white;
+}
+
+.view-id-contacts_listing table tbody td {
+    vertical-align: initial;
+    font-weight: 300;
+    background-color: white !important;
+}
+
+.view-id-contacts_listing thead tr th:last-child {
+    border-radius: 0 5px 0 0;
+}
+
+.view-id-contacts_listing thead tr th:first-child {
+    border-radius: 5px 0 0 0;
+}
+
+
+.view-id-contacts_listing th a:hover, .view-display-id-user_directory th a:focus {
+    color: white;
+    text-decoration: underline;
+}
+
+
+.views-align-center {
+    text-align: center !important;
+}
+
+.views-field-delete-node-modal, .views-field-gofast-edit {
+  padding-left: 0px;
+  padding-right: 0px;
+}
+
+.contact-right-block {
+    float: right;
+}
+
+.contact-left-block {
+    float: left;
+}
+
+.list-items-icons.contact-action-button {
+    margin: 0 auto;
+}
+
+.field-contact-body, .contact-left-block, .contact-right-block{
+    margin:10px;
+}
+
+.contact-node {
+    overflow: hidden;
+}

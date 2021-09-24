@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Manage Multi-filing</shortname>
+    <description>Manage multi-filing using javascript API</description>
+    <url>/set/multiMigrate/?role={role}&amp;reference={reference}&amp;spaces={spaces}&amp;private_spaces={private_spaces}</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

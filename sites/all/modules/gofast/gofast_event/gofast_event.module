@@ -1,0 +1,339 @@
+<?php
+
+/**
+ * @file
+ * Gofast Event module.
+ *
+ * The term "properties" is used to mention common fields from node table, while
+ * "fields" points to any field that can be attached to an entity.
+ */
+
+/*/
+ * Define the field name where will be stored node changes.
+ */
+define('GOFAST_EVENT_LOG_FIELD_NAME', 'event_log');
+
+/**
+ * Define the field type of GOFAST_EVENT_LOG_FIELD_NAME.
+ */
+define('GOFAST_EVENT_LOG_FIELD_TYPE', 'list_text');
+
+/**
+ * Define the field cardinality of GOFAST_EVENT_LOG_FIELD_NAME.
+ * @todo : allow settings override
+ */
+define('GOFAST_EVENT_LOG_FIELD_CARDINALITY', 10);
+
+
+
+/**
+ * @todo 
+ * - node form : remove unnecessary elements (#access) 
+ * - user profile : notifications preference
+ */
+
+
+function gofast_event_menu() {
+  $items = array();
+
+  $items['admin/config/gofast/event'] = array(
+    'title' => 'Event settings',
+    'description' => 'Configure event types, fields and logging options.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gofast_event_settings_form'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'gofast_event.admin.inc'
+  );
+  
+  $items['admin/config/gofast/event/log'] = array(
+    'title' => 'Event Log',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10
+  );
+  
+  // Pages for each enabled node types, will be disabled by default
+  foreach (gofast_event_node_types_enabled() as $type => $label) {
+    $items['admin/config/gofast/event/' . $type] = array(
+      'title' => $label,
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('gofast_event_fields_form', 4),
+      'access arguments' => array('administer site configuration'),
+      'type' => MENU_LOCAL_TASK,
+      'file' => 'gofast_event.admin.inc'
+    );
+  }
+
+  return $items;
+}
+
+/**
+ * Implements hook_field_access().
+ */
+function gofast_event_field_access($op, $field, $entity_type, $entity, $account) {
+  if (empty($entity)) {
+    // We are in field settings page.
+    return;
+  }
+  
+  // Prevent any operation on this field.
+  if ($field['field_name'] === GOFAST_EVENT_LOG_FIELD_NAME) {
+    return FALSE;
+  }
+}
+
+/**
+ * Default list of node fields candidates that might be tracked for event log.
+ */
+function gofast_event_global_fields_list() {
+  // Do not rely on attached fields, globals only.
+  return array(
+    'globals' => array(
+      'title' => t('Title', array(), array('context' => 'gofast')),
+      'language' => t('Language', array(), array('context' => 'gofast')),
+      'status' => t('Status', array(), array('context' => 'gofast')),
+      'sticky' => t('Sticky', array(), array('context' => 'gofast'))
+    )
+  );
+}
+
+/**
+ * Returns node fields that is set "to be tracked" for event log diff.
+ */
+function gofast_event_fields_enabled($bundle_name = NULL) {
+  $fields = variable_get('gofast_event_fields_enabled', array());
+  if ($bundle_name) {
+    return isset($fields[$bundle_name]) ? $fields[$bundle_name] : array();
+  }
+  return $fields;
+}
+
+
+/**
+ * Returns an array of content types that should be tracked for event log. 
+ */
+function gofast_event_node_types_enabled() {
+  return array_filter(variable_get('gofast_event_node_types_enabled', array()));
+}
+
+
+/**
+ * Implements hook_enable()
+ */
+function gofast_event_enable() {
+  // 1. Reset which node bundles that will be provided with detailed event log. 
+  // 2. Reset which node fields (per bundle) should be used for diff.
+
+  $status = variable_get('gofast_event_log_status', FALSE);
+  
+  $types = gofast_event_node_types_enabled();
+  $fields = gofast_event_fields_enabled();
+  
+  if (is_array($types)) {
+    // Check if selected types are valid bundles, otherwise remove them.
+    $types = array_intersect_key($types, node_type_get_names());
+  }
+  else {
+    $types = array();
+  }
+  
+  if ($types && $fields) {
+    // Fields are indexed by bundle (global fields is keyed with 'globals'.
+    $instances = field_info_instances('node', NULL) + gofast_event_global_fields_list();
+    foreach ($types as $bundle => $title) {
+      if (!isset($fields[$bundle]) || !is_array($fields[$bundle])) {
+        $fields[$bundle] = array();
+        continue;
+      }
+      // Check if enabled fields are attached to bundles.
+      foreach ($fields[$bundle] as $field => $label) {
+        if (!isset($instances[$bundle][$field])) unset($fields[$bundle][$field]);
+      }
+    }
+  }
+  else {
+    $fields = array();
+  }
+  
+  // Reset settings.
+  variable_set('gofast_event_node_types_enabled', $types);
+  variable_set('gofast_event_fields_enabled', $fields);
+  
+//  debug(variable_get('gofast_event_node_types_enabled', 'vide'), '', true);
+//  debug(variable_get('gofast_event_fields_enabled', 'vide'), '', true);
+}
+
+
+/**
+ * Implements hook_disable()
+ */
+function gofast_og_disable() {
+  /** @todo ... */
+}
+
+
+/**
+ * Implements hook_node_presave()
+ * 
+ *  The node passed validation and is about to be saved (inserted/updated).
+ */
+function gofast_event_node_presave($node) {
+  // Check node type before proceeding.
+  if (!in_array($node->type, gofast_event_node_types_enabled())) {
+    return;
+  }
+  
+  // Retrieve the original node state to make a diff with the current one, if 
+  // the node is new, go with a fake (empty) node object.
+  $original = $node->nid && is_object($node->original) ? clone $node->original : new stdClass();    
+//  $diff = gofast_event_node_diff(clone $node, $original);
+
+  /** @todo : attach diff to event_log field in order to save data */
+}
+
+
+function gofast_event_node_diff($node, $original = NULL) {
+  $diff = array();
+
+  if (!isset($original)) {
+    $original = $node->nid && is_object($node->original) ? clone $node->original : new stdClass();
+  }
+
+  // Use entity metadata wrappers to process fields.
+  $wrapper = entity_metadata_wrapper('node', $node);
+  $infos = $wrapper->getPropertyInfo();
+  
+  $fields = array_intersect_key($infos, array_flip(gofast_event_fields_enabled()));
+  debug($fields);
+  foreach ($infos as $field_name => $field) {
+//    switch ($field['type']) {
+//      case 
+//    }
+    //debug($wrapper->{$field_name}->raw(), $field_name);
+  }
+  
+  // Compare simple node properties.
+//  foreach (gofast_event_fields_enabled() as $key => $field) {
+//    // Checks that property exists, or fallback.
+//    if (!isset($node->{$field})) $node->{$field} = NULL;
+//    if (!isset($original->{$field})) $original->{$field} = NULL;
+//
+//    // Do diff.
+//    $diff[$field] = gofast_event_simple_diff($field, $node->{$field}, $original->{$field});
+//  }
+  
+
+//  debug($infos, __FUNCTION__, TRUE);
+  
+//  _debug($diff);
+
+  // Remove empty values (where no diff was found).
+  $diff = array_filter($diff);
+  
+  // Allow module to fill or alter the diff array.
+  $diff = module_invoke_all('event_node_diff_alter', $diff, $node, $original);
+  
+//  _debug($diff);
+
+  return $diff;
+}
+
+
+/**
+ * Compare values between the current and the original state of a given field.
+ * Field cardinality is assumed to be 1.
+ */
+function gofast_event_simple_diff($field_name, $current, $original) {
+  $diff = array();
+  
+  if ($current == $original) return $diff;
+
+  $mpd_original = $original;
+  $mpd_value = $current;
+  
+  /** @todo : get mappings from function */
+  $value_label_map = array('status' => array('0' => 'unpublished', '1' => 'published'));
+  
+  if (in_array($field_name, array_keys($value_label_map))) {
+    if (isset($value_label_map[$field_name][$original])) {
+      $mpd_original = $value_label_map[$field_name][$original];
+    }
+    if (isset($value_label_map[$field_name][$current])) {
+      $mpd_value = $value_label_map[$field_name][$current];
+    }
+  }
+  
+  if (!is_null($original)) {
+    $diff['old'] = $mpd_original;
+    if (is_null($current)) {
+      $diff['deleted'] = TRUE;
+    }
+  }
+  
+  if (!is_null($current)) {
+    $diff['new'] = $mpd_value;
+  }
+  
+  return $diff;
+}
+
+
+/**
+ * Implements hook_notifications_event()
+ *  Do cleanup operations or modify event properties. 
+ *  
+ */
+function gofast_event_notifications_event($op, $event = NULL) {
+  watchdog('gofast_event_notifications_event', $op);
+//  switch ($op) {
+//    case 'subscription types' : 
+//    // -> passe dans ce hook $n fois par cron job 
+//    // $n = DrupalQueue::get('notifications_event')->numberOfItems();
+// 
+//      break;    
+//    case 'trigger' : 
+//      // note : to discard, set $event->dispatch = FALSE;
+//      break;
+//    
+//    case 'queued' :
+//      break;
+//    
+//    case 'delete' :
+//      break;
+//  }
+}
+
+
+
+/**
+ * Implements hook_notifications_suscription()
+ *  Do cleanup operations or modify event properties. 
+ *  
+ */
+function gofast_event_notifications_subscription($op, $subscription = NULL, $param = NULL) {
+ // watchdog('gofast_event_notifications_subscription', $op);
+//  $op :
+//    -> 'prepare'
+//    -> 'delete'
+//    -> 'page objects'
+}
+
+
+
+function gofast_event_field_attach_presave($entity_type, $entity) {
+  
+//  watchdog('field_attach_presave', $entity_type);
+//  
+//  if ($entity_type !== 'node') {
+//    return;
+//  }
+//  watchdog('field_attach_presave', 'node');
+//  if (!in_array($entity->type, gofast_event_node_types_enabled())) {
+//    return;
+//  }
+//  
+//  watchdog('field_attach_presave', $entity->title);
+  
+  
+  /** @todo diff on fields */
+}

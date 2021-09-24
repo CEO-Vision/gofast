@@ -1,0 +1,86 @@
+<?php
+
+/**
+ * @file
+ * Installation schema for Gofast Ajax File Browser module
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function gofast_ajax_file_browser_schema(){
+  $schema = array();
+
+  $schema['gofast_bookmark_folder'] = array(
+    'description' => 'Folders bookmarked by users',
+    'fields' => array(
+      'fbid' => array(
+        'description' => 'Unique ID to identify a folder bookmark flag',
+        'type' => 'serial',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'folder_reference' => array(
+        'description' => 'Reference to the folder',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'uid' => array(
+        'description' => 'References the user ID target {user}',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'timestamp' => array(
+        'description' => 'UNIX timestamp representing when the bookmark was created',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-size' => 11,
+      ),
+    ),
+    'primary key' => array('fbid'),
+  );
+  return $schema;
+}
+
+/**
+ * Implements hook_update_7100
+ */
+function gofast_ajax_file_browser_update_7100(){ //Install schema
+  drupal_install_schema("gofast_ajax_file_browser");
+}
+
+## GOFAST-5693
+function gofast_ajax_file_browser_update_7101(){
+   ## Alter gofast_bookmark_folder table to change "path" into "folder_reference"
+   $folder_bookmarks = db_query("select * from gofast_bookmark_folder")->fetchAllAssoc('path');
+
+   ## Reach all folders bookmarks and delete if bookmarks doesn"t exist
+   foreach($folder_bookmarks as $folder_bookmark){
+       $fbid = $folder_bookmark->fbid;
+       $folder_path = $folder_bookmark->path;
+       $reference = gofast_ajax_file_browser_get_reference_from_href($folder_path);
+       if(empty($reference)){
+           db_query("DELETE FROM gofast_bookmark_folder WHERE fbid = '" . $fbid . "'");
+       }else{
+           db_query("UPDATE gofast_bookmark_folder SET path = '" . $reference . "' WHERE fbid = '" . $fbid . "'");
+       }
+   }
+   db_query("ALTER TABLE gofast_bookmark_folder CHANGE COLUMN path folder_reference text NOT NULL");
+}
+
+## GOFAST-5977
+function gofast_ajax_file_browser_update_7102(){
+  $result = db_select('gofast_bookmark_folder', 'bf')
+    ->fields('bf', array('folder_reference'))
+    ->fields('bf', array('fbid'))
+    ->execute()
+    ->fetchAll();
+  foreach ($result as $value) {
+    $item = gofast_cmis_item_get($value->folder_reference);
+    if (empty($item->properties['alfcmis:nodeRef'])) {
+      db_query("DELETE FROM gofast_bookmark_folder WHERE fbid = '" . $value->fbid . "'");
+    }
+  }
+}

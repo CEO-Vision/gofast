@@ -1,0 +1,10 @@
+name = Gofast Mail Queue
+description = Mail queue for notifications from gofast_message module
+
+core = 7.x
+package = Gofast
+php = 5.2.4
+project = "gofast_mail_queue"
+version = "7.x-3.10.0_r2"
+
+dependencies[] = gofast_message_ext

@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Gofast Views Config feature.
+ */
+
+include_once 'gofast_features_views.features.inc';

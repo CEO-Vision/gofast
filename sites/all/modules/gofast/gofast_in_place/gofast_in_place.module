@@ -1,0 +1,64 @@
+<?php
+
+
+//implémentation du hook_form_alter
+function gofast_in_place_form_alter(&$form, &$form_state, $form_id){
+    
+     if($form_id == "edit_field_form"){
+      //dans le cas de l'edition inline d'un champs, on enleve les tabs
+         unset($form["flag"]);
+        $form["actions"]["submit"]["#attributes"]["style"][] = "display:none;";
+         $form['#validate'][] = 'gofast_cmis_form_alfresco_item_validate';
+     }
+}
+
+/**
+ * Implements hook_field_attach_view_alter().
+ *
+ * Show titles of empty fields.
+ */
+function gofast_in_place_field_attach_view_alter(&$output, $context) {
+  // We proceed only on nodes.
+  if ($context['entity_type'] != 'node' && $context['view_mode'] != 'full' && $context['view_mode'] != 'gofast_node_infos') {
+    return;
+  }
+ 
+  $node = $context['entity'];
+  // Load all instances of the fields for the node.
+  if(!isset($node->type)){
+      return;
+  }
+  $instances = _field_invoke_get_instances('node', $node->type, array('default' => TRUE, 'deleted' => FALSE));
+ 
+  foreach ($instances as $field_name => $instance) {
+
+    // Set content for fields they are empty.
+    if (empty($node->{$field_name})) {
+      $display = field_get_display($instance, $context['view_mode'], $node);
+      // Do not add field that is hidden in current display.
+      if ($display['type'] == 'hidden') {
+        continue;
+      }
+      // Load field settings.
+    
+      $field = field_info_field($field_name);
+      // Set output for field.
+        $output[$field_name] = array(
+           '#theme' => 'field',
+           '#title' => $instance['label'],
+           '#label_display' => 'inline',
+           '#field_type' => $field['type'],
+           '#field_name' => $field_name,
+           '#bundle' => $node->type,
+           '#object' => $node,
+           '#items' => array(0 => array()),
+           '#entity_type' => 'node',
+           '#weight' => $display['weight'],
+           '#language' => LANGUAGE_NONE,
+           '#formatter' => 'text_default',
+           '#view_mode' => $context['view_mode'],
+           0 => array('#markup' => '&nbsp;'),
+         );
+    }
+  }
+}

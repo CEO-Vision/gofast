@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Delete Attachments</shortname>
+    <description>Delete attachments using javascript API</description>
+    <url>/del/attachments/?folderName={folderName}&amp;attach={attach}</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

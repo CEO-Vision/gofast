@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Set Permission</shortname>
+    <description>Set Permission using javascript API</description>
+    <url>/set/node/workflow/permission/?reference={reference}&amp;validators={validators}&amp;inverse={inverse}</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

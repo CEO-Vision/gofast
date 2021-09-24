@@ -1,0 +1,421 @@
+<?php
+
+/**
+ * @package gofast_link_sharing
+ */
+
+require_once 'gofast_link_sharing_utils.inc';
+require_once 'gofast_link_sharing_form.inc';
+
+global $base_url;
+
+
+/**
+ * The default expiry period applied to the sharing url
+ * Applied for anonymous user access only
+ */
+define('DEFAULT_EXPIRY_PERIOD', '+2 weeks');
+define('DEFAULT_EXPIRY_PERIOD_STRING', '2 weeks');
+
+/**
+ * The Default path in whic document should be located
+ * to be allowed to be shared with anonymous users
+ */
+define('DEFAULT_EXTERNAL_SHARING_LOC', '/Sites/_Extranet');
+
+
+
+function gofast_link_sharing_init(){
+    /**
+    * The Cipher key used to encrypt and decrypt the sharing url
+    */
+    define('CIPHER_KEY', variable_get("gofast_link_sharing_cipher", ""));
+    drupal_add_js(drupal_get_path('module', 'gofast_link_sharing') . "/js/gofast_link_sharing.js");
+
+}
+/**
+ * Implements hook_menu()
+ */
+function gofast_link_sharing_menu() {
+  $items = array();
+
+  //access to document
+  $items['public/sharing'] = array(
+    'title' => 'Share',
+    'description' => 'Share a link to a File',
+    'page callback' => 'gofast_link_sharing',
+    'page arguments' => array(2),
+    'type' => MENU_NORMAL_ITEM,
+    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'delivery callback' => 'gofast_link_sharing_delivery_callback'
+  );
+
+  //send mail
+  $items['public/sharing_dl'] = array(
+    'title' => 'Share',
+    'description' => 'Send a mail to the transmitter',
+    'page callback' => 'gofast_sharing_download',
+    'page arguments' => array(2),
+    'type' => MENU_NORMAL_ITEM,
+    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    //'delivery callback' => 'gofast_link_sharing_delivery_callback'
+  );
+
+  // Initiate share with external
+  $items['linksharing/%node'] = array(
+    'title' => 'Send link by email',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gofast_link_sharing_form', 1),
+    'access arguments' => array('view', 1),
+    'access callback' => 'node_access',
+    'type' => MENU_CALLBACK,
+  );
+
+   // Initiate share with external
+  $items['modal/%ctools_js/linksharing/%node'] = array(
+    'title' => 'Send link by email',
+    'page callback' => 'gofast_link_sharing_form_modal',
+    'page arguments' => array(1, 3),
+    'access arguments' => array('view', 3),
+    'access callback' => 'node_access',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['linksharing/manage_linksharing/process'] = array(
+    'page callback' => 'gofast_manage_linksharing_process',
+    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  //access to document
+  $items['public/multi_sharing'] = array(
+    'title' => 'Share',
+    'description' => 'Share a link to a file',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gofast_multi_link_sharing_form'), //put the name of the form here
+    'access callback' => TRUE,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_theme()
+ */
+function gofast_link_sharing_theme(){
+  $theme['gofast-link-sharing-body'] = array(
+    'template' => 'tpl/gofast-link-sharing-body'
+  );
+
+  $theme['gofast-link-sharing-body-all-mail'] = array(
+    'template' => 'tpl/gofast-link-sharing-body-all-mail'
+  );
+
+  $theme['gofast-link-sharing-file-details'] = array(
+    'template' => 'tpl/gofast-link-sharing-file-details'
+  );
+
+  $theme['gofast-sharing-download'] = array(
+    'template' => 'tpl/gofast-sharing-download'
+  );
+
+  $theme['gofast-multi-sharing-download'] = array(
+    'template' => 'tpl/gofast-multi-sharing-download'
+  );
+
+  $theme['gofast_manage_linksharing_progression'] = array(
+     'template'  => 'tpl/gofast-manage-linksharing'
+  );
+
+  $theme['gofast_manage_linksharing_body'] = array(
+     'template'  => 'tpl/gofast-manage-linksharing-body'
+  );
+
+  $theme['gofast_manage_linksharing_body_all_mail'] = array(
+     'template'  => 'tpl/gofast-manage-linksharing-body-all-mail'
+  );
+
+  return $theme;
+}
+
+/**
+ * Page callback : Display a form to share a document
+ *
+ * This callback manage to open the form page inside a modal (if $js is set to 'ajax')
+ * or in a former page.
+ *
+ * @param string $js
+ * @param node $node
+ *    The drupal node of the document that will be shared
+ *
+ * @return type
+ */
+function gofast_link_sharing_form_modal($js, $node=null){
+
+  global $user;
+  ctools_include('ajax');
+  ctools_include('modal');
+
+  if (!$js) {
+    $arg = $node->nid ? '/' . $node->nid: '';
+    return drupal_goto('linksharing' . $arg);
+  }
+
+  $form_state = array(
+    'reset_html_ids' => TRUE,
+    'build_info' => array(
+      'args' => array(
+        (object) $node,
+      )
+    ),
+    'ajax' => TRUE,
+    'title' => null
+  );
+
+  $commands = ctools_modal_form_wrapper('gofast_link_sharing_form', $form_state);
+  if (!isset($commands[0])) {
+    $values_sharing = json_decode($form_state['input']['edit-to-hidden-values']);
+    if (!empty($form_state['input']['to'])){
+        $values_sharing[] = $form_state['input']['to'];
+    }
+    $commands = array();
+    $commands[] = ctools_modal_command_dismiss();
+
+    $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+
+    //Insert linksharing into audit
+    gofast_audit_linksharing($node,$values_sharing);
+
+    //Insert last event linksharing into news feed
+    gofast_message_ext_create_linksharing_entity($node,$values_sharing);
+
+
+
+  }
+  print ajax_render($commands);
+
+  return;
+}
+
+/**
+ * Page callback : Give access to the shared document from the shared url
+ *
+ * Form the shared link, it control that the document is accessible for the user
+ * - check node exist
+ * - check expiry date (only for anonymous)
+ * - check user has permission to access the document, if so redirect to the node
+ * page of the document directly
+ *
+ *
+ * @return string (HTML)
+ */
+function gofast_link_sharing(){
+
+  global $user;
+  $curr_user = $user;
+
+  //Use admin user to be able to access cmis object
+  //usurp(false);
+  //usurp(1);
+  $decrypt_datas = gofast_link_sharing_link_decrypt($_GET["hash"]);
+  $nid = $decrypt_datas['nid'];
+  $exp_date = $decrypt_datas['exp_date'];
+
+  //Check node exist
+  $node = node_load($nid);
+  $node_exists = isset($node->nid);
+
+  $l = array('langcode' => $user->language, 'context' => 'gofast:gofast_link_sharing');
+
+  //Check sharing expiry date
+  $link_still_valid = ( $exp_date > time())? TRUE : FALSE ;
+
+  //Check if there is already a gofast session
+  $is_gofast_user = gofast_link_sharing_is_gofast_user($curr_user);
+  $output = '';
+  if( ! $node_exists || ( !$link_still_valid && !$is_gofast_user) ){
+      global $base_url;
+      $ddl_link = $base_url.":443".'/';
+      drupal_set_message(t("Sorry this sharing link is not valid", array(), array('context' => 'sharing_dl')), 'error');
+      drupal_goto("/");
+      exit;
+    //$output = MENU_ACCESS_DENIED;
+  }else{
+    global $user;
+    global $base_url;
+    usurp(1);
+    $user_has_access = gofast_link_sharing_usr_has_access($node, $curr_user);
+    $cmis_id = gofast_cmis_node_get_item_id($node);
+    $object = gofast_cmis_item_get($cmis_id, TRUE);
+
+    $alfresco_ticket = gofast_cmis_retrieve_and_store_ticket($user);
+    usurp(false);
+    gofast_cmis_unset_user_ticket();
+    $link = $object->links["edit-media"];
+
+    if($is_gofast_user && $user_has_access){
+      $ddl_link = $base_url.":443".'/node/'.$nid;
+      header('Location:'.$ddl_link);
+      exit;
+
+    }else{
+      $ddl_link = str_replace("http://localhost:8080",$base_url.":443" , $link).'&alf_ticket='.$alfresco_ticket;
+      $output = theme('gofast-link-sharing-file-details', array(
+                'title' => $object->properties['cmis:name'],
+                'version' => empty($version) ? $object->properties['cmis:versionLabel']: $version,
+                'link' => $ddl_link,
+                'hash' => $_GET['hash'],
+		'nid' => $node->nid,
+              ));
+    }
+  }
+
+  return $output;
+}
+
+/**
+ * Page callback : Send a mail to the forwarder when recipients download the link. Add a line on the audit
+ *
+ * Get hash of the url and decrypt it then:
+ *  - Get all informations of the hash ( node id , sharing version ...)
+ *  - Create the template of the mail
+ *  - Send the mail
+ *  - Add audit line
+ *
+ */
+function gofast_sharing_download(){
+    
+    global $base_url;
+    $decrypt_datas = gofast_link_sharing_link_decrypt($_GET['hash']);
+    $nid = $decrypt_datas['nid'];
+    $emetteur = user_load($decrypt_datas['emetteur']);
+    $version = $decrypt_datas['version'];
+    $dest_id = $decrypt_datas['dest_id'];
+    if(!is_numeric($dest_id)){
+      ## not a GoFAST user
+      $mail = $decrypt_datas['dest_id'];
+      $nameDestinaire = $decrypt_datas['dest_id'];
+    }else{
+      $destinataire = user_load($dest_id);
+      $nameDestinaire = gofast_user_display_name($destinataire);
+    }
+
+    $version_share = $version;
+
+    usurp(1);
+
+    $node = node_load($nid);
+    $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
+    $document_pic = gofast_mail_queue_fa_png($node_icon);
+
+    $l = array('langcode' => $emetteur->language, 'context' => 'gofast:gofast_link_sharing');
+    $body = theme('gofast-sharing-download', array(
+          'author_pic' => theme('user_picture', array('account' => $destinataire)),
+          'author_name' => $nameDestinaire,
+          'author_mail' => $mail,
+          'recip_name' => $emetteur->mail,
+          'node_link' =>  url( $base_url.'/node/'.$node->nid ),
+          'node_title' => $node->title,
+          'version' => $version_share,
+          'l' => $l,
+          'document_pic' => $document_pic,
+         ));
+    usurp(false);
+
+    $subject = t("@destinaire downloaded your document on the GoFast 3 plateform",array('@destinaire' => $nameDestinaire),array('langcode' => $emetteur->language,'context' => 'sharing_dl'));
+    $title = t("Sharing Download",array(),array('langcode' => $emetteur->language, 'context' => 'sharing_dl'));
+    $footer = t('Message sent from ', array(), $l)." ".variable_get('site_name');
+    $dest_mail=array();
+    $dest_mail['0']['recpt'] = $emetteur->mail;
+    $dest_mail['0']['method'] = 'to';
+
+    $mail = array(
+      'body' => $body,
+      'title' => $title,
+      'subject' => $subject,
+      'footer' => $footer
+    );
+    $transmitter_id = $dest_id;
+    gofast_mail_queue_api_queue_ext($mail,  $dest_mail, time(), $transmitter_id);
+
+    //Insert sharing_dl into audit
+    $addr_ip = $_SERVER["REMOTE_ADDR"];
+    $event_type = "sharing_dl";
+    $last_event_unserialized["mod_timestamp"] = time();
+    $last_event_unserialized["mod_author"] = 0;
+    $last_event_unserialized["mod_version"] = $version_share;
+    $last_event_unserialized["mod_ip"] = $addr_ip;
+    $event = array('mod_author' => 0, 'mod_timestamp' => time(), "event" => $event_type, 'mod_version' => $version_share, 'mod_ip' => $addr_ip);
+    $event = serialize($event);
+    $last_event_serialized = rawurlencode($event);
+    gofast_audit_insert_line_audit($node->nid,$event_type,$last_event_serialized, $last_event_unserialized );
+
+    try{
+        global $user;
+        usurp(1);
+        $alfresco_ticket = gofast_cmis_retrieve_and_store_ticket($user);
+        usurp(false);
+        $title = $node->title;
+        $version = str_replace('.','_',$node->field_current_version['und']['0']['value']);
+        $extension = gofast_cmis_node_get_extension($node);
+        $cmis_id = gofast_cmis_node_get_item_id($node);
+        $object = gofast_cmis_item_get($cmis_id, TRUE);
+        $link = $object->links["edit-media"];
+        $ddl_link = $link .'&alf_ticket='.$alfresco_ticket;
+        str_replace('.','_',$node->field_current_version['und']['0']['value']);
+        $full_title = str_replace('.' . $extension , '_v' . $version . '.' . $extension,$title);
+
+        //Clear the user ticket
+        gofast_cmis_unset_user_ticket();
+        
+        //Prepare buffer for stream
+        while (ob_get_level()) ob_end_clean();
+        set_time_limit(0);
+        
+        //Download the file
+        header('Content-disposition: attachment; filename="'.$full_title . '"');
+        header('Content-type: ' . $object->properties['cmis:contentStreamMimeType']);      
+        readfile($ddl_link);
+        # need to exit because other header overload both header
+        exit;
+    }catch(Exception $e){
+        gofast_cmis_unset_user_ticket();
+    }
+
+}
+
+/**
+ * Delivery callback : Customize display of the 'public/sharing' page
+ *
+ * @param mixed $page_callback_result
+ */
+function gofast_link_sharing_delivery_callback($page_callback_result){
+
+  usurp(FALSE);
+  global $user;
+
+  //Destroy session cleanly
+  if (drupal_session_started() && ! gofast_link_sharing_is_gofast_user($user)) {
+      session_destroy();
+  }
+
+   if($user == null){
+      $user = user_load(0);
+  }
+
+  print drupal_render_page($page_callback_result);
+}
+
+/**
+ * Function to change the timestamp of a node (specially for linksharing)
+ * @param type $nid
+ * @param type $timestamp
+ */
+function gofast_link_sharing_change_timestamp($nid,$timestamp){
+
+    db_query("UPDATE node SET changed='". $timestamp ."' where nid='" . $nid . "';");
+
+}

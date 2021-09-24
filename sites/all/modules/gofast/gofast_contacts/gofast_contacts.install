@@ -1,0 +1,72 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function gofast_contacts_install() {
+  
+  
+  usurp(1);
+  //Create menus
+  gofast_contacts_create_menus();
+  usurp(FALSE);
+  
+}
+
+function gofast_contacts_create_menus() {
+
+  //Menu create new userList
+  //get parent menu_link
+  $parent_link_mlid = db_query("SELECT mlid from {menu_links} WHERE link_title=:link_title AND link_path=:link_path", array(':link_title' => 'Content', ':link_path' => 'node/add/alfresco-item'))->fetchField();
+
+  $links = array(
+    'link_title' => 'Contact',
+    'link_path' => 'node/add/contact',
+    'router_path' => 'node/add/contact',
+    'menu_name' => 'main-menu',
+    'plid' => $parent_link_mlid,
+    'weight' => 0,
+    'expanded' => 0,
+    'cutomized' => 1,
+    'uuid' => '8ca80d16-149d-4573-a34f-e434edcc25fc'
+  );
+
+  // Look the table first if the data does exist
+  $exists_link = db_query("SELECT mlid from {menu_links} WHERE link_title=:link_title AND link_path=:link_path", array(':link_title' => $links['link_title'], ':link_path' => $links['link_path']))->fetchField();
+  // Save the record if the data does not exist
+  if (!$exists_link) {
+    menu_link_save($links);
+    
+    //rebuild menu cache
+    menu_cache_clear_all();
+  }
+  
+  
+  
+  //Menu show userlist
+  //get parent menu_link
+  $parent_link_mlid = db_query("SELECT mlid from {menu_links} WHERE link_title=:link_title AND link_path=:link_path", array(':link_title' => 'Directories', ':link_path' => 'user_listing_tab'))->fetchField();
+
+  $links = array(
+    'link_title' => 'Address book',
+    'link_path' => 'contacts-listing',
+    'router_path' => 'contacts-listing',
+    'menu_name' => 'main-menu',
+    'plid' => $parent_link_mlid,
+    'weight' => 0,
+    'expanded' => 0,
+    'cutomized' => 1,
+    'uuid' => '47cef16d-5656-4676-b1e5-9b2163c1c6b8'
+  );
+
+  // Look the table first if the data does exist
+  $exists_link = db_query("SELECT mlid from {menu_links} WHERE link_title=:link_title AND link_path=:link_path", array(':link_title' => $links['link_title'], ':link_path' => $links['link_path']))->fetchField();
+  // Save the record if the data does not exist
+  if (!$exists_link) {
+    menu_link_save($links);
+    
+    //rebuild menu cache
+    menu_cache_clear_all();
+  }
+
+}

@@ -1,0 +1,105 @@
+<?php
+
+/**
+ * @package gofast_mail
+ * Constant for Courrier folder name
+ */
+define('MAIL_FOLDER_NAME', "COURRIERS");
+
+
+/**
+ * Implements HOOK_entity_presave()
+ */
+function gofast_mail_entity_presave($entity, $type) {
+    if ($type != "node") {
+        return;
+    }
+
+    if ($entity->type == "alfresco_item") {
+        //ensure "Courrier" tag is set to mail documents
+        foreach ($entity->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE] as $node_location) {
+            if (strpos($node_location['value'], MAIL_FOLDER_NAME) !== FALSE) {
+                // This add the tag "Courrier" to the newly created courriers.
+                $document_tags[] = gofast_xeditable_terms_get_from_array(GOFAST_VID_TAGS, array('Courrier'))[0];
+                if (count($entity->{'field_tags'}[LANGUAGE_NONE]) > 0) {
+                    foreach ($entity->{'field_tags'}[LANGUAGE_NONE] as $key => $tag) {
+                        if ($tag["tid"] == $document_tags[0]->tid) {
+                            unset($entity->{'field_tags'}[LANGUAGE_NONE][$key]);
+                        }
+                    }
+                }
+                $entity->{'field_tags'}[LANGUAGE_NONE][]["tid"] = $document_tags[0]->tid;
+                $document_category = gofast_xeditable_terms_get_from_array(GOFAST_VID_CATEGORY, array('Courrier entrant'))[0];
+                $entity->{'field_category'}[LANGUAGE_NONE][]["tid"] = $document_category->tid;
+            }
+        }
+
+    }
+}
+
+function gofast_mail_field_attach_form($entity_type, $entity, &$form, &$form_state, $langcode)
+{
+    if (isset($entity->type)) {
+        if ($entity_type === "node" && $entity->type === "alfresco_item") {
+            $form['#submit'][] = 'gofast_mail_form_alfresco_item_node_form_submit';
+        }
+    }
+}
+
+/**
+ * Implements HOOK_form_FORMID_alter()
+ */
+function gofast_mail_form_alfresco_item_node_form_alter(&$form, &$form_state, $form_id) {
+    if(isset($_GET["field_target_link"])){
+        $nid = $_GET["field_target_link"];
+        $target_field_lien = node_load($nid);
+        if(isset($target_field_lien->nid)){
+            $form["field_target_link"]['#access'] = true;
+            //$form["field_target_link"][LANGUAGE_NONE][0]['target_id']['#default_value'] = "(".$target_field_lien->nid.')';
+            $form["field_target_link"]['#default_value'] = $target_field_lien->nid;
+            drupal_set_message(t("You are currently creating a response to the mail '@title'" , array('@title' => $target_field_lien->title), array('context' => 'gofast')));
+        }
+    }
+}
+
+function gofast_mail_form_alfresco_item_node_form_submit($form, &$form_state){
+    if(isset($form["field_target_link"]['#default_value'])){
+
+        // Link beetween inbound and outbound mail
+        $form_state['values']["field_target_link"][LANGUAGE_NONE][0] = array("target_id" => $form["field_target_link"]['#default_value'], "field_mode" => "default");
+
+        // Tag as mail
+        $tag_mail = gofast_xeditable_terms_get_from_array(GOFAST_VID_TAGS, array('Courrier'))[0];
+        $form_state['values']['field_tags'][LANGUAGE_NONE][0] = array("tid" => $tag_mail->tid);
+
+        // Change category into outbound mail
+        $outbound_category_mail = gofast_xeditable_terms_get_from_array(GOFAST_VID_CATEGORY, array('Courrier sortant'))[0];
+        $form_state['values']['field_category'][LANGUAGE_NONE][0] = array("tid" => $outbound_category_mail->tid);
+    }
+}
+
+/**
+ * Check if a node is a mail
+ *
+ * @param object $node
+ * @return boolean
+ */
+function gofast_mail_node_is_mail($node)
+{
+    $category_mail = gofast_xeditable_terms_get_from_array(GOFAST_VID_CATEGORY, array('Courrier entrant'))[0];
+    $tag_mail = gofast_xeditable_terms_get_from_array(GOFAST_VID_TAGS, array('Courrier'))[0];
+
+    if ($node->{'field_category'}[LANGUAGE_NONE][0]["tid"] == $category_mail->tid) {
+        return true;
+    }
+
+    if (count($node->{'field_tags'}[LANGUAGE_NONE]) > 0) {
+        foreach ($node->{'field_tags'}[LANGUAGE_NONE] as $key => $tag) {
+            if ($tag["tid"] == $tag_mail->tid) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}

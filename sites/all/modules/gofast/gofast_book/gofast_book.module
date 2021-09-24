@@ -1,0 +1,257 @@
+<?php
+require_once(DRUPAL_ROOT . "/modules/node/node.pages.inc");
+
+
+
+
+/**
+ * @package gofast_book
+ * Hook menu.
+ *
+ * @return array
+ */
+function gofast_book_menu() {
+  $items = array();
+
+  $items['gofast/%ctools_js/book/manage/%node'] = array(
+     'title' => 'Books',
+    'page callback' => 'gofast_book_modal_manage_book',
+    'page arguments' => array(1, 4),
+    'access callback' => 'node_access',
+    'access arguments' => array('view', 4),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * Implements custom hook after_gofast_node_form_alter().
+ */
+function gofast_book_after_gofast_node_form_alter(&$form, &$form_state) {
+    $node = $form['#node'];
+    if ($node->type == 'article' && $_POST['is_popover'] == TRUE ) {
+      $form['wrapper']['#attributes']['class'][] = "gofast_display_none";
+      $form['body']['#attributes']['class'][] = "gofast_display_none";
+      $form['og_group_content_ref']['#attributes']['class'][] = "gofast_display_none";
+      unset($form['actions']['delete']);
+      $form['actions']['cancel'] = array(
+        '#markup' => '<button id="book_cancel_' . $node->nid .' "  type="button" class="btn btn-default btn-sm book-cancel"><i class="glyphicon glyphicon-remove"></i>' . t("Cancel"),
+        '#weight' => '20',
+      );
+    }
+    if ($node->type == 'article'){
+        $form['book']['pick-book']["#type"] = "hidden";
+    }
+}
+
+
+function gofast_book_modal_manage_book($js = NULL, $node){
+   module_load_include('inc', 'node', 'node.pages');
+   $form_id = 'article_node_form';
+
+  if (!$js) {
+
+   $form = drupal_get_form($form_id, $node);
+
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array()
+    ),
+    'title' => null,
+    'node' => $node
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  $commands[] = ajax_command_invoke('.form-wrapper:not(#edit-book, .form-actions), .vertical-tabs-list', 'css', array(array('display' => 'none')));
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+
+}
+/**
+ * Implements hook_block_view
+ */
+function gofast_book_block_view($delta = '') {
+  $block = array();
+  $subject = $content = '';
+
+  switch ($delta) {
+    case 'gofast_book_group':
+      ## case of article we need to put the block to navigate inside article page
+      if(node_load(arg(1))->type == 'article'){
+        ## retrieve parents from a node in order to retrieve all of a parent's books from it
+        $parents = gofast_og_get_parent(node_load(arg(1)));
+        $one_parent = reset($parents);
+        if(!empty(node_load(arg(1))->book['bid'])){
+            $json_books = gofast_book_get_json_books(array($one_parent),node_load(arg(1))->book['bid']);
+            libraries_load('ztree');
+            $path = drupal_get_path('module', 'gofast_book');
+            drupal_add_js($path . '/js/gofast_book_block.js');
+            $settings = array('data_tree' => $json_books, "is_document" => "true");
+
+            drupal_add_js(array('gofast_book_tree' => $settings), 'setting');
+            $content = "<div id='ztree_book' class='ztree'></div>";
+            $subject = t("Book related to the article", array(), array("context" => "gofast"));
+        }
+      }else{
+          $subject = t("Books in this group", array(), array("context" => "gofast"));
+          $json_books = gofast_book_get_json_books(array(arg(2)));
+          
+          libraries_load('ztree');
+          $path = drupal_get_path('module', 'gofast_book');
+          drupal_add_js($path . '/js/gofast_book_block.js');
+          $settings = array('data_tree' => $json_books, "is_document" => "true");
+          $content = "<div id='ztree_book' class='ztree'></div>";
+
+          drupal_add_js(array('gofast_book_tree' => $settings), 'setting');
+      }
+    break;
+  }
+
+  $block['subject'] = $subject;
+  $block['content'] = $content;
+
+  return $block;
+}
+
+
+function gofast_book_get_json_books($gids,$nid_article=NULL){
+  // This break the send by email functionnality
+
+  $tree = gofast_book_get_books($gids);
+  ## case of article we need to return only the current book (not all)
+  if(!empty($nid_article)){
+      $book[$nid_article] = $tree[$nid_article];
+      $tree = $book;
+  }
+  $subtree = array();
+  foreach ($tree as $value) {
+    $node = node_load($value['nid']);
+    $subtree += book_menu_subtree_data($node->book);
+  }
+  global $lnk;
+  global $j;
+  $lnk = array();
+  $j = 0;
+
+  array_walk_recursive($subtree, 'gofast_book_recursive');
+  $data = array();
+  $val = array();
+
+  foreach ($lnk as $key => $value) {
+    if(sizeof($value) == 500) array_push($data , array('nId' => intval(end($value)), 'id' => prev($value), 'pId' => prev($value) , 'name' => $value[1], 'isParent' => true, 'url2' => $value[0]));
+    else array_push($data , array('nId' => intval(end($value)), 'id' => prev($value), 'pId' => prev($value), 'name' => $value[1], 'url2' => "/node/".end($value)));
+  }
+
+  return drupal_json_encode($data);
+
+}
+
+ function gofast_book_recursive($item, $key) {
+    $jf = $GLOBALS['j'];
+    if ($key == "menu_name") {
+      $jf ++;
+      $GLOBALS['lnk'][$jf]=array();
+    }
+    if ($key == "link_path") array_push($GLOBALS['lnk'][$jf] , $item);
+    if ($key == "link_title") array_push($GLOBALS['lnk'][$jf] , $item);
+    if ($key == "nid") array_push($GLOBALS['lnk'][$jf] , $item);
+    if ($key == "has_children" && $item == 1) array_push($GLOBALS['lnk'][$jf] , $item);
+    if ($key == "has_children" && $item == 0) array_push($GLOBALS['lnk'][$jf] , $item);
+    if ($key == "p1" && $item == 0) array_push($GLOBALS['lnk'][$jf] , $item);
+    for ($i=1; $i <= 10; $i++ ) {
+      if ($key == "p$i" && $item <> 0) array_push($GLOBALS['lnk'][$jf] , $item);
+    }
+    $GLOBALS['j'] = $jf;
+}
+
+
+/**
+ * Implements hook_block_info
+ */
+function gofast_book_block_info() {
+  $pages = '<?php
+if( (arg(0) == "node") && (is_numeric(arg(1))) && (arg(2) == FALSE) ){
+  $node = node_load(arg(1));
+  if(gofast_og_is_space($node){
+      return TRUE;
+  }else{
+  return FALSE;
+  }
+}else{
+  return FALSE;
+}
+?>';
+
+  $blocks['gofast_book_group'] = array(
+    'info' => t('Books in this group', array(), array('context' => 'gofast:gofast_book')),
+    'cache' => DRUPAL_CACHE_PER_PAGE,
+    'weight' => -40,
+    'status' => 1,
+    'region' => 'sidebar_second',
+    'visibility' => BLOCK_VISIBILITY_PHP,
+    'pages' => $pages, // @todo
+  );
+
+  return $blocks;
+}
+
+
+/**
+ * Returns an array of all books belonging to certain groups.
+ *
+ * This is mostly a copy of book_get_books().
+ *
+ * @param array $group_ids
+ *   An array of group IDs to filter by.
+ *
+ * @return array
+ *   An array of all books.
+ */
+function gofast_book_get_books($group_ids) {
+  if (empty($group_ids)) {
+    return array();
+  }
+
+  $all_books = &drupal_static(__FUNCTION__ . implode(':', $group_ids), array());
+  if (empty($all_books)) {
+    $nid_query = db_select('book', 'b')
+      ->fields('b', array('bid'))
+      ->distinct()
+      ->condition('og.gid', $group_ids, 'IN')
+      ->condition('og.entity_type', 'node');
+    $nid_query->join('og_membership', 'og', 'b.nid = og.etid');
+    $nids = $nid_query->execute()->fetchCol();
+
+    if ($nids) {
+      $query = db_select('book', 'b', array('fetch' => PDO::FETCH_ASSOC));
+      $query->join('node', 'n', 'b.nid = n.nid');
+      $query->join('menu_links', 'ml', 'b.mlid = ml.mlid');
+      $query->addField('n', 'type', 'type');
+      $query->addField('n', 'title', 'title');
+      $query->fields('b');
+      $query->fields('ml');
+      $query->condition('n.nid', $nids, 'IN');
+      $query->condition('n.status', 1);
+      $query->orderBy('ml.weight');
+      $query->orderBy('ml.link_title');
+      $query->addTag('node_access');
+      $result2 = $query->execute();
+      foreach ($result2 as $link) {
+        $link['href'] = $link['link_path'];
+        $link['options'] = unserialize($link['options']);
+        $all_books[$link['bid']] = $link;
+      }
+    }
+  }
+
+  return $all_books;
+}

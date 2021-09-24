@@ -1,0 +1,18 @@
+<?php
+
+include_once 'gofast_migrate.drush.inc';
+function gofast_migrate_menu() {
+  $items = array();
+  $items['admin/post-migrate'] = array(
+    'title' => 'Post Migrate',
+    'description' => 'Post migrate actions',
+    'page callback' => 'gofast_migrate_migrate_ui',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access administration pages'),
+  );
+  return $items;
+}
+
+function gofast_migrate_migrate_ui(){
+  //return gofast_migrate_post_migrate();
+}

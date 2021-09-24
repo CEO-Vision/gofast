@@ -1,0 +1,944 @@
+<?php
+
+
+/**
+ * Implements hook_init()
+ */
+function gofast_ajax_file_browser_init() {
+  if (!user_is_logged_in()) {
+    // Because user may have lost its session and did not necessarily log out
+    // (session expiry), we must ensure that an old Alfresco session doesn't
+    // persist along with the drupal session about to be created.
+    gofast_delete_cookie('JSESSIONID');
+  }
+  $request_field_archived = db_query("SELECT * FROM {field_data_field_archive} where field_archive_value = 1");
+  $fields_archived = $request_field_archived->fetchAll();
+  $archived_spaces=array();
+  foreach($fields_archived as $field_archived ){
+      array_push($archived_spaces , '/alfresco/webdav/Sites' .  str_replace('/', '/_' , gofast_cmis_space_get_drupal_path($field_archived->entity_id))) ;
+  }
+  $params['gofast_ajax_file_browser']['archived_spaces'] = $archived_spaces;
+  $params['alfresco']['alf_ticket'] = gofast_cmis_get_user_ticket();
+  drupal_add_js($params,'setting');
+
+  libraries_load('ztree');
+}
+
+function gofast_ajax_file_browser_library() {
+  $libraries = array();
+  $path = drupal_get_path('module', 'gofast_ajax_file_browser');
+  $lib = 'sites/all/libraries';
+  $libraries['gofast_ajax_file_browser'] = array(
+    'title' => 'Gofast Ajax File Browser Client',
+    'version' => '1.0',
+    'js' => array(
+      $lib . '/ajax_file_browser/ITHitWebDAVClient.js' => array(
+        'group' => JS_LIBRARY, // JS_DEFAULT
+        'every_page' => TRUE,
+        'weight' => 10
+      ),$lib . '/NProgress/nprogress.js' => array(
+        'group' => JS_LIBRARY, // JS_DEFAULT
+        'every_page' => TRUE,
+        'weight' => 1
+      ),$path . '/gofast_ajax_file_browser.js' => array(
+        'group' => JS_THEME + 10,
+        'every_page' => TRUE,
+        'weight' => 10,
+        'scope' => 'footer'
+      ),$path . '/gofast_ajax_file_browser_mobile.js' => array(
+        'group' => JS_THEME + 10,
+        'every_page' => TRUE,
+        'weight' => 15,
+        'scope' => 'footer'
+      )
+    ),
+    'css' => array(
+      $path . '/css/gofast_ajax_file_browser.css' => array(
+        'group' => CSS_THEME,
+        'every_page' => TRUE,
+        'weight' => 10
+      ),
+      $path . '/css/gofast_ajax_file_browser_mobile.css' => array(
+        'group' => CSS_THEME,
+        'every_page' => TRUE,
+        'weight' => 10
+      ),$lib . '/NProgress/nprogress.css' => array(
+        'group' => JS_THEME,
+        'every_page' => TRUE,
+        'weight' => 1
+      ),
+    )
+  );
+  return $libraries;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter()
+ */
+function gofast_ajax_file_browser_form_user_login_block_alter(&$form, &$form_state) {
+  $form['#submit'][] = 'gofast_ajax_file_browser_login_submit';
+}
+
+/**
+ * Submit callback for user login form.
+ */
+function gofast_ajax_file_browser_login_submit(&$form, &$form_state) {
+  $account = user_load_by_name($form_state['values']['name']);
+  _gofast_set_user_key($account->uid, $form_state['values']['pass']);
+  user_save($account);
+}
+
+/**
+ * Implements hook_user_login()
+ *
+ * The user just logged out.
+ *
+ * @param object $account
+ *  The user object on which the operation was just performed.
+ */
+function gofast_ajax_file_browser_user_login($account) {
+  // Delete ITHit/Alfresco session.
+   setcookie('JSESSIONID', '0', 0, '/alfresco/', "", true, true);
+   setcookie('JSESSIONID', '0', 0, '/alfresco', "", true, true);
+}
+
+/**
+ * Implements hook_user_logout()
+ *
+ * The user just logged out.
+ *
+ * @param object $account
+ *  The user object on which the operation was just performed.
+ */
+function gofast_ajax_file_browser_user_logout($account) {
+  // Delete ITHit/Alfresco session.
+   setcookie('JSESSIONID', '0', 0, '/alfresco/', "", true, true);
+   setcookie('JSESSIONID', '0', 0, '/alfresco', "", true, true);
+}
+
+/**
+ * This function returns an accessible webdav location (Main location is prioritized)
+ * @param array of webdav path
+ */
+function gofast_ajax_file_browser_get_alfresco_item_accessible_location($node) {
+  global $user;
+  if(isset($node->{GOFAST_CMIS_MAIN_LOCATION_FIELD}[LANGUAGE_NONE])){
+    $main_location = $node->{GOFAST_CMIS_MAIN_LOCATION_FIELD}[LANGUAGE_NONE];
+  }
+  else{
+    $main_location = array();
+  }
+  $accessible_location = '';
+    if (isset($node->field_emplacement[LANGUAGE_NONE])) { // This is a document
+      foreach (array_merge($main_location, $node->field_emplacement[LANGUAGE_NONE]) as $webdav_path) {
+        //We got the full path, including potential folders. We are now searching for the space path associated
+        $webdav_path = explode('/', $webdav_path['value']);
+        $webdav_path = array_reverse($webdav_path);
+        foreach($webdav_path as $key => $crumb){
+          if(substr($crumb, 0, 1) == '_'){
+            //We found a space
+            break;
+          }
+          else{
+            //We found a folder
+            unset($webdav_path[$key]);
+          }
+        }
+        $webdav_path = array_reverse($webdav_path);
+        $webdav_path = implode('/', $webdav_path);
+        $item = gofast_cmis_item_get_by_path($webdav_path);
+        if (isset($item->properties['gofast:nid']) && $item->properties['gofast:nid'] != false) {
+          $node_member = node_load($item->properties['gofast:nid']);
+          if(isset($node_member->nid)){
+
+            if( gofast_userlist_og_is_user_member_of_space($node_member->nid, $user)
+                || in_array($user->uid, gofast_og_get_members($node_member, 'active'), true)
+                || $user->uid == 1
+            ){
+              //We check the membership of the user
+              $accessible_location = $webdav_path;
+              break;
+            }
+          }
+        }
+      }
+    }
+    else { // This is a space
+      if (isset($node->{GOFAST_CMIS_FOLDER_REFERENCE_FIELD}) && node_access('view', node_load($node->nid))) {
+        // Workaround
+        if (isset($node->{GOFAST_CMIS_FOLDER_REFERENCE_FIELD}[LANGUAGE_NONE])) {
+          $item = gofast_cmis_item_get($node->{GOFAST_CMIS_FOLDER_REFERENCE_FIELD}[LANGUAGE_NONE]['0']['value']);
+          if(isset($item->properties['cmis:path'])){
+          $accessible_location = $item->properties['cmis:path'];
+        }
+          else{ //Can happend if a user is in a space page but isn't member of the space
+            $accessible_location = NULL;
+          }
+        }
+
+      }
+    }
+  return $accessible_location;
+}
+
+/**
+ * hook_preprocess_page
+ *
+ */
+function gofast_ajax_file_browser_preprocess_page(&$vars) {
+      global $user;
+      drupal_add_library('gofast_ajax_file_browser', 'gofast_ajax_file_browser', TRUE);
+
+      if (isset($vars['node'])) {
+        $title = $vars['node']->title;
+        $selected_folder = gofast_ajax_file_browser_get_alfresco_item_accessible_location($vars['node']);
+      }
+
+      $ticket = gofast_cmis_get_user_ticket();
+      if($ticket == FALSE){
+        $ticket = gofast_cmis_retrieve_and_store_ticket($user);
+      }
+
+      drupal_add_js(array(
+        'ext_map' => gofast_taxonomy_get_map_extensions_icons(),
+        'ticket' => $ticket,
+        'title' => $title,
+        'selectedFolder' => str_replace('/Sites', '', $selected_folder),
+        'statusCode' => array(
+          'MOBILE_BROWSER_UPLOAD_STATUS_DOCUMENT_ALREADY_EXISTED' => MOBILE_BROWSER_UPLOAD_STATUS_DOCUMENT_ALREADY_EXISTED,
+          'MOBILE_BROWSER_UPLOAD_STATUS_NOT_ALLOWED' => MOBILE_BROWSER_UPLOAD_STATUS_NOT_ALLOWED,
+          'MOBILE_BROWSER_UPLOAD_STATUS_SUCCESS' => MOBILE_BROWSER_UPLOAD_STATUS_SUCCESS,
+          'MOBILE_BROWSER_UPLOAD_STATUS_DOCUMENT_ERROR' => MOBILE_BROWSER_UPLOAD_STATUS_DOCUMENT_ERROR
+        ),
+        'maxUploadSize' => file_upload_max_size(),
+        'ticket' => gofast_cmis_ticket_validate()
+          ), 'setting');
+}
+
+/**
+ * Hook theme
+ * @return type
+ */
+function gofast_ajax_file_browser_theme() {
+  return array(
+      'ajax_file_browser' => array(
+          'template' => 'tpl/ajax_file_browser',
+      ),
+      'ajax_file_browser_mobile' => array(
+          'template' => 'tpl/ajax_file_browser_mobile',
+      ),
+    'gofast_ajax_file_brower_list_children_path' => array(
+      'template' => 'tpl/ajax_file_brower_list_children_path',
+    )
+  );
+}
+
+/**
+ * Implements hook_menu()
+ */
+function gofast_ajax_file_browser_menu() {
+  $items = array();
+
+  $items['ajax/getnidfromhref'] = array(
+      'page callback' => 'gofast_ajax_file_browser_get_nid_from_href',
+      'type' => MENU_CALLBACK,
+      'access arguments' => array('access content'),
+      'access callback' => 'user_access',
+      'delivery callback' => 'gofast_ajax_delivery'
+  );
+
+  $items['gofast/browser'] = array(
+    'page callback' => 'gofast_ajax_file_browser_browser',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['gofast/browser/path/get_rules'] = array(
+    'page callback' => 'gofast_ajax_file_browser_get_rules',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['node/gofast/browser'] = array(
+    'page callback' => 'gofast_ajax_file_browser_browser',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['ajax_file_browser/right/%'] = array(
+    'page callback' => 'gofast_ajax_file_browser_right',
+    'page arguments' => array(2),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['ajax_file_browser/get_reference'] = array(
+    'page callback' => 'gofast_ajax_file_browser_get_reference',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['ajax_file_browser/is_confidential'] = array(
+    'page callback' => 'gofast_ajax_file_browser_get_is_confidential_from_reference',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['ajax_file_browser/is_internal'] = array(
+    'page callback' => 'gofast_ajax_file_browser_get_is_internal_from_reference',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['ajax_file_browser/bookmark_folder'] = array(
+    'page callback' => 'gofast_ajax_file_browser_bookmark_folder',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['ajax_file_browser/unbookmark_folder'] = array(
+    'page callback' => 'gofast_ajax_file_browser_unbookmark_folder',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['ajax_file_browser/validate_delete_folder_template'] = array(
+    'page callback' => 'gofast_ajax_file_browser_validate_delete_folder',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => TRUE,
+  );
+  $items['gofast/browser/check_favorite_folders'] = array(
+    'page callback' => 'gofast_ajax_file_browser_check_favorite_folder',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => TRUE,
+  );
+  $items['ajax_file_browser/folder/get_documents'] = array(
+    'page callback' => 'gofast_ajax_file_browser_get_documents_into_folder',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => TRUE,
+  );
+  $items['ajax_file_browser/get_icon'] = array(
+    'page callback' => 'gofast_ajax_file_browser_get_icon',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => TRUE,
+  );
+
+  return $items;
+}
+
+function gofast_ajax_file_browser_browser() {
+  if(gofast_mobile_is_mobile_domain()){
+      header("Location: /home_page_navigation?" . $_SERVER['QUERY_STRING'] .  "#navBrowser");
+  }
+  return theme('ajax_file_browser', array('browser' => TRUE));
+}
+
+function gofast_ajax_file_browser_get_rules(){
+    $href = $_POST['href'];
+    $nid = gofast_og_get_group_id_from_title_2($href,true);
+    //Check if the current user can write on this group
+    if (og_user_access('node', $nid, 'create alfresco_item content') == 1){
+        //Check if the group is not archived
+        if (!gofast_group_is_archive(node_load($nid))){
+            print 0;
+        }else{
+            print 1;
+        }
+    }else{
+        print 2;
+    }
+    exit;
+}
+
+function gofast_ajax_file_browser_get_nid_from_href($href = null) {
+  $href = empty($href) ? $_POST["href"] : $href;
+  $href = empty($href) ? $_GET["href"] : $href;
+  $href = rawurldecode($href);
+  $href = str_replace("/alfresco/webdav", "", $href);
+
+  $cmis_object = gofast_cmis_item_get_by_path($href, FALSE);
+  $nid = isset($cmis_object->properties['gofast:nid']) ? $cmis_object->properties['gofast:nid'] : FALSE;
+  if($nid == FALSE){
+    $reference = $cmis_object->properties['alfcmis:nodeRef'];
+    $nid = gofast_ajax_file_browser_get_nid_from_reference($reference);
+  }else{
+      //check if nid exists
+       $node = node_load($nid);
+       if(!isset($node->nid)){
+           $nid = false;
+       }
+  }
+  return $nid;
+}
+
+function gofast_ajax_file_browser_get_reference_from_href($href, $asAdmin = FALSE){
+  $href = empty($href) ? $_POST["href"] : $href;
+  $href = empty($href) ? $_GET["href"] : $href;
+  $href = rawurldecode($href);
+  $href = str_replace("/alfresco/webdav", "", $href);
+
+  $cmis_object = gofast_cmis_item_get_by_path($href, $asAdmin);
+  $reference = $cmis_object->properties['alfcmis:nodeRef'];
+  return $reference;
+}
+
+function gofast_ajax_file_browser_get_is_confidential_from_reference(){
+  $reference = $_POST["reference"];
+  $is_confidential = false;
+
+  $nid = gofast_cmis_node_get_by_reference($reference);
+
+  if(!empty($nid)){
+      $node = node_load($nid);
+      $is_confidential = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Confidential Data";
+  }
+  print $is_confidential;
+  exit;
+}
+
+function gofast_ajax_file_browser_get_is_internal_from_reference()
+{
+  $reference = $_POST["reference"];
+  $is_internal = false;
+
+  $nid = gofast_cmis_node_get_by_reference($reference);
+
+  if (!empty($nid)) {
+    $node = node_load($nid);
+    $is_internal = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Internal Distribution";
+  }
+  print $is_internal;
+  exit;
+}
+
+function gofast_ajax_file_browser_get_nid_from_reference($reference) {
+  //on gere le cas ou parfois, on recevrai non pas une reference mais un numero de noeud (ca arrive dans le module WF parfois)
+  //on sait qu'une reference possède au moins un - , un nid non
+  if (strpos($reference, "-") == FALSE) {
+    //on enleve une eventuelle chaine "workspace://SpacesStore/" qui precederait le nid
+    $reference = str_replace("workspace://SpacesStore/", "", $reference);
+    $nid = $reference;
+  }
+  else {
+    $nid = db_select('field_data_field_reference', 'fdfr')
+            ->fields('fdfr', array('entity_id'))
+            ->condition('field_reference_value', $reference, '=')
+            ->execute()
+            ->fetchField();
+  }
+  return $nid;
+}
+
+function gofast_ajax_file_browser_right($op){
+  $path = $_POST['path'];
+
+  //Try to get nid from path
+  $path_decoded = rawurldecode($path);
+  $nid = gofast_ajax_file_browser_get_nid_from_href($path_decoded);
+
+  if(is_numeric($nid)){
+    if(node_access($op, node_load($nid))){
+      print "GRANTED";
+    }else{
+      print "REFUSED";
+    }
+  }else{ //Grant by default
+    print "GRANTED";
+    exit;
+  }
+}
+
+function gofast_ajax_file_browser_get_reference(){
+  $path = $_POST['path'];
+
+  //Try to get nid from path
+  $path_decoded = rawurldecode($path);
+
+  print gofast_ajax_file_browser_get_reference_from_href($path_decoded);
+  exit;
+}
+
+
+/**
+ * This form is used to upload documents.
+ * @param type $form
+ * @param array $form_state
+ * @return type
+ */
+function gofast_ajax_file_browser_form($form, &$form_state) {
+
+  $form['files'] = array(
+    '#type' => 'file',
+    '#title' => t("Select file(s) to upload", array(), array('context' => 'gofast:ajax_file_browser')),
+    '#attributes' => array(
+      'multiple' => TRUE,
+      'id' => 'gofast_file_browser_upload_input'
+    )
+  );
+  return $form;
+}
+
+/**
+ * Hook form validate
+ * @param type $form
+ * @param array $form_state
+ */
+function gofast_ajax_file_browser_form_validate($form, &$form_state){
+}
+
+/**
+ * Hook form submit
+ * @param type $form
+ * @param type $form_state
+ */
+function gofast_ajax_file_browser_form_submit($form, &$form_state) {
+  $commands = array();
+  $commands[] = gofast_command_callback('Gofast.ITHit.uploadFiles');
+  print ajax_render($commands);
+  exit;
+}
+
+function gofast_ajax_file_browser_views_post_execute(&$view) {
+    if($view->name === "gofast_flag_bookmarks" && $view->current_display !== "page_1" && $view->current_display !== "page_2"){
+//        global $user;
+//
+//        //Check folder bookmarked
+//        $folder_bookmarks = db_query("SELECT fbid,path FROM gofast_bookmark_folder WHERE uid=" . $user->uid)->fetchAll();
+//        foreach($folder_bookmarks as $folder_bookmark){
+//            $path = $folder_bookmark->path;
+//
+//            $display_path = $folder_bookmark->path;
+//            if(substr($display_path, -1, 1) == "/"){
+//                $display_path = substr($display_path, 0, -1);
+//            }
+//            $folder_name = array_pop(explode("/", $display_path));
+//
+//            $result = new stdClass();
+//            $result->users_node_id = $user->uid;
+//            $result->nid = "gofast/browser?path=" . rawurlencode($path);
+//            $result->node_title = $folder_name . "[GFOLDER]";
+//
+//            $path = str_replace("/alfresco/webdav", "", $path);
+//            $result->field_field_emplacement = array(
+//                0 => array(
+//                    "rendered" => array(
+//                        "#markup" => $path,
+//                        "#access" => 1,
+//                    ),
+//                    "raw" => array(
+//                        "#value" => $path,
+//                    )
+//                )
+//            );
+//            $view->result[] = $result;
+//        }
+    }
+}
+
+function gofast_ajax_file_browser_folder_is_bookmark($reference){
+    global $user;
+    $folder_bookmarks = db_query("SELECT folder_reference FROM gofast_bookmark_folder WHERE uid=" . $user->uid)->fetchAll();
+    foreach($folder_bookmarks as $folder_bookmark){
+        if($reference == $folder_bookmark->folder_reference){
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+/*
+ * Bookmark a folder
+ */
+function gofast_ajax_file_browser_bookmark_folder($path = null){
+    global $user;
+
+    if($path === null){
+        //Retrieve path param
+        $href = $_POST['href'];
+        $path = rawurldecode($href);
+    }
+
+    $reference = gofast_ajax_file_browser_get_reference_from_href($path);
+
+    //Bookmark this element
+    $exists = count(db_query("SELECT folder_reference FROM gofast_bookmark_folder WHERE folder_reference='" . $reference . "' AND uid='" . $user->uid . "'")->fetchAll()) > 0;
+
+    if(!$exists){
+        db_insert('gofast_bookmark_folder')
+            ->fields(array(
+              'folder_reference' => $reference,
+              'uid' => $user->uid,
+              'timestamp' => REQUEST_TIME,
+            ))
+            ->execute();
+    }
+}
+
+/*
+ * Unbookmark a folder
+ */
+function gofast_ajax_file_browser_unbookmark_folder(){
+    //Retrieve path param
+    if(!empty($_POST['folder_reference'])){
+        $reference = $_POST['folder_reference'];
+        $folder_reference = trim(rawurldecode($reference));
+    }elseif(!empty($_POST['href'])){
+        //Retrieve path param
+        $href = $_POST['href'];
+        $path = rawurldecode($href);
+
+        if(!strpos('alfresco/webdav', $path)){
+            $path = '/alfresco/webdav' . trim($path);
+        }
+
+        $folder_reference = gofast_ajax_file_browser_get_reference_from_href($path);
+    }
+    global $user;
+    //Unookmark this element
+    db_query("DELETE FROM gofast_bookmark_folder WHERE uid=" . $user->uid . " AND folder_reference='" . $folder_reference . "'");
+}
+
+/**
+ * Implements HOOK_FORM()
+ *
+ * @see function gofast_ajax_file_browser_add_template_folder_form_validate()
+ * @see function gofast_ajax_file_browser_add_template_folder_form_submit()
+ *
+ * @param type $form
+ * @param type $form_state
+ * @return $form the Add template folder form
+ */
+function gofast_ajax_file_browser_add_template_folder_form($form, &$form_state){
+
+
+    $form['description'] = array(
+        '#markup' => '<h5>'
+        . t('Choose the folder template you want to implement in the selected space: ')
+        . '</h5>'
+        . '<span>'
+        . t('(Unfold the tree to discover the pattern of the template)')
+        . '</span>'
+    );
+
+
+    $from_template = isset($_GET["template"])? TRUE : FALSE;
+    $param_path = parse_url($_SERVER['HTTP_REFERER']);
+    parse_str($param_path['query'],$drupal_path);
+    $template_nid = null;
+    if($from_template){
+      $template_nid = $_GET["template"];
+    }
+    if(!empty($drupal_path['path'])){
+        $form['#path'] = $drupal_path['path'];
+    }
+    // This is for the user defined templates
+    $form['ztree_templates'] = array();
+    $form['ztree_templates']['#attributes'] = array(
+      'class' => array('ztree_template_folder_class')
+    );
+    $templates_options = gofast_cmis_get_folder_templates_option();
+    ## check alfresco status
+    if (gofast_cmis_check_alfresco_status()) {
+
+        $available_templates = $templates_options;
+        $list_templates = array();
+        $selected = array();
+        foreach ($available_templates as $value) {
+              $path = $value['path'];
+              $key = $value['id'];
+              $list_templates[$path] = urldecode(str_replace('/webdav', '', $path));
+              if(!empty($value['descendants'])){
+                  $list_templates = array_merge($list_templates,$value['descendants']);
+              }
+              if($from_template && $value->nid == $template_nid){
+                $selected['name'] = array_shift(explode('.', $value['name']));
+              }
+        }
+
+
+        ## store all folders templates in the form
+        $form['templates'] = array(
+          '#type' => 'select',
+	        '#multiple' => true,
+          '#name' => 'templates',
+          '#options' => gofast_ztree_get_drupal_path_from_webdav_path($list_templates),
+          '#attributes' => array(
+            'class' => array('gofast_display_none')
+          )
+        );
+
+        if (empty($list_templates)) {
+          $form['empty_ztree_templates'] = array(
+            '#markup' => t('There is no templates available yet.', array(), array('context' => 'gofast:gofast_cmis')),
+          );
+          $form['empty_ztree_templates']['#group'] = 'group_template_file';
+          $form['#groups']['group_template_file']->children[] = 'empty_ztree_templates';
+          $form['#group_children']['empty_ztree_templates'] = 'group_template_file';
+        }
+
+        $form['ztree_templates']['#group'] = 'group_template_file';
+        $form['#groups']['group_template_file']->children[] = 'ztree_templates';
+        $form['#group_children']['ztree_templates'] = 'group_template_file';
+
+        $form['templates']['#group'] = 'group_template_file';
+        $form['#groups']['group_template_file']->children[] = 'templates';
+        $form['#group_children']['templates'] = 'group_template_file';
+    }
+
+    // This is for vertical tab reorganization
+    $form['empty_template']['#group'] = 'group_empty_file';
+    $form['#groups']['group_empty_file']->children[] = 'empty_template';
+    $form['#group_children']['empty_template'] = 'group_empty_file';
+
+    $form['#after_build'][] = 'gofast_ztree_after_build';
+    $form['#after_build'][] = 'gofast_ztree_folders_templates_after_build';
+    $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Submit', array(), array('context' => 'gofast')),
+      '#id' => 'submit_template_folder',
+      '#attributes' => array('class' => array('btn-success'))
+    );
+
+    return $form;
+}
+
+/**
+ * Implements HOOK_FORM_validate()
+ *
+ * @param type $form
+ * @param type $form_state
+ */
+function gofast_ajax_file_browser_add_template_folder_form_validate($form, &$form_state){
+
+    $form_id = $form['form_id'];
+    if(empty($form['templates']['#value'])){
+        $commands[] = gofast_command_toast_message(t("You need to select at least 1 template", array(), array('context' => 'gofast')), "warning");
+        print ajax_render($commands);
+        exit;
+    }
+    if($form_id != 'group_node_form'){
+	## get ajax file browser location
+	$drupal_path =  $form['#path'];
+	$nid = gofast_og_get_group_id_from_title_2($drupal_path,true);
+	//Check if the current user can write on this group
+	if (!og_user_access('node', $nid, 'create alfresco_item content')){
+	    $commands[] = ctools_modal_command_dismiss();
+	    $commands[] = gofast_command_toast_message(t("You can't create a folder template here! Please check that you are not in an archived area or that you have the correct rights"),"error");
+	    print ajax_render($commands);
+	    exit;
+	}
+    }
+}
+
+/**
+ * given an array of cmis paths, removing subpaths from the array
+ */
+function gofast_folder_clean_subpaths(array $children_path): array {
+  // we make sure the shortest values have the shortest index
+  usort($children_path, function($a, $b) {
+    // returns 0 if equal, 1 if left-side is greater, -1 if right-side is greater
+    return strlen($a) <=> strlen($b);
+  });
+
+  // will receive the filtered values
+  $accumulator = [];
+  // number of directory separators to know how deep-nested we are in the folders
+  $ds_count = 0;
+
+  foreach ($children_path as $child_path) {
+    // in case we have an associative array, we initialize the directory separator count here
+    if ($ds_count == 0) {
+      $ds_count = count(explode("/", $child_path));
+      $accumulator[] = $child_path;
+      continue;
+    }
+    // subfolders go nowhere
+    if (count(explode("/", $child_path)) > $ds_count) {
+      continue;
+    }
+    // if we get through here, it seems we're good
+    $accumulator[] = $child_path;
+  }
+  return $accumulator;
+}
+
+/**
+ * Implements HOOK_FORM_submit()
+ *
+ * @param type $form
+ * @param type $form_state
+ */
+function gofast_ajax_file_browser_add_template_folder_form_submit($form, &$form_state){
+
+  $node = $form['#node'];
+  $space_types = gofast_og_node_types();
+  $form_type = in_array($node->type, gofast_og_content_bundles($space_types)) ? 'space content' : (in_array($node->type, array_keys($space_types)) ? 'space' : NULL);
+
+  $asAdmin = TRUE;
+
+  ## case of add space
+  if ($form_type === 'space') {
+
+    ## get ajax file browser location
+    $nid = $form_state['values']['nid'];
+    $drupal_path = gofast_cmis_space_get_webdav_path($nid);
+
+    ## get reference of ajax file browser location
+    $item_reference = gofast_ajax_file_browser_get_reference_from_href($drupal_path);
+
+    ## get all templates selected
+    $paths_template_selected = $form['og_ztree_templates_folder']['templates']['#value'];
+  } else { ##case of ajax file browser
+    ## get ajax file browser location
+    $drupal_path =  $form['#path'];
+
+    ## get reference of ajax file browser location
+    $item_reference = gofast_ajax_file_browser_get_reference_from_href($drupal_path);
+    $paths_template_selected = $form['templates']['#value'];
+
+    ## get all folders children to verify if exist
+    $space_children = gofast_cmis_get_children($drupal_path);
+  }
+
+  ## reach all template to create
+  foreach ($paths_template_selected as $path_template_selected) {
+    if ($form_type !== 'space content' && in_array($drupal_path . (str_replace("/Sites/FOLDERS TEMPLATES", "", $path_template_selected)), $space_children)) {
+      $form_state['exist'] = true;
+      continue;
+    }
+
+    ## get 1st level children
+    $children_item = gofast_cmis_get_children($path_template_selected, "folders", $asAdmin);
+    $children_item = gofast_folder_clean_subpaths($children_item);
+
+    ## create all folders templates children recursively
+    gofast_folder_template_create_children($children_item, $item_reference);
+  }
+}
+
+/**
+ * Create all children of folder template given in paramater
+ *
+ * @param array $children_item : all paths of items to create (1st level)
+ * @param [type] $location_alfresco_id : location to create the folder
+ * @return void
+ */
+function gofast_folder_template_create_children($children_path, $location_alfresco_id)
+{
+  ## Reach all children  (recursively)
+  foreach ($children_path as $child_path) {
+    if (substr($child_path, -1) === "/") {
+      continue;
+    }
+
+    $child_item = gofast_cmis_item_get_by_path($child_path);
+
+    ## Get children data
+    $folder_name = $child_item->properties['cmis:name'];
+
+    ## Create folder
+    $new_folder = gofast_cmis_item_folder_insert($folder_name, $location_alfresco_id, TRUE);
+    ## Get children of current folder
+    $children_item = gofast_cmis_get_children($child_path, "folders", TRUE);
+    $children_item = gofast_folder_clean_subpaths($children_item);
+    // $children_item = cmisapi_getChildren($repository, $children_id)->objectList;
+
+    if (!empty($children_item)) {
+      ## Reach recursively children in order to create it
+      gofast_folder_template_create_children($children_item, $new_folder->properties['alfcmis:nodeRef']);
+
+    }
+  }
+}
+
+function gofast_ajax_file_browser_validate_delete_folder(){
+    global $user;
+
+    $folder = empty($folder) ? $_POST["folder"] : $folder;
+    $folder = empty($folder) ? $_GET["folder"] : $folder;
+
+    $reference = gofast_ajax_file_browser_get_reference_from_href($path);
+    $item = gofast_cmis_item_get($reference);
+
+    $creator_name = $item->properties['cmis:createdBy'];
+
+    if($creator_name != $user->name){
+	return false;
+    }
+}
+
+/**
+ *  Function gofast_ajax_file_browser_check_favorite_folder()
+ *  Delete favorite folder if exist
+ * @return int 1 if favorite was delete 0 else
+ */
+function gofast_ajax_file_browser_check_favorite_folder(){
+  $folder = empty($folder) ? $_POST["folder"] : $folder;
+  $folder = empty($folder) ? $_GET["folder"] : $folder;
+
+  $item = gofast_cmis_item_get_by_path(str_replace('/alfresco/webdav', "", urldecode($folder)));
+
+  if ($item->properties['cmis:objectTypeId'] == "cmis:folder") {
+    $result = db_select('gofast_bookmark_folder', 'bf')
+      ->fields('bf', array('fbid'))
+      ->condition('folder_reference', $item->properties['alfcmis:nodeRef'], '=')
+      ->execute()
+      ->fetchAll();
+    if (!empty($result)) {
+      foreach ($result as $key => $value) {
+        db_query("DELETE FROM gofast_bookmark_folder WHERE fbid = '" . $value->fbid . "'");
+      }
+      return 1;
+    }
+  }
+  return 0;
+}
+
+function gofast_ajax_file_browser_get_documents_into_folder(){
+  $folder_path = $_GET['folder_path'];
+  $int = $_GET['int'];
+  $documents = gofast_cmis_get_children($folder_path,'documents');
+  $theme_list_documents = theme('gofast_ajax_file_brower_list_children_path', array('documents' => $documents));
+  $result = array(
+    'theme_list_documents' => $theme_list_documents,
+    'int' => $int
+  );
+  print json_encode($result);
+  exit;
+}
+
+function gofast_ajax_file_browser_get_icon(){
+  $path = $_GET['folder_path'];
+  $int = $_GET['int'];
+  $nid = gofast_ajax_file_browser_get_nid_from_href($path);
+  if(empty($nid)){
+    $icon = "<span class='fa fa-folder'></span>";
+  }else{
+    $node = node_load($nid);
+    $locations = node_load($nid)->field_emplacement[LANGUAGE_NONE];
+    if (count($locations) > 1){
+      $locations = theme('gofast_tooltip_emplacements', array('locations' => $locations));
+    }
+    $icon = theme('gofast_node_icon_format', array('node' => $node));
+  }
+  $result = array(
+    'icon' => $icon,
+    'locations' => $locations,
+    'int' => $int
+  );
+  print json_encode($result);
+  exit;
+}

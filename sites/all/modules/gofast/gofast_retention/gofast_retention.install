@@ -1,0 +1,91 @@
+<?php
+
+/**
+ * @file
+ * Installation schema for Gofast Retention Period (DUA)
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function gofast_retention_schema(){
+  $schema = array();
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function gofast_retention_install(){
+   
+  // Create the field that will store a node retention period end date
+  if (!field_read_field(GOFAST_RETENTION_PERIOD_END, array('include_inactive' => true))) {
+    $field = array(
+      'field_name' => GOFAST_RETENTION_PERIOD_END,
+      'type' => GOFAST_RETENTION_PERIOD_END_FIELD_TYPE,
+      'entity_types' => array('node'),
+      'cardinality' => GOFAST_RETENTION_PERIOD_END_CARDINALITY,
+      'translatable' => FALSE,
+      'locked' => FALSE,
+      'settings' => array(),
+      'storage' => array()      
+    );
+    field_create_field($field);
+  }
+  
+  //associate field to content-type alfresco item
+  $field_instance = array(
+    'field_name' => GOFAST_RETENTION_PERIOD_END,
+    'entity_type' => 'node',
+    'bundle' => 'alfresco_item'
+  );
+  field_create_instance($field_instance);
+  
+}
+
+
+/**
+ * Implements hook_uninstall().
+ */
+function gofast_retention_uninstall(){
+
+  //dissociate field to content-type alfresco item
+  $field_instance = array(
+    'field_name' => GOFAST_RETENTION_PERIOD_END,
+    'entity_type' => 'node',
+    'bundle' => 'alfresco_item'
+  );
+  
+  field_delete_instance(GOFAST_RETENTION_PERIOD_END);
+  field_delete_field(GOFAST_RETENTION_PERIOD_END); 
+}
+
+
+/**
+ * Implements hook_variable_info().
+ */
+/* NOT USED ???
+function gofast_retention_variable_info($options = array()){
+  
+  $variable[GOFAST_RETENTION_PERIOD_MATRICE_VAR]= array(
+    'title' => t('Period Retention Matrice', array(), array('context' => 'gofast:gofast_retention')),
+    'description' => t('Contain matrice for retention period and action by category', array(), array('context' => 'gofast:gofast_retention')),
+    'access' => 'administer menu',
+    'default' => $options
+  );
+    
+  return $variable;
+  
+}
+ */
+
+/**
+ * GOFAST-5778 : Rename Archived into Pre-Archived state
+ */
+function gofast_retention_update_3801(){
+     $archived_taxonomy_term = taxonomy_get_term_by_name("Archived", 'state');
+     $term = reset($archived_taxonomy_term);
+     $term->name = "Pre-Archived";
+     taxonomy_term_save($term);
+}
+ 

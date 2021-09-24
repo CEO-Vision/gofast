@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Manage Workflow</shortname>
+    <description>Manage Workflow using Javascript API</description>
+    <url>/get/workflowdebug/?reference={reference}&amp;op={op}&amp;properties={properties}</url>
+    <format default="html"/>
+    <authentication>user</authentication>
+</webscript>

@@ -1,0 +1,486 @@
+<?php
+
+/**
+ * 
+ */
+require_once 'gofast_retention_utils.inc';
+require_once 'gofast_retention_form.inc';
+require_once 'gofast_retention_poll.inc';
+
+define('GOFAST_RETENTION_PERIOD_END', 'field_retention_end');
+define('GOFAST_RETENTION_PERIOD_END_CARDINALITY', 1);
+define('GOFAST_RETENTION_PERIOD_END_FIELD_TYPE', 'datestamp' );
+
+define('GOFAST_RETENTION_PERIOD_MATRICE_VAR', 'gofast_period_retention_matrice'); 
+define('GOFAST_RETENTION_PERIOD_RECIPIENTS_VAR', 'gofast_period_retention_recipients');
+
+
+function gofast_retention_init(){
+  drupal_add_js(array('gofast_retention' => array('retention_matrice' => variable_get(GOFAST_RETENTION_PERIOD_MATRICE_VAR) )), 'setting');
+  drupal_add_js(drupal_get_path('module', 'gofast_retention') . "/js/gofast_retention.js");
+  drupal_add_css( drupal_get_path('module', 'gofast_retention') . "/css/gofast_retention.css" );
+}
+
+/*
+ * Implements hook_menu
+ */
+function gofast_retention_menu(){
+  $items = array();
+  
+  $items['retention/apply'] = array(
+    'title' => "Retention",
+    'page callback' => 'gofast_retention_apply_retention',
+    'page arguments' => array('gofast_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+  );
+  
+  return $items;
+}
+
+/*
+ * Apply a retention on all documents associated to it's category
+ */
+function gofast_retention_apply_retention(){
+    $retention_obj = $_POST['retention_obj'];
+    
+    //Retrieve the category
+    $category = db_select("taxonomy_term_data", "ttd")
+            ->fields("ttd", array('name', 'tid'))
+            ->condition("uuid", $retention_obj['uuid'])
+            ->execute()
+            ->fetchAssoc();
+    
+    //Retrieve the associated nodes
+    $query = new EntityFieldQuery();
+
+    //Select entity types to retrieve
+    $query->entityCondition('entity_type', 'node')
+            ->propertyCondition('type', "alfresco_item")
+            ->propertyCondition('status', 1)
+            ->fieldCondition('field_category', 'tid', $category['tid']);
+    
+    $nodes = array_keys($query->execute()['node']);
+    
+    
+    //Release the client session and process
+    set_time_limit(0);
+    print "OK";
+    fastcgi_finish_request();
+    
+    foreach($nodes as $nid){
+        $node = node_load($nid, NULL, TRUE);
+        
+        $node = gofast_retention_set_node_retention_end_date($category['name'], $node);
+        
+        node_save($node);
+    }
+}
+
+
+/**
+ * Compute date retention last day (to be able to trigger a notification)
+ * @param type $category
+ * @param type $node
+ */
+function gofast_retention_set_node_retention_end_date($edited_value, $node, $is_category = true){
+  
+    //we can get both category or state value, so we first have to determine which one we receive
+    if($is_category == true){
+      $category = $edited_value;
+      $is_archived = gofast_get_content_state_archived($node);
+    }else{
+        if(isset($node->field_category[LANGUAGE_NONE][0]["tid"])){
+            $category = taxonomy_term_load($node->field_category[LANGUAGE_NONE][0]["tid"])->name;
+        }else{
+            $category = null;
+        }
+         $und_language_term = gofast_xeditable_translate_back($edited_value, array(), 'en', 'taxonomy');
+       if( $und_language_term == "Pre-Archived"){
+           $is_archived = true;
+       }else{
+           $is_archived = false;
+       }
+        
+    }
+   
+  $matrice = variable_get(GOFAST_RETENTION_PERIOD_MATRICE_VAR);
+      
+  //need to translate string to retreive the right term
+  $und_language_term = gofast_xeditable_translate_back($category, array(), 'en', 'taxonomy');
+  
+  $category_uuid = NULL ;
+  $category_term = taxonomy_get_term_by_name($und_language_term, 'category');
+  if(count($category_term) > 0){
+    $category_uuid = reset($category_term)->uuid;
+  }
+
+  $old_retention_end_date = $node->field_retention_end[LANGUAGE_NONE][0]['value'];
+  
+  if( NULL !== $category_uuid && isset($matrice[$category_uuid]) && $is_archived && $old_retention_end_date == null){
+    $retention_rules = $matrice[$category_uuid];
+    $last_version= gofast_cmis_webservice_item_get_versions($node->field_reference[LANGUAGE_NONE][0]['value'], false)[0];
+    $last_version_date = explode('T', $last_version->createdDate);
+    $now = new DateTime($last_version_date[0]);
+    
+    $unit = '';
+    switch ($retention_rules['period_unit']){
+      case 'd' :
+        if($retention_rules['period'] == 1){
+           $unit ="day";
+        }else{
+           $unit ="days";
+        }
+        break;
+      case 'm' :
+        if($retention_rules['period'] == 1){
+           $unit ="month";
+        }else{
+           $unit ="month";
+        }
+        break;
+      case 'y' :
+        if($retention_rules['period'] == 1){
+           $unit ="year";
+        }else{
+           $unit ="years";
+        }
+        break;
+    }
+    $now->modify("+ ".$retention_rules['period']." ".$unit);
+    $node->field_retention_end[LANGUAGE_NONE][0]['value'] = $now->getTimestamp();
+    
+  }else{
+    $node->field_retention_end[LANGUAGE_NONE][0]['value'] = NULL;
+  }  
+  
+  
+  if($is_archived){
+      //Multifille to Archives space ( Pre transfer room )
+      if( module_exists('gofast_archive_sorting_room') && $node->field_retention_end[LANGUAGE_NONE][0]['value'] == NULL){  
+           $node = gofast_archive_sorting_room_multifilling_to_pre_transfer_room( $node );
+      }
+      //if the node is archived, prevent call function which will rebuild permissions after
+      watchdog("debug archive", "is archived");
+      $_POST['prevent_automatic_multifilling'] = true;    
+  }else{
+      if( module_exists('gofast_archive_sorting_room')){
+         
+         $node = gofast_archive_sorting_room_unarchive_document( $node);
+  }
+  }
+  return $node;
+}
+
+/**
+ * Implements _HOOK_node_update()
+ * @param type $node
+ */
+function gofast_retention_node_update($node){
+     
+   if( $node->field_retention_end[LANGUAGE_NONE][0]['value'] !== NULL){
+     //override permission to set readonly mode
+      gofast_retention_set_node_readonly($node);
+   }else{
+      //gofast_retention_unset_node_readonly($node);
+   }
+}
+
+function gofast_retention_node_presave($node){
+  // If we are unpublishing the node, do not replicate alfresco aspect & data
+  if ($node->status === NODE_NOT_PUBLISHED || !isset($node->original)) {
+    return;
+  }
+
+  if (in_array($node->type, array_merge(array('alfresco_item'), array_keys(gofast_og_node_types())))) {   
+    $old_node = $node->original;
+    //state change
+    if($old_node->{'field_state'}[LANGUAGE_NONE][0]['tid'] !== $node->{'field_state'}[LANGUAGE_NONE][0]['tid']){
+        $archived_taxonomy_term = taxonomy_get_term_by_name("Pre-Archived", 'state');
+        $archived_taxonomy_term_id = reset($archived_taxonomy_term)->tid;
+        if($node->{'field_state'}[LANGUAGE_NONE][0]['tid'] == $archived_taxonomy_term_id){
+            if( module_exists('gofast_archive_sorting_room')){  
+                $_POST['prevent_automatic_multifilling'] = false;
+            }else{
+                $_POST['prevent_automatic_multifilling'] = true;
+            }
+             gofast_cmis_node_archive($node, true);
+        }elseif($old_node->{'field_state'}[LANGUAGE_NONE][0]['tid'] == $archived_taxonomy_term_id){
+             //$_POST['prevent_automatic_multifilling'] = true;
+             gofast_cmis_node_unarchive($node, true);
+        }  
+    }  
+  }  
+}
+
+/**
+ * Implements _HOOK_form_alter()
+ */
+function gofast_retention_form_alfresco_item_node_form_alter(&$form, &$form_state){
+  unset($form['field_retention_end']);
+}
+
+
+/*
+ * Gest Retention End Date for the given node
+ */
+function gofast_retention_get_retention_date($node){
+  return $node->field_retention_end[LANGUAGE_NONE][0]['value'];
+}
+
+
+/**
+ * @Implement HOOK_theme()
+ * @return type
+ */
+function gofast_retention_theme(){
+ 
+  return array(
+    'gofast_retention_add_retention_period_form' => array(
+       'render element' => 'form',
+       'template' => 'tpl/gofast_retention-add_retention_period_form',
+     ),
+    'gofast_retention_container_list_retention' => array(
+       'render element' => 'fieldset',
+       'template' => 'tpl/gofast_retention-container_list_retention',
+     ),
+    'gofast_retention_notifications_node_retention' => array(
+       'template' => 'tpl/gofast_retention-notifications-node-retention',
+     ),
+    'gofast_retention_notifications_node_retention_list' => array(
+       'template' => 'tpl/gofast_retention-notifications-node-retention-list',
+     )
+  );
+}
+
+/**
+ * Implements HOOK_template_preprocess_TEMPLATE()
+ */
+function template_preprocess_gofast_retention_container_list_retention(){ 
+  drupal_add_js(array('gofast_retention' => array('retention_matrice' => variable_get(GOFAST_RETENTION_PERIOD_MATRICE_VAR) )), 'setting');
+  drupal_add_js(drupal_get_path('module', 'gofast_retention') . "/js/gofast_retention.js");
+}
+
+/**
+ * Implements HOOK_template_preprocess_TEMPLATE()
+ */
+function template_preprocess_gofast_retention_add_retention_period_form(){ 
+  drupal_add_css( drupal_get_path('module', 'gofast_retention') . "/css/gofast_retention.css" );
+}
+
+/**
+ * Add a cron task to send notification
+ */
+function gofast_retention_cron(){
+  
+  $hour = date("G");
+  $minute = date("i");
+  if ($hour == 12 && $minute == 00) {
+    gofast_retention_node_period_ending_notify();
+  }
+}
+
+/**
+ * Check retention period expiration (Tomorrow and next_week)
+ */
+function gofast_retention_node_period_ending_notify(){
+
+  gofast_retention_node_period_ending_today_notify();
+  gofast_retention_node_period_ending_week_notify();
+}
+
+/**
+ * Build the mail recipient list from configuration variable 
+ */
+function gofast_retention_get_recipient_list() {
+
+  $recpt = array();
+  $recipients_list = variable_get(GOFAST_RETENTION_PERIOD_RECIPIENTS_VAR);
+  foreach ($recipients_list as $recipient) {
+    $user = user_load($recipient->id);
+
+    $recpt[] = array('recpt' => $user->mail,
+      'method' => 'to',
+      'firstname' => $user->ldap_user_givenname[LANGUAGE_NONE][0]['value'],
+      'user_language' => $user->language,
+      'uid' => $user->uid);
+    
+  }
+  return $recpt;
+}
+
+/**
+  * Check node's retention period expiring TODAY and send notification 
+  * @global type $base_url
+  */
+function gofast_retention_node_period_ending_today_notify(){
+    
+  global $base_url;
+  $yesterday = new DateTime('yesterday');
+
+  $tomorrow = new DateTime('tomorrow');
+  $tomorrow_tms = $tomorrow->getTimestamp();
+
+  //get node which retention date expires tomorrow
+  $query = db_select('field_data_field_retention_end', 'f');
+  $query->fields('f', array('entity_id', 'field_retention_end_value'));
+  $query->condition('f.field_retention_end_value', 'NULL', '<>');
+  $query->condition('f.field_retention_end_value', $tomorrow_tms, '<');
+  $query->condition('f.field_retention_end_value', $yesterday->getTimestamp(), '>');
+  $results = $query->execute();
+
+  $result_tomorrow = $results->fetchAllKeyed();
+
+  if (count($result_tomorrow) > 0) {
+
+      $nids = array_keys($result_tomorrow);
+      $nodes = node_load_multiple($nids);
+
+      $recpt = gofast_retention_get_recipient_list();
+      
+      //Send notification mail 
+      foreach ($recpt as $to) {
+
+        $mail_recpt = array();
+        $mail_recpt[] = $to;
+
+        $user_lang = $to['user_language'];
+
+        $nodes_array = array();
+
+        foreach ($nodes as $node) {
+          $subject = t('Retention dates will expire tomorrow', array(), array('context' => 'gofast', 'langcode' => $user_lang));
+          $title = t("Retention", array(), array('context' => 'gofast', 'langcode' => $user_lang));
+          $footer = t('Message sent from %site_name', array('%site_name' => variable_get('site_name', 'GoFAST')), array('context' => 'gofast', 'langcode' => $user_lang));
+
+          $node_link = gofast_link_sharing_build_link($node->nid, $recpt['uid'] , 'none', NULL, TRUE);
+          
+          $nodes_array[] = array(
+            'icon' => theme('gofast_node_icon_format', array('node' => $node)),
+            'link' => $node_link,
+            'title' => $node->title
+          );
+        }
+        $body = theme('gofast_retention_notifications_node_retention', array(
+          'user_first_name' => $to['firstname'],
+          'user_url' => $base_url . '/user/' . $user->uid,
+          'user_lang' => $user_lang,
+          'nodes' => $nodes_array,
+          'expired_date' => t('within 1 day')
+        ));
+
+        
+        $mail = array(
+          'body' => $body,
+          'title' => $title,
+          'subject' => $subject,
+          'footer' => $footer
+        );
+        gofast_mail_queue_api_queue_ext($mail, $mail_recpt, time());
+        $ret = TRUE;
+        if ($ret == TRUE) {
+          flood_register_event('print_mail');
+          $ok = TRUE;
+        }
+      }
+  }
+}
+  
+  /**
+   * Check node's retention period expiring NEXT WEEK and send notification 
+   * @global type $base_url
+   */
+  function gofast_retention_node_period_ending_week_notify() {
+    
+    global $base_url;
+
+    $tomorrow = new DateTime('tomorrow');
+    $tomorrow_tms = $tomorrow->getTimestamp();
+
+    $next_week = $tomorrow;
+    $next_week->modify('+ 1 week');
+    $next_week_tms = $next_week->getTimestamp();
+
+    //get node which retention date expires in 1 week
+    $query = db_select('field_data_field_retention_end', 'f');
+    $query->fields('f', array('entity_id', 'field_retention_end_value'));
+    $query->condition('f.field_retention_end_value', 'NULL', '<>');
+    $query->condition('f.field_retention_end_value', $next_week_tms, '<');
+    $query->condition('f.field_retention_end_value', $tomorrow_tms, '>');
+    $results = $query->execute();
+
+    $result_next_week = $results->fetchAllKeyed();
+
+    if (count($result_next_week) > 0) {
+
+      $nids = array_keys($result_next_week);
+      $nodes = node_load_multiple($nids);
+
+      $recpt = gofast_retention_get_recipient_list();
+      
+      //Send notification mail 
+      foreach ($recpt as $to) {
+
+        $mail_recpt = array();
+        $mail_recpt[] = $to;
+
+        $user_lang = $to['user_language'];
+
+        $nodes_array = array();
+
+        foreach ($nodes as $node) {
+          $subject = t('Retention dates are about to expire', array(), array('context' => 'gofast', 'langcode' => $user_lang));
+          $title = t("Retention", array(), array('context' => 'gofast', 'langcode' => $user_lang));
+          $footer = t('Message sent from %site_name', array('%site_name' => variable_get('site_name', 'GoFAST')), array('context' => 'gofast', 'langcode' => $user_lang));
+
+          $node_link = gofast_link_sharing_build_link($node->nid, $recpt['uid'] , 'none', NULL, TRUE);
+
+          $nodes_array[] = array(
+            'icon' => theme('gofast_node_icon_format', array('node' => $node)),
+            'link' => $node_link,
+            'title' => $node->title
+          );
+        }
+        $body = theme('gofast_retention_notifications_node_retention', array(
+          'user_first_name' => $to['firstname'],
+          'user_url' => $base_url . '/user/' . $user->uid,
+          'user_lang' => $user_lang,
+          'nodes' => $nodes_array,
+          'expired_date' => t('within 1 week')
+        ));
+
+        
+        $mail = array(
+          'body' => $body,
+          'title' => $title,
+          'subject' => $subject,
+          'footer' => $footer
+        );
+        gofast_mail_queue_api_queue_ext($mail, $mail_recpt, time());
+        $ret = TRUE;
+        if ($ret == TRUE) {
+          flood_register_event('print_mail');
+          $ok = TRUE;
+        }
+      }
+    }
+  } 
+  
+  
+  /**
+   * Implements HOOK_entity_view
+   * @param type $entity
+   * @param type $type
+   * @param type $view_mode
+   * @param type $langcode
+   * @return type
+   */
+  function gofast_retention_entity_view ($entity, $type, $view_mode, $langcode){
+    if ($type === "comment" || $view_mode !== 'full') {
+      return;
+    }
+
+    if (isset($entity->type) && $entity->type === 'alfresco_item') {
+      //set default context for polling
+      gofast_retention_set_context("node", "retention_date", $entity->field_retention_end[LANGUAGE_NONE][0]['value'] );
+    }
+  }

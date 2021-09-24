@@ -1,0 +1,10 @@
+name = Gofast User
+description = "Extends the core module and refines user profile basics."
+package = Gofast
+core = 7.x
+dependencies[] = gofast
+dependencies[] = ctools
+configure=admin/config/gofast/user
+version = "7.x-3.10.0_r2"
+
+scripts[] = js/gofast_user.js

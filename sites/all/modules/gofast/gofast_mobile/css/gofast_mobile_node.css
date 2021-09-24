@@ -1,0 +1,19 @@
+#gofast_mobile_node_actions li {
+  color: #000;
+}
+
+#gofast_mobile_node_info .field-locations .field-item {
+  font-size: 12px;
+}
+
+#gofast_mobile_node_actions a {
+/*  padding: 5px 0px;*/
+  text-align: initial;
+  padding-left: 0px;
+  padding-right: 0px;
+  display: flex;
+}
+
+.ajax-progress.ajax-progress-throbber {
+  position: initial;
+}

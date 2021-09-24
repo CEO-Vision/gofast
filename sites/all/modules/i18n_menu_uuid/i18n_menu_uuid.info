@@ -1,0 +1,8 @@
+name = Menu translation UUID
+description = UUID support for i18n_menu. With this module menu-UUID is used instead of MLID for translations.
+dependencies[] = i18n_menu
+dependencies[] = uuid
+package = Multilingual - Internationalization
+core = 7.x
+
+

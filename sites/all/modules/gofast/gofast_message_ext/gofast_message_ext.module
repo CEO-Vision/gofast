@@ -1,0 +1,326 @@
+<?php
+require_once 'gofast_message_ext_api.inc';
+/**
+ * Extends message module to split and store datas of  GoFast events.
+ */
+
+/**
+ * Implements hook_entity_info_alter
+ */
+function gofast_message_ext_entity_info_alter(&$entity_info){
+  //Enable comment cache
+  $entity_info['comment']['static cache'] = TRUE;
+}
+
+function gofast_message_ext_init(){
+    global $list_field_node_id_value;
+    $list_field_node_id_value = array();
+    global $list_field_target_id_value;
+    $list_field_target_id_value = array();
+}
+
+/**
+ * Implements hook_entity_presave().
+ * Catch the messages created by Rules module
+ * Provide and stock into the message all needed informations
+ * Trying to to queue the notification in gofast_mail_queue
+ */
+function gofast_message_ext_entity_presave($entity, $type){
+  if($type == "message" && $entity->type === 'message_log'){ //Catch a message
+    
+    if($_POST['technically_save'] === TRUE){ //This is a technical operation
+      $entity->field_message_log['und']['0']['value'] = 'INVALID';
+      return;
+    }   
+    
+    $target_entity = $entity->field_target_id['und']['0']['value']; //Entity ID
+    $content = $entity->field_message_log['und']['0']['value']; //Log given by rules about the event
+    
+    if(stripos($content, "linksharing") !== FALSE ){
+        return; 
+    }    
+        
+    $isNode = (strcmp($content, "NCON|") == 0 || strcmp($content, "ECON|") == 0);
+    $isComment = (strcmp($content, "NCOM|") == 0 || strcmp($content, "ECOM|") == 0);
+    $isMembership = (strpos($content, "NMEM|") === 0 || strpos($content, "DMEM|") === 0);
+    $isUserList = (strpos($content, "NUSL|") === 0 || strpos($content, "EUSL|") === 0 || strpos($content, "DUSL|") === 0);
+    $isNew = (strcmp($content, "NCON|") == 0 || strcmp($content, "NCOM|") == 0 || strpos($content, "NMEM|")=== 0); 
+    //Disable Kanban notifications
+    $isTaskTodolist = (strpos($content, "ETDL|") === 0 || strpos($content, "NTDL|") === 0);
+    //$isTaskTodolist = false;
+    if($isNode || $isTaskTodolist){
+      if($isTaskTodolist){ 
+          $task_todolists_before = json_decode(substr($content, 5));
+          $node = node_load($target_entity, NULL, FALSE); //Node before edition
+          $node->todolist = $task_todolists_before;
+          $task_todolists_after = gofast_kanban_get_task_checklists($node->nid);
+          $node_refresh = node_load($target_entity, NULL, TRUE); //Node after edition
+          $node_refresh->todolist = $task_todolists_after;
+      }else{ 
+        $node = node_load($target_entity, NULL, FALSE); //Node before edition
+        $node_refresh = node_load($target_entity, NULL, TRUE); //Node after edition
+      }
+      $node_data = gofast_message_ext_split_node($node);
+      $node_refresh_data = gofast_message_ext_split_node($node_refresh);
+      $node_compare = gofast_message_ext_api_compare($node_data, $node_refresh_data);
+      
+      //Kanban specific    
+      //Disable Kanban notifications
+      if(in_array($node->type, gofast_kanban_get_node_types())){
+          $node_compare["node_type"] = "kanban_prevent_notify";
+      }
+      
+      //Workaround GOFAST-2775
+      if(!$isNew){
+        $node_prevent_void = $node_compare;
+        unset($node_prevent_void['0']);
+        unset($node_prevent_void['created']);
+        unset($node_prevent_void['ruid']);
+        unset($node_prevent_void['uid']);
+        unset($node_prevent_void['changed']);
+        foreach($node_prevent_void as $field_prevent){
+          if(!array_key_exists('value', $field_prevent)){
+            $valid_message = TRUE;
+          }
+        }    
+        if(!isset($valid_message)){
+          $entity->field_message_log['und']['0']['value'] = 'INVALID';
+          return;
+        }
+        
+        //Creation date override
+        if(isset($_POST['override_creation_timestamp']) && isset($node_compare['created']['value']) && isset($node_compare['changed']['value'])){
+          $node_compare['created']['value'] = $_POST['override_creation_timestamp'];
+          $node_compare['changed']['value'] = $_POST['override_creation_timestamp'];
+        }
+      }
+      
+      if (isset($node_compare['version']['to'])) { //Version has changed !
+        $node_compare['event']['value'] = 'NREV';
+      }
+      if (isset($node_compare['status']['to']) &&  $node_compare['status']['to'] == '0') { // The node was deleted
+        $node_compare['event']['value'] = 'NDEL';
+      }
+      
+      else{
+        $node_compare['event']['value'] = substr($content, 0, 4);
+      }       
+      $message = json_encode($node_compare);
+      $entity->field_message_log['und']['0']['value'] = $message;
+    }
+    else if ($isMembership){
+      gofast_message_ext_entity_presave_og_membership($entity, $target_entity, $content, $isNew );
+      $message = substr($content, 5);
+      
+    }else if ($isUserList) {
+      return;
+    }
+    else{
+      $comment = comment_load($target_entity, FALSE); //Comment before edition     
+      $comment_refresh = comment_load($target_entity, TRUE); //Comment after edition
+
+      //If this comment is private, invalid any event coming from it
+      if($comment_refresh->field_comment_is_private[LANGUAGE_NONE][0]['value'] == 1){
+          $entity->field_message_log['und']['0']['value'] = 'INVALID';
+          return;
+      }
+      
+      //If this comment was private and became public, set the event as a new comment
+      if($comment->field_comment_is_private[LANGUAGE_NONE][0]['value'] == 1 && $comment_refresh->field_comment_is_private[LANGUAGE_NONE][0]['value'] == 0){
+          $content = substr($content, 0, 4);
+          $content = "NCOM" . $content;
+          $isNew = TRUE;
+      }
+      
+      
+      $comment_data = gofast_message_ext_split_comment($comment);
+      $comment_refresh_data = gofast_message_ext_split_comment($comment_refresh);
+      
+      $comment_compare = gofast_message_ext_api_compare($comment_data, $comment_refresh_data);
+      
+      if($comment->node_type == "comment_node_task"){
+           $comment_compare["node_type"] = "kanban";
+      }
+       
+      //Workaround GOFAST-2775
+      if(!$isNew){
+        $node_prevent_void = $comment_compare;
+        unset($node_prevent_void['0']);
+        unset($node_prevent_void['created']);
+        unset($node_prevent_void['ruid']);
+        unset($node_prevent_void['uid']);
+        unset($node_prevent_void['changed']);
+        foreach($node_prevent_void as $field_prevent){
+          if(!array_key_exists('value', $field_prevent)){
+            $valid_message = TRUE;
+          }
+        }
+        if(!isset($valid_message)){
+          $entity->field_message_log['und']['0']['value'] = 'INVALID';
+          return;
+        }
+      }
+      
+      $comment_compare['event']['value'] = substr($content, 0, 4);
+
+      $message = json_encode($comment_compare);
+      $entity->field_message_log['und']['0']['value'] = $message;
+      $entity->field_node_id['und']['0']['value'] = $comment_compare['nid']['value'];
+    }
+    
+    foreach(module_implements('message_formated') as $module){
+      $function = $module . '_message_formated';
+      call_user_func($function, array($message));
+    } 
+  }
+}
+
+/**
+ * Implements function for create linksharing entity
+ */
+function gofast_message_ext_create_linksharing_entity($node,$values){
+    global $user;
+    $node_bis = node_load($node->nid);
+    $node_data = gofast_message_ext_split_node($node_bis);
+    $node_sharing = gofast_message_ext_api_share($node_data);
+    $node_sharing['event']['value'] = 'linksharing';
+    $node_sharing['ruid']['value'] = $user->uid;
+    $node_sharing['changed']['value'] = time();
+    gofast_link_sharing_change_timestamp($node->nid,time());
+    
+    $id_list_sharing = array();
+    foreach($values as $key=>$value){
+        if ($value->type === 'user') {
+            $id_list_sharing[] = $values[$key]->id ;
+        }
+        else if ($value->type === 'node') {
+            // Get nid from the group 
+            $node_group = node_load($value->id);
+            // Get member id from the group 
+            $group_members = gofast_og_get_members($node_group,'active');
+            foreach ($group_members as $member) {
+                $myuser = user_load($member);
+                if ($myuser->status == 1){
+                    $id_list_sharing[] =  $member ;
+                }
+            }
+        }else if($value->type == 'userlist'){
+            // Get the ULID from the userlist to send mails
+            $ulid = $value->id;
+            // Get all members of the group
+            $group_members = gofast_userlist_get_members($ulid);
+            foreach ($group_members as $uid => $member) { 
+              $user_members = user_load($uid);
+              // Get only users active to send mail 
+              if ($user_members->status == 1){
+                $id_list_sharing[] = $uid ;                            
+              }
+
+            } 
+        }else{
+            if (strpos($value,";") == TRUE){
+                $array_input_addresses = str_replace(' ', '', explode(';',$value));
+            }
+            if(strpos($value,",") == TRUE){
+                $array_input_addresses = str_replace(' ', '',explode(',',$value));
+            }
+            if(empty($array_input_addresses) && strpos($value," ") == TRUE ){
+                $array_input_addresses = str_replace(' ','',explode(' ',$value));
+            }
+            if (!empty($array_input_addresses)){
+                $id_list_sharing = array_merge($array_input_addresses, $id_list_sharing);
+            }else{
+                $id_list_sharing = array_filter($id_list_sharing);
+                $id_list_sharing[] = $value;
+            }  
+        }
+    }
+    $id_list_sharing = implode(";", array_unique($id_list_sharing));
+    $node_sharing['desti_uid']['value'] = $id_list_sharing ;
+    $array_id_sharing = explode(";", $id_list_sharing);
+    foreach($array_id_sharing as $id_sharing){
+        if ($id_sharing != '' || $id_sharing != NULL ){
+            if(ctype_digit($id_sharing)){
+                $node_sharing['dest']['value'] .= gofast_message_ext_api_get_user_name($id_sharing) . ';';
+            }else{
+                $node_sharing['dest']['value'] .= $id_sharing. ';';
+            }
+        }
+    }
+    $message = json_encode($node_sharing);
+    $myentity = 'message';
+    $entity = entity_create($myentity, array('type' => 'message_log'));
+    $wrapper = entity_metadata_wrapper($myentity, $entity);
+    $wrapper->value()->uid = $user->uid;
+    $wrapper->field_target_id = $node->nid;
+    $wrapper->field_message_log = $message;
+    $wrapper->save();
+}
+
+/**
+ *  Create a og_membership entity 
+ * @global type $user
+ * @param type $node
+ * @param type $values
+ */
+function gofast_message_ext_create_og_membership_entity($node, $values){
+  
+    $timer_start = microtime(true);
+    watchdog('gofast_message', '%name() START ', array('%name' => __FUNCTION__), WATCHDOG_INFO);
+
+  
+    global $user;
+    
+    $group_node = array();
+    $group_node['event']['value'] = $values['membership_action']; //NMEM or DMEM
+    $group_node['changed']['value'] = time();
+    $group_node['title']['value'] = $node->title;
+    $group_node['type']['value'] = $node->type;
+    $group_node['ruid']['value'] = $user->uid;
+    $group_node['nid']['value'] = $node->nid;
+    $group_node['new_member_type']['value'] = $values['membership_type']; // user or userlist
+    $group_node['new_member_id']['value'] = $values['membership_id']; // uid or ulid
+    $group_node['new_member_name']['value'] = $values['membership_name']; // name or title
+        
+    $message = $group_node['event']['value'].'|'.json_encode($group_node);
+
+    $myentity = 'message';
+    $entity = entity_create($myentity, array('type' => 'message_log'));
+    $wrapper = entity_metadata_wrapper($myentity, $entity);
+    $wrapper->value()->uid = $user->uid;
+    $wrapper->field_target_id = $node->nid;
+    $wrapper->field_message_log = $message;
+    $wrapper->save();
+    
+    $timer_stop = microtime(true);
+    watchdog('gofast_message', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_INFO);
+    
+}
+
+/**
+ * 
+ * @param type $target_entity
+ * @param type $content
+ */
+function gofast_message_ext_entity_presave_og_membership(&$entity, $target_entity, $content, $isNew){
+   
+  $timer_start = microtime(true);
+  watchdog('gofast_message', '%name() START ', array('%name' => __FUNCTION__), WATCHDOG_INFO);
+
+  
+  $message = substr($content, 5);
+  $entity->field_message_log['und']['0']['value'] = $message;
+  
+  watchdog('gofast_message', 'Message=%message',array( '%message' => $message), WATCHDOG_INFO);
+    
+  $timer_stop = microtime(true);
+  watchdog('gofast_message', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_INFO);   
+  
+}
+
+function gofast_message_ext_theme(){
+   $theme['gofast-message-ext-last-event'] = array(
+    'template' => 'tpl/gofast-message-ext-last-event'
+  );
+   return $theme;
+}

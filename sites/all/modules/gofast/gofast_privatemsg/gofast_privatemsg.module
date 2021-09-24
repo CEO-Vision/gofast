@@ -1,0 +1,167 @@
+<?php
+
+function gofast_privatemsg_enable() {
+  $privatemsg_weight = db_select('system')
+          ->fields('system', array('weight'))
+          ->condition('name', 'privatemsg', '=')
+          ->execute()
+          ->fetchField();
+
+  db_update('system')
+          ->fields(array('weight' => $privatemsg_weight + 1))
+          ->condition('name', 'gofast_privatemsg')
+          ->execute();
+}
+
+function gofast_privatemsg_get_unread_messages($account = NULL) {
+  if (!$account || $account->uid == 0) {
+    global $user;
+    $account = $user;
+  }
+  $query = db_select('pm_index', 'pmi');
+  $query->addExpression('DISTINCT thread_id');
+  return $query
+    ->condition('pmi.deleted', 0)
+    ->condition('pmi.is_new', 1)
+    ->condition('pmi.recipient', $account->uid)
+    ->condition('pmi.type', array('hidden', 'user'))
+    ->execute()
+    ->fetchAllKeyed();
+}
+
+function gofast_privatemsg_does_thread_have_new_message($thread_id, $account = NULL) {
+  if (!$account || $account->uid == 0) {
+    global $user;
+    $account = $user;
+  }
+  $query = db_select('pm_index', 'pmi');
+  $query->addExpression('DISTINCT is_new');
+  return $query
+    ->condition('pmi.deleted', 0)
+    ->condition('pmi.recipient', $account->uid)
+    ->condition('pmi.is_new', 1)
+    ->condition('pmi.thread_id', $thread_id)
+    ->condition('pmi.type', array('hidden', 'user'))
+    ->execute()
+    ->fetchField();
+}
+
+function gofast_privatemsg_count_unread_message_for_thread($thread_id, $account = NULL) {
+  if (!$account || $account->uid == 0) {
+    global $user;
+    $account = $user;
+  }
+  $query = db_select('pm_index', 'pmi');
+  $query->addExpression('COUNT(mid)');
+  return $query
+    ->condition('pmi.deleted', 0)
+    ->condition('pmi.recipient', $account->uid)
+    ->condition('pmi.is_new', 1)
+    ->condition('pmi.thread_id', $thread_id)
+    ->condition('pmi.type', array('hidden', 'user'))
+    ->execute()
+    ->fetchField();
+}
+
+function gofast_privatemsg_unread_count($account = NULL) {
+  $counts = &drupal_static(__FUNCTION__, array());
+  if (!$account || $account->uid == 0) {
+    global $user;
+    $account = $user;
+  }
+  if (!isset($counts[$account->uid])) {
+    $counts[$account->uid] = _privatemsg_assemble_query(array('unread_account', 'gofast_privatemsg'), $account)
+      ->execute()
+      ->fetchField();
+  }
+  return $counts[$account->uid];
+}
+
+function gofast_privatemsg_sql_unread_account($account) {
+  $query = db_select('pm_index', 'pmi');
+  $query->addExpression('COUNT(thread_id)', 'unread_count');
+  return $query
+    ->condition('pmi.deleted', 0)
+    ->condition('pmi.is_new', 1)
+    ->condition('pmi.recipient', $account->uid)
+    ->condition('pmi.type', array('hidden', 'user'));
+}
+
+/**
+ * Expose operations/actions which can be executed on threads.
+ *
+ * Return an array of operations to privatemsg, the key of each operation is the
+ * operation key or name.
+ *
+ * @see _privatemsg_action_form()
+ * @see privatemsg_list_submit()
+ */
+function gofast_privatemsg_privatemsg_thread_operations() {
+  return array(
+    'operation key' => array(
+      'label' => 'Label of the operation. Only use this if the operation
+                  should be displayed automatically in the action form',
+      'callback' => 'privatemsg_thread_change_status', // Function callback that will be executed.
+      'callback arguments' => array('status' => PRIVATEMSG_READ), // Additional arguments to above function
+      'undo callback' => 'privatemsg_thread_change_status',  // Provide a function which can "undo" the operation. Optional.
+      'undo callback arguments' => array('status' => PRIVATEMSG_UNREAD), // Additional arguments to above function.
+    ),
+  );
+}
+
+function gofast_privatemsg_theme() {
+  $templates = array(
+    'privatemsg_view'    => array(
+      'variables'        => array('message' => NULL),
+      'template'         => variable_get('private_message_view_template', 'privatemsg-view'), // 'privatemsg',
+      'path'             => drupal_get_path('module', 'gofast_privatemsg')
+     ),
+    'gofast_privatemsg_notify_recipient' => array(
+        'template' => 'gofast_privatemsg_notify_recipient'
+    ),
+    );
+
+  return $templates;
+}
+
+/**
+ * Implements hook_privatemsg_message_insert().
+ */
+function gofast_privatemsg_privatemsg_message_insert($message) {
+  foreach ($message->recipients as $recipient) {
+      $recpt = array();
+      $online = db_query("SELECT uid FROM {sessions} WHERE uid = :uid AND timestamp >= :time", array(':uid' => $recipient->uid, ':time' => (REQUEST_TIME - 60)))->fetchField();
+      if ($online === false) {
+        $recpt[] = array('recpt' => $recipient->mail, 'method' => 'to'); 
+      }
+      
+    //Send mail
+    $l = array('context' => 'gofast', 'langcode' => $recipient->language);
+    $site_name = variable_get('site_name');
+    $subject = t('New private message', array(), $l);
+    $title = t('New private message', array(), $l);
+    $footer = t('New private message from', array(), $l)." ".$site_name;
+    // Define our url options. They depend on the document language.
+    $url_options = array('absolute' => TRUE);  
+    $response_link = url("/gofast/nojs/messages/view/".$message->thread_id, $url_options);
+    $body = theme('gofast_privatemsg_notify_recipient', array(
+          'l' => $l,
+          'site_name' => $site_name,
+          'message' => $message->body,
+          'subject' => $message->subject,
+          'sender' => gofast_user_display_name($message->author),
+          'sender_picture' => theme('user_picture', array('account' => $message->author)),
+          'response_link' => $response_link,
+          'response_icon' => t("Reply", array(), $l),
+        ));
+    $mail = array(
+      'body' => $body,
+      'title' => $title,
+      'subject' => $subject,
+      'footer' => $footer
+    );
+    gofast_mail_queue_api_queue_ext($mail, $recpt, time());
+  }
+  
+  
+}

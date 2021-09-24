@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Copy folder</shortname>
+    <description>Copy folder using javascript API</description>
+    <url>/set/copyfolder/?reference_folder={reference}&amp;reference_dest={ref_dest}</url>
+    <format default="html"/>
+    <authentication>user</authentication>
+</webscript>

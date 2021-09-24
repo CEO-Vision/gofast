@@ -1,0 +1,8 @@
+name = Gofast Poll
+description = "Provides a polling system using long poll method."
+package = Gofast
+core = 7.x
+
+dependencies[] = gofast
+
+version = "7.x-3.10.0_r2"

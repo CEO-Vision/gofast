@@ -1,0 +1,12 @@
+name = Gofast LDAP
+description = "Provides extended LDAP functionalities."
+package = Gofast
+core = 7.x
+dependencies[] = gofast
+dependencies[] = gofast_og
+dependencies[] = ldap_authentication
+dependencies[] = ldap_servers
+dependencies[] = ldap_user
+dependencies[] = og
+configure=admin/config/gofast/ldap
+version = "7.x-3.10.0_r2"

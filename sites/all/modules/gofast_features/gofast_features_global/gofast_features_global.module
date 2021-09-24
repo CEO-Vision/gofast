@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Gofast Config feature.
+ */
+
+include_once 'gofast_features_global.features.inc';

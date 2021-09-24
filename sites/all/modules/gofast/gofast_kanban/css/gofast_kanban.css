@@ -1,0 +1,232 @@
+
+.media-body{
+  width: 100%;
+}
+
+header{
+    display: none !important;
+}
+
+.page-inner-fill{
+    height: calc(100vh) !important;
+}
+
+.app{
+    background-color: white !important;
+}
+
+#board{
+    height: 100% !important;
+}
+
+.modal-backdrop{
+    display: none !important;
+}
+
+.modal-footer{
+  justify-content: flex-start;
+}
+
+.pace-progress{
+    top: 0px !important;
+}
+.pace-activity{
+    top: 1.5rem !important;
+}
+
+
+/*override default FORM theme template*/
+.date-form-element-content-multiline{
+  padding: 0px;
+  border: none;
+}
+
+.deadline-nearly-reached {
+  background-color: #f0ad4e;
+  color : white;
+  padding : 2px;
+  font-weight: bold;
+}
+
+.deadline-reached{
+  background-color: #d9534f;
+  color : white;
+  padding : 2px;
+  font-weight: bold;
+}
+
+.deadline-nearly-reached-off, .deadline-reached-off{
+  background-color: #888c9b;
+  color : white;
+  padding : 2px;
+  font-weight: bold; 
+}
+
+/* Task details adjustement */
+
+.gf-kanban-todo-actions{
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+
+.gf-kanban-field-edit .gf-kanban-task-actions{
+  /*margin-left: auto;*/
+  display: none;
+  position: fixed;
+}
+
+.gf-kanban-field-edit:hover .gf-kanban-task-actions{
+  display: inline-block;
+}
+
+.gf-link-to{
+  cursor: pointer;
+}
+
+.gf-kanban-deadline-hide-time div.form-type-textfield{
+  display: none;
+}
+
+/*fixed progress sytle inside list-group */
+.list-group-item-body .progress{
+  margin-bottom : 0px;
+}
+
+
+/*Fix select2 trouble inside a bootstrap-modal*/
+.modal.has-shown .select2-container--open { 
+  z-index: 999999 !important; 
+  width:100% !important; 
+}
+
+
+/*Overridet theme for task modal */
+.task-attachements .list-group-item{
+  padding : 1px 10px;
+}
+
+.btn-danger{
+  color: #fff;
+  background-color: #d9534f;
+  border-color: #d43f3a;
+}
+
+.btn-danger:hover {
+    color: #fff;
+    background-color: #c9302c;
+    border-color: #ac2925;
+}
+
+.btn-success {
+    color: #fff;
+    background-color: #5cb85c;
+    border-color: #4cae4c;
+}
+
+.btn-success:hover {
+    color: #fff;
+    background-color: #449d44;
+    border-color: #398439;
+}
+
+.alert-warning{
+    color: #856404;
+    background-color: #fff3cd;
+    border-color: #f7c46c;
+}
+
+.task-attachements .list-group-item-body{
+  font-size: 12px !important;
+}
+
+.task-details .row{
+  /*margin-left: -5px;*/
+  margin-right: -5px;
+}
+
+#gf-kanban-task-edit-deadline .flatpickr-input{
+  width: 80px;
+}
+
+.flatpickr-calendar{
+  font-size: 12px;
+}
+
+
+#kanbanModal .modal-lg{
+  max-width: 90%;
+}
+
+
+.gf-timeline-other{
+  display: none;
+}
+
+.gf-timeline-action {
+  font-weight : normal;
+  /*color: #346cb0;*/
+}
+
+
+.gf-kanban-not-editing.custom-checkbox.readonly {
+  padding-left: 2px;
+}
+
+
+
+.gf-kanban-not-editing.custom-checkbox.readonly label{
+  padding-left: 0.75rem;
+}
+
+.pace-activity {
+  display: none !important;
+}
+
+.gf-kanban-show-editable:hover pre, 
+.gf-kanban-show-editable:hover h5,
+.gf-kanban-show-editable:hover span:not(.list-group-item-figure):not(.list-group-item-body):not(.gf-kanban-node-title)
+{
+  border-radius: 0.3rem;
+  background-color: rgba(20,20,31,.1);
+}
+
+input#column-label, button.update-column, button.cancel-update-column{
+    display: inline-block;
+}
+
+pre.gf-kanban-card-desc, pre.gf-kanban-comment{
+  font-family: inherit;
+  font-size: inherit;
+  border: none;
+  background-color: transparent;
+  padding: 8px;
+  color: rgb(51, 51, 51);
+  white-space: -moz-pre-wrap; /* Mozilla, supported since 1999 */
+  white-space: -pre-wrap; /* Opera */
+  white-space: -o-pre-wrap; /* Opera */
+  white-space: pre-wrap; /* CSS3 - Text module (Candidate Recommendation) http://www.w3.org/TR/css3-text/#white-space */
+  word-wrap: break-word; /* IE 5.5+ */
+}
+
+.form-control{
+  font-size: inherit;
+}
+
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6{
+  line-height: 1.5;
+}
+
+ /* Allow resize for comment textarea */ 
+.publisher.focus .publisher-input .form-control{
+  resize: vertical;
+}
+
+.todo:hover {
+	background-color: #eee;
+}
+
+/* remove carret on dropdown button for kanban */
+.dropdown-toggle.gf-kanban-dropdown:after{
+   content : ''; 
+}

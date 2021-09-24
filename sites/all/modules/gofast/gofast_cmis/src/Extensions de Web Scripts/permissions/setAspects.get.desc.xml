@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Update aspects</shortname>
+    <description>Update aspects using javascript API</description>
+    <url>/set/aspects?reference={reference}</url>
+    <format default="html"/>
+    <authentication>user</authentication>
+</webscript>

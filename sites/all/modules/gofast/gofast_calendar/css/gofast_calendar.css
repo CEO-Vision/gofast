@@ -1,0 +1,57 @@
+.calendar-calendar td .inner div.calendar div a{
+/*  display: table-caption;*/
+}
+.calendar-calendar td .inner div.calendar div {
+  /*display: table-column;*/
+}
+
+/**
+* Override/amend default css of module calendar
+*/
+
+.calendar-calendar .month-view .full {
+  overflow-x: auto;
+  table-layout : fixed;
+}
+
+.calendar-calendar .month-view .full td.single-day div.monthview,
+.calendar-calendar .week-view .full td.single-day div.weekview,
+.calendar-calendar .day-view .full td.single-day div.dayview {
+  max-width: 118px;
+}
+
+
+.calendar-calendar .month-view .full td.multi-day .calendar.monthview .contents{
+  overflow-x:auto; 
+}
+
+.node_icon_calendar{
+    font-size: 14px;
+}
+
+.item .popover{
+    background-color: white !important;
+    min-width: 400px;
+}
+
+.item .popover-title{
+    border-bottom: 1px solid black !important;
+    text-align: center;
+    font-family: 'Roboto', sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    background-color: #222222 !important;
+    color:#9d9d9d !important ;
+}
+
+.item .popover-content{
+    font-size: 11px !important;
+}
+
+.item .popover_footer{
+    font-family: 'Roboto', sans-serif !important;
+    background-color: #f5f5f5 !important;
+    border-top: 1px solid black;
+}
+
+.item .popover .arrow {display:none !important;}

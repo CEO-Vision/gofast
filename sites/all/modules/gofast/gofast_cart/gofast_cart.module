@@ -1,0 +1,253 @@
+<?php
+
+function gofast_cart_menu(){
+    
+  $items = array();
+    
+  $items['modal/%ctools_js/cart'] = array(
+    'title' => t('Cart', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_cart_ui_display_modal',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(1),
+    'options' => array(
+      'attributes' => array(
+        'class' => 'ctools-use-modal'
+      ),
+    ),   
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'weight' => -49
+  );
+  
+   $items['modal/%ctools_js/bulk_add_to_cart'] = array(
+    'title' => t('Bulk add to cart', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_cart_ui_display_modal_bulk_add',
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+    'access arguments' => array('update content'),
+    'type' => MENU_CALLBACK,
+  );
+   
+   $items['gofast_cart_remove_all'] = array(
+    'title' => t('Remove all items from cart', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_cart_remove_all',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+   
+  return $items;
+}
+
+function gofast_cart_init(){
+    drupal_add_js(drupal_get_path('module', 'gofast_cart') . '/gofast_cart.js');
+}
+
+
+function gofast_cart_ui_display_modal_bulk_add($js){
+  $form_id = 'gofast_cart_bulk_add_form';
+
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array()
+    ),
+    'title' => null
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+    
+}
+
+
+/**
+ * This form allow to add multiple document of selected items from ITHit to cart.
+ * @param type $form
+ * @param array $form_state
+ * @return type
+ */
+function gofast_cart_bulk_add_form($form, &$form_state) {
+
+  $selected_items_json = array();
+  global $user;
+  if(variable_get("ithit_bulk_".$user->uid, NULL)){
+      $selected_items_json = json_decode(rawurldecode(variable_get("ithit_bulk_".$user->uid, NULL)));
+      variable_del("ithit_bulk_".$user->uid);
+  }
+
+  // Sorting the items received in parameter (Folders first, then Resource)
+  usort($selected_items_json, function($a, $b) {
+    return $a->type > $b->type;
+  });
+
+  $items_by_type = array();
+  foreach ($selected_items_json as $selected_item_type) {
+    $items_by_type[$selected_item_type->type][] = $selected_item_type->url;
+  }
+
+  $form_state['selected_item_by_type'] = $items_by_type;
+  $form['selected_item_by_type'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Selected nodes'),
+      '#maxlength' => "9999999",
+      '#default_value' => json_encode($items_by_type),
+    );
+  $form['selected_item_by_type']['#attributes']['class'][] = "gofast_display_none";
+  
+  $rendered_items = '<h2>' . t('Add theses folders and documents to your cart:', array(), array('context' => 'gofast')) . '</h2>';
+  foreach ($items_by_type as $key => $items) {
+    $rendered_items .= '<ul><li>' . implode('</li><li>', $items) . '</li></ul>';
+  }
+
+  $form['selected_items'] = array(
+    '#markup' => $rendered_items,
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t("Save", array(), array('context' => 'gofast')),
+  );
+
+  return $form;
+}
+
+
+function gofast_cart_bulk_add_form_validate($form, &$form_state){
+
+}
+
+
+function gofast_cart_bulk_add_form_submit($form, &$form_state) {
+  $updated_nids = array();
+  foreach (json_decode($form_state["values"]['selected_item_by_type']) as $type => $items_by_type) {
+    if ($type === 'Folder') {
+      foreach ($items_by_type as $item_path) {
+        $alfresco_path = str_replace("/alfresco/webdav", "", $item_path);
+        $folder_item = gofast_cmis_item_get_by_path($alfresco_path);
+        $descendants = gofast_cmis_item_get_children($folder_item->id, FALSE, 'documents');
+        foreach ($descendants as $descendants) {
+          if (isset($descendants->nid)) {
+            $updated_nids[$descendants->path] = $descendants->nid;
+          }
+        }
+      }
+    } else {
+      foreach ($items_by_type as $item_path) {
+        //Force replication of this content if it's not yet replicated
+        $_GET['href'] = $item_path;
+        gofast_cmis_replicate(FALSE);
+        
+        $alfresco_path = str_replace("/alfresco/webdav", "", $item_path);
+        $item = gofast_cmis_item_get_by_path($alfresco_path);
+        if(isset($item->id) && $item->properties['gofast:nid']) {
+          $updated_nids[$alfresco_path] = $item->properties['gofast:nid'];
+        }
+      }
+    }
+  }
+
+ if(count($updated_nids) > 0){ 
+    global $user;
+    foreach($updated_nids as $nid) {    
+      $flag = flag_get_flag('cart');
+      $flag->flag('flag', $nid, $user, TRUE);
+    }
+  }
+}
+
+
+/*
+ * Modal for subscription UI
+ */
+function gofast_cart_ui_display_modal($js){
+    ctools_include('ajax');
+    ctools_include('modal');
+    
+    global $user;
+
+    if (!$js) {
+      return drupal_goto('gofast_cart');
+    }
+    $view = views_get_view("gofast_flag_cart", true);
+    if ($view && $view->access("gofast_flag_cart")) {
+      $render = trim($view->preview("gofast_flag_cart", func_get_args()));
+    }
+    $attr = array(
+      'onClick' => "Gofast.Cart.bulkSelectedCart(event)",
+    );
+    $download_field = '<li>' . theme('gofast_link_generic', array(
+              'text' => t('Download', array(), array('context' => 'gofast')),
+              'link_id' => "download",
+              'link_class' => 'btn btn-sm',
+              'icon_class' => "fa fa-cloud-download",
+              'onClick' => 'Gofast.Cart.downloadSelectedCart()',
+            )) . '</li>';
+    $manage= '<div id="cart_toolbar_manage" class="btn-group">'
+            . '<button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true"><i class="fa fa-bars" aria-hidden="true" style="color:#3498db;"></i>  ' . t('Actions', array(), array('context' => 'gofast:ajax_file_browser')) .  '  <span class="caret"></span></button>'
+            . '<ul class="dropdown-menu">'
+                .  '<li>' . $download_field
+                .  '<li>' . gofast_dropdown_link(t('Manage Metadata', array(), array('context' => 'gofast')), '/modal/nojs/manage-taxonomy', 'taxonomy_open_span', 'ctools-use-modal manage-taxonomy', 'fa fa-tags', $attr ) . '</li>'
+                .  '<li>' . gofast_dropdown_link(t('Share/Add locations', array(), array('context' => 'gofast')), '/modal/nojs/add-locations', 'locations_open_span', 'ctools-use-modal add-locations', 'fa fa-share-alt', $attr). '</li>'
+                .  '<li>' . gofast_dropdown_link(t('Create publications', array(), array('context' => 'gofast')), '/modal/nojs/manage-publications', 'publications_open_span', 'ctools-use-modal manage-publications', 'fa fa-arrow-up', $attr). '</li>'
+                .  '<li>' . gofast_dropdown_link(t('Share by email', array(), array('context' => 'gofast')), '/modal/nojs/manage-mail-sharing', 'publications_open_span', 'ctools-use-modal manage-mail-sharing', 'fa fa-envelope', $attr). '</li>'
+		.  '<li>' . gofast_dropdown_link(t('Archive cart content', array(), array('context' => 'gofast:gofast_cart')), '/modal/nojs/bulk-archive', 'taxonomy_open_span', 'ctools-use-modal bulk-archive', 'fa fa-archive', $attr ) . '</li>'
+                .  '<li>' . gofast_dropdown_link(t('Manage Metadata', array(), array('context' => 'gofast')), '/modal/nojs/manage-taxonomy', 'taxonomy_open_span', 'ctools-use-modal bulk_taxonomy manage-taxonomy gofast_display_none', 'fa fa-tags'). '</li>'
+                .  '<li>' . gofast_dropdown_link(t('Share/Add locations', array(), array('context' => 'gofast')), '/modal/nojs/add-locations', 'locations_open_span', 'ctools-use-modal bulk_add_locations add-locations gofast_display_none', 'fa fa-share-alt'). '</li>'
+                .  '<li>' . gofast_dropdown_link(t('Create publications', array(), array('context' => 'gofast')), '/modal/nojs/manage-publications', 'publications_open_span', 'ctools-use-modal bulk_publications manage-publications gofast_display_none', 'fa fa-arrow-up'). '</li>'
+                .  '<li>' . gofast_dropdown_link(t('Share by email', array(), array('context' => 'gofast')), '/modal/nojs/manage-mail-sharing', 'publications_open_span', 'ctools-use-modal bulk_mail_sharing manage-mail-sharing gofast_display_none', 'fa fa-envelope'). '</li>'
+                .  '<li>' . gofast_dropdown_link(t('Archive cart content', array(), array('context' => 'gofast')), '/modal/nojs/bulk-archive', 'taxonomy_open_span', 'ctools-use-modal bulk_archive bulk-archive gofast_display_none', 'fa fa-archive'). '</li>'
+          . '<ul>'
+          . '</div>';
+    $start_workflow = '<button class="btn btn-default btn-sm" onClick="Drupal.gofast_workflows.ceo_vision_js_process_get_available_processes(\'cart\')" style="margin-left:10px;"><i class="fa fa-cogs" style="color:#3498db;"></i>  ' . t('New process', array(), array('context' => 'gofast:gofast_workflows')) . '</button>';
+    $delete_all_content_button = '<div id="remove_from_cart" style="float: right;"><a id="remove_all_documents" class="btn btn-default btn-sm" style="float:right;right: 0;margin-bottom: 10px;" onClick="Gofast.Cart.remove()"><i class="fa fa-trash" style="color:#dc3545;"></i>  ' . t("Remove all documents", array(), array('context' => 'gofast')) . '</a></div>';
+    $res = $manage . $start_workflow . $delete_all_content_button . $render;
+    $render = $res;
+    $render .= '<select multiple class="gofast_display_none" id="cart_node_id"></select>';
+    $render .= "<script type='text/javascript'>"
+		  ."jQuery('.flag-cart').each(function(){"
+		      ."jQuery(this).addClass('btn btn-sm');"
+		  . "});";
+    
+    //Retrieve all nids in the cart
+    $flags = flag_get_user_flags("node", NULL, $user->uid)['cart'];
+    $nids = array_keys($flags);
+    
+    foreach($nids as $nid){
+        $render .= "jQuery('#cart_node_id').append('<option>" . $nid . "</option>');";
+    }
+    
+    $render .= "</script>";
+    
+    $modal = ctools_modal_form_render(NULL, $render);
+    print ajax_render($modal);
+    return;
+}
+
+/*
+ * Remove all items from user cart
+ */
+function gofast_cart_remove_all(){
+    global $user;
+    $account = user_load($user->uid);
+    
+    $cart_flag = flag_get_flag("cart");
+    $flags = flag_get_user_flags("node", NULL, $user->uid)['cart'];
+    
+    foreach($flags as $flag){
+        $entity_id = $flag->entity_id;
+        $cart_flag->flag('unflag', $entity_id, $account, TRUE);
+    }
+    
+    exit;
+}

@@ -1,0 +1,109 @@
+<?php
+
+/*
+ * Add new terms to criticity
+ */
+function gofast_taxonomy_update_7003(){
+  $new_terms = array(
+    (object) array(
+      'name' => 'Confidential Data',
+      'description' => '',
+      'format' => 'filtered_html',
+      'weight' => 0,
+      'uuid' => '901358ab-35fc-4eb4-9fbb-d335ea836758',
+      'language' => 'und',
+      'i18n_tsid' => 0,
+      'vid' => GOFAST_VID_CRITICITY
+    ),
+    (object) array(
+      'name' => 'Personal Data',
+      'description' => '',
+      'format' => 'filtered_html',
+      'weight' => 1,
+      'uuid' => 'dc7440e1-3260-429d-826d-6dc7d8554866',
+      'language' => 'und',
+      'i18n_tsid' => 0,
+      'vid' => GOFAST_VID_CRITICITY
+   )
+  );
+
+  foreach($new_terms as $term){
+    taxonomy_term_save($term);
+  }
+}
+
+/*
+ * Add new format to videos
+ */
+function gofast_taxonomy_update_7004(){
+  $term = reset(taxonomy_get_term_by_name("Video", "format"));
+
+  $term->field_extensions[LANGUAGE_NONE][0]["value"] = ";wma;wmv;avi;flv;mp4;webm;mpg;";
+  $term->field_extensions[LANGUAGE_NONE][0]["safe_value"] = ";wma;wmv;avi;flv;mp4;webm;mpg;";
+
+  taxonomy_term_save($term);
+}
+
+/*
+ * Add new format to videos
+ */
+function gofast_taxonomy_update_7005(){
+  $term = reset(taxonomy_get_term_by_name("Video", "format"));
+
+  $term->field_extensions[LANGUAGE_NONE][0]["value"] = ";wma;wmv;avi;flv;mp4;webm;mpg;mov;";
+  $term->field_extensions[LANGUAGE_NONE][0]["safe_value"] = ";wma;wmv;avi;flv;mp4;webm;mpg;mov;";
+
+  taxonomy_term_save($term);
+}
+
+/*
+ * Add new terms to state
+ */
+function gofast_taxonomy_update_7006(){
+  $new_terms = array(
+    (object) array(
+      'name' => 'Signed',
+      'description' => '',
+      'format' => 'plain_text',
+      'weight' => 0,
+      'uuid' => 'd1771148-d81a-4099-824b-a6ce932486c6',
+      'language' => 'und',
+      'i18n_tsid' => 0,
+      'vid' => GOFAST_VID_STATE
+    ),
+    (object) array(
+      'name' => 'Awaiting signature',
+      'description' => '',
+      'format' => 'plain_text',
+      'weight' => 1,
+      'uuid' => '1e3c4721-a787-46bd-8bf7-03929e32ba32',
+      'language' => 'und',
+      'i18n_tsid' => 0,
+      'vid' => GOFAST_VID_STATE
+   )
+  );
+
+  foreach($new_terms as $term){
+    taxonomy_term_save($term);
+  }
+}
+
+/*
+ * Add new terms to criticity
+ */
+function gofast_taxonomy_update_7007()
+{
+  $new_term =
+    (object) array(
+      'name' => 'Internal Distribution',
+      'description' => '',
+      'format' => 'filtered_html',
+      'weight' => 0,
+      'uuid' => '245eb1de-161a-4181-8580-341225c01b82',
+      'language' => 'und',
+      'i18n_tsid' => 0,
+      'vid' => GOFAST_VID_CRITICITY
+    );
+
+  taxonomy_term_save($new_term);
+}

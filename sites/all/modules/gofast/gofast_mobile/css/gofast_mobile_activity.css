@@ -1,0 +1,252 @@
+/* ACTIVITY FEED */
+
+  #activity-feed-table > tbody > tr{
+    /*height: 80px;*/
+    display: grid;
+    grid-template-columns: 60px 1fr 1fr 1fr 1fr 1fr 1fr;
+    grid-template-rows: 50% 50%;
+    position: relative;
+  }
+  #activity-feed-table > tbody > tr > td.views-field-gofast-last-modifier, #activity-feed-table > tbody > tr > td:first-child{
+    border-top: none;
+    display: flex;
+    grid-row: 1/3;
+    grid-column: 1/2;
+    align-items: center;
+    justify-content: left;
+    position: relative;
+  }
+
+  input {
+    font-size: 16px;
+  }
+
+  #activity-feed-table > tbody > tr > td:first-child > i{
+    position: absolute;
+    left: 5px !important;
+    top: 5px;
+  }
+
+
+  #activity-feed-table > tbody > tr > td.gofast-activity-blog-field-mobil, #activity-feed-table > tbody > tr.blog-new-entry td:nth-child(2) {
+    grid-row: 1/3;
+    grid-column: 2/8;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #activity-feed-table > tbody > tr > td.gofast-activity-blog-field-mobil > #block_blog_body{
+    display: flex;
+    justify-content: space-between;
+  }
+
+  #activity-feed-table > tbody > tr > td.gofast-activity-blog-field-mobil > #block_blog_body > .gofast-microblogging-actions{
+    position: unset;
+  }
+
+
+
+  #activity-feed-table>tbody>tr>td:first-child>div>a>img {
+    width: 50px;
+    height: 50px;
+  }
+
+  #activity-feed-table > tbody > tr > td.views-field-nothing{
+    grid-column: 2/8;
+    grid-row: 1/2;
+    max-width: none !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  #activity-feed-table > tbody > tr > td.views-field-gofast-last-event{
+    grid-row: 2/3;
+    grid-column: 2/8;
+    width: 100% !important;
+    border-top: none;
+  }
+
+  #activity-feed-table > tbody > tr > td.views-field-nothing > .gofast_activity_feed_handlers{
+    padding: 0px !important;
+  }
+
+
+  #activity-feed-table > tbody > tr > td.views-field-nothing > .gofast_activity_feed_handlers .gofast-node-actions .btn-default, #activity-feed-table #gofast-node-actions-microblogging .btn-default {
+    background: none;
+    border: none;
+    font-size: 1.8rem;
+}
+
+  #activity-feed{
+    padding-left: 0px;
+    padding-right: 0px;
+  }
+
+  #activity-feed-table td.views-field-gofast-last-event .glyphicon-search{
+    font-size: 1.2em;
+    margin-left: 5px;
+  }
+
+  #activity-feed-table td.views-field-gofast-last-event .panel{
+    font-size: 1.2em;
+  }
+
+  #activity-feed-table > tbody > tr{
+      border-top: 1px solid #ddd;
+  }
+
+  #activity-feed-table > tbody > tr:first-child{
+    display: none;
+  }
+
+  #activity-feed-table > tbody > tr > td.views-field-nothing > div > div > a > ul{
+    left: -178px;
+  }
+
+  #activity-feed-table > tbody > tr > td.views-field-nothing > div > div > ul{
+    left: -178px;
+    bottom: inherit !important;
+  }
+
+
+  #activity-feed-table > tbody > tr > td.views-field-gofast-last-event > div > span > div:nth-child(3){
+    left: -50px;
+  }
+
+  #activity-feed-table > tbody > tr > td.views-field-og-group-content-ref{
+    display: none;
+  }
+
+  #activity-feed-table > tbody > tr > td.views-field-expression{
+    display: none;
+  }
+
+  #activity-feed-table > tbody > tr > td.views-field-gofast-taxo-state{
+    display: none;
+  }
+  #activity-feed-table > tbody > tr > td.views-field-nothing > div > .gofast_activity_feed_type{
+    display: none;
+  }
+  #activity-feed-table > tbody > tr > td.views-field-nothing > div > .fa{
+    margin-right: 4px;
+  }
+
+
+
+/*
+
+
+  #activity-feed-table > tbody > tr > td.views-field-nothing > div > .fa{
+    position: relative;
+    top: 7px;
+    display: none;
+  }
+
+  #activity-feed-table > tbody > tr > td:first-child{
+    display: inline-block;
+    width: 10%;
+  }
+
+  #activity-feed-table > tbody > tr > td:nth-child(2){
+    display: inline-block;
+    width: 80% !important;
+  }
+
+  #activity-feed-table > tbody > tr > td.views-field-nothing{
+    display: inline-block;
+    width: 90%;
+    padding-top: 3px;
+    float: left;
+    top: -57px;
+    position: relative;
+    left: 10%;
+    padding-bottom: 0px;
+    border-top: none;
+  }
+
+  @media (max-width: 350px) {
+      #activity-feed-table > tbody > tr > td.views-field-nothing{
+        max-width: 250px;
+      }
+  }
+
+  @media (min-width: 350px) and (max-width: 400px) {
+      #activity-feed-table > tbody > tr > td.views-field-nothing{
+        max-width: 300px;
+      }
+  }
+
+  @media (min-width: 400px) and (max-width: 600px) {
+      #activity-feed-table > tbody > tr > td.views-field-nothing{
+        max-width: 500px;
+      }
+  }
+
+  @media (min-width: 600px) and (max-width: 800px) {
+      #activity-feed-table > tbody > tr > td.views-field-nothing{
+        max-width: 700px;
+      }
+  }
+
+  @media (min-width: 800px) and (max-width: 1000px) {
+      #activity-feed-table > tbody > tr > td.views-field-nothing{
+        max-width: 900px;
+      }
+  }
+
+  @media (min-width: 1000px) and (max-width: 1200px) {
+      #activity-feed-table > tbody > tr > td.views-field-nothing{
+        max-width: 1100px;
+      }
+
+      #activity-feed-table > tbody > tr > td:first-child > div > a > img{
+        width: 40px;
+        height: 40px;
+        margin-top: 20px;
+      }
+
+  }
+
+  @media (min-width: 1200px) and (max-width: 1500px) {
+      #activity-feed-table > tbody > tr > td.views-field-nothing{
+        max-width: 1400px;
+      }
+  }
+
+  @media (min-width: 1500px) and (min-width: 1500px) {
+      #activity-feed-table > tbody > tr > td.views-field-nothing{
+        max-width: 1700px;
+      }
+  }
+
+
+
+
+
+  #activity-feed-table > tbody > tr > td.views-field-nothing > div > .gofast-node-actions{
+    float: right;
+    top: 14px;
+    right: 0px;
+    position: absolute;
+  }
+
+
+
+  #activity-feed-table > tbody > tr > td.views-field-nothing > .gofast_activity_feed_title{
+    top: 13px;
+    position: relative;
+    margin-left: 3px;
+    display: inline-block;
+    width: 90%;
+  }
+
+  #activity-feed-table > tbody > tr > td.views-field-nothing > .gofast_activity_feed_handlers{
+    display: inline-block;
+    float: left;
+  }
+
+
+
+  */
+

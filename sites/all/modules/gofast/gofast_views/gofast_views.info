@@ -1,0 +1,41 @@
+name = Gofast Views
+description = Gofast views handler
+package = Gofast
+core = "7.x"
+
+version = "7.x-3.10.0_r2"
+
+files[] = views/gofast_views_handler_field_node_download_link.inc
+files[] = views/gofast_views_handler_field_node_link_delete_modal.inc
+files[] = views/gofast_views_handler_field_node_link_edit_mode.inc
+files[] = views/gofast_views_handler_field_node_link_new_version.inc
+files[] = views/gofast_views_handler_field_node_link_manage_keywords.inc
+files[] = views/gofast_views_handler_field_node_block_file_management.inc
+files[] = views/gofast_views_handler_field_node_last_modifier.inc
+files[] = views/gofast_views_handler_field_node_last_event.inc
+files[] = views/gofast_views_handler_field_node_taxonomy_state.inc
+files[] = views/gofast_views_handler_field_node_gofast_mobile_activity_feed.inc
+
+files[] = views/gofast_views_handler_field_pm_body.inc
+files[] = views/gofast_views_handler_field_pm_subject.inc
+files[] = views/gofast_views_handler_field_pm_thread_link.inc
+files[] = views/gofast_views_handler_field_pm_author.inc
+files[] = views/gofast_views_handler_field_recipients.inc
+
+files[] = views/gofast_views_handler_field_node_link_edit.inc
+files[] = views/gofast_views_handler_field_node_format.inc
+
+files[] = views/gofast_views_handler_field_user_quick_actions.inc
+files[] = views/gofast_views_handler_field_user_relationships_link_add_relationship.inc
+files[] = views/gofast_views_handler_field_user_mobilephone.inc
+files[] = views/gofast_views_handler_field_user_new_message.inc
+files[] = views/gofast_views_handler_field_subscribe_user.inc
+files[] = views/gofast_views_handler_field_user_picture.inc
+files[] = views/gofast_views_handler_field_user_roles.inc
+files[] = views/gofast_views_handler_field_user_og_roles.inc
+
+files[] = views/gofast_views_handler_filter_group_title.inc
+files[] = views/gofast_views_handler_filter_user_relationships.inc
+
+files[] = views/gofast_views_handler_field_user_directories_user_gofast_role.inc
+files[] = views/gofast_views_handler_field_user_directories_state.inc

@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Show folder stats</shortname>
+    <description>Show folder stats using javascript API</description>
+    <url>/get/descendants/?reference={reference}&amp;type={type}&amp;restrictdepth={restrictdepth}</url>
+    <format default="html"/>
+    <authentication>user</authentication>
+</webscript>

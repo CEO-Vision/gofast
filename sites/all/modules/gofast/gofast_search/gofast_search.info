@@ -1,0 +1,16 @@
+name = Gofast Search
+description = "Implements Apache Solr Search toolkit and provides a customized search environment."
+package = Gofast
+core = 7.x
+
+dependencies[] = gofast
+dependencies[] = apachesolr
+dependencies[] = apachesolr_search
+dependencies[] = facetapi
+
+files[] = gofast_search.facetapi.inc
+files[] = plugins/facetapi/widget_links.inc
+files[] = plugins/facetapi/query_type.inc
+files[] = plugins/current_search/item_active.inc
+
+version = "7.x-3.10.0_r2

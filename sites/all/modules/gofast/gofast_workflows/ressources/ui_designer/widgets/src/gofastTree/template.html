@@ -1,0 +1,35 @@
+<div class="thumbnail">
+ <div class="loader-tree"></div>
+ <ul id="{{tree_rand_id}}" class="ztree" style="height: {{properties.height}}px !important;"></ul>
+</div>
+
+<style>
+    #{{tree_rand_id}}{
+        width: 100% !important;
+        overflow:auto;
+    }
+    .fa{
+        color: steelblue;
+    }
+    .loader-tree{
+        border: 3px solid #f3f3f3;
+        border-radius: 50%;
+        border-top: 3px solid #3498db;
+        border-bottom: 3px solid #3498db;
+        width: 20px;
+        height: 20px;
+        -webkit-animation: spin 2s linear infinite;
+        animation: spin-loader 2s linear infinite;
+        margin: 0 auto;
+        float: left;
+        position: absolute;
+    }
+    @keyframes spin-loader{
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    #{{tree_rand_id}}_1_switch, #{{tree_rand_id}}_1_check, #{{tree_rand_id}}_1_a{
+        display:none;
+    }
+</style>

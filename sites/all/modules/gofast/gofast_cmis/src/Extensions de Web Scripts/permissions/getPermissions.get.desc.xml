@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Get permissions on a document or a folder</shortname>
+    <description>Get permissions on a document or a folder using javascript API</description>
+    <url>/get/permissions/?reference={reference}</url>
+    <format default="html"/>
+    <authentication>user</authentication>
+</webscript>

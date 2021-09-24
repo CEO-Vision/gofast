@@ -1,0 +1,34 @@
+<?php
+
+/**
+ * @file
+ * Installation schema for Gofast Link Sharing module
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function gofast_link_sharing_schema(){
+  $schema = array();
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function gofast_link_sharing_install(){
+  $cipher = uniqid() . uniqid() . uniqid();
+  variable_set("gofast_link_sharing_cipher", $cipher);
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function gofast_link_sharing_uninstall(){
+  // Nothing to do !
+}
+
+function gofast_link_sharing_update_7000(){
+  $cipher = uniqid() . uniqid() . uniqid();
+  variable_set("gofast_link_sharing_cipher", $cipher);
+}

@@ -1,0 +1,255 @@
+<?php
+
+/**
+ * @file
+ * Code for the uuid_features_menu module.
+ */
+
+/**
+ * Implements hook_uuid_sync().
+ */
+function uuid_features_menu_uuid_sync() {
+  uuid_features_menu_generate_page();
+}
+
+/**
+ * Implements hook_features_api().
+ */
+function uuid_features_menu_features_api() {
+  return array(
+    'uuid_features_menu' => array(
+      'name' => t('Menu links (UUID)'),
+      'default_hook' => 'menu_default_uuid_features_menu',
+      'feature_source' => TRUE,
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+      'file' => drupal_get_path('module', 'uuid_features_menu') . '/uuid_features_menu.features.inc',
+    ),
+  );
+}
+
+/**
+ * Page callback for UUID generation page.
+ */
+function uuid_features_menu_generate_page() {
+  $batch = array(
+    'title' => t('Generate UUIDs for Menu Items'),
+    'operations' => array(
+      array('uuid_features_menu_generate_batch', array()),
+    ),
+    'finished' => 'uuid_features_menu_generate_batch_finished',
+  );
+  batch_set($batch);
+}
+
+/**
+ * Create batch to assign UUIDs to menu links.
+ */
+function uuid_features_menu_generate_batch(&$context) {
+  if (empty($context['sandbox'])) {
+    $context['sandbox']['progress'] = 0;
+    $context['sandbox']['max'] = db_query("SELECT COUNT(*) FROM {menu_links} WHERE uuid IS NULL")->fetchField();
+  }
+  $limit = 50;
+  $result = db_query_range("SELECT mlid, link_title FROM {menu_links} WHERE uuid IS NULL ORDER BY mlid ASC", 0, $limit);
+  while ($row = $result->fetchAssoc()) {
+    uuid_features_menu_link_set_uuid($row['mlid']);
+    $context['results'][] = $row['mlid'] . ' : ' . $row['link_title'];
+    $context['sandbox']['progress']++;
+    $context['message'] = $row['link_title'];
+  }
+  if ($context['sandbox']['progress'] != $context['sandbox']['max']) {
+    $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['max'];
+  }
+}
+
+/**
+ * Batch 'finished' callback.
+ */
+function uuid_features_menu_generate_batch_finished($success, $results, $operations) {
+  cache_clear_all('*', 'cache_menu', TRUE);
+  if ($success) {
+    $message = t('Finished generating UUIDs for menu items.');
+  }
+  else {
+    $message = t('Finished with an error.');
+  }
+  drupal_set_message($message);
+}
+
+/**
+ * Write UUID value to DB.
+ */
+function uuid_features_menu_link_set_uuid($mlid, $uuid = FALSE) {
+  if (!$uuid) {
+    $uuid = uuid_generate();
+  }
+  db_query("UPDATE {menu_links} SET uuid = :uuid, customized = 1 WHERE mlid = :mlid", array(':uuid' => $uuid, ':mlid' => $mlid));
+  return $uuid;
+}
+
+/**
+ * Load menu link by UUID.
+ */
+function uuid_features_menu_link_load($uuid) {
+  
+  /** @Patch CEO-VISION
+   * Refactor query to be able to add a TAG, 
+   * so that query can be altered by HOOK_query_TAG_alter()
+   */
+   $result = db_select('menu_links')
+    ->fields('menu_links', array('menu_name', 'mlid', 'plid', 'link_path', 'router_path', 'link_title', 'options', 'module', 'hidden', 'external', 'has_children', 'expanded', 'weight', 'customized', 'uuid'))
+    ->condition('uuid', $uuid)
+    ->addTag('features_menu_link')
+    ->execute();
+  
+//  $result = db_query("SELECT menu_name, mlid, plid, link_path, router_path, link_title, options, module, hidden, external, has_children, expanded, weight, uuid FROM {menu_links} WHERE uuid = :uuid", array(':uuid' => $uuid));
+  while ($link = $result->fetchAssoc()) {
+    $link['options'] = unserialize($link['options']);
+    return $link;
+  }
+  return FALSE;
+}
+
+/**
+ * Get stored UUID for the menu link.
+ */
+function uuid_features_menu_link_uuid($link) {
+  if (!empty($link['uuid'])) {
+    return $link['uuid'];
+  }
+  else {
+    $uuid = db_query("SELECT uuid FROM {menu_links} WHERE mlid = :mlid", array(':mlid' => $link['mlid']))->fetchField();
+    if (!empty($uuid)) {
+      return $uuid;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Convert entity's Drupal path to UUID path.
+ * @Patched by Ceo-VISION
+ */
+function uuid_features_menu_encode_path($path) {
+
+  $router = menu_get_router();
+  $args = explode('/', $path);
+  $router_path = _menu_find_router_path($path);
+
+  if (empty($router_path)) {
+    return FALSE;
+  }
+
+  $router_item = $router[$router_path];
+  
+  if( isset($router_item['load_functions']) && ! empty($router_item['load_functions'])){
+    $load_functions = unserialize($router_item['load_functions']);
+    foreach ((array) $load_functions as $arg => $load_function) {
+      if (is_array($load_function)) {
+        $keys = array_keys($load_function);
+        $load_function = $keys[0];
+      }
+      if($load_function != NULL){
+        $inst = call_user_func($load_function, $args[$arg]);
+      }
+      
+      if (isset($inst)) {
+        $args[$arg] = $inst->uuid;
+      }
+    }
+  }
+
+  $uuid_path = implode('/', $args);
+
+  if ($uuid_path == $path) {
+    return FALSE;
+  }
+  return $uuid_path;
+}
+
+/**
+ * Restore entity's Drupal path from UUID path.
+ */
+function uuid_features_menu_resolve_path($path) {
+
+  $router = menu_get_router();
+  $args = explode('/', $path);
+  $router_path = _menu_find_router_path($path);
+  $router_item = $router[$router_path];
+  $load_functions = unserialize($router_item['load_functions']);
+
+  foreach ((array) $load_functions as $arg => $load_function) {
+
+    if (is_array($load_function)) {
+      $keys = array_keys($load_function);
+      $load_function = $keys[0];
+    }
+
+    $inst = entity_get_id_by_uuid(substr($load_function, 0, -5), array($args[$arg]));
+
+    if (count($inst)) {
+      $args[$arg] = array_pop($inst);
+    }
+    else {
+      return FALSE;
+    }
+  }
+  return implode('/', $args);
+}
+
+/**
+ * Custom function to load menu trees.
+ */
+function _uuid_features_menu_get_links() {
+  // We can't use the menu_tree_all_data function as it statically caches it's
+  // menu items so if a menu appears on the page which contains items we can't
+  // see (i.e. a log out link) they won't appear as options to export.
+  // Instead we reproduce the essential parts of the function here.
+  static $menu_links = array();
+  if (!empty($menu_links)) {
+    return $menu_links;
+  }
+
+  foreach (array_reverse(menu_get_menus()) as $menu_name => $menu_title) {
+    $data = array();
+    $data['tree'] = menu_tree_data(db_query("
+      SELECT m.load_functions, m.to_arg_functions, m.access_callback, m.access_arguments, m.page_callback, m.page_arguments, m.title, m.title_callback, m.title_arguments, m.type, m.description, ml.*
+      FROM {menu_links} ml LEFT JOIN {menu_router} m ON m.path = ml.router_path
+      WHERE ml.menu_name = :name
+      ORDER BY p1 ASC, p2 ASC, p3 ASC, p4 ASC, p5 ASC, p6 ASC, p7 ASC, p8 ASC, p9 ASC", array(':name' => $menu_name))->fetchAllAssoc('mlid', PDO::FETCH_ASSOC));
+
+    $data['node_links'] = array();
+    menu_tree_collect_node_links($data['tree'], $data['node_links']);
+
+    $GLOBALS['menu_admin'] = TRUE;
+    menu_tree_check_access($data['tree'], $data['node_links']);
+    $GLOBALS['menu_admin'] = FALSE;
+
+    _uuid_features_menu_get_links_recurse($data['tree'], $menu_name, '--', $menu_links);
+  }
+
+  return $menu_links;
+}
+
+/**
+ * Helper to recurse through menu trees.
+ */
+function _uuid_features_menu_get_links_recurse($tree, $menu_name, $indent, &$menu_links) {
+  // We don't want to use _menu_parents_recurse as that could potentially cut
+  // out some options as not being suitable for parents which we still want
+  // to export.
+  foreach ($tree as $data) {
+    if ($data['link']['hidden'] >= 0) {
+      $title = $indent . ' ' . truncate_utf8($data['link']['title'], 30, TRUE, FALSE);
+      if ($data['link']['hidden']) {
+        $title .= ' (' . t('disabled') . ')';
+      }
+      if (!empty($data['link']['uuid'])) {
+        $menu_links[$data['link']['uuid']] = "{$menu_name}: {$title}";
+        if ($data['below']) {
+          _uuid_features_menu_get_links_recurse($data['below'], $menu_name, $indent . '--', $menu_links);
+        }
+      }
+    }
+  }
+}

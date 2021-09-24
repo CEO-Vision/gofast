@@ -1,0 +1,4562 @@
+<?php
+global $conf;
+define('XMPP_DOMAIN', $conf['gofast-comm_domain']);
+
+function gofast_modal_enable() {
+  $gofast_weight = db_select('system')
+          ->fields('system', array('weight'))
+          ->condition('name', 'gofast', '=')
+          ->execute()
+          ->fetchField();
+
+  db_update('system')
+          ->fields(array('weight' => $gofast_weight))
+          ->condition('name', 'gofast_modal')
+          ->execute();
+}
+
+function gofast_modal_add_settings() {
+  // CTools Modal Dialog theme settings.
+  // Set default values for some class of popups.
+  // http://drupal.org/node/872072
+  // http://drupion.com/blog/10-steps-creating-ctools-modal-window-drupal-7
+  // Each class item refers to 'ctools-modal-[className]' class
+  // e.g. $class['gofast-notifications'] refers to 'ctools-modal-gofast-notifications' class
+  $class = $CToolsModalStyle = array();
+  $class['gofast-notifications'] = array('width' => 1024);
+  //$class['gofast-small'] = array('width' => 400); -> commenté car patch modal.js suffisant
+  $class['gofast-cked'] = array('width' => 880, 'height' => 580);
+  $class['cropping-avatar-modal-style'] = array('type' => 'scale', 'width' => .8, 'height' => .8);
+  $class['custom-style'] = array('width' => 1000, 'height' => 500);
+  $class['center'] = array('height' => 600);
+
+  foreach ($class as $class_name => $size) {
+    $CToolsModalStyle[$class_name] = array(
+      'modalSize' => array_merge(array('type' => 'fixed'), $size),
+      'animation' => 'show',
+      'modalTheme' => 'CToolsModalDialog',
+    );
+  }
+
+  // CKeditor specific properties
+  $CToolsModalStyle['gofast-cked'] += array(
+    'modalOptions' => array('opacity' => 0, 'background' => 'none'),
+    'context' => 'comment-form'
+  );
+
+  drupal_add_js($CToolsModalStyle, 'setting');
+}
+
+/**
+ * Implements hook_menu()
+ */
+function gofast_modal_menu() {
+  $items = array();
+
+  $items['gofast/%ctools_js/comment/reply/%node'] = array(
+    'title' => 'Comment',
+    'page callback' => 'gofast_modal_comment_reply',
+    'page arguments' => array(1, 4),
+    'access callback' => 'node_access',
+    'access arguments' => array('view', 4),
+    'type' => MENU_CALLBACK,
+  );
+
+  // Comment Edit
+  $items['gofast/%ctools_js/comment/edit/%comment'] = array(
+    'title' => 'Edit comment',
+    'page callback' => 'gofast_modal_comment_edit',
+    'page arguments' => array(1, 4),
+    'access callback' => 'gofast_comment_og_access',
+    'access arguments' => array('edit', 4),
+    'type' => MENU_CALLBACK,
+  );
+
+  // Comment Forum Edit
+  $items['modal/%ctools_js/node/%node/edit'] = array(
+    'title' => 'Edit Forum',
+    'page callback' => 'gofast_modal_edit_forum',
+    'page arguments' => array(1, 3),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  // Blog message Edit
+  $items['modal/%ctools_js/blog/%node/edit'] = array(
+    'title' => 'Edit Forum',
+    'page callback' => 'gofast_modal_edit_blog',
+    'page arguments' => array(1, 3),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  // Comment delete
+  $items['gofast/%ctools_js/comment/delete/%node/%comment'] = array(
+    'title' => 'Delete comment',
+    'page callback' => 'gofast_modal_callback_comment_delete',
+    'page arguments' => array(1, 4, 5),
+    'access callback' => 'gofast_comment_og_access',
+    'access arguments' => array('delete', 5),
+    'type' => MENU_CALLBACK,
+  );
+
+  // Node (unpublish / publish)
+  $items['modal/%ctools_js/node/%node/manage'] = array(
+    'title' => 'Manage',
+    'page callback' => 'gofast_modal_node_manage',
+    'page arguments' => array(1, 3, 5),
+    'access callback' => 'node_access',
+    'access arguments' => array('delete', 3),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/node/add/alfresco-item'] = array(
+    'title' => 'New document',
+    'page callback' => 'gofast_modal_new_document',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  // Private message write new
+  $items['gofast/%ctools_js/messages/new'] = array(
+    'title' => 'Write a new internal message',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'gofast_modal_privatemsg_new',
+    'page arguments' => array(1),
+    'access callback' => 'privatemsg_user_access',
+    'access arguments' => array('write privatemsg'),
+  );
+
+  // Private message thread
+  $items['gofast/%ctools_js/messages/view/%privatemsg_thread'] = array(
+    'title' => 'Message thread',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'gofast_modal_privatemsg_thread',
+    'page arguments' => array(1, 4),
+    'access callback' => 'privatemsg_user_access',
+    'access arguments' => array('read privatemsg'),
+  );
+
+
+   $items['gofast/%ctools_js/workflow/dashboard/%node'] = array(
+    'title' => 'Comment',
+    'page callback' => 'gofast_modal_workflow_dashboard',
+    'page arguments' => array(1, 4),
+    'access callback' => 'node_access',
+    'access arguments' => array('view', 4),
+    'type' => MENU_CALLBACK,
+  );
+
+  // Send by Email
+  $items['modal/%ctools_js/printmail/%'] = array(
+    'title' => variable_get('print_mail_text_title', 'Send page by email'),
+    'page callback' => 'gofast_modal_print_mail_form',
+    'page arguments' => array(1, 3),
+//    'access callback' => '_print_mail_access',
+//    'access arguments' => array('access send by email'),
+    'access arguments' => array('access content'),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  //TODO DEPLACER AILLEURS
+  // Autocomplete path to find recipients mail address by name, id, or og
+  $items['gofast_user_userlist_space_autocomplete'] = array(
+    'page callback' => 'gofast_modal_user_userlist_space_autocomplete',
+    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['gofast_user_space_autocomplete'] = array(
+    'page callback' => 'gofast_modal_user_space_autocomplete',
+    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+   $items['gofast_user_space_broadcast_autocomplete'] = array(
+    'page callback' => 'gofast_modal_user_space_broadcast_autocomplete',
+    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['gofast_user_autocomplete'] = array(
+    'page callback' => 'gofast_modal_user_autocomplete',
+    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['gofast_space_autocomplete'] = array(
+    'page callback' => 'gofast_modal_space_autocomplete',
+    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/og/%node/add/members'] = array(
+    'title' => 'Manage',
+    'page callback' => 'gofast_modal_og_add_members',
+    'page arguments' => array(1, 3),
+    //'access callback' => 'node_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/og/%node/preadd/members'] = array(
+    'title' => 'manage pre-add',
+    'page callback' => 'gofast_modal_og_preadd_members',
+    'page arguments' => array(1, 3),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+
+   $items['modal/%ctools_js/riot/%node/add/room'] = array(
+    'title' => 'Add Room',
+    'page callback' => 'gofast_modal_riot_add_room',
+    'page arguments' => array(1, 3),
+    //'access callback' => 'node_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+     $items['modal/%ctools_js/riot/%node/delete/room'] = array(
+    'title' => 'Delete Room',
+    'page callback' => 'gofast_modal_riot_delete_room',
+    'page arguments' => array(1, 3),
+    //'access callback' => 'node_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+
+
+  $items['modal/%ctools_js/get/alfresco/file/form/%node'] = array(
+    'title' => 'Manage',
+    'page callback' => 'gofast_modal_update_alfresco_file',
+    'page arguments' => array(1, 6),
+    //'access callback' => 'node_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/bulk-archive'] = array(
+    'title' => t('Archive cart content', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_multi_archive',
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+    'access arguments' => array('update content'),
+    'type' => MENU_CALLBACK,
+  );
+
+
+  $items['modal/%ctools_js/node/%node/manage-translations'] = array(
+    'title' => t('Manage Translations', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_node_manage_translations_form',
+    'page arguments' => array(1, 3),
+    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+
+  $items['modal/%ctools_js/node/%node/manage-locations'] = array(
+    'title' => t('Manage Locations', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_manage_locations_form',
+    'page arguments' => array(1,3),
+    'access callback' => TRUE,
+    'access arguments' => array('update content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['gofast/%ctools_js/node/%node/locations-members'] = array(
+    'title' => t('Show Locations Members', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_show_locations_members',
+    'page arguments' => array(1,3),
+    'access callback' =>TRUE,
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+
+  $items['modal/%ctools_js/manage-taxonomy'] = array(
+    'title' => t('Manage Metadata', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_manage_taxonomy_form',
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+    'access arguments' => array('update content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/add-locations'] = array(
+    'title' => t('Manage Metadata', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_add_locations_form',
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+    'access arguments' => array('update content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/manage-publications'] = array(
+    'title' => t('Manage Metadata', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_manage_publications_form',
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+    'access arguments' => array('update content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/manage-mail-sharing'] = array(
+    'title' => t('Manage Metadata', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_manage_mail_sharing_form',
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+    'access arguments' => array('update content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/node/%node/tag-major-version'] = array(
+    'title' => t('Tag major version', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_node_tag_major_version_form',
+    'page arguments' => array(1, 3),
+    'access callback' => 'node_access',
+    'access arguments' => array('update', 3),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/node/%node/pin-content'] = array(
+    'title' => t('Tag major version', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_node_pin_content',
+    'page arguments' => array(1, 3),
+    'access callback' => 'node_access',
+    'access arguments' => array('delete', 3),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/node/%node/delete-minor-versions'] = array(
+    'title' => t('Delete minor versions', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_delete_minor_versions',
+    'page arguments' => array(1, 3),
+    'access callback' => 'node_access',
+    'access arguments' => array('update', 3),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/node/%node/archive'] = array(
+    'title' => t('Archive content', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_archive',
+    'page arguments' => array(1, 3),
+    'access callback' => 'node_access',
+    'access arguments' => array('update', 3),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/space/%node/move'] = array(
+    'title' => t('Move space', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_move_space',
+    'page arguments' => array(1, 3),
+    'access callback' => 'node_access',
+    'access arguments' => array('update', 3),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/node/%node/unarchive'] = array(
+    'title' => t('Unarchive content', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_unarchive',
+    'page arguments' => array(1, 3),
+    'access callback' => 'node_access',
+    'access arguments' => array('update', 3),
+    'type' => MENU_CALLBACK,
+  );
+
+  // User account edit
+  $items['modal/%ctools_js/user/%user/edit'] = array(
+    'title' => 'Edit',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'gofast_modal_user_edit',
+    'page arguments' => array(1, 3),
+    'access callback' => 'user_edit_access',
+    'access arguments' => array(3),
+  );
+
+  $items['modal/%ctools_js/node/%node/publication'] = array(
+    'title' => 'Node publication',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'gofast_modal_node_publication',
+    'page arguments' => array(1, 3),
+    'access callback' => 'node_access',
+    'access arguments' => array('update', 3),
+  );
+
+  $items['modal/%ctools_js/node/%node/publication/delete'] = array(
+    'title' => 'Node publication',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'gofast_modal_node_publication_delete',
+    'page arguments' => array(1, 3),
+    'access callback' => 'node_access',
+    'access arguments' => array('update', 3),
+  );
+
+  //Popup that displays the new features carousel
+  $items['gofast/%ctools_js/carousel'] = array(
+	'title' => 'New features and improvements',
+	'page arguments' => array(1),
+	'access callback' => TRUE,
+	'page callback' => 'gofast_modal_display_carousel',
+	'type' => MENU_CALLBACK,
+  );
+
+  //Popup that displays the output of the versions scripts
+  $items['gofast/%ctools_js/versions'] = array(
+	'title' => 'Components installed',
+	'page arguments' => array(1),
+	'access callback' => TRUE,
+	'page callback' => 'gofast_modal_display_versions',
+	'type' => MENU_CALLBACK,
+  );
+
+   //Popup that displays the output of the versions scripts
+  $items['gofast/%ctools_js/radioactivity/graphic/%node'] = array(
+	'title' => 'Display popularity graphic',
+	'page arguments' => array(1, 4),
+	'access callback' => TRUE,
+	'page callback' => 'gofast_modal_display_radioactivity_graphic',
+	'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/node/%node/compare_versions'] = array(
+    'title' => 'Manage',
+    'page callback' => 'gofast_modal_compare_versions',
+    'page arguments' => array(1, 3),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+    $items['modal/%ctools_js/search/save'] = array(
+    'title' => 'Manage',
+    'page callback' => 'gofast_modal_save_search',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+   $items['modal/%ctools_js/search/delete'] = array(
+    'title' => 'Manage',
+    'page callback' => 'gofast_modal_delete_search',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/add_folder_template'] = array(
+    'title' => 'Add Folder Template',
+    'page callback' => 'gofast_modal_add_folder_template',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/join-space-room'] = array(
+    'title' => 'Join space room',
+    'page callback' => 'gofast_modal_join_space_room',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/join-space-room/%'] = array(
+    'title' => 'Join space room',
+    'page callback' => 'gofast_modal_join_space_room',
+    'page arguments' => array(1, 3),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/start-conversation'] = array(
+    'title' => 'Add a contact',
+    'page callback' => 'gofast_modal_start_conversation',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/manage-relations'] = array(
+    'title' => 'Add a contact',
+    'page callback' => 'gofast_modal_manage_relations',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/%user/manage_main_orga'] = array(
+    'title' => 'Display organizations',
+    'page callback' => 'gofast_modal_manage_main_orga',
+    'page arguments' => array(1, 2),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  //Edit a contact in a modal
+  $items['modal/%ctools_js/contact/%node/edit'] = array(
+    'title' => 'Edit',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'gofast_modal_contact_edit',
+    'page arguments' => array(1, 3),
+    'access callback' => TRUE,
+  //  'access arguments' => array(3),
+  );
+
+  return $items;
+}
+
+
+/**
+ * Menu page callback - Edit contact
+ */
+function gofast_modal_contact_edit($js, $contact, $category = 'contact', $vid = null) {
+
+  drupal_set_title(check_plain($contact->title));
+
+  $form_id = 'contact_node_form';
+  $form_state = array();
+
+  if (!$js) {
+    return drupal_get_form($form_id, $contact);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state += array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array($contact),
+    ),
+    'title' => null,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  // Handle if submit with errors
+  if (isset($commands[0])) {
+    $commands[0]['output'] = gofast_normalize_string_from_ajaxifying($commands[0]['output']);
+  }
+
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+  }
+  if (empty($commands)) {
+    // If a form has been submitted, refresh content with submitted values.
+    if ($form_state['values']['submit'] == t('Save', array(), array('context' => 'gofast_contacts')) || $form_state['clicked_button']['#type'] === 'submit') {
+
+    }
+
+    // Dismiss the popup when
+    $commands[] = ctools_modal_command_dismiss();
+  }
+
+  print ajax_render($commands);
+}
+
+
+function gofast_modal_display_radioactivity_graphic($js, $node){
+  $field = field_info_instance("node", "field_popularity", $node->type);
+  $field_id  = $field["id"];
+  $data = _radioactivity_get_history_for_field_and_entity($field_id, $node->nid);
+  $popup_content =  theme("radioactivity_history",array("dataset" => $data));
+
+   if (!$js) {
+       return $popup_content;
+  }
+
+
+   //Adding necessary libraries to work with modal windows
+  ctools_include('modal');
+  ctools_include('ajax');
+  $output = array();
+  $output[] = ctools_modal_command_display(t('Popularity history', array(), array("context" => "gofast")), $popup_content);
+
+  //Outputting the formed popup in the browser
+  print ajax_render($output);
+  drupal_exit();
+
+
+}
+
+/**
+ * Menu page callback - Manage group membership
+ */
+function gofast_modal_og_add_members($js, $og) {
+  $form_id = 'og_ui_add_users';
+  if (!$js) {
+    drupal_goto("group/node/$og->nid/admin/people/add-user");
+  }
+  ctools_include('modal');
+  ctools_include('ajax');
+  ctools_include('og_ui/og_ui.admin', 'og', '');
+
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+        "node",
+        $og->nid,
+      ),
+    ),
+    'title' => t('Add member/Userlists', array(), array('context' => 'gofast')),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if (isset($commands["group_type"])) {
+    $commands[] = ctools_modal_command_dismiss();
+    //$commands[] = ctools_ajax_command_reload();
+      $commands[] = gofast_command_processAjax("/node/{$og->nid}" . "#ogmembers");
+    //on est dans le cas ou le membre a déjà été ajouté, on se redirige donc sur la vue de gestion des membres du groupe
+    /* $gid = $og->nid;
+      $commands = gofast_modal_og_ui_admin_account("node", $gid);
+      //on affiche cette vue
+      $commands[] = ctools_modal_command_display("test", $commands); */
+  }
+
+
+  print ajax_render($commands);
+}
+
+/**
+ * page callback - Manage pre-add group membership
+ */
+function gofast_modal_og_preadd_members($js, $og) {
+  $form_id = 'gofast_preadd_users_form';
+
+  /*  if (!$js) {
+    drupal_goto("group/node/$og->nid/admin/people/add-user");
+  } */
+
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+    $form_state = array(
+    'reset_html_ids' => TRUE,
+    'build_info' => array(
+      'args' => array(
+        "node",
+        $og->nid,
+      )
+    ),
+    'title' => t('Pre Add member/Userlists', array(), array('context' => 'gofast')),
+    'ajax' => TRUE,
+    'title' => null
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if (isset($commands["group_type"])) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_processAjax("/og/list_grid");
+  }
+
+  $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+
+  print ajax_render($commands);
+}
+
+/**
+ * Menu page callback - Compare versions
+ */
+function gofast_modal_compare_versions($js, $node) {
+  $form_id = 'gofast_pdf_compare_compare_form';
+  if (!$js) {
+    drupal_goto("/node/" . $node->nid);
+  }
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+        "node",
+        $node->nid,
+      ),
+    ),
+    'title' => t('Compare versions', array(), array('context' => 'gofast:gofast_pdf_compare')),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if (isset($commands["version_source"])) {
+    $version_source = $commands['version_source']['#value'];
+    $version_dest = $commands['version_dest']['#value'];
+
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_open_window("/pdf_compare/" . $node->nid . "/" . $version_source . '/' . $version_dest);
+  }
+
+  print ajax_render($commands);
+}
+
+function gofast_modal_save_search($js) {
+  $form_id = 'gofast_search_save_search_form';
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+  ctools_include('modal');
+  ctools_include('ajax');
+  global $base_url;
+  $url = str_replace($base_url , "", $_SERVER["HTTP_REFERER"]);
+
+  if(isset($_GET["title_search"])){
+      $title = $_GET["title_search"];
+  }else{
+     $title = null;
+  }
+
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+        "url",
+        $url,
+        $title,
+      ),
+    ),
+    'title' => t('Replace this search', array(), array('context' => 'gofast:gofast_search')),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+  $_COOKIE['url_search'] = "";
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if (isset($commands["url"])) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_toast_message(t('The search has been saved', array(), array('context' => 'gofast:gofast_search')));
+    $content = gofast_search_get_block_fastaccess_saved_searches();
+    $content = str_replace("display: none;", "", $content);
+    $commands[] = ajax_command_replace("#dropdown-menu-page-search", $content);
+    $commands[] = gofast_command_processAjax($url);
+  }
+
+  print ajax_render($commands);
+}
+
+function gofast_modal_delete_search($js) {
+  $form_id = 'gofast_search_delete_search_form';
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  if(isset($_GET["title_search"])){
+      $title = $_GET["title_search"];
+  }else{
+     $title = null;
+  }
+
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+        "url",
+        $title,
+      ),
+    ),
+    'title' => t('Delete search', array(), array('context' => 'gofast:gofast_search')),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+  $_COOKIE['url_search'] = "";
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if (isset($commands["title"])) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_toast_message(t('The search has been deleted', array(), array('context' => 'gofast:gofast_search')), 'warning');
+    global $base_url;
+    $url = str_replace($base_url , "", $_SERVER["HTTP_REFERER"]);
+    $commands[] = gofast_command_processAjax($url);
+    $content = gofast_search_get_block_fastaccess_saved_searches();
+    $content = str_replace("display: none;", "", $content);
+    $commands[] = ajax_command_replace("#dropdown-menu-page-search", $content);
+  }
+
+  print ajax_render($commands);
+}
+/**
+ * Menu page callback - Compare versions
+ */
+function gofast_modal_add_folder_template($js) {
+  $form_id = 'gofast_ajax_file_browser_add_template_folder_form';
+
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+      ),
+    ),
+    'title' => t('Add folder template', array(), array('context' => 'gofast:gofast_ajax_file_browser')),
+    'ajax' => TRUE,
+  );
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  $commands[] =  ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+          var delayInMilliseconds = 500;
+            setTimeout(function() {
+             modalContentResize(null,true,false);
+            }, delayInMilliseconds);
+
+     </script>"
+    );
+  drupal_add_js(drupal_get_path('module', 'gofast') . "/js/gofast_ztree.js");
+  if ($form_state['executed']) {
+    if($form_state['exist']){
+	$commands[] = ctools_modal_command_dismiss();
+	$commands[] = gofast_command_toast_message(t("Template folder successfully created !", array(), array('context' => 'gofast')));
+	$commands[] = gofast_command_toast_message(t("Some folders could not be created because they already exist", array(), array('context' => 'gofast')),"warning");
+	$commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+	    var delayInMilliseconds = 500;
+	    setTimeout(function() {
+	    Gofast.ITHit.reload();
+	    }, delayInMilliseconds);
+	 </script>");
+    }else{
+	$commands[] = ctools_modal_command_dismiss();
+	$commands[] = gofast_command_toast_message(t("Template folder successfully created !", array(), array('context' => 'gofast')));
+	$commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+		var delayInMilliseconds = 500;
+		setTimeout(function() {
+		Gofast.ITHit.reload();
+		}, delayInMilliseconds);
+	     </script>");
+    }
+  }
+  print ajax_render($commands);
+}
+
+/**
+ * Add new document, called in ITHit
+ */
+function gofast_modal_new_document() {
+  $form_id = 'gofast_ajax_file_browser_form';
+  ctools_include('modal');
+  ctools_include('ajax');
+  $form_state = array(
+    'ajax' => TRUE,
+    'title' => t('Upload files', array(), array('context' => 'gofast:ajax_file_browser')),
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  print ajax_render($commands);
+}
+
+/*
+ * Implements hook_form_FORM_ID_alter
+ */
+function gofast_modal_form_og_ui_add_users_alter(&$form, &$form_state, $form_id){
+
+  //enable translation for label and description
+  $form['membership_fields']['og_membership_request'][LANGUAGE_NONE][0]['value']['#title'] = t('Message', array(), array('context' => 'gofast'));
+  $form['membership_fields']['og_membership_request'][LANGUAGE_NONE][0]['value']['#description'] = t('This is the text a user may send to the group administrators.', array(), array('context' => 'gofast'));
+
+  $form['membership_fields']['og_membership_request']['#title'] = t('Message', array(), array('context' => 'gofast'));
+  $form['membership_fields']['og_membership_request']['#description'] = t('This is the text a user may send to the group administrators.', array(), array('context' => 'gofast'));
+
+  //$form['#validate'][] = 'gofast_modal_og_ui_add_users_validate';
+  $form['#validate'][0] = 'gofast_modal_og_ui_add_users_validate';
+  $form['#submit'] = array("gofast_og_modal_add_member_submit");
+
+   if(count($form["og_user"]["roles"]["#options"]) > 0){
+          foreach($form["og_user"]["roles"]["#options"] as $rid=>$role_string){
+              $form["og_user"]["roles"]["#options"][$rid] = t($role_string, array(), array("context" => "gofast"));
+          }
+      }
+
+}
+
+/*
+ * Form validate for og_add_members
+ */
+function gofast_modal_og_ui_add_users_validate($form, &$form_state){
+   global $user;
+   $validate = false;
+   foreach($form_state['values']['roles'] as $key=>$role){
+       if(is_string($role)){
+           $validate = true;
+       }
+   }
+
+  if($validate == false){
+    form_set_error('roles', t('Please select a role', array(), array('context' => 'gofast')));
+  }else{
+      //check if it's a user and if he is already member
+     if($form_state['values']['member_entity_type'] == "user"){
+        $account = user_load_by_name($form_state['values']["name"]);
+        $roles = og_get_user_roles("node", $form_state['values']["gid"], $account->uid);
+        $already_member = true;
+       if(count($roles) > 0){
+           foreach($roles as $role){
+                if($role == "non-member"){
+                    $already_member = false;
+                }
+           }
+       }
+       if($already_member == true){
+            form_set_error('name', t('This user is already a member', array(), array('context' => 'gofast')));
+            return;
+       }
+     }
+    # this function is execute twice, prevent double audit insert line
+    if (variable_get('add_member_is_audit',FALSE) == TRUE){
+        //Insert into audit
+        gofast_audit_add_members($form,$form_state);
+        variable_set('add_member_is_audit',FALSE);
+    }else{
+        variable_set('add_member_is_audit',TRUE);
+    }
+
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter()
+ *
+ * @param type $form
+ * @param type $form_state
+ */
+function gofast_preadd_users_form($form, &$form_state) {
+
+  $form['user_userlist_member'] = array(
+    '#title' => t('Users names to pre-add', array(), array('context' => 'gofast_og')),
+    '#type' => 'textfield',
+    '#size' => 62,
+    '#autocomplete_path' => 'gofast_og_space_user_userlist_preadd_autocomplete', //gofast_userlist_og_autocomplete
+    '#attributes' => array('class' => array('labelize-autocomplete'))
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Pre-add new member(s)', array(), array('context' => 'gofast')),
+    '#validate' => array('gofast_preadd_users_form_validate'),
+    '#attributes' => array('class' => array('btn', 'btn-success', 'btn-sm')),
+  );
+
+  return $form;
+}
+
+/**
+ *
+ * @param type $form
+ * @param type $form_state
+ */
+function gofast_preadd_users_form_validate($form, &$form_state) {
+
+  $gid = isset($form_state['build_info']['args'][1]) ? $form_state['build_info']['args'][1] : false;
+
+  if ($gid === FALSE)
+    return t('error', array(), array('context' => 'gofast'));
+
+
+  $hiddenInputName = 'edit-' . str_replace("_", "-", $form['user_userlist_member']['#name']) . '-hidden-values';
+  $json_list_user_preadd = json_decode($form_state['input'][$hiddenInputName]);
+
+  ## check if the list of user to preadd is not empty
+  if ($json_list_user_preadd == null || !count($json_list_user_preadd) > 0) {
+    form_set_error('user_userlist_member', t("error empty array null", array(), array('context' => 'gofast')));
+    return;
+  }
+}
+
+function gofast_preadd_users_form_submit($form,&$form_state){
+
+  $gid = isset($form_state['build_info']['args'][1]) ? $form_state['build_info']['args'][1] : false;
+  $hiddenInputName = 'edit-' . str_replace("_", "-", $form['user_userlist_member']['#name']) . '-hidden-values';
+  $final_json_list_user_preadd = json_decode($form_state['input'][$hiddenInputName]);
+
+  $html = "";
+
+  $progress_bar = theme('gofast_progress_bar');
+  $html .= $progress_bar;
+  $title = gofast_get_node_title($gid);
+
+  $html .= theme('gofast_og_preadd_validation', array('nid' => $gid, 'title' => $title, 'user_preadd_list' => $final_json_list_user_preadd, "is_broadcast" => 'test is broadcast'));
+
+  $commands = array();
+  $commands[] = ctools_modal_command_dismiss();
+  $commands[] = ctools_modal_command_display(t("In progress", array(), array('context' => 'gofast:taxonomy')), $html);
+  $commands[] = gofast_command_callback('Gofast.og_preadd_validation_process');
+  print ajax_render($commands);
+  exit;
+}
+
+/**
+ * Menu page callback - Node Delete (unpublish / publish)
+ */
+function gofast_modal_node_manage($js, $node, $group) {
+  $form_id = $node->status ? 'gofast_node_delete_confirm' : 'gofast_node_publish_confirm';
+  if (!$js) {
+    return drupal_get_form($form_id, $node);
+  }
+  ctools_include('modal');
+  ctools_include('ajax');
+
+//  $form_state = array(
+//    'ajax' => TRUE,
+//    'args' => array($node),
+//    'title' => null
+//  );
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+        (object) $node,
+      ),
+    ),
+    // 'title' => t('Comment'),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  if (isset($commands["nid"])) {
+    $errors = form_get_errors();
+    if (!empty($errors)) {
+      // Get themed error directly (iterate $errors to get them separately).
+      $error_msg = theme('status_messages');
+      $commands[] = ajax_command_html('#modal-content form', $error_msg);
+    }
+    else {
+      // No error, display message to user and handle redirection if needed.
+      $commands[] = ctools_modal_command_dismiss();
+      $commands[] = gofast_command_processAjax('/activity');
+    }
+  }
+  print ajax_render($commands);
+}
+
+/**
+ * Ask for confirmation of node deletion (unpublish)
+ */
+function gofast_node_delete_confirm($form, $form_state) {
+  $node = isset($form_state['build_info']['args'][0]) ? $form_state['build_info']['args'][0] : false;
+  if ($node === FALSE)
+    return t('error', array(), array('context' => 'gofast'));
+
+
+  $form['nid'] = array(
+    '#type' => 'value',
+    '#value' => $node->nid,
+  );
+
+  /**
+   *  @todo !
+   */
+  if($node->type == 'conference'){
+    $form['#submit'] = array('gofast_conference_ajax_node_delete');
+  } else if ($node->type == 'userlist') {
+    $form['#submit'] = array('gofast_userlist_ajax_delete_userlist');
+  }else{
+    $form['#submit'] = array('gofast_ajax_node_unpublish');
+  }
+
+  if ($node->type == 'userlist') {
+   $confirm_form = confirm_form( $form,
+                        t('Delete', array(), array('context' => 'gofast')) . ' ' . $node->title,
+                        isset($_GET['destination']) ? $_GET['destination'] : 'node/' . $node->nid,
+                        t('Are you sure you want to delete the userlist %title ? <br /><br /> Please note if you do so, there is no rollback available.', array('%title' => $node->title), array('context' => 'gofast')),
+                        t('Delete', array(), array('context' => 'gofast')),
+                        t('Cancel', array(), array('context' => 'gofast'))
+                  );
+
+  }else{
+    $confirm_form = confirm_form( $form,
+                        t('Delete', array(), array('context' => 'gofast')) . ' ' . $node->title,
+                        isset($_GET['destination']) ? $_GET['destination'] : 'node/' . $node->nid,
+                        t('Are you sure you want to delete %title?', array('%title' => $node->title), array('context' => 'gofast')),
+                        t('Delete', array(), array('context' => 'gofast')),
+                        t('Cancel', array(), array('context' => 'gofast'))
+                  );
+  }
+
+//hide useless 'Cancel' button
+unset($confirm_form['actions']['cancel']);
+
+  return $confirm_form;
+}
+
+//fonction qui publie ou dépublie un noeud (on doit remplacer tous les boutons "delete" par des boutons qui pointent vers cette fonction)
+//pour que les noeuds soient juste dépubliés lorsque les users les suppriment
+function gofast_ajax_node_unpublish($form = null, $form_state = null, $ajax = TRUE, $forceDelete = FALSE) {
+  ctools_include('modal');
+  ctools_include('ajax');
+  $node = isset($form_state['build_info']['args'][0]->nid) ? $form_state['build_info']['args'][0] : node_load($_GET["nid"]);
+
+  if (node_access('delete', $node) === TRUE || $node->type == 'blog') {
+    if ($node->status != 0 || $forceDelete) {
+
+    $retention_node = false;
+    if( gofast_retention_get_retention_date($node) !== NULL){
+      $retention_node = true;
+    }
+
+    if($retention_node == true){
+        return;
+    }
+
+      node_unpublish_action($node, array());
+      node_save($node);
+      if ($node->type == "alfresco_item") {
+        if (count($node->field_lien) > 0) {
+          foreach ($node->field_lien[LANGUAGE_NONE] as $mylien) {
+            //node_delete($mylien["nid"]);
+            watchdog("debug unpublish nid", $mylien["target_id"]);
+            $node_attach = node_load($mylien["target_id"]);
+            node_unpublish_action($node_attach, array());
+            node_save($node_attach);
+          }
+          exec("curl --user admin:" . gofast_get_admin_pwd() . " 'http://localhost:8080/alfresco/service/del/attachments/?folderName=" . $node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value'] . "&attach=true'");
+        }else{
+          if( gofast_cmis_get_publication_source($node) !== FALSE){ //delete publication and link if needed
+            $node_parent=gofast_cmis_get_publication_source($node); //Get the link
+            gofast_cmis_publication_delete($node);
+          }
+          try {
+            gofast_cmis_node_delete($node);
+          }
+          catch (CMISException $e) { }
+        }
+      }else if ($node->type == "blog") {
+	$blog_deleted = db_delete('node')
+	  ->condition('nid', $node->nid)
+	  ->condition('type', 'blog')
+	  ->execute();
+      }
+      // Get the previous URL before the modal
+      $previous_url = $_SERVER['HTTP_REFERER'];
+      // Verify if we delete the publication on browser or on the node
+      $in_browser = strpos($previous_url,'browser');
+      $in_space_page = strpos($previous_url, 'path=');
+      if($ajax){
+	if($node->type == 'blog'){
+	    $commands[] = gofast_command_toast_message(t('Your blog message was deleted', array(), array('context' => 'gofast')), 'info');
+	} else if ($node->type == 'contact') {
+            $commands[] = gofast_command_toast_message(t('Your contact was deleted', array(), array('context' => 'gofast')), 'info');
+        }else{
+	    $commands[] = gofast_command_toast_message(t('Your document was deleted', array(), array('context' => 'gofast')), 'info');
+	}
+
+       if(gofast_mobile_is_mobile_domain() == TRUE){
+        $commands[] = ctools_ajax_command_redirect("/");
+	}else if( $node->type == 'blog' || $node->type == 'contact'){
+              $commands[] = gofast_command_processAjax('/activity');
+	}else if($in_browser === false && $in_space_page === false ){ // If we are on a node we redirect to the parent node after the deleting
+          if ($node_parent != NULL){
+               $commands[] = gofast_command_processAjax('/node/'. $node_parent);
+          }else if($node->type === "contact") {
+              $commands[] = gofast_command_processAjax('/contacts-listing');
+          }else {
+              $commands[] = gofast_command_processAjax('/activity');
+          }
+      }else{
+          $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+              Gofast.ITHit.reload();
+         </script>");
+      }
+
+
+        $commands[] = ctools_modal_command_dismiss();
+      }
+    }
+    else {
+      //si c'est un document, on restaure ce document sur Alfresco
+      if ($node->type == "alfresco_item") {
+        $ret = gofast_cmis_restore_document_alfresco($node);
+        $response = json_decode(implode('', $ret));
+
+
+        if (!$response || !isset($response->data) || $response->data->restoredNode->status !== 'SUCCESS') { //An error happend
+          if(isset($response->status)){ //We check the response status
+            if($response->status->code === 404){ //File is missing
+              if($ajax){
+                $commands[] = gofast_command_toast_message(t('Your document has been removed from the trash and cannot be restored', array(), array('context' => 'gofast')), 'error');
+                $commands[] = ctools_modal_command_dismiss();
+              }
+            }
+            else{ //Internal server error or others
+              if(strpos($response->message, "Duplicate child node name")){
+                if($ajax){
+                  $commands[] = gofast_command_toast_message(t('Your document cannot be restored. (A file with the same name in the same folder already exists)', array(), array('context' => 'gofast')), 'error');
+                  $commands[] = ctools_modal_command_dismiss();
+                }
+              }
+              else{
+                 $return =  gofast_cmis_restore_document_alfresco_into_private_space($node);
+                  if($return == true){
+                    if($ajax){
+                            $commands[] = gofast_command_toast_message(t('Your document has been restored into your private space because it location doesn\'t exists anymore', array(), array('context' => 'gofast')), 'error');
+                            $commands[] = gofast_command_toast_message(t('Unfortunatly, the previous versions can\'t be restored', array(), array('context' => 'gofast')), 'error');
+                            $commands[] = ctools_modal_command_dismiss();
+                            $commands[] = ctools_ajax_command_reload();
+                    }
+                  }else{
+                        if($ajax){
+                            $commands[] = gofast_command_toast_message(t('Your document cannot be restored. (Internal server error)', array(), array('context' => 'gofast')), 'error');
+                            $commands[] = gofast_command_toast_message($response->message, 'error');
+                            $commands[] = ctools_modal_command_dismiss();
+                      }
+                  }
+
+              }
+            }
+          }
+          else{ //No response from Alfresco
+              if($ajax){
+                $commands[] = gofast_command_toast_message(t('Your document cannot be restored. Please retry in a moment', array(), array('context' => 'gofast')), 'error');
+                $commands[] = ctools_modal_command_dismiss();
+              }
+          }
+        }
+        else{ //Restored !
+          // The document was successfully restored, $node can be updated safely.
+          $node->status = 1;
+          node_save($node);
+          if($ajax){
+            $commands[] = gofast_command_toast_message(t('Your document has been restored', array(), array('context' => 'gofast')), 'info');
+            $commands[] = ctools_ajax_command_reload();
+          }
+        }
+      }else{
+          $node->status = 1;
+          node_save($node);
+          if($ajax){
+            $commands[] = gofast_command_toast_message(t('Your document has been restored', array(), array('context' => 'gofast')), 'info');
+            $commands[] = ctools_ajax_command_reload();
+          }
+      }
+    }
+  }
+  else {
+    if($ajax){
+      $commands = gofast_command_toast_message(t("You don't have permission to do this", array(), array('context' => 'gofast')), 'error');
+    }else{
+      gofast_cmis_restore_document_alfresco($node);
+      if(function_exists("gofast_cmis_write_log_info")){
+        gofast_cmis_write_log_info("PREVENT DELETION : Acces denied ! Rollback transaction", FALSE);
+      }
+    }
+  }
+  if($ajax){
+    print ajax_render($commands);
+    exit; //Bypass plateform ajaxification, to improve
+  }
+}
+
+/**
+ * Confirm node publishing
+ */
+function gofast_node_publish_confirm($form, $form_state) {
+  $node = isset($form_state['build_info']['args'][0]) ? $form_state['build_info']['args'][0] : false;
+
+  $form['nid'] = array(
+    '#type' => 'value',
+    '#value' => $node->nid,
+  );
+
+  $form['#submit'] = array('gofast_ajax_node_unpublish');
+
+  return confirm_form(
+            $form,
+            t('Restore', array(), array('context' => 'gofast')) . ' ' . $node->title,
+            isset($_GET['destination']) ? $_GET['destination'] : 'node/' . $node->nid,
+            t('Are you sure you want to restore %title?', array('%title' => $node->title), array('context' => 'gofast')),
+            t('Restore', array(), array('context' => 'gofast')),
+            t('Cancel', array(), array('context' => 'gofast'))
+  );
+}
+
+function gofast_modal_node_view($node, $view_mode, $langcode) {
+  switch ($node->type) {
+
+    case 'alfresco_item':
+    case 'article':
+      // case 'forum':
+//         if ($view_mode == 'full'){
+//        $links['debug_private_msg_new'] = array(
+//        'href' => "gofast/nojs/messages/new/97",
+//        'title' => t("new private message"),
+//        'attributes' => array("class" => "ctools-use-modal"),
+//        'html' => TRUE,
+      //'query' =>array('id' => $node->reference),
+//      );
+//        $links['gofast_modal_comment_reply'] = array(
+//        'href' => "gofast/nojs/comment/reply/" . $node->nid,
+//        'title' => t("Add Comment"),
+//        'attributes' => array("class" => "ctools-use-modal"),
+//        'html' => TRUE,
+//        //'query' =>array('id' => $node->reference),
+//      );
+
+      $links['gofast_modal_upload_file'] = array(
+        'href' => "modal/nojs/get/alfresco/file/form/" . $node->nid,
+        'title' => t("Upload new file", array(), array('context' => 'gofast')),
+        'attributes' => array("class" => "ctools-use-modal", "id" => "link_upload_new_version_modal"),
+        'html' => TRUE,
+              //'query' =>array('id' => $node->reference),
+      );
+
+
+      $link_content = array(
+        '#theme' => 'links',
+        '#links' => $links,
+        '#attributes' => array('class' => array('links', 'inline')),
+      );
+      $node->content['links']['gofast_modal'] = $link_content;
+      //unset($node->content['links']["comment"]);
+//      print_r("<pre>");
+//      print_r($node->content['links']);
+//      print_r("</pre>");
+      break;
+
+
+    case 'group_node':
+      $links['gofast_modal_og_manage_members'] = array(
+        'href' => "modal/nojs/og/$node->nid/manage/members",
+        'title' => t("Manage Members", array(), array('context' => 'gofast')),
+        'attributes' => array("class" => "ctools-use-modal"),
+        'html' => TRUE,
+              //'query' =>array('id' => $node->reference),
+      );
+
+      $links['gofast_modal_og_add_members'] = array(
+        'href' => "modal/nojs/og/$node->nid/add/members",
+        'title' => t("Add Members/Userlists", array(), array('context' => 'gofast')),
+        'attributes' => array("class" => "ctools-use-modal"),
+        'html' => TRUE
+      );
+
+      $links['gofast_modal_og_preadd_members'] = array(
+        'href' => "modal/nojs/og/$node->nid/preadd/members",
+        'title' => t('Pre-Add members/Userlists', array(), array('context' => 'gofast:gofast_userlist')),
+        'attributes' => array("class" => "ctools-use-modal"),
+        'html' => TRUE
+      );
+
+      $links['gofast_modal_og_delete_members'] = array(
+        'href' => "modal/nojs/og/$node->nid/remove/member/8013",
+        'title' => t("Remove Member", array(), array('context' => 'gofast')),
+        'attributes' => array("class" => "ctools-use-modal"),
+        'html' => TRUE,
+              //'query' =>array('id' => $node->reference),
+      );
+
+
+      $link_content = array(
+        '#theme' => 'links',
+        '#links' => $links,
+        '#attributes' => array('class' => array('links', 'inline')),
+      );
+      $node->content['links']['gofast_modal'] = $link_content;
+      break;
+  }
+}
+
+/**
+ * Implements hook_preprocess_node().
+ */
+function gofast_modal_preprocess_node(&$variables) {
+//  // Only show on full nodes.
+//  if ($variables['teaser'] || $variables['view_mode'] != 'full') {
+//    return;
+//  }
+
+  $node = $variables['node'];
+
+  // Alter links in order to provide modal popup behavior.
+
+  /** @TODO :
+   * -> modal-iser les liens en un seul endroit
+   * -> est-ce le bon hook pour faire ça ?
+   */
+  // Add comment
+  $variables['content']['links']['comment']['#links']['comment-add']['attributes']['class'][] = 'ctools-use-modal ctools-modal-center';
+  $variables['content']['links']['comment']['#links']['comment-add']['href'] = "gofast/nojs/comment/reply/{$node->nid}";
+  $variables['content']['links']['comment']['#links']['comment-add']['fragment'] = NULL;
+
+  // Print Mail (Send by email).
+  if ($print_mail = &$variables['content']['links']['print_mail']['#links']['print_mail']) {
+    $print_mail['attributes']['class'][] = 'ctools-use-modal';
+    $print_mail['href'] = 'gofast/nojs/' . PRINTMAIL_PATH . "/{$node->nid}";
+  }
+}
+
+/**
+ * Implements hook_form_BASE_FROM_ID_alter().
+ */
+function gofast_modal_form_comment_form_alter(&$form, &$form_state, $form_id) {
+  $comment = $form_state['comment'];
+
+  //translation
+  $label = $form['comment_body'][LANGUAGE_NONE][0]['#title'];
+  $form['comment_body'][LANGUAGE_NONE][0]['#title'] = t($label, array(), array('context' => 'gofast:gofast_modal'));
+
+  $label = $form['field_comment_is_private'][LANGUAGE_NONE]['#title'];
+
+  $form['field_comment_is_private'][LANGUAGE_NONE]['#title'] = t($label);
+  $label = $form['field_comment_is_private'][LANGUAGE_NONE]['#description'];
+  $form['field_comment_is_private'][LANGUAGE_NONE]['#description'] = t($label);
+
+  //hide author
+  $form['author']['#type'] = 'hidden';
+
+  // If not replying to a comment, use our dedicated page callback for new
+  // comments on nodes.
+  if (empty($comment->cid) && empty($comment->pid)) {
+    // Change the action to call our function.
+    $form['#action'] = url('gofast/nojs/comment/reply/' . $comment->nid);
+  }else if(!empty($comment->pid)){
+
+    //Prefill title if replying to another comment
+    $parent_comment = comment_load($comment->pid);
+    $form['subject']['#default_value'] = 'RE: '.$parent_comment->subject;
+  }
+
+  gofast_user_alter_comments($form, $form_alter);
+}
+
+/**
+ * A modal comment callback.
+ */
+function gofast_modal_comment_reply($js = NULL, $node, $pid = NULL) {
+  $commands = array();
+  $comment = array(
+    'pid' => $pid,
+    'nid' => $node->nid,
+  );
+
+  if (!$js) {
+    return drupal_get_form('comment_node_' . $node->type . '_form', (object) $comment);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+        (object) $comment,
+      ),
+    ),
+    // 'title' => t('Comment'),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+
+  // Should we show the reply box?
+  if ($node->comment != COMMENT_NODE_OPEN) {
+    drupal_set_message(t('This discussion is closed: you can\'t post new comments.', array(), array('context' => 'gofast')), 'error');
+    drupal_goto('node/' . $node->nid);
+  }
+  else {
+    $commands = drupal_build_form('comment_node_' . $node->type . '_form', $form_state);
+    // Remove output bellow the comment.
+    unset($commands['comment_output_below']);
+  }
+
+  if (!$form_state['executed'] || $form_state['rebuild']) {
+    $commands = ctools_modal_form_render($form_state, $commands);
+      $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+          jQuery('#modalBackdrop').remove();
+          var delayInMilliseconds = 500;
+            setTimeout(function() {
+             modalContentResize();
+            }, delayInMilliseconds);
+
+     </script>"
+    );
+  }
+  else {
+    // We'll just overwrite the form output if it was successful.
+    $commands = array();
+    if (isset($_GET['destination'])) {
+      $commands[] = ctools_ajax_command_redirect($_GET['destination']);
+    }
+    else {
+      $comments_container_id = '#comments-container';
+      $wrapper_class = 'comment-wrapper';
+      $wrapper_id = $node->type == 'forum' ? 'forum-comments-wrapper' : 'forum-comments';
+      ctools_include('comment.admin', 'comment', '');
+      // Last node comment is not counted yet.
+      if ($node->comment_count === '0') {
+        $node->comment_count++;
+      }
+      variable_set('comment_default_per_page_' . $node->type, 9999999);
+      $comments = comment_node_page_additions($node);
+
+
+      $comment_render = drupal_render($comments);
+      variable_set('comment_default_per_page_' . $node->type, 1);
+
+      $commands[] = ajax_command_html($comments_container_id, $comment_render);
+
+      $latest_comment_id = $form_state['values']['cid'];
+      $commands[] = gofast_command_scrollToComment('#comment-' . $latest_comment_id);
+
+      $commands[] = ajax_command_html('#block-gofast-gofast-node-comments-tree', gofast_comments_tab($node));
+
+      $commands[] = ctools_modal_command_dismiss();
+
+      $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+    }
+  }
+
+  print ajax_render($commands);
+}
+
+
+/**
+ * A modal comment callback.
+ */
+function gofast_modal_workflow_dashboard($js = NULL, $node, $pid = NULL) {
+  $commands = array();
+  if (!$js) {
+     return gofast_workflows_dashboard_rapide($node);
+  }
+
+    ctools_include('modal');
+    ctools_include('ajax');
+    $commands = array();
+
+    $commands[] = ctools_modal_command_display(t("Workflows", array(), array('context' => 'gofast')), gofast_workflows_dashboard_rapide($node));
+
+  print ajax_render($commands);
+}
+
+/**
+ * Menu page callback - Comment Edit
+ *
+ * @param $js
+ * @param $comment ID of the comment to be edited.
+ */
+function gofast_modal_comment_edit($js, $comment) {
+  drupal_get_messages();
+  if (!$js) {
+    return drupal_goto('comment/' . $comment->cid . '/edit');
+  }
+//  $comment = db_fetch_object(db_query('SELECT c.*, u.uid, u.name AS registered_name, u.data FROM {comments} c INNER JOIN {users} u ON c.uid = u.uid WHERE c.cid = %d', $cid));
+//  $comment = drupal_unpack($comment);
+//  $comment->name = $comment->uid ? $comment->registered_name : $comment->name;
+
+  if (comment_access('edit', $comment)) {
+    $node = node_load($comment->nid);
+    ctools_include('modal');
+    ctools_include('ajax');
+
+    $form_state = array(
+      'build_info' => array(
+        'args' => array(
+          (object) $comment,
+        ),
+      ),
+      // 'title' => t('Comment'),
+      'ajax' => TRUE,
+      're_render' => FALSE,
+      'no_redirect' => TRUE,
+    );
+
+    // Should we show the reply box?
+    if ($node->comment != COMMENT_NODE_OPEN) {
+      drupal_set_message(t('This discussion is closed: you can\'t post new comments.', array(), array('context' => 'gofast')), 'error');
+      drupal_goto('node/' . $node->nid);
+    }
+    else {
+      $commands = drupal_build_form('comment_node_' . $node->type . '_form', $form_state);
+      // Remove output bellow the comment.
+      //unset($commands['comment_output_below']);
+    }
+    if (!$form_state['executed'] || $form_state['rebuild']) {
+      //$commands = ctools_modal_form_render($form_state, $commands);
+      $commands = ctools_modal_form_wrapper('comment_node_' . $node->type . '_form', $form_state);
+    }
+    else {
+      // We'll just overwrite the form output if it was successful.
+      $commands = array();
+      if (isset($_GET['destination'])) {
+        $commands[] = ctools_ajax_command_redirect($_GET['destination']);
+      }
+      else {
+        $comments_container_id = '#comments-container';
+        $wrapper_class = 'comment-wrapper';
+        $wrapper_id = $node->type == 'forum' ? 'forum-comments-wrapper' : 'forum-comments';
+        ctools_include('comment.admin', 'comment', '');
+        $node_view = node_view($node);
+        variable_set('comment_default_per_page_' . $node->type, 9999999);
+        $node_view['comments'] = comment_node_page_additions($node);
+        $comment_render = drupal_render($node_view['comments']);
+        variable_set('comment_default_per_page_' . $node->type, 1);
+        $commands[] = ajax_command_html($comments_container_id, $comment_render);
+
+        $commands[] = ajax_command_html('#block-gofast-gofast-node-comments-tree', gofast_comments_tab($node));
+
+        $commands[] = ctools_modal_command_dismiss();
+
+        $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+      }
+    }
+    // Cette commande sert a injecter du code js dans la réponse : on force
+    // l'instanciation de CKeditor et on vérifie que le wrapper existe bien sur
+    // la page courante.
+    $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+       var ta_id = 'edit-comment-body-und-0-value';
+       var instance = CKEDITOR.instances[ta_id];
+       if(instance){
+         CKEDITOR.remove(instance);
+       }
+        var delayInMilliseconds = 500;
+        setTimeout(function() {
+           modalContentResize();
+        }, delayInMilliseconds);
+     </script>"
+    );
+    print ajax_render($commands);
+  }
+  else {
+    drupal_access_denied();
+  }
+}
+
+/**
+ * This function is mainly used for the gofast_modal_callback_comment_delete function
+ * @param type $comment
+ */
+function gofast_modal_count_replies_from_comment($comment) {
+  $query = db_query('SELECT COUNT(*) FROM comment WHERE pid = :cid', array(':cid' => $comment->cid));
+  return $query->fetchField();
+}
+
+/**
+ * Menu page callback - delete a comment.
+ *
+ * @param $cid
+ *   The comment do be deleted.
+ */
+function gofast_modal_callback_comment_delete($js = NULL, $node, $cid = NULL) {
+  ctools_include('modal');
+  ctools_include('ajax');
+  $count_replies = 0;
+
+  if(is_object($cid)){
+      $cid = $cid->cid;
+  }
+
+  if ($comment = comment_load($cid)) {
+    if (!$js) {
+      return drupal_goto('comment/' . $comment->cid . "/delete");
+    }
+    //  if(!comment_access('delete', $comment)) {
+    //    drupal_set_message(t("You can't delete this comment."));
+    //    exit;
+    //  }
+
+    if (is_object($comment) && is_numeric($comment->cid)) {
+      $commands = array();
+      ctools_include('comment.admin', 'comment', '');
+
+      $form_state = array(
+        'build_info' => array(
+          'args' => array(
+            (object) $comment,
+          ),
+        ),
+        'ajax' => TRUE,
+        're_render' => FALSE,
+        'no_redirect' => TRUE,
+      );
+      $count_replies = gofast_modal_count_replies_from_comment($comment);
+      $commands = drupal_build_form('comment_confirm_delete', $form_state);
+
+      //hide Cancel button from popup
+      unset($commands['actions']['cancel']);
+
+      if (!$form_state['executed'] || $form_state['rebuild']) {
+        $commands = ctools_modal_form_render($form_state, $commands);
+      }
+      else {
+        $commands = false;
+      }
+      if ($commands === false) {
+        $comments_container_id = '#comments-container';
+        $wrapper_class = 'comment-wrapper';
+        $wrapper_id = $node->type === 'forum' ? 'forum-comments-wrapper' : 'forum-comments';
+        $node_view = node_view($node);
+        variable_set('comment_default_per_page_' . $node->type, 9999999);
+        $node_view['comments'] = comment_node_page_additions($node);
+        variable_set('comment_default_per_page_' . $node->type, 1);
+
+
+        if ($node->comment_count - $count_replies > 1) {
+          $comment_render = drupal_render($node_view['comments']);
+        }
+        else {
+          $comment_render = '<div id="' . $wrapper_id . '" class="' . $wrapper_class . '"></div>';
+        }
+        $commands[] = ajax_command_html($comments_container_id, $comment_render);
+        $commands[] = ajax_command_html('#block-gofast-gofast-node-comments-tree', gofast_comments_tab($node));
+
+        $commands[] = ctools_modal_command_dismiss();
+
+        $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+      }
+      print ajax_render($commands);
+    }
+    else {
+      drupal_set_message(t('The comment no longer exists.', array(), array('context' => 'gofast')));
+    }
+  }
+  else {
+    $comments_container_id = '#comments-container';
+    $wrapper_class = 'comment-wrapper';
+    $wrapper_id = $node->type == 'forum' ? 'forum-comments-wrapper' : 'forum-comments';
+    ctools_include('comment.admin', 'comment', '');
+    $node_view = node_view($node);
+    variable_set('comment_default_per_page_' . $node->type, 9999999);
+    $node_view['comments'] = comment_node_page_additions($node);
+    $count_replies = gofast_modal_count_replies_from_comment($comment);
+    if ($node->comment_count - $count_replies > 1) {
+      $comment_render = drupal_render($node_view['comments']);
+    }
+    else {
+      $comment_render = '<div id="' . $wrapper_id . '" class="' . $wrapper_class . '"></div>';
+    }
+    variable_set('comment_default_per_page_' . $node->type, 1);
+    $commands[] = ajax_command_html($comments_container_id, $comment_render);
+
+    $commands[] = ajax_command_html('#block-gofast-gofast-node-comments-tree', gofast_comments_tab($node));
+
+    $commands[] = ctools_modal_command_dismiss();
+
+    $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+
+    print ajax_render($commands);
+  }
+}
+
+/**
+ * Menu page callback - Write new private message
+ */
+function gofast_modal_privatemsg_new($js, $recipients = '', $subject = '', $thread_id = NULL) {
+  if (!$js) {
+    return drupal_goto("messages/new/$recipients/$subject/$thread_id");
+  }
+  ctools_include('modal');
+  ctools_include('ajax');
+  $form_state = array(
+    'build_info' => array(
+      'args' => array($recipients, $subject, $thread_id)
+    ),
+    'ajax' => TRUE,
+    'title' => t('Write a new internal message', array(), array('context'=> 'gofast')),
+  );
+  ctools_include('privatemsg.pages', 'privatemsg', '');
+  $commands = ctools_modal_form_wrapper('privatemsg_new', $form_state);
+  $commands[0]["output"] = gofast_normalize_string_from_ajaxifying($commands[0]["output"]);
+  $commands[] = ajax_command_html('#ctools-add-js',"<script type='text/javascript'>
+               jQuery('#modalBackdrop').remove();
+               var delayInMilliseconds = 500;
+               setTimeout(function() {
+               modalContentResize();
+               }, delayInMilliseconds);
+               </script>"
+  );
+  if ($form_state['executed'] === TRUE) {
+    $commands = array();
+    $commands[] = ctools_modal_command_dismiss();
+    $display_id = 'gofast_inbox';
+
+    // Refresh the privatemsg block after creating a thread of privatemsg
+    $blockObject = new stdClass();
+    $view = views_get_view('gofast_private_msg', true);
+    $blockObject->subject = t('Messages', array(), array('context' => 'gofast'));
+    $blockObject->content['#markup'] = $view->preview($display_id);
+    // We add custom data to the blocks depending of delta
+    $blockObject->content['#markup'] .= appendCustomData($display_id);
+    $blockObject->module = 'gofast';
+    $blockObject->region = '';
+    $blockObject->delta = '';
+    $arrayBlock = _block_get_renderable_array(array($blockObject));
+    $output = drupal_render($arrayBlock);
+    $commands[] = ajax_command_html('#gofast_pm_block', $output);
+
+    $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+  }
+  print ajax_render($commands);
+}
+
+function gofast_modal_privatemsg_form_reply($form, &$form_state, $thread) {
+  $form = array(
+    '#access' => privatemsg_user_access('write privatemsg') || privatemsg_user_access('reply only privatemsg'),
+  );
+
+  $to = _privatemsg_get_allowed_recipients($thread['participants'], $thread['thread_id']);
+  if (empty($to)) {
+    // Display a message if some users are blocked.
+    // @todo: Move this check out of the form, don't use the form in that case.
+    $blocked_messages = &drupal_static('privatemsg_blocked_messages', array());
+    if (count($blocked_messages)) {
+      $blocked = t('You can not reply to this conversation because all recipients are blocked.', array(), array('context' => 'gofast:gofast_privatemsg'));
+      $blocked .= theme('item_list', array('items' => $blocked_messages));
+      $form['blocked']['#markup'] = $blocked;
+    }
+    else {
+      $form['#access'] = FALSE;
+    }
+    return $form;
+  }
+
+  $form += _privatemsg_form_base_fields($form, $form_state);
+
+  $form['actions']['cancel'] = array(
+    '#value' => l(t('Clear', array(), array('context' => 'gofast')), $_GET['q'], array('attributes' => array('id' => 'edit-cancel'))),
+    '#weight' => 20,
+  );
+
+  $form['actions']['submit']['#attributes'] = array('class' => array('btn-success'));
+
+  // Include the mid of the message we're responding to so we can mark it as
+  // replied when the form is submitted.
+  $reply_to_mid = end($thread['messages'])->mid;
+  $form['reply_to_mid'] = array(
+    '#type' => 'value',
+    '#value' => $reply_to_mid,
+  );
+  $form['thread_id'] = array(
+    '#type' => 'value',
+    '#value' => $thread['thread_id'],
+  );
+  $form['subject'] = array(
+    '#type' => 'value',
+    '#default_value' => $thread['subject'],
+  );
+  // Render the participants.
+  $form['participants'] = array(
+    '#markup' => theme('privatemsg_recipients', array('thread' => $thread)),
+    '#weight' => -9,
+    '#attached' => array(
+      'css' => array(
+        drupal_get_path('module', 'privatemsg') . '/styles/privatemsg-recipients.css',
+      ),
+    ),
+  );
+  $form['reply'] = array(
+    '#markup' => '<h2 class="privatemsg-reply">' . t('Reply message:', array(), array('context' => 'gofast')) . '</h2>',
+    '#weight' => -10,
+  );
+
+  $form['read_all'] = array(
+    '#type' => 'value',
+    '#value' => $thread['read_all'],
+  );
+
+  return $form;
+}
+
+function gofast_modal_privatemsg_view($thread) {
+  variable_set('private_message_view_template', 'gofast-modal-privatemsg-view');
+  drupal_set_title($thread['subject-tokenized']);
+
+  $content = array(
+    '#thread' => $thread,
+  );
+
+  if ($thread['to'] != $thread['message_count'] || !empty($thread['start'])) {
+    // Generate paging links.
+    $older = '';
+    if (isset($thread['older_start'])) {
+      $options = array(
+        'query' => array('start' => $thread['older_start']),
+        'attributes' => array(
+          'title' => t('Display older messages', array(), array('context' => 'gofast:gofast_privatemsg')),
+        ),
+      );
+      $older = l(t('<<', array(), array('context' => 'gofast')), 'messages/view/' . $thread['thread_id'], $options);
+    }
+    $newer = '';
+    if (isset($thread['newer_start'])) {
+      $options = array(
+        'query' => array('start' => $thread['newer_start']),
+        'attributes' => array(
+          'title' => t('Display newer messages', array(), array('context' => 'gofast:gofast_privatemsg')),
+        ),
+      );
+      $newer = l(t('>>', array(), array('context' => 'gofast')), 'messages/view/' . $thread['thread_id'], $options);
+    }
+    $substitutions = array('@from' => $thread['from'], '@to' => $thread['to'], '@total' => $thread['message_count'], '!previous_link' => $older, '!newer_link' => $newer);
+    $title = t('!previous_link Displaying messages @from - @to of @total !newer_link', $substitutions, array('context' => 'gofast:gofast_privatemsg'));
+    $content['pager'] = array(
+      '#markup' => trim($title),
+      '#prefix' => '<div class="privatemsg-view-pager">',
+      '#suffix' => '</div>',
+      '#weight' => 3,
+    );
+  }
+
+  // Render the messages.
+  $content['messages']['#weight'] = 0;
+  $i = 1;
+  $count = count($thread['messages']);
+  foreach ($thread['messages'] as $pmid => $message) {
+    // Set message as read and theme it.
+    // Add CSS classes.
+    $message->classes = array('privatemsg-message', 'privatemsg-message-' . $i, $i % 2 == 1 ? 'privatemsg-message-even' : 'privatemsg-message-odd');
+    if (!empty($message->is_new)) {
+      // Mark message as read.
+      privatemsg_message_change_status($pmid, PRIVATEMSG_READ, $thread['user']);
+      $message->classes[] = 'privatemsg-message-new';
+    }
+
+    if ($i == 1) {
+      $message->classes[] = 'privatemsg-message-first';
+    }
+    if ($i == $count) {
+      $message->classes[] = 'privatemsg-message-last';
+    }
+    $i++;
+    $content['messages'][$pmid] = array(
+      '#markup' => theme('privatemsg_view', array('message' => $message)),
+      '#attached' => array(
+        'css' => array(
+          drupal_get_path('module', 'privatemsg') . '/styles/privatemsg-view.base.css',
+          drupal_get_path('module', 'privatemsg') . '/styles/privatemsg-view.theme.css',
+        ),
+      ),
+    );
+  }
+
+  // Display the reply form if user is allowed to use it.
+  if (privatemsg_user_access('write privatemsg') || privatemsg_user_access('reply only privatemsg')) {
+    $content['reply'] = drupal_get_form('gofast_modal_privatemsg_form_reply', $thread);
+    $content['reply']['#weight'] = 5;
+  }
+  // Check after calling the privatemsg_new form so that this message is only
+  // displayed when we are not sending a message.
+  if ($thread['read_all']) {
+    // User has permission to read all messages AND is not a participant of the current thread.
+    drupal_set_message(t('This conversation is being viewed with escalated privileges and may not be the same as shown to normal users.', array(), array('context' => 'gofast')), 'warning');
+  }
+
+  drupal_alter('privatemsg_view', $content);
+
+  return $content;
+}
+
+/**
+ * Menu page callback private message thread
+ */
+function gofast_modal_privatemsg_thread($js, $thread) {
+
+  if (!$js) {
+    $path = drupal_get_destination();
+    return drupal_goto("messages/view/{$thread['thread_id']}{$path}");
+  }
+  ctools_include('modal');
+  ctools_include('ajax');
+  ctools_include('privatemsg.pages', 'privatemsg', '');
+
+  global $privatemsg_modal;
+  global $user;
+  $privatemsg_modal = TRUE;
+  $commands = array();
+  $commands[] = ctools_modal_command_display(t('Message thread', array(), array('context' => 'gofast')), gofast_modal_privatemsg_view($thread));
+
+  if (empty($commands)) {
+    $commands[] = ctools_modal_command_dismiss();
+  }
+
+  // Mark this message as read to remove the red badge (number of msg) on the message icon
+  privatemsg_operation_execute(privatemsg_privatemsg_thread_operations()['mark as read'], array($thread['thread_id']), $user);
+  drupal_static_reset('gofast_privatemsg_unread_count');
+  $pm_unread_count = gofast_privatemsg_unread_count($user);
+  $commands[] = ajax_command_html('#unread_pm_count', $pm_unread_count);
+  $commands[] = ajax_command_replace('#msg-new-'.$thread['thread_id'], '<span id="is_new_'.$thread['thread_id'].'"></span>');
+  $commands[] = ajax_command_remove('#badge-message-'.$thread['thread_id']);
+  if ($pm_unread_count == 0) {
+    $commands[] = ajax_command_invoke('#unread_pm_count', 'css', array(array('visibility' => 'hidden')));
+  }
+
+   $commands[] = ajax_command_html('#ctools-add-js',"<script type='text/javascript'>
+            setTimeout(function(){
+            $('.cke_wysiwyg_frame').contents().find('.cke_editable').html('');
+          }, 500);
+               </script>"
+  );
+  $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+  $commands = str_replace('<p>response test</p>', '', $commands);
+  print ajax_render($commands);
+}
+
+/**
+ * Menu page callback - Send by email
+ */
+function gofast_modal_print_mail_form($js, $nid = null) {
+  ctools_include('print_mail', 'print_mail', '');
+
+  if (!$js) {
+    $arg = $nid ? '/' . $nid : '';
+    return drupal_goto(PRINTMAIL_PATH . $arg);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+        'path' => '/node/' . $nid
+      )
+    ),
+    'ajax' => TRUE,
+    'title' => null
+  );
+  // print_mail_form doesn't use function args but url args...
+  $_GET['q'] = PRINTMAIL_PATH . '/' . $nid;
+  $commands = ctools_modal_form_wrapper('print_mail_form', $form_state);
+
+  if (!isset($commands[0])) {
+    $commands = array();
+    $commands[] = ctools_modal_command_dismiss();
+
+    $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+  }
+  print ajax_render($commands);
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter()
+ * Add autocomplete suggestions to help user select recipients
+ */
+function gofast_modal_form_print_mail_form_alter(&$form, &$form_alter) {
+
+  // Replace adresses textarea with a textfield for autocompletion
+  $form['txt_to_addrs'] = array(
+    '#title' => $form['txt_to_addrs']['#title'],
+    '#type' => 'textfield',
+    '#size' => 62,
+    '#default_value' => '',
+    '#maxlength' => '', // no maxlength
+    '#autocomplete_path' => 'gofast_user_space_autocomplete',
+    '#attributes' => array('class' => array('labelize-autocomplete'))
+  );
+
+  $form['fld_from_name']['#default_value'] = trim($form['fld_from_name']['#default_value']);
+  $form['fld_subject']['#default_value'] = trim($form['fld_subject']['#default_value']);
+
+  // Unset 'Clear form' button
+  unset($form['btn_clear']);
+
+  // Add a validation fonction (with precedance)
+  $form['#validate'] = array('gofast_modal_form_print_mail_form_validate');
+  $form['#submit'] = array('gofast_modal_form_print_mail_form_submit');
+}
+
+function gofast_modal_form_print_mail_form_validate(&$form, &$form_state) {
+  $recipient_addresses = array();
+  $recipients_value = json_decode($form_state['input']['edit-' . str_replace("_", "-", $form['txt_to_addrs']['#name']) . '-hidden-values']);
+  foreach ($recipients_value as $recipient) {
+    if ($recipient->type === 'node') {
+      $space_users = user_load_multiple(gofast_og_get_members_userlist_included(node_load($recipient->id)));
+      foreach ($space_users as $space_user) {
+        $recipient_addresses[] = $space_user->mail;
+      }
+    }
+    else if ($recipient->type === 'user') {
+      $recipient_addresses[] = $recipient->address;
+    }
+  }
+  $recipient_addresses = array_unique($recipient_addresses);
+  $form_state['values']['txt_to_addrs'] = implode(',', $recipient_addresses);
+}
+
+function gofast_modal_form_print_mail_form_submit(&$form, &$form_state) {
+  if (!array_key_exists('cancel', $form_state['values'])) {
+    $cid = isset($form_state['values']['cid']) ? $form_state['values']['cid'] : NULL;
+    $print_mail_text_message = filter_xss_admin(variable_get('print_mail_text_message', t('Message from sender', array(), array('context' => 'gofast'))));
+    $sender_message = $print_mail_text_message . ':<br /><br /><em>' . nl2br(check_plain($form_state['values']['txt_message'])) . '</em>';
+
+    $print = print_controller($form_state['values']['path'], $form_state['values']['query'], $cid, PRINT_MAIL_FORMAT, $form_state['values']['chk_teaser'], $sender_message);
+
+    if ($print !== FALSE) {
+      $print_mail_send_option_default = variable_get('print_mail_send_option_default', PRINT_MAIL_SEND_OPTION_DEFAULT);
+
+      $params = array();
+      $params['subject'] = $form_state['values']['fld_subject'];
+      $params['message'] = $sender_message;
+      $params['link'] = $print['url'];
+      $params['title'] = $form_state['values']['title'];
+
+      // If a name is provided, make From: in the format Common Name <address>
+      if (!empty($form_state['values']['fld_from_name'])) {
+        $from = '"' . mime_header_encode($form_state['values']['fld_from_name']) . '" <' . $form_state['values']['fld_from_addr'] . '>';
+      }
+      else {
+        $from = $form_state['values']['fld_from_addr'];
+      }
+
+      // If using reply-to, move the From: info to the params array, so that it is passed to hook_mail later
+      if (variable_get('print_mail_use_reply_to', PRINT_MAIL_USE_REPLY_TO)) {
+        $params['from'] = $from;
+        $from = NULL;
+      }
+
+      // Spaces in img URLs must be replaced with %20
+      $pattern = '!<(img\s[^>]*?)>!is';
+      $print['content'] = preg_replace_callback($pattern, '_print_replace_spaces', $print['content']);
+
+      $node = $print['node'];
+      $email_content = '';
+      foreach (gofast_modal_node_print_content_email($node) as $part) {
+        $email_content .= $part;
+      }
+
+      $message = '<div class="print-site_name">' . $print['site_name'] . '</div>'
+              . '<p><div style="margin: 5px; padding: 5px; border: 1px solid black; background-color: #ececec;">' . $print['message'] . '</div><p />';
+      $params['body'] = $message . $email_content;
+
+      // Img elements must be set to absolute
+      $pattern = '!<(img\s[^>]*?)>!is';
+      $params['body'] = preg_replace_callback($pattern, '_print_rewrite_urls', $params['body']);
+
+      // Convert the a href elements, to make sure no relative links remain
+      $pattern = '!<(a\s[^>]*?)>!is';
+      $params['body'] = preg_replace_callback($pattern, '_print_rewrite_urls', $params['body']);
+
+      $ok = FALSE;
+      $use_job_queue = variable_get('print_mail_job_queue', PRINT_MAIL_JOB_QUEUE_DEFAULT);
+      if ($use_job_queue) {
+        $queue = DrupalQueue::get('print_mail_send');
+      }
+
+      $addresses = explode(', ', $form_state['values']['txt_to_addrs']);
+      foreach ($addresses as $to) {
+        if ($use_job_queue) {
+          // Use job queue to send mails during cron runs
+          $queue->createItem(array('module' => 'print_mail', 'key' => $print_mail_send_option_default, 'to' => $to, 'language' => language_default(), 'params' => $params, 'from' => $from));
+        }
+        else {
+          // Send mail immediately using Drupal's mail handler
+          $ret = drupal_mail('print_mail', $print_mail_send_option_default, $to, language_default(), $params, $from);
+        }
+        if ($use_job_queue || $ret['result']) {
+          flood_register_event('print_mail');
+          $ok = TRUE;
+        }
+      }
+      if ($ok) {
+        $query = empty($form_state['values']['query']) ? '' : '?' . rawurldecode(drupal_http_build_query($form_state['values']['query']));
+        watchdog('print_mail', '%name [%from] sent %page to [%to]', array('%name' => $form_state['values']['fld_from_name'], '%from' => $form_state['values']['fld_from_addr'], '%page' => $form_state['values']['path'] . $query, '%to' => $form_state['values']['txt_to_addrs']));
+        $site_name = variable_get('site_name', t('us', array(), array('context' => 'gofast')));
+        $print_mail_text_confirmation = variable_get('print_mail_text_confirmation', t('Thank you for spreading the word about !site.', array(), array('context' => 'gofast')));
+        drupal_set_message(check_plain(t($print_mail_text_confirmation, array('!site' => $site_name))));
+
+        $nodepath = drupal_get_normal_path($form_state['values']['path']);
+        db_update('print_mail_page_counter')
+                ->fields(array(
+                  'sentcount' => 1,
+                  'sent_timestamp' => REQUEST_TIME,
+                ))
+                ->condition('path', $nodepath, '=')
+                ->expression('sentcount', 'sentcount + :inc', array(':inc' => count($addresses)))
+                ->execute();
+      }
+    }
+  }
+
+  $form_state['redirect'] = array(preg_replace('!^book/export/html/!', 'node/', $form_state['values']['path']), array('query' => $form_state['values']['query']));
+}
+
+/**
+ * This function generates an array of data that is used to render node to send by email.
+ * @param type $node the node to send.
+ * @return array the data from the node.
+ */
+function gofast_modal_node_print_content_email($node) {
+  $email_content = array();
+  $node_link = theme('node_title', array('node' => $node));
+
+  $email_content['title'] = '<h3>' . $node_link . '</h3>';
+
+  $email_content['locations'] = t('Node locations :', array(), array('context' => 'gofast'));
+  $locations = $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE];
+  $locations = array_map(function($element) {
+    return $element['value'];
+  }, $locations);
+  $email_content['locations'] .= '<ul><li>' . implode('</li><li>', gofast_ztree_get_drupal_path_from_webdav_path($locations)) . '</li></ul>';
+
+  $email_content['content'] = '<hr/>';
+
+  if ($node->type === 'alfresco_item') {
+    $email_content['content'] .= t('This is a document, please go to the link to see it.', array(), array('context' => 'gofast'));
+  }
+  else {
+    $node_body = $node->body[LANGUAGE_NONE][0]['value'];
+    $email_content['content'] .= gofast_teaser($node_body, 1000);
+    $email_content['content'] .= '<br/><i>' . t('... Content truncated', array(), array('context' => 'gofast')).'.</i>';
+  }
+
+  return $email_content;
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter()
+ */
+function gofast_modal_form_privatemsg_new_alter(&$form, &$form_state) {
+
+  $class = array('labelize-autocomplete pm');
+
+  if ($default = $form['recipient']['#default_value']) {
+    $class[] = ' labelizeDefault';
+    $myuser = user_load_by_name($form['recipient']['#default_value']);
+    $default = gofast_modal_ac_format_send_email_value('user', $myuser, $myuser->uid, $myuser->name, array());
+  }
+
+  // Replace adresses textarea with a textfield for autocompletion
+  $form['recipient'] = array(
+    '#title' => $form['recipient']['#title'].t(' a user GoFast',array(),array('context' => 'gofast')),
+    '#type' => 'textfield',
+    '#size' => 62,
+    '#default_value' => $default,
+    '#maxlength' => '', // no maxlength
+    '#autocomplete_path' => 'gofast_user_space_autocomplete',
+    '#attributes' => array('class' => $class),
+    '#weight' => -4
+  );
+
+  $form['subject']['#size'] = 62;
+
+  $form["actions"]["submit"]["#attributes"] = array('class' => array('btn-success'));
+
+  // Add a validation fonction
+  array_unshift($form['#validate'], 'gofast_modal_form_privatemsg_new_validate');
+  array_unshift($form["actions"]["submit"]["#validate"], 'gofast_modal_form_privatemsg_new_validate');
+
+  // Add a submit function that enables notifications sending to offline recipients
+  $form['#submit'][] = 'gofast_modal_form_privatemsg_new_submit';
+}
+
+/**
+ * Additional validation handler - privatemsg form
+ * Get a recipients list from hidden field if set
+ */
+function gofast_modal_form_privatemsg_new_validate(&$form, &$form_state) {
+  gofast_form_unset_error('recipient');
+  gofast_form_unset_error('Subject');
+  $subject = $form_state['input']['subject'];
+  $recipient_addresses = array();
+  $recipients_value = json_decode($form_state['input']['edit-' . str_replace("_", "-", $form['recipient']['#name']) . '-hidden-values']);
+  foreach ($recipients_value as $recipient) {
+    if ($recipient->type === 'node') {
+      $space_users = user_load_multiple(gofast_og_get_members_userlist_included(node_load($recipient->id)));
+      foreach ($space_users as $space_user) {
+        $recipient_addresses[] = $space_user->name;
+      }
+    }
+    else if ($recipient->type === 'user') {
+      $user = user_load($recipient->id);
+      $recipient_addresses[] = $user->name;
+    }
+  }
+  //Verify is the subject field is not empty
+  if (empty($subject)){
+      form_set_error('subject',t('Subject field is empty', array(), array('context' => 'gofast')));
+  }
+  //Verify if the user go fast exist
+  if (empty($recipient_addresses)){
+      form_set_error('recipient',t('This user Gofast doesn\'t exist (Email addresses are not allowed)', array(), array('context' => 'gofast')));
+  }
+  $recipient_addresses = array_unique($recipient_addresses);
+  $form_state['values']['recipient'] = implode(',', $recipient_addresses);
+}
+
+/**
+ * Additional submit handler - privatemsg form
+ * When a private message is sent, send a mail notification to each recipient
+ * who's not online.
+ */
+function gofast_modal_form_privatemsg_new_submit(&$form, &$form_state) {
+
+  // Get data from $form
+  $data = $form_state['values'];
+  $recipients = explode(',', $data['recipient']);
+  $author = $data['author'];
+  unset($data['author']);
+  $commands = array();
+  $commands = gofast_ajaxification_get_toast_messages();
+  $commands[] = ctools_modal_command_dismiss();
+  print ajax_render($commands);
+  exit;
+//  if (!$author->real_name = get_user_real_name($author->uid)){
+//    $author->real_name = $author->name;
+//  }
+//  // Who's online ? TODO A FAIRE
+//  $result = db_query('SELECT DISTINCT uid FROM {sessions} WHERE uid != 0');
+//  while ($online_users[] = db_result($result));
+//  $online_users = array_filter($online_users);
+//
+//  // Send a notification to each recipient who's not authenticated
+//  foreach ($recipients as $recipient) {
+//    $recipient = user_load(array('name' => $recipient));
+//    if (!in_array($recipient->uid, $online_users)) {
+//      gofast_privatemsg_send_notification($author, $recipient, $data);
+//    }
+//  }
+}
+
+function gofast_modal_ac_format_broadcast_key($entity_type, $entity, $key, $value, $options) {
+  switch ($entity_type) {
+    case 'node':
+      if (in_array($entity->type, array_keys(gofast_og_node_types()))) {
+        $item = theme('node_title', array('link' => FALSE, 'node' => $entity)) . " &lt;members&gt;";
+      }
+      break;
+    case 'user':
+      $private_space_gid = gofast_og_get_user_private_space($entity, FALSE);
+      $item = "{$private_space_gid} <{$private_space_gid}>";
+      break;
+    default:
+      $item = ' no display handler ';
+  }
+  return $item;
+}
+
+function gofast_modal_ac_format_broadcast_value($entity_type, $entity, $key, $value, $options) {
+  switch ($entity_type) {
+    case 'node':
+      $metadata = '<span class="labelize-metadata gofast_display_none" '
+              . 'data-type="' . $entity_type . '" '
+              . 'data-name="' . $value . '" '
+              . 'data-id="' . $entity->nid . '"/></span>';
+      $item = $metadata . theme('node_title', array('link' => FALSE, 'node' => $entity)) . " &lt;members&gt;";
+      break;
+    case 'user':
+      $private_space_gid = gofast_og_get_user_private_space($entity, FALSE);
+      $metadata = '<span class="labelize-metadata gofast_display_none" '
+              . 'data-type="' . $entity_type . '" '
+              . 'data-name="' . $value . '" '
+              . 'data-address="' . $entity->mail . '" '
+              . 'data-id="' . $private_space_gid . '"/></span>';
+      $item = $metadata . theme('username', array('link' => FALSE, 'account' => $entity, 'popup' => FALSE)) . " &lt;$entity->mail&gt;";
+      break;
+    default:
+      $item = ' no display handler ';
+  }
+  return $item;
+}
+
+function gofast_modal_ac_format_send_email_key($entity_type, $entity, $key, $value, $options) {
+  switch ($entity_type) {
+    case 'node':
+      if (in_array($entity->type, array_keys(gofast_og_node_types()))) {
+        $item = theme('node_title', array('link' => FALSE, 'node' => $entity)) . " &lt;members&gt;";
+      }
+      break;
+    case 'user':
+      $item = "{$value} <{$key}>";
+      break;
+    default:
+      $item = ' no display handler ';
+  }
+  return $item;
+}
+
+function gofast_modal_ac_format_send_email_value($entity_type, $entity, $key, $value, $options) {
+  switch ($entity_type) {
+    case 'node':
+      $metadata = '<span class="labelize-metadata gofast_display_none" '
+              . 'data-type="' . $entity_type . '" '
+              . 'data-name="' . $value . '" '
+              . 'data-id="' . $entity->nid . '"/></span>';
+      $item = $metadata . theme('node_title', array('link' => FALSE, 'node' => $entity)) . " &lt;members&gt;";
+      break;
+    case 'user':
+      $metadata = '<span class="labelize-metadata gofast_display_none" '
+              . 'data-type="' . $entity_type . '" '
+              . 'data-name="' . $value . '" '
+              . 'data-address="' . $entity->mail . '" '
+              . 'data-id="' . $entity->uid . '"/></span>';
+      $item = $metadata . theme('username', array('link' => FALSE, 'account' => $entity, 'popup' => FALSE)) . " &lt;$entity->mail&gt;";
+      break;
+    default:
+      $item = ' no display handler ';
+  }
+  return $item;
+}
+
+/**
+ *
+ * @param type $entity_type
+ * @param type $entity
+ * @param type $key
+ * @param type $value
+ * @param type $options
+ * @return string
+ */
+function gofast_modal_ac_format_user_displayname_value($entity_type, $entity, $key, $value, $options) {
+  switch ($entity_type) {
+    case 'user':
+      $metadata = '<span class="labelize-metadata gofast_display_none" '
+              . 'data-type="' . $entity_type . '" '
+              . 'data-name="' . $value . '" '
+              . 'data-id="' . $entity->uid . '"/></span>';
+      $item = $metadata . theme('username', array('link' => FALSE, 'account' => $entity, 'popup' => FALSE));
+      break;
+    default:
+      $item = ' no display handler ';
+  }
+  return $item;
+}
+
+function gofast_modal_user_space_autocomplete($str) {
+  $str = trim($str);
+
+  if (empty($str) || strlen($str) < 3) {
+    // This prevents returning irrelevant results, though it should be handled
+    // clientside in order to avoid useless requests.
+    drupal_json_output(array());
+    exit;
+  }
+
+  $options_ac_user = array(
+    'format_key_callback' => 'gofast_modal_ac_format_send_email_key',
+    'format_value_callback' => 'gofast_modal_ac_format_send_email_value'
+  );
+
+  $options_ac_space = array(
+    'bundle' => array_keys(gofast_og_node_types()),
+    'fields' => array(),
+    'properties' => array(),
+    'key' => 'nid',
+    'value' => 'title',
+    'format_key_callback' => 'gofast_modal_ac_format_send_email_key',
+    'format_value_callback' => 'gofast_modal_ac_format_send_email_value'
+  );
+
+  $matches = gofast_ac_query($str, 'user', $options_ac_user);
+  $matches += gofast_ac_query($str, 'node', $options_ac_space);
+
+  // Highlighting string matches.
+  foreach ($matches as $key => &$value) {
+    $value = preg_replace(array('/[\n\r]+/', '/(<[^<>]*>)([^<>]*?)(' . preg_quote($str, '/') . ')/i'), array('', '$1$2<b>$3</b>'), $value);
+  }
+
+  drupal_json_output($matches);
+  exit;
+}
+/**
+ *
+ * @param type $str
+ * @param type $role
+ */
+function gofast_modal_user_by_role_autocomplete($str, $roles_filter = array()){
+  $str = trim($str);
+
+  if (empty($str) || strlen($str) < 2) {
+    // This prevents returning irrelevant results, though it should be handled
+    // clientside in order to avoid useless requests.
+    drupal_json_output(array());
+    exit;
+  }
+
+  $options_ac_user = array(
+    'format_key_callback' => 'gofast_modal_ac_format_send_email_key',
+    'format_value_callback' => 'gofast_modal_ac_format_user_displayname_value',
+    'roles_filter' => $roles_filter
+  );
+
+  $matches = gofast_ac_query($str, 'user', $options_ac_user);
+
+  // Highlighting string matches.
+  foreach ($matches as $key => &$value) {
+    $value = preg_replace(array('/[\n\r]+/', '/(<[^<>]*>)([^<>]*?)(' . preg_quote($str, '/') . ')/i'), array('', '$1$2<b>$3</b>'), $value);
+  }
+
+  drupal_json_output($matches);
+  exit;
+}
+
+
+function gofast_modal_user_userlist_space_autocomplete($str) {
+  $str = trim($str);
+
+  if (empty($str) || strlen($str) < 3) {
+    // This prevents returning irrelevant results, though it should be handled
+    // clientside in order to avoid useless requests.
+    drupal_json_output(array());
+    exit;
+  }
+
+  $options_ac_user = array(
+    'format_key_callback' => 'gofast_modal_ac_format_send_email_key',
+    'format_value_callback' => 'gofast_modal_ac_format_send_email_value'
+  );
+
+  $options_ac_space = array(
+    'bundle' => array_keys(gofast_og_node_types()),
+    'fields' => array(),
+    'properties' => array(),
+    'key' => 'nid',
+    'value' => 'title',
+    'format_key_callback' => 'gofast_modal_ac_format_send_email_key',
+    'format_value_callback' => 'gofast_modal_ac_format_send_email_value'
+  );
+
+  $options_ac_userlist = array(
+    'format_value_callback' => 'gofast_userlist_og_format_email_ac_value',
+    'format_key_callback' => 'gofast_userlist_og_format_email_ac_key',
+  );
+
+  $matches = gofast_ac_query($str, 'user', $options_ac_user);
+  $matches += gofast_ac_query($str, 'node', $options_ac_space);
+  $matches += gofast_ac_query($str, 'userlist', $options_ac_userlist);
+
+  // Highlighting string matches.
+  foreach ($matches as $key => &$value) {
+    $value = preg_replace(array('/[\n\r]+/', '/(<[^<>]*>)([^<>]*?)(' . preg_quote($str, '/') . ')/i'), array('', '$1$2<b>$3</b>'), $value);
+  }
+
+  drupal_json_output($matches);
+  exit;
+}
+
+/**
+ *
+ * @param type $str
+ * @param type $roles_filter
+ */
+function gofast_modal_user_userlist_autocomplete($str, $roles_filter = array()) {
+  $str = trim($str);
+
+  if (empty($str) || strlen($str) < 3) {
+    // This prevents returning irrelevant results, though it should be handled
+    // clientside in order to avoid useless requests.
+    drupal_json_output(array());
+    exit;
+  }
+
+  $options_ac_user = array(
+    'format_key_callback' => 'gofast_modal_ac_format_send_email_key',
+    'format_value_callback' => 'gofast_modal_ac_format_send_email_value',
+    'roles_filter' => $roles_filter
+  );
+
+  $options_ac_userlist = array(
+    'format_value_callback' => 'gofast_userlist_og_format_email_ac_value',
+    'format_key_callback' => 'gofast_userlist_og_format_email_ac_key',
+    'roles_filter' => $roles_filter
+  );
+
+  $matches = gofast_ac_query($str, 'user', $options_ac_user);
+  $matches += gofast_ac_query($str, 'userlist', $options_ac_userlist);
+
+  // Highlighting string matches.
+  foreach ($matches as $key => &$value) {
+    $value = preg_replace(array('/[\n\r]+/', '/(<[^<>]*>)([^<>]*?)(' . preg_quote($str, '/') . ')/i'), array('', '$1$2<b>$3</b>'), $value);
+  }
+
+  drupal_json_output($matches);
+  exit;
+}
+
+/**
+ *
+ * @param type $str
+ * @param type $filters
+ */
+function gofast_modal_node_content_autocomplete($str, $filters = array()){
+
+  $str = trim($str);
+  if (empty($str) || strlen($str) < 3) {
+    // This prevents returning irrelevant results, though it should be handled
+    // clientside in order to avoid useless requests.
+    drupal_json_output(array());
+    exit;
+  }
+
+  $bundle = array();
+  if(isset($filters['bundle'])){
+    $bundle = $filters['bundle'];
+  }
+
+  $options_ac_docs = array(
+    'bundle' => $bundle,
+    'fields' => array(),
+    'properties' => array(),
+    'key' => 'nid',
+    'value' => 'title',
+//    'format_key_callback' => 'gofast_modal_ac_format_documents_key',
+//    'format_value_callback' => 'gofast_modal_ac_format_documents_value'
+  );
+
+  $matches = gofast_ac_query($str, 'node', $options_ac_docs);
+
+  drupal_json_output($matches);
+  exit();
+}
+
+
+function gofast_modal_user_space_broadcast_autocomplete($str) {
+  $str = trim($str);
+
+  if (empty($str) || strlen($str) < 3) {
+    // This prevents returning irrelevant results, though it should be handled
+    // clientside in order to avoid useless requests.
+    drupal_json_output(array());
+    exit;
+  }
+
+  $options_ac_user = array(
+    'format_key_callback' => 'gofast_modal_ac_format_broadcast_key',
+    'format_value_callback' => 'gofast_modal_ac_format_broadcast_value'
+  );
+
+  $options_ac_space = array(
+    'bundle' => array_keys(gofast_og_node_types()),
+    'fields' => array(),
+    'properties' => array(),
+    'key' => 'nid',
+    'value' => 'title',
+    'format_key_callback' => 'gofast_modal_ac_format_send_email_key',
+    'format_value_callback' => 'gofast_modal_ac_format_send_email_value'
+  );
+
+  $matches = gofast_ac_query($str, 'user', $options_ac_user);
+  $matches += gofast_ac_query($str, 'node', $options_ac_space, true);
+
+  // Highlighting string matches.
+  foreach ($matches as $key => &$value) {
+    $value = preg_replace(array('/[\n\r]+/', '/(<[^<>]*>)([^<>]*?)(' . preg_quote($str, '/') . ')/i'), array('', '$1$2<b>$3</b>'), $value);
+  }
+
+  drupal_json_output($matches);
+  exit;
+}
+
+function gofast_modal_update_alfresco_file($js, $node) {
+  $form_id = "gofast_cmis_alfresco_file_form";
+  if (!$js) {
+    return drupal_get_form($form_id, $node);
+  }
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+        $node,
+      ),
+    ),
+    // 'title' => t('Comment'),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if (isset($form_state['is_different_extension']) && $form_state['is_different_extension'] === TRUE) {
+    $commands[] = gofast_command_toast_message(t('You can\'t upload a new version a file with a different format than original file', array(), array('context' => 'gofast')), 'error');
+    $commands[] = ctools_modal_command_dismiss();
+  } else {
+    if (isset($form_state['is_different_name']) && $form_state['is_different_name'] === TRUE ) {
+      $commands[] = gofast_command_toast_message(t('The new file name is different than original file. Be sure your are uploading the right file', array(), array('context' => 'gofast')), 'warning');
+      // When clicking on submit
+    }
+    if (isset($commands['#form_id'])) {
+      /*$comments_container_id = '#comments-container';
+      $wrapper_class = 'comment-wrapper';
+      $wrapper_id = $node->type == 'forum' ? 'forum-comments-wrapper' : 'forum-comments';
+      ctools_include('comment.admin', 'comment', '');
+      // Last node comment is not counted yet.
+      if ($node->comment_count === '0') {
+        $node->comment_count++;
+      }
+      variable_set('comment_default_per_page_' . $node->type, 9999999);
+      $comments = comment_node_page_additions($node);
+      $comment_render = drupal_render($comments);
+      variable_set('comment_default_per_page_' . $node->type, 1);
+      $commands[] = ajax_command_html($comments_container_id, $comment_render);
+
+      reset($comments['comments']);
+      $latest_comment_id = key($comments['comments']);
+      $commands[] = gofast_command_scrollToComment('#comment-' . $latest_comment_id);
+
+      $commands[] = ajax_command_html('#block-gofast-gofast-node-comments-tree', gofast_comments_tab($node));
+
+      $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+           jQuery('#alfresco_content').removeClass('alfresco_content_processed');
+         </script>");
+       *
+       */
+     $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+         Gofast.processAjax(window.location.pathname);
+     </script>"
+    );
+      $commands[] = ctools_modal_command_dismiss();
+
+      $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+    }
+
+  }
+  print ajax_render($commands);
+}
+
+function gofast_modal_form_i18n_node_select_translation_alter(&$form, &$form_state, $node, $translations) {
+  $node = $form_state['build_info']['args'][0];
+  $translations = $form_state['build_info']['args'][1];
+  $node_type = str_replace('_', '-', $node->type);
+  if (isset($form['translations']['language'])) {
+    foreach ($form['translations']['language'] as $key => $languages) {
+      //if (!isset($translations[$key])) {
+      $lang_icon = gofast_get_flag_icon_by_langcode($key);
+      $button_title = t('Add translation : ', array(), array('context' => 'gofast')) . t($languages['#value']);
+      $icon_add = '<i class="fa fa-plus" aria-hidden="true"></i>';
+      $link_text = $icon_add . '&nbsp;&nbsp;' . $lang_icon;
+      $link_href = '/node/add/' . $node_type . '?translation=' . $node->nid . '&target=' . $key;
+      $form['translations']['action_add'][$key] = array(
+        '#type' => 'container',
+        '#attributes' => array('class' => array('translation-action-add')),
+        '#states' => array(
+          'visible' => array(
+            ':input[id=edit-translations-node-' . $key . ']' => array('empty' => TRUE),
+          )
+        )
+      );
+      $form['translations']['action_add'][$key]['markup'] = array(
+        '#markup' => '<a href="' . $link_href . '" class="btn btn-default" data-language="' . $languages['#value'] . '" title="' . $button_title . '">' . $link_text . '</a>',
+      );
+      //}
+    }
+
+    //Moving the "create translation" buttons into the table
+    drupal_add_js('jQuery( document ).ready(function( $ ) {
+                    $("#edit-translations").find("tr").append("<td></td>");
+                    $(".translation-action-add").each(function(e) {
+                      var that = $(this);
+                      var cur_language = that.children("a").data("language");
+                      var language_td = that.siblings("table").find("td:contains("+cur_language+")");
+                      language_td.siblings(":last").html(that);
+                    });
+                  });', array('type' => 'inline', 'scope' => 'footer'));
+  }
+
+   unset($form['actions']['update']['#markup']);
+   $form['actions']['update']['#attributes'] = array('class' => array('btn-success'));
+
+}
+
+function gofast_modal_multi_archive($js){
+    $form_id = 'gofast_modal_form_confirm_multi_archive';
+
+    if (!$js) {
+      $form = drupal_get_form($form_id);
+      return $form;
+    }
+
+    ctools_include('modal');
+    ctools_include('ajax');
+
+    $form_state = array(
+      'ajax' => TRUE,
+      'build_info' => array(
+	'args' => array()
+      ),
+    );
+
+    $commands = ctools_modal_form_wrapper($form_id, $form_state);
+    if ($form_state['executed']) {
+      $commands[] = ctools_modal_command_dismiss();
+    }
+    print ajax_render($commands);
+}
+
+/**
+ * This function shows the form to select node translations.
+ * @param type $js
+ * @param type $node
+ * @return type
+ */
+function gofast_modal_node_manage_translations_form($js, $node) {
+  $form_id = 'i18n_node_select_translation';
+
+  if ($node->tnid) {
+    // Already part of a set, grab that set.
+    $tnid = $node->tnid;
+    $translations = translation_node_get_translations($node->tnid);
+  }
+  else {
+    // We have no translation source nid, this could be a new set, emulate that.
+    $tnid = $node->nid;
+    $translations = array($node->language => $node);
+  }
+
+  if (!$js) {
+    module_load_include('inc', 'i18n', 'i18n_node/i18n_node.pages');
+    $form = drupal_get_form($form_id, $node, $translations);
+    unset($form['translations']['#description']);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+  ctools_include('i18n_node.pages', 'i18n', 'i18n_node');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array($node, $translations),
+    ),
+    'title' => null
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+   if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_processAjax("/node/{$node->nid}");
+  }
+  else {
+    //Moving the "create translation" buttons into the table
+    $commands[] = ajax_command_html('#ctools-add-js', '<script type="text/javascript">
+          jQuery("#edit-translations").find("tr").append("<td></td>");
+          jQuery(".translation-action-add").each(function(e) {
+            var that = jQuery(this);
+            var cur_language = that.children("a").data("language");
+            var language_td = that.siblings("table").find("td:contains("+cur_language+")");
+            language_td.siblings(":last").html(that);
+          });
+          jQuery(".translation-action-add > .btn").click(function() {
+            Gofast.closeModal();
+          });
+       </script>');
+  }
+  print ajax_render($commands);
+}
+
+/**
+ * This function shows the form to manage node taxonomy.
+ * @param type $js
+ * @param type $node
+ * @return type
+ */
+function gofast_modal_manage_taxonomy_form($js) {
+  $form_id = 'gofast_taxonomy_manage_taxonomy_form';
+
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array()
+    ),
+    'title' => null
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+}
+
+/**
+ * This function shows the form to manage node locations.
+ * @param type $js
+ * @param type $node
+ * @return type
+ */
+function gofast_modal_add_locations_form($js) {
+  $form_id = 'gofast_taxonomy_add_locations_form';
+
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array(),
+    ),
+    'title' => t('Share/Add locations', array(), array('context' => 'gofast'))
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  $commands[] = ajax_command_html('#ctools-add-js',"<script type='text/javascript'>
+               modalContentResize();
+               </script>"
+  );
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+}
+
+/**
+ * This function shows the form to manage node locations.
+ * @param type $js
+ * @param type $node
+ * @return type
+ */
+function gofast_modal_manage_locations_form($js,$node) {
+  $form_id = 'gofast_taxonomy_manage_locations_form';
+
+  if (!$js) {
+    $form = drupal_get_form($form_id,$node);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array(
+        (int) $node->nid,
+      ),
+    ),
+    'title' => t('Share/Edit locations', array(), array('context' => 'gofast:gofast_views'))
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  $commands[] = ajax_command_html('#ctools-add-js',"<script type='text/javascript'>
+               modalContentResize();
+               </script>"
+  );
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+}
+
+function gofast_modal_show_locations_members($js,$node) {
+    $map_id_locations = array();
+    if ($node->type === 'alfresco_item') {
+        $node_locations_paths =array();
+         if (isset($node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE])) {
+           $node_locations_paths = array_map(function($element) {
+             return $element['value'];
+           }, $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE]);
+        }
+
+        foreach ($node_locations_paths as $node_location_path) {
+          $node_location_path = htmlspecialchars_decode($node_location_path);
+          if (!isset($map_id_locations[$node_location_path])) {
+            $item = gofast_cmis_item_get_by_path($node_location_path);
+            if(isset($item->properties['gofast:nid'])){
+              $item_nid = $item->properties['gofast:nid'];
+              $map_id_locations[$node_location_path] = $item_nid;
+            }
+            else {
+              $map_id_locations[$node_location_path] = $node_location_path;
+            }
+          }
+        }
+    }else{
+        $node_parents = gofast_og_get_parent($node);
+        foreach ($node_parents as $node_location_path) {
+            $map_id_locations[gofast_cmis_space_get_webdav_path($node_location_path)] = $node_location_path;
+        }
+    }
+    $selected_paths = array_flip($map_id_locations);
+    $all_members=array();
+    $all_members_names=array();
+    $roles=array();
+    //global $user;
+    //$user_logged_spaces = gofast_og_get_spaces_by_user($user);
+    //watchdog('Debug','User have access to '.print_r($user_logged_spaces,true));
+
+   // $root_space=gofast_og_get_root_spaces();
+    //watchdog('Debug','Root space '.print_r($root_space,true));
+
+    foreach($selected_paths as $nid => $pre_selected_location) {
+        $ignore=false;
+        if( !intval($nid)) {
+            $parts = explode('/', $pre_selected_location);
+            $nid = null;
+            while ($nid === null) {
+              array_pop($parts);
+              $nid = gofast_og_get_group_id_from_title_2(implode('/', $parts), TRUE);
+
+            }
+            /*if(in_array($nid,$root_space)){
+                $ignore=true;
+            }
+            if($nid != null){
+                $locked=true;
+                foreach($user_logged_spaces as $nid_space_user){
+                    if($nid_space_user == $nid ){
+                        $locked=false;
+                        break;
+                    }
+                }
+               if($locked){
+                    watchdog('Debug','User have no access to '.$nid);
+                }
+             }
+             */
+
+        }
+        if($nid !=null && !$ignore){
+            $space_members= gofast_og_get_members_userlist_included(node_load($nid),OG_STATE_ACTIVE,TRUE);
+            foreach($space_members as $member_type => $member_uid){
+                 $cleaned_path = reset(gofast_ztree_get_drupal_path_from_webdav_path(array($pre_selected_location)));
+                 $s=true;
+                 if(!array_key_exists($member_uid,$all_members)){
+                    $member=user_load($member_uid);
+                    if($member->status){
+                        $member->member_type=$member_type;
+                        $all_members[$member_uid]=$member;
+                        $all_members_names[$member_uid]=$member->ldap_user_sn[LANGUAGE_NONE][0]['value'].' '.$member->ldap_user_givenname[LANGUAGE_NONE][0]['value'];
+                    }
+                    else{
+                         $s=false;
+                    }
+                 }
+                 if($s){
+                    $roles[$member_uid][$cleaned_path]=reset(gofast_og_get_user_final_roles_for_space('node',$nid,$member_uid));
+                 }
+           }
+
+        }
+    }
+
+    //watchdog('debug',print_r($selected_paths,true));
+    // watchdog('debug',print_r($roles,true));
+    //watchdog('debug',print_r($all_members_names,true));
+    natcasesort($all_members_names);
+    $c=theme('node_locations_members',array('members'=>$all_members,'members_name'=>$all_members_names,'members_roles' => $roles));
+    if (!$js) {
+      return $c;
+    }
+    ctools_include('modal');
+    ctools_include('ajax');
+
+    $t=t('Access to ',array(),array('context'=>'gofast')).' '.$node->title;
+    $output = array();
+    $output[] = ctools_modal_command_display($t, $c);
+
+    print ajax_render($output);
+}
+
+
+function gofast_modal_manage_publications_form($js){
+  $form_id = 'gofast_cmis_manage_publications_form';
+
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array()
+    ),
+    'title' => t('Create publications', array(), array('context' => 'gofast'))
+  );
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  $commands[] = ajax_command_html('#ctools-add-js',"<script type='text/javascript'>
+               modalContentResize();
+               </script>"
+  );
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+}
+
+/**
+ * This function builds the form that allows to shares by mail more than one documents
+ * @param type $form
+ * @param type $form_state
+ * @param type $nid the node id to update
+ * @return type the form
+ */
+function gofast_modal_manage_mail_sharing_form($js){
+  $form_id = 'gofast_link_sharing_manage_mail_sharing_form';
+
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array()
+    ),
+    'title' => t('Share by email', array(), array('context' => 'gofast'))
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+}
+
+/**
+ * This function builds the form that allows to create a new major version for a node
+ * @param type $form
+ * @param type $form_state
+ * @param type $nid the node id to update
+ * @return type the form
+ */
+function gofast_modal_form_tag_major_version($form, &$form_state, $nid) {
+  $form['comment'] = array(
+    '#type' => "textarea",
+    '#cols' => 50,
+    "#title" => t("Comment", array(), array('context' => 'gofast')),
+    "#required" => FALSE,
+    '#attributes' => array('placeholder' => t('Add a comment', array(), array('context' => 'gofast')))
+  );
+
+  $form['nid'] = array(
+    '#type' => 'hidden',
+    '#value' => $nid,
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit', array(), array('context' => 'gofast')),
+    '#attributes' => array('class' => array('btn-success'))
+  );
+
+  return $form;
+}
+
+function gofast_modal_form_tag_major_version_submit($form, $form_state) {
+  $data = $form_state['values'];
+  $node_id = $data['nid'];
+  $comment_message = nl2br($data['comment']);
+
+  return gofast_cmis_tag_major_version(node_load($node_id), $comment_message);
+}
+
+function gofast_modal_node_tag_major_version_form($js, $node) {
+  $form_id = 'gofast_modal_form_tag_major_version';
+
+  if (!$js) {
+    return drupal_get_form($form_id, $node->nid);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array(
+        'nid' => $node->nid,
+      )
+    ),
+    'title' => null
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if (!empty($form_state['executed']) || $form_state['rebuild']) {
+    $commands = array();
+    // @todo: Uncomment once http://drupal.org/node/1587916 is fixed.
+    //if (is_array($form_state['redirect'])) {
+    //  list($path, $options) = $form_state['redirect'];
+    //  $commands[] = ctools_ajax_command_redirect($path, 0, $options);
+    //}
+    if (isset($_GET['destination'])) {
+      $commands[] = ctools_ajax_command_redirect($_GET['destination']);
+    }
+    else {
+      $comments_container_id = '#comments-container';
+      $wrapper_class = 'comment-wrapper';
+      $wrapper_id = $node->type == 'forum' ? 'forum-comments-wrapper' : 'forum-comments';
+      ctools_include('comment.admin', 'comment', '');
+      // Last node comment is not counted yet.
+      if ($node->comment_count === '0') {
+        $node->comment_count++;
+      }
+      variable_set('comment_default_per_page_' . $node->type, 9999999);
+      $comments = comment_node_page_additions($node);
+      $comment_render = drupal_render($comments);
+      variable_set('comment_default_per_page_' . $node->type, 9999999);
+      $commands[] = ajax_command_html($comments_container_id, $comment_render);
+
+      $commands[] = ajax_command_html('#block-gofast-gofast-node-comments-tree', gofast_comments_tab($node));
+      $commands[] = ajax_command_html('#block-last-version', " &nbsp;&nbsp; " . $node->field_current_version['und'][0]['value']);
+
+      $commands[] = ctools_modal_command_dismiss();
+
+      $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+    }
+  }
+  print ajax_render($commands);
+}
+
+/**
+ * Menu page callback - Pin content
+ */
+function gofast_modal_node_pin_content($js, $node) {
+  $form_id = 'gofast_modal_form_confirm_pin_content';
+  if (!$js) {
+    return drupal_get_form($form_id, $node);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+        'node' => $node,
+      )
+    ),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+  exit;
+}
+
+function gofast_modal_form_confirm_pin_content($form, &$form_state, $node) {
+  $form['nid'] = array('#type' => 'value', '#value' => $node->nid);
+
+  if($node->sticky){
+    $action = "unpin";
+    $explain = "This content will be unpinned and won't appear anymore at the top of the activity feed.";
+  }
+  else{
+    $action = 'pin';
+    $explain = "This content will be pinned at the top of the activity feed.";
+  }
+
+  $confirm_form = confirm_form(
+          $form,
+          t('Are you sure you want to '.$action.' this content ?', array(), array('context' => 'gofast')),
+          isset($_GET['destination']) ? $_GET['destination'] : 'node/' . $node->nid,
+          t($explain, array(), array('context' => 'gofast')),
+          t(ucfirst($action), array(), array('context' => 'gofast')),
+          t('Cancel', array(), array('context' => 'gofast'))
+  );
+  unset($confirm_form['actions']['cancel']);
+  return $confirm_form;
+}
+
+function gofast_modal_form_confirm_pin_content_submit($form, &$form_state) {
+  $data = $form_state['values'];
+  $node_id = $data['nid'];
+
+  if ($form_state['values']['confirm']) {
+    $node = node_load($node_id);
+    if($node->sticky){
+	if($node->type === 'blog'){
+	    db_update('node')
+		->fields(array('sticky' => 0))
+		->condition('nid', $node_id)
+		->execute();
+	    db_update('node')
+		->fields(array('changed' => time()))
+		->condition('nid', $node_id)
+		->execute();
+	    db_update('node_revision')
+		->fields(array('sticky' => 0))
+		->condition('nid', $node_id)
+		->execute();
+	    db_update('node_revision')
+		->fields(array('timestamp' => time()))
+		->condition('nid', $node_id)
+		->execute();
+	    cache_clear_all("field:node:$blog_id", 'cache_field');
+	}else{
+	    $node->sticky = 0;
+	    $ruid = $node->revision_uid;
+	    node_save($node);
+	    db_update('node_revision')
+		->fields(array('uid' => $ruid))
+		->condition('nid', $node->nid)
+		->execute();
+	    $commands[] = ajax_command_html(".pin-content", '<span class="fa fa-thumb-tack"></span>&nbsp;&nbsp;&nbsp;&nbsp;'.t('Pin this content', array(), array('context' => 'gofast')));
+	}
+	$commands[] = gofast_command_toast_message(t('This content has been unpinned. It won\'t stay on the top of the activity feed anymore.', array(), array('context' => 'gofast')), 'success');
+    }else{
+	if($node->type === 'blog'){
+	    db_update('node')
+		->fields(array('sticky' => 1))
+		->condition('nid', $node_id)
+		->execute();
+	    db_update('node')
+		->fields(array('changed' => time()))
+		->condition('nid', $node_id)
+		->execute();
+	    db_update('node_revision')
+		->fields(array('sticky' => 1))
+		->condition('nid', $node_id)
+		->execute();
+	    db_update('node_revision')
+		->fields(array('timestamp' => time()))
+		->condition('nid', $node_id)
+		->execute();
+	    cache_clear_all("field:node:$blog_id", 'cache_field');
+	}else{
+	    $node->sticky = 1;
+	    $node = gofast_prepare_node_save_technically($node);
+	    $ruid = $node->revision_uid;
+	    node_save($node);
+	    db_update('node_revision')
+	      ->fields(array('uid' => $ruid))
+	      ->condition('nid', $node->nid)
+	      ->execute();
+	    $commands[] = ajax_command_html(".pin-content", '<span class="fa fa-thumb-tack"></span>&nbsp;&nbsp;&nbsp;&nbsp;'.t('Unpin this content', array(), array('context' => 'gofast')));
+
+	}
+	$commands[] = gofast_command_toast_message(t('This content has been pinned. It will stay on the top of the activity feed.', array(), array('context' => 'gofast')), 'success');
+    }
+  }
+  $commands[] = ctools_modal_command_dismiss();
+  print ajax_render($commands);
+  exit;
+}
+
+/*
+ * Prevent updating the last modifier and the last changed timestamp while pinning/unpinning the node
+ */
+function gofast_modal_node_presave($node){
+  if(isset($node->original) && $node->original->sticky !== $node->sticky){ //We pinned / Unpinned the node
+    //Doesn't work!!
+
+    //$node->changed = $node->original->changed;
+    //$node->revision_timestamp = $node->original->revision_timestamp;
+    //usurp($node->original->revision_uid);
+  }
+}
+
+/*
+ * Once node is registered in database, we can get back to our current user
+ */
+function gofast_modal_node_update($node){
+  if($node->original->sticky !== $node->sticky){ //We pinned / Unpinned the node
+   //Doesn't work!!
+    //usurp(FALSE);
+  }
+}
+
+/**
+ * Menu page callback - delete node minor versions
+ */
+function gofast_modal_delete_minor_versions($js, $node) {
+  $form_id = 'gofast_modal_form_confirm_delete_minor_versions';
+  if (!$js) {
+    return drupal_get_form($form_id, $node);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+        'node' => $node,
+      )
+    ),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+}
+
+function gofast_modal_form_confirm_delete_minor_versions($form, &$form_state, $node) {
+  $form['nid'] = array('#type' => 'value', '#value' => $node->nid);
+
+  $confirm_form = confirm_form(
+          $form,
+          t('Are you sure you want to delete the minor versions of this node?', array(), array('context' => 'gofast')),
+          isset($_GET['destination']) ? $_GET['destination'] : 'node/' . $node->nid,
+          t('All the minor versions will be deleted. This action cannot be undone.', array(), array('context' => 'gofast')),
+          t('Delete', array(), array('context' => 'gofast')),
+          t('Cancel', array(), array('context' => 'gofast'))
+  );
+  unset($confirm_form['actions']['cancel']);
+  return $confirm_form;
+}
+
+function gofast_modal_form_confirm_delete_minor_versions_submit($form, &$form_state) {
+  $data = $form_state['values'];
+  $node_id = $data['nid'];
+
+  if ($form_state['values']['confirm']) {
+    $deleted = gofast_cmis_delete_minor_versions(node_load($node_id), false);
+    if ($deleted === 'deleted') {
+      // TODO : alert the user
+    }
+  }
+}
+
+function gofast_modal_preprocess_page(&$variables) {
+  ctools_include('modal');
+  ctools_include('ajax');
+  ctools_modal_add_js();
+
+  $path = drupal_get_path('module', 'gofast_modal');
+  drupal_add_js($path . '/gofast_modal.js', array('type' => 'file', 'group' => JS_THEME + 1));
+
+  gofast_modal_add_settings();
+}
+
+/**
+ * Menu page callback - Edit user account
+ */
+function gofast_modal_user_edit($js, $account, $category = 'account', $vid = null) {
+  drupal_set_title(check_plain($account->name));
+  ctools_include('user.pages', 'user', '');
+
+  $form_id = 'user_profile_form';
+  $form_state = array();
+
+  if (!$js) {
+    return drupal_get_form($form_id, $account);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state += array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array($account),
+    ),
+    'title' => null,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  // Handle if submit with errors
+  if (isset($commands[0])) {
+    $commands[0]['output'] = gofast_normalize_string_from_ajaxifying($commands[0]['output']);
+  }
+
+  //$return = menu_execute_active_handler('user/5/edit/uprofile');
+
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+    // reload page after submit form
+    $commands[] = ctools_ajax_command_reload();
+  }
+  if (empty($commands)) {
+    // If a form has been submitted, refresh content with submitted values.
+    if ($form_state['values']['submit'] == t('Save', array(), array('context' => 'gofast')) || $form_state['clicked_button']['#type'] === 'submit') {
+
+    }
+
+    // Dismiss the popup when
+    $commands[] = ctools_modal_command_dismiss();
+  }
+
+//  global $user;
+//  if ($user->uid !== '1') {
+//    $commands[] = ajax_command_html('#ctools-add-js',
+//      '<script type="text/javascript">
+//        $("#edit-name").attr("readonly", true);
+//      </script>'
+//    );
+//  }
+  print ajax_render($commands);
+}
+
+function gofast_modal_node_publication($js, $node) {
+  if (!gofast_cmis_node_is_published($node)) {
+    $form_id = 'gofast_cmis_node_publish_form';
+    $form_title = t("Publish this document", array(), array('context' => 'gofast'));
+  }
+  else {
+    $form_id = 'gofast_cmis_node_republish_form';
+    $form_title = t("Publish this document again", array(), array('context' => 'gofast'));
+  }
+
+  if (!$js) {
+    return drupal_get_form($form_id, $node);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array($node)
+    ),
+    'title' => $form_title
+  );
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  $commands[] = ajax_command_html('#ctools-add-js',"<script type='text/javascript'>
+               modalContentResize();
+               </script>"
+  );
+
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = ctools_ajax_command_redirect($form_state['redirect'][0]);
+  }
+
+  print ajax_render($commands);
+}
+
+function gofast_modal_node_publication_delete($js, $node) {
+  $form_id = 'gofast_cmis_publication_delete_form';
+
+  if (!$js) {
+    return drupal_get_form($form_id, $node);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array($node)
+    ),
+    'title' => t('Delete the publication', array(), array('context' => 'gofast'))
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = ctools_ajax_command_redirect($form_state['redirect'][0]);
+  }
+
+  print ajax_render($commands);
+}
+
+function gofast_modal_ac_format_space_key($entity_type, $entity, $key, $value, $options) {
+  switch ($entity_type) {
+    case 'node':
+      if (in_array($entity->type, array_keys(gofast_og_node_types()))) {
+        $item = theme('node_title', array('link' => FALSE, 'node' => $entity));
+      }
+      break;
+    case 'user':
+      $item = "{$value} <{$key}>";
+      break;
+    default:
+      $item = ' no display handler ';
+  }
+  return $item;
+}
+
+function gofast_modal_ac_format_space_value($entity_type, $entity, $key, $value, $options) {
+  switch ($entity_type) {
+    case 'node':
+      $metadata = '<span class="labelize-metadata gofast_display_none" '
+              . 'data-type="' . $entity_type . '" '
+              . 'data-name="' . $value . '" '
+              . 'data-id="' . $entity->nid . '"/></span>';
+      $item = $metadata . theme('node_title', array('link' => FALSE, 'node' => $entity));
+      break;
+    case 'user':
+      $metadata = '<span class="labelize-metadata gofast_display_none" '
+              . 'data-type="' . $entity_type . '" '
+              . 'data-name="' . $value . '" '
+              . 'data-address="' . $entity->mail . '" '
+              . 'data-id="' . $entity->uid . '"/></span>';
+      $item = $metadata . theme('username', array('link' => FALSE, 'account' => $entity, 'popup' => FALSE));
+      break;
+    default:
+      $item = ' no display handler ';
+  }
+  return $item;
+}
+
+function gofast_modal_ac_format_documents_key($entity_type, $entity, $key, $value, $options) {
+  switch ($entity_type) {
+    case 'node':
+        $item = theme('node_title', array('link' => FALSE, 'node' => $entity));
+      break;
+    case 'user':
+      $item = "{$value} <{$key}>";
+      break;
+    default:
+      $item = ' no display handler ';
+  }
+  return $item;
+}
+
+function gofast_modal_ac_format_documents_value($entity_type, $entity, $key, $value, $options) {
+  switch ($entity_type) {
+    case 'node':
+      $metadata = '<span class="labelize-metadata gofast_display_none" '
+              . 'data-type="' . $entity_type . '" '
+              . 'data-name="' . $value . '" '
+              . 'data-document="1" '
+              . 'data-id="' . $entity->nid . '"/></span>';
+      $item = $metadata . theme('node_title', array('link' => FALSE, 'node' => $entity));
+      break;
+    case 'user':
+      $metadata = '<span class="labelize-metadata gofast_display_none" '
+              . 'data-type="' . $entity_type . '" '
+              . 'data-name="' . $value . '" '
+              . 'data-address="' . $entity->mail . '" '
+              . 'data-id="' . $entity->uid . '"/></span>';
+      $item = $metadata . theme('username', array('link' => FALSE, 'account' => $entity, 'popup' => FALSE));
+      break;
+    default:
+      $item = ' no display handler ';
+  }
+  return $item;
+}
+
+function gofast_modal_space_autocomplete($str) {
+  $str = trim($str);
+
+  if (empty($str) || strlen($str) < 2) {
+    // This prevents returning irrelevant results, though it should be handled
+    // clientside in order to avoid useless requests.
+    drupal_json_output(array());
+    exit;
+  }
+
+  $options_ac_space = array(
+    'bundle' => array_keys(gofast_og_node_types()),
+    'fields' => array(),
+    'properties' => array(),
+    'key' => 'nid',
+    'value' => 'title',
+    'format_key_callback' => 'gofast_modal_ac_format_space_key',
+    'format_value_callback' => 'gofast_modal_ac_format_space_value'
+  );
+
+  $matches = gofast_ac_query($str, 'node', $options_ac_space);
+
+  // Highlighting string matches.
+  foreach ($matches as $key => &$value) {
+    $value = preg_replace(array('/[\n\r]+/', '/(<[^<>]*>)([^<>]*?)(' . preg_quote($str, '/') . ')/i'), array('', '$1$2<b>$3</b>'), $value);
+  }
+
+  drupal_json_output($matches);
+  exit;
+}
+
+function gofast_modal_user_autocomplete($str) {
+  $str = trim($str);
+
+  if (empty($str) || strlen($str) < 2) {
+    // This prevents returning irrelevant results, though it should be handled
+    // clientside in order to avoid useless requests.
+    drupal_json_output(array());
+    exit;
+  }
+
+  $options_ac_user = array(
+    'format_key_callback' => 'gofast_modal_ac_format_send_email_key',
+    'format_value_callback' => 'gofast_modal_ac_format_send_email_value'
+  );
+
+  $matches = gofast_ac_query($str, 'user', $options_ac_user);
+
+  // Highlighting string matches.
+  foreach ($matches as $key => &$value) {
+    $value = preg_replace(array('/[\n\r]+/', '/(<[^<>]*>)([^<>]*?)(' . preg_quote($str, '/') . ')/i'), array('', '$1$2<b>$3</b>'), $value);
+  }
+
+  drupal_json_output($matches);
+  exit;
+}
+
+/**
+ * Alter the javascript structure that describes the flag operation.
+ *
+ * @param array $info
+ *   The info array before it is returned from flag_build_javascript_info().
+ * @param flag_flag $flag
+ *   The full flag object.
+ *
+ * @see flag_build_javascript_info()
+ */
+function gofast_modal_flag_javascript_info_alter(&$info, $flag) {
+  $commands = array();
+  // If the message has been set in the administrative screen for $flag
+  // See https://gofast3.ceo-vision.com/admin/structure/flags/manage/ to add
+  // a "Flagged message" or "Unflagged message".
+  $flag_message = isset($flag->flag_message) ? t($flag->flag_message, array(), array('context'=> 'gofast')) : t('This content has been added to %flag', array('%flag' => $flag->name), array('context' => 'gofast'));
+  $unflag_message = isset($flag->unflag_message) ? t($flag->unflag_message, array(), array('context'=> 'gofast')) : t('This content has been removed from %flag', array('%flag' => $flag->name), array('context' => 'gofast'));
+  $commands[] = gofast_command_toast_message($flag->is_flagged($info['contentId']) ? $flag_message : $unflag_message, 'success');
+  $commands[] = ajax_command_invoke('#gofast_view-gofast_flag_bookmarks-gofast_flag_bookmarks', 'removeClass', array("gofast-block-processed"));
+  $commands[] = gofast_command_callback("Gofast.removeBookmarkDromDashboard", array($info['contentId']));
+  $info['ajax_data'] = $commands;
+}
+
+function gofast_modal_riot_add_room($js, $node){
+  $form_id = 'gofast_modal_form_confirm_add_room';
+  if (!$js) {
+    return drupal_get_form($form_id, $node);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+        'node' => $node,
+      )
+    ),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_processAjax("/node/{$node->nid}");
+  }
+  print ajax_render($commands);
+}
+
+function gofast_modal_form_confirm_add_room($form, &$form_state, $node) {
+  $form['nid'] = array('#type' => 'value', '#value' => $node->nid);
+
+  $confirm_form = confirm_form(
+          $form,
+          t('Are you sure you want to create Chat room for this space?', array(), array('context' => 'gofast')),
+          isset($_GET['destination']) ? $_GET['destination'] : 'node/' . $node->nid
+
+  );
+  $confirm_form['actions']['submit']['#attributes'] = array('class' => array('btn-success'));
+  unset($confirm_form['actions']['cancel']);
+  return $confirm_form;
+}
+
+function gofast_modal_form_confirm_add_room_submit($form, &$form_state) {
+  $node_id = $form_state['values']['nid'];
+
+  if ($form_state['values']['confirm']) {
+    // Create room
+    $room_id = gofast_riot_creatRoomRiot($node_id);
+
+    if ($room_id) {
+      // Invite members
+      $node = node_load($node_id);
+      $og_members = gofast_og_get_members_userlist_included($node);
+      gofast_riot_UpdateUserRiotRoom('invite', $node, NULL, TRUE, $og_members);
+      drupal_set_message(t('Room created successfully', array(), array('context' => 'gofast')), 'status');
+    }
+    else {
+      drupal_set_message(t('The room could not be created', array(), array('context' => 'gofast')), 'error');
+    }
+  }
+}
+
+
+function gofast_modal_riot_delete_room($js, $node){
+  $form_id = 'gofast_modal_form_confirm_delete_room';
+  if (!$js) {
+    return drupal_get_form($form_id, $node);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+        'node' => $node,
+      )
+    ),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_processAjax("/node/{$node->nid}");
+  }
+  print ajax_render($commands);
+}
+
+function gofast_modal_form_confirm_delete_room($form, &$form_state, $node) {
+  $form['nid'] = array('#type' => 'value', '#value' => $node->nid);
+
+  $confirm_form = confirm_form(
+          $form,
+          t('Are you sure you want to delete Chat room from this space?', array(), array('context' => 'gofast')),
+          isset($_GET['destination']) ? $_GET['destination'] : 'node/' . $node->nid
+
+  );
+  $confirm_form['actions']['submit']['#attributes'] = array('class' => array('btn-success'));
+  unset($confirm_form['actions']['cancel']);
+  return $confirm_form;
+}
+
+function gofast_modal_form_confirm_delete_room_submit($form, &$form_state) {
+  $node_id = $form_state['values']['nid'];
+
+  if ($form_state['values']['confirm']) {
+    watchdog("debug delete room", $node_id);
+    // Call hook_node_delete to empty the room
+    $node = node_load($node_id);
+    gofast_riot_node_delete($node);
+    // Remove room association
+    $node->field_riot_identifier = array();
+    node_save($node);
+  }
+}
+
+function gofast_modal_archive($js, $node) {
+  $form_id = 'gofast_modal_form_confirm_archive';
+  if (!$js) {
+    return drupal_get_form($form_id, $node);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+        'node' => $node,
+      )
+    ),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_processAjax("/node/{$node->nid}");
+  }
+  print ajax_render($commands);
+}
+
+function gofast_modal_form_confirm_archive($form, &$form_state, $node) {
+  $form['nid'] = array('#type' => 'value', '#value' => $node->nid);
+
+  $confirm_form = confirm_form(
+          $form,
+          t('Are you sure you want to archive this content?', array(), array('context' => 'gofast')),
+          isset($_GET['destination']) ? $_GET['destination'] : 'node/' . $node->nid,
+          t('All the minor versions will be deleted. This action cannot be undone.', array(), array('context' => 'gofast')),
+          t('Archive content', array(), array('context' => 'gofast'))
+  );
+  $confirm_form['actions']['submit']['#attributes'] = array('class' => array('btn-success'));
+  unset($confirm_form['actions']['cancel']);
+  return $confirm_form;
+}
+
+function gofast_modal_form_confirm_archive_submit($form, &$form_state) {
+  $node_id = $form_state['values']['nid'];
+
+  if ($form_state['values']['confirm']) {
+    gofast_cmis_node_archive(node_load($node_id));
+  }
+}
+
+function gofast_modal_form_confirm_multi_archive($form, &$form_state) {
+    $selected_items_json = array();
+    global $user;
+
+    // Extract a variable set in gofast_ajax_file_browser.js to get all paths selected when you click on "manage publications"
+    if(variable_get("ithit_bulk_".$user->uid, NULL)){
+	$selected_items_json = json_decode(rawurldecode(variable_get("ithit_bulk_".$user->uid, NULL)));
+	variable_del("ithit_bulk_".$user->uid);
+    }
+    // Extract a variable set in gofast_ajax_file_browser.js to get all paths selected when you click on "manage publications" in the cart
+    if(variable_get("ithit_bulk_cart_".$user->uid, NULL)){
+
+	//Get all nid node in the cart
+	$selected_items_json = json_decode(rawurldecode(variable_get("ithit_bulk_cart_".$user->uid, NULL)));
+	$nid_cart = array();
+	$title_cart = array();
+	// Reach all nid and transform it to a path (available with folders)
+	foreach($selected_items_json as $select){
+	    $node = node_load($select->url);
+	    $paths = $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE];
+	    foreach($paths as $path){
+		array_push($nid_cart, $path['value'] . '/' . $node->title);
+		array_push($title_cart,$node->title);
+	    }
+	}
+	foreach($nid_cart as $key=>$path_cart){
+		$selected_items_json[$key]->url = '/alfresco/webdav' . $path_cart;
+	    }
+	variable_del("ithit_bulk_cart_".$user->uid);
+    }
+
+
+    /*if (isset($_COOKIE['ithit_bulk'])) {
+      $selected_items_json = json_decode($_COOKIE['ithit_bulk']);
+    }*/
+
+
+    // Sorting the items received in parameter (Folders first, then Resource)
+    usort($selected_items_json, function($a, $b) {
+      return $a->type > $b->type;
+    });
+
+    $items_by_type = array();
+    foreach ($selected_items_json as $selected_item_type) {
+      $items_by_type[$selected_item_type->type][] = $selected_item_type->url;
+    }
+
+    $selected_nids = array();
+    foreach ($items_by_type as $type => $items) {
+	foreach ($items as $item_path) {
+          //Force replication of this content if it's not yet replicated
+          $_GET['href'] = $item_path;
+          gofast_cmis_replicate(FALSE);
+
+	  $alfresco_path = str_replace("/alfresco/webdav", "", $item_path);
+	  $item = gofast_cmis_item_get_by_path($alfresco_path);
+	  if (isset($item->id)) {
+	      if(isset($item->properties['gofast:nid'])){
+		  if($item->properties['gofast:nid'] == 0){
+		    $selected_nids[rand(-9999999, -1)] = $alfresco_path;
+		  }else{
+		    $selected_nids[$item->properties['gofast:nid']] = $alfresco_path;
+		  }
+	      }else{
+		  if(gofast_ajax_file_browser_get_nid_from_reference($item->properties['alfcmis:nodeRef']) == 0){
+		    $selected_nids[rand(-9999999, -1)] = $alfresco_path;
+		  }else{
+		    $selected_nids[gofast_ajax_file_browser_get_nid_from_reference($item->properties['alfcmis:nodeRef'])] = $alfresco_path;
+		  }
+	      }
+	  }
+	}
+    }
+    $confirm_form = confirm_form(
+          $form,
+          t('Are you sure you want to archive this content?', array(), array('context' => 'gofast')),
+          isset($_GET['destination']) ? $_GET['destination'] : 'node/' . $node->nid,
+          t('All the minor versions will be deleted. This action cannot be undone.', array(), array('context' => 'gofast')),
+          t('Archive', array(), array('context' => 'gofast:ajax_file_browser'))
+    );
+    $confirm_form['selected_nids'] = array(
+        '#type' => 'textfield',
+        '#default_value' => json_encode(array_keys($selected_nids)),
+        '#maxlength' => "99999"
+    );
+    $confirm_form['selected_nids']['#attributes']['class'][] = "gofast_display_none";
+    $confirm_form['actions']['submit']['#attributes'] = array('class' => array('btn-success'));
+    unset($confirm_form['actions']['cancel']);
+    return $confirm_form;
+}
+
+function gofast_modal_form_confirm_multi_archive_submit(&$form, &$form_state) {
+    $nodes_id = json_decode($form_state['input']['selected_nids']);
+    if ($form_state['values']['confirm']) {
+      ## archive all nodes
+      foreach($nodes_id as $nid){
+          if(gofast_get_content_state_archived(node_load($nid)) !== 1 ){
+              gofast_cmis_node_archive(node_load($nid));
+              if(module_exists('gofast_archive_sorting_room')){
+                gofast_archive_sorting_room_multifilling_to_pre_transfer_room(node_load($nid));
+              }
+          }
+      }
+    }
+}
+
+function gofast_modal_unarchive($js, $node) {
+  $form_id = 'gofast_modal_form_confirm_unarchive';
+  if (!$js) {
+    return drupal_get_form($form_id, $node);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+        'node' => $node,
+      )
+    ),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_processAjax("/node/{$node->nid}");
+  }
+  print ajax_render($commands);
+}
+
+function gofast_modal_form_confirm_unarchive($form, &$form_state, $node) {
+  $form['nid'] = array('#type' => 'value', '#value' => $node->nid);
+  $confirm_form = confirm_form(
+          $form, t('Are you sure you want to unarchive this content?', array(), array('context' => 'gofast')), isset($_GET['destination']) ? $_GET['destination'] : 'node/' . $node->nid, t('The content will be unarchived.', array(), array('context' => 'gofast')), t('Unarchive', array(), array('context' => 'gofast'))
+  );
+  $confirm_form['actions']['submit']['#attributes'] = array('class' => array('btn-success'));
+  unset($confirm_form['actions']['cancel']);
+  return $confirm_form;
+}
+
+function gofast_modal_form_confirm_unarchive_submit($form, &$form_state) {
+  $node_id = $form_state['values']['nid'];
+
+  if ($form_state['values']['confirm']) {
+    gofast_cmis_node_unarchive(node_load($node_id));
+  }
+}
+
+
+/*
+ * function call to archive a space
+ * This function first check the permission, then if the user is able to archive the space receive in param, archive each document,
+ * then put the field field_archive to 1 on the node
+ */
+function gofast_modal_archive_group_modal($js,$node){
+    if(!og_user_access("node", $node->nid, 'archive space', NULL , FALSE , TRUE)){
+      return;
+  }
+  $form_id = 'gofast_modal_archive_form';
+
+  if (!$js) {
+    return drupal_get_form($form_id, $node);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array($node)
+    ),
+    'title' => t('Archive the space', array(), array('context' => 'gofast'))
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if ($form_state['executed']) {
+    //If the form is validated, the real commands are sent from the form submit
+    $commands[] = ctools_modal_command_dismiss();
+  }
+
+  print ajax_render($commands);
+}
+
+/**
+ * This is the form that allow to archive a space
+ * @param type $form
+ * @param array $form_state
+ * @return array the form
+ */
+function gofast_modal_archive_form($form, &$form_state) {
+  $node = isset($form_state['build_info']['args'][0]->nid) ? $form_state['build_info']['args'][0] : FALSE;
+
+  // These two submit handlers unpublish then remove link between node and publication
+  $form['#submit'] = array(
+    'gofast_modal_archive_form_submit'
+  );
+
+  $confirm_form = confirm_form(
+          $form,
+          t('Archive', array(), array('context' => 'gofast:ajax_file_browser')) . ' '. $node->title,
+          isset($_GET['destination']) ? $_GET['destination'] : 'node/' . $node->nid,
+          t('Are you sure you want to archive the space %title?', array('%title' => $node->title), array('context' => 'gofast')),
+          t('Archive content', array(), array('context' => 'gofast'))
+  );
+  $confirm_form['actions']['submit']['#attributes'] = array('class' => array('btn-success'));
+  unset($confirm_form['actions']['cancel']);
+
+  return  $confirm_form;
+}
+
+function gofast_modal_archive_form_submit($form, &$form_state) {
+  $node = $form_state['build_info']['args'][0];
+  if (isset($node->nid)) {
+        //Launch async archiving process (GOFAST-5256)
+        $operation_state = array(
+            'space_node' => $node,
+            'step' => "1_1"
+        );
+        variable_set("archiving_space_" . $node->nid, $operation_state);
+
+        //Prepare the commands to send to the browser
+        $commands = array();
+        $commands[] = ctools_modal_command_display(t("Archiving your space", array(), array('context' => 'gofast:gofast_og')), theme("gofast_og_archiving_space", $operation_state));
+
+        print ajax_render($commands);
+
+        //Kill the apache session and release the loading page to the user
+        fastcgi_finish_request();
+
+        //Process the operation
+        set_time_limit(0);
+        gofast_archive_space($node);
+  }
+}
+
+
+
+/*
+ * function call to archive a space
+ * This function first check the permission, then if the user is able to archive the space receive in param, archive each document,
+ * then put the field field_archive to 1 on the node
+ */
+function gofast_modal_unarchive_group_modal($js,$node){
+  if(!og_user_access("node", $node->nid, 'archive space', NULL , FALSE , TRUE)){
+      return;
+  }
+  $form_id = 'gofast_modal_unarchive_form';
+
+  if (!$js) {
+    return drupal_get_form($form_id, $node);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array($node)
+    ),
+    'title' => t('Unarchive the space', array(), array('context' => 'gofast'))
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if ($form_state['executed']) {
+    //If the form is validated, the real commands are sent from the form submit
+    $commands[] = ctools_modal_command_dismiss();
+  }
+
+  print ajax_render($commands);
+}
+
+/**
+ * This is the form that allow to archive a space
+ * @param type $form
+ * @param array $form_state
+ * @return array the form
+ */
+function gofast_modal_unarchive_form($form, &$form_state) {
+  $node = isset($form_state['build_info']['args'][0]->nid) ? $form_state['build_info']['args'][0] : FALSE;
+
+  // These two submit handlers unpublish then remove link between node and publication
+  $form['#submit'] = array(
+    'gofast_modal_unarchive_form_submit'
+  );
+
+  return confirm_form(
+          $form,
+          t('Unarchive', array(), array('context' => 'gofast')) . ' '. $node->title,
+          isset($_GET['destination']) ? $_GET['destination'] : 'node/' . $node->nid,
+          t('Are you sure you want to unarchive the space %title?', array('%title' => $node->title), array('context' => 'gofast')),
+          t('Unarchive', array(), array('context' => 'gofast'))
+  );
+}
+
+function gofast_modal_unarchive_form_submit($form, &$form_state) {
+  $node = $form_state['build_info']['args'][0];
+  if (isset($node->nid)) {
+        //Launch async unarchiving process (GOFAST-5256)
+        $operation_state = array(
+            'space_node' => $node,
+            'step' => "1_1"
+        );
+        variable_set("unarchiving_space_" . $node->nid, $operation_state);
+
+        //Prepare the commands to send to the browser
+        $commands = array();
+        $commands[] = ctools_modal_command_display(t("Unarchiving your space", array(), array('context' => 'gofast:gofast_og')), theme("gofast_og_unarchiving_space", $operation_state));
+
+        print ajax_render($commands);
+
+        //Kill the apache session and release the loading page to the user
+        fastcgi_finish_request();
+
+        //Process the operation
+        set_time_limit(0);
+        gofast_unarchive_space($node);
+  }
+  return TRUE;
+}
+/*
+ * Callback function for the Displaying help page
+ */
+function gofast_modal_display_carousel($js = NULL) {
+
+  global $base_url;
+  global $user;
+
+  //Prepare the carousel
+  $element = array();
+  $items = array();
+
+  //Retrieve the version information and the associated files
+  $name = variable_get("gofast_carousel_name", "") . "_" . strtoupper($user->language);
+  $folder_path = drupal_get_path('module', 'gofast') . "/img/carousel/";
+  $files = scandir($folder_path . $name);
+
+  unset($files[0]);
+  unset($files[1]);
+
+  foreach($files as $file){
+      $items[] = array(
+        'slide'   => '<img style="height:600px !important;" src="' . $base_url . '/sites/all/modules/gofast/img/carousel/' . $name . '/' . $file . '" />',
+          'caption' => array(
+              'title' => file_get_contents($folder_path . $name . "_title/" . $file . ".html"),
+              'data' => file_get_contents($folder_path . $name . "_data/" . $file . ".html"),
+          ),
+      );
+  }
+    $optionset = slick_optionset_load($name);
+    $options = $optionset->options['settings'];
+    $settings = array(
+      'optionset' => $name,
+      'media_switch' => 'colorbox-switch',
+      'skin' => 'boxed-carousel',
+    );
+
+  // Build the slick.
+  $element = slick_build($items, $options, $settings);
+
+  // Render the $element, such as found normally at a .tpl file.
+  $popup_content = render($element);
+
+  //Adding necessary libraries to work with modal windows
+  ctools_include('modal');
+  ctools_include('ajax');
+  $output = array();
+  $output[] = ctools_modal_command_display(t('New features and improvements', array(), array('context' => 'gofast')), $popup_content);
+
+  //Outputting the formed popup in the browser
+  print ajax_render($output);
+  drupal_exit();
+}
+/*
+ * Callback function for the Displaying versions page
+ */
+function gofast_modal_display_versions ($js = NULL) {
+  $popup_content = file_get_contents('/var/www/d7/scripts/versions-script_output.txt');
+  $versRiot = file_get_contents('/var/www/d7/sites/all/libraries/riot/version');
+  $versRiot = str_replace("\n", "", $versRiot);
+
+  //Retrieving gofast-comm data
+  global $conf;
+  $domain = $conf['gofast-comm_domain'];
+  if (!module_exists('gofast_community')) {
+      $ch = curl_init();
+      curl_setopt($ch, CURLOPT_URL, 'https://' . $domain . '/versions/');
+      curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+      curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+      curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+      $buffer = curl_exec($ch);
+      if ($buffer != ''){
+          //Formatting comm versions (to improve)
+          $buffer = str_replace('Ejabberd : ', 'Ejabberd:                 ', $buffer);
+          $buffer = str_replace('Jitsi WEB: : ', 'Jitsi WEB:                ', $buffer);
+          $buffer = str_replace('Jitsi config : ', 'Jitsi config:             ', $buffer);
+          $buffer = str_replace('Jitsi tokens: : ', 'Jitsi tokens:             ', $buffer);
+          $buffer = str_replace('Jicofo : ', 'Jicofo:                   ', $buffer);
+          $buffer = str_replace('Videobridge : ', 'Videobridge:              ', $buffer);
+          $buffer = str_replace('Onlyoffice : ', 'Onlyoffice:               ', $buffer);
+          $buffer = str_replace('CentOS : ', 'CentOS:                   ', $buffer);
+          $buffer = str_replace('Prosody : ', 'Prosody:                  ', $buffer);
+          $buffer .= 'Element/Riot:             ' . $versRiot . '  	  Free licence Apache License 2.0';
+
+          $buffer = t("\nThe following components are installed in the GoFAST communication server:\n", array(), array('context' => 'gofast')).$buffer;
+        }
+  }
+
+  $popup_content = '<PRE>' . $popup_content . $buffer. '</PRE>';
+  if (!$js) {
+	return $popup_content;
+  }
+  //Adding necessary libraries to work with modal windows
+  ctools_include('modal');
+  ctools_include('ajax');
+  $output = array();
+  $output[] = ctools_modal_command_display(t('Installed components', array(), array('context' => 'gofast')), $popup_content);
+
+  //Outputting the formed popup in the browser
+  print ajax_render($output);
+  drupal_exit();
+}
+
+function gofast_modal_edit_forum($js, $node) {
+  drupal_get_messages();
+  if (!$js) {
+    return drupal_goto('node/' . $node->nid . '/edit');
+  }
+//  $comment = db_fetch_object(db_query('SELECT c.*, u.uid, u.name AS registered_name, u.data FROM {comments} c INNER JOIN {users} u ON c.uid = u.uid WHERE c.cid = %d', $cid));
+//  $comment = drupal_unpack($comment);
+//  $comment->name = $comment->uid ? $comment->registered_name : $comment->name;
+
+  if (node_access('update', $node)) {
+    ctools_include('modal');
+    ctools_include('ajax');
+
+    $form_state = array(
+      'build_info' => array(
+        'args' => array(
+          (object) $node,
+        ),
+      ),
+      // 'title' => t('Comment'),
+      'modal' => TRUE,
+      'ajax' => TRUE,
+      're_render' => FALSE,
+      'no_redirect' => TRUE,
+    );
+
+    // Should we show the reply box?
+      $commands = drupal_build_form('forum_node_form', $form_state);
+
+      // Remove output bellow the comment.
+      //unset($commands['comment_output_below']);
+    if (!$form_state['executed'] || $form_state['rebuild']) {
+      //$commands = ctools_modal_form_render($form_state, $commands);
+      $commands = ctools_modal_form_wrapper('forum_node_form', $form_state);
+    }
+    else {
+        $comments_container_id = '#comments-container';
+        $wrapper_class = 'comment-wrapper';
+        $wrapper_id = $node->type == 'forum' ? 'forum-comments-wrapper' : 'forum-comments';
+        ctools_include('comment.admin', 'comment', '');
+        $node_view = node_view($node);
+        variable_set('comment_default_per_page_' . $node->type, 9999999);
+        $node_view['comments'] = comment_node_page_additions($node);
+        $comment_render = drupal_render($node_view['comments']);
+        variable_set('comment_default_per_page_' . $node->type, 1);
+        $commands[] = ajax_command_html($comments_container_id, $comment_render);
+
+        $commands[] = ajax_command_html('#block-gofast-gofast-node-comments-tree', gofast_comments_tab($node));
+
+        $commands[] = gofast_command_toast_message(t('Your document was modified', array(), array('context' => 'gofast')), 'info');
+        $commands[] = gofast_command_processAjax('/activity');
+        $commands[] = ctools_modal_command_dismiss();
+
+        $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+    }
+    $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+        var delayInMilliseconds = 500;
+        setTimeout(function() {
+           modalContentResize();
+        }, delayInMilliseconds);
+     </script>");
+
+    print ajax_render($commands);
+  }
+  else {
+    drupal_access_denied();
+  }
+}
+
+/**
+ * This function builds the form that allows to join a space room
+ * @return the form
+ */
+function gofast_modal_join_space_room($js, $nid = NULL){
+  $form_id = 'gofast_chat_join_space_room_form';
+
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array()
+    ),
+    'title' => t('Join a space room', array(), array('context' => 'gofast:gofast_chat'))
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+}
+
+/**
+ * This function builds the form that allows to start a conversation
+ * @return the form
+ */
+function gofast_modal_start_conversation($js){
+  $form_id = 'gofast_chat_start_conversation_form';
+
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array()
+    ),
+    'title' => t('Add a contact', array(), array('context' => 'gofast:gofast_chat'))
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+}
+
+function gofast_modal_move_space($js, $space){
+  $form_id = 'gofast_og_move_space_form';
+
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array($space)
+    ),
+    'title' => t('Move this space', array(), array('context' => 'gofast'))
+  );
+
+  $_POST['allow_display_locations'] = true;
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  if ($form_state['executed']) {
+    //If the form is validated, the real commands are sent from the form submit
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+}
+/**
+ * This function builds the form that allows to manage relations
+ * @return the form
+ */
+function gofast_modal_manage_relations($js){
+  if (!$js) {
+      drupal_goto("/");
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $commands[] = ctools_modal_command_display(t('Manage my relations', array(), array('context' => 'gofast:gofast_chat')), gofast_chat_manage_relations());
+  print ajax_render($commands);
+}
+
+function gofast_modal_manage_main_orga($js, $user) {
+
+    drupal_set_title(check_plain($user->name));
+    ctools_include('user.pages', 'user', '');
+
+    $form_id = 'user_profile_form';
+    $form_state = array();
+
+    if (!$js) {
+        return drupal_get_form($form_id, $user);
+    }
+
+    ctools_include('modal');
+    ctools_include('ajax');
+
+    $form_state += array(
+      'ajax' => TRUE,
+      'modal_orga' => TRUE,
+      'build_info' => array(
+        'args' => array($user),
+      ),
+      'title' => null,
+    );
+
+    $commands = ctools_modal_form_wrapper($form_id, $form_state);
+    // Handle if submit with errors
+    if (isset($commands[0])) {
+      $commands[0]['output'] = gofast_normalize_string_from_ajaxifying($commands[0]['output']);
+    }
+
+    if ($form_state['executed']) {
+      $commands[] = ctools_modal_command_dismiss();
+      $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+    }
+    if (empty($commands)) {
+      // If a form has been submitted, refresh content with submitted values.
+      if ($form_state['values']['submit'] == t('Save', array(), array('context' => 'gofast')) || $form_state['clicked_button']['#type'] === 'submit') {
+
+      }
+
+      // Dismiss the popup when
+      $commands[] = ctools_modal_command_dismiss();
+    }
+
+    print ajax_render($commands);
+}

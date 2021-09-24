@@ -1,0 +1,8 @@
+name = Gofast Mail ( Courrier )
+description = Module to manage mail documents (Courrier, not email ;-))
+
+core = 7.x
+package = Gofast
+php = 5.2.4
+project = "gofast_mail"
+version = "7.x-3.10.0_r2"

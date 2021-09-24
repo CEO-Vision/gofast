@@ -1,0 +1,28 @@
+#ithit_page_list .ui-listview.viewMode-list a.button-item {
+  height: auto;
+}
+
+#ithit_page_list .ui-listview a.button-info {
+  display: none !important;
+}
+
+div[data-role="header"], div[data-role="footer"] .ui-navbar ul .ui-btn, div[data-role="footer"] {
+  background-color: #2B2B2B;
+}
+
+div[data-role="header"] .title, div[data-role="popup"] .dialog-simpleForm label {
+  color: #FFF;
+}
+
+div[data-role="popup"] .dialog-simpleForm input {
+  color: #000;
+}
+
+.ui-listview > li.ui-li-has-alt > .ui-btn {
+  margin-right: 0px;
+}
+
+#ithit_page_list, .ui-content {
+  overflow: hidden;
+  -webkit-overflow-scrolling: touch;
+}

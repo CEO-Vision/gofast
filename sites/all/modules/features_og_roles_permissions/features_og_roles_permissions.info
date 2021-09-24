@@ -1,0 +1,13 @@
+name = Features OG Roles Permissions
+description = Includes all permissions for the exported Organic Group role.
+core = 7.x
+package = "Features"
+dependencies[] = features
+dependencies[] = og
+
+; Information added by Drupal.org packaging script on 2016-06-01
+version = "7.x-1.0"
+core = "7.x"
+project = "features_og_roles_permissions"
+datestamp = "1464790140"
+

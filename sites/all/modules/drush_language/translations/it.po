@@ -1,0 +1,18 @@
+# Italian translation of Drush Language Commands (7.x-1.5)
+# Copyright (c) 2015 by the Italian translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Drush Language Commands (7.x-1.5)\n"
+"POT-Creation-Date: 2015-04-27 08:58+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Italian\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "locale"
+msgstr "lingua"
+msgid "The translation import of %filename failed."
+msgstr "L'importazione della traduzione %filename è fallita."

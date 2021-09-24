@@ -1,0 +1,1520 @@
+<?php
+
+require_once 'include/gofast.userlist.entity.inc';
+require_once 'include/gofast.userlist.entity.form.inc';
+require_once 'include/gofast.userlist.inc';
+require_once 'include/gofast.userlist.form.inc';
+require_once 'include/gofast.userlist.audit.inc';
+
+/**
+ * Implements hook_entity_info().
+ */
+function gofast_userlist_entity_info() {
+
+  $info = array();
+
+  $info['userlist'] = array(
+    'label' => t('User List'),
+    'base table' => 'gofast_userlists',
+    'entity keys' => array(
+      'id' => 'ulid',
+      'label' => 'name',
+    ),
+    'module' => 'gofast_userlist',
+    'entity class' => 'UserListEntity', //'Entity',
+    'controller class' => 'UserListEntityController', //'EntityAPIController',
+    'access callback' => 'gofast_userlist_access_callback',
+    'uri callback' => 'entity_class_uri',
+    'admin ui' => array(
+      'path' => 'admin/userlists',
+      'controller class' => 'EntityDefaultUIController',
+    ),
+    'fieldable' => TRUE, //allow the userlist entity to have field attached
+    'bundles' => array(
+      'userlist' => array(
+        'label' => t('Userlist'),
+        'admin' => array(
+          'path' => 'admin/userlists',
+        )
+      )
+    ),
+    'views controller class' => 'EntityDefaultViewsController',
+ );
+
+  return $info;
+}
+
+
+/**
+ * Implements hook_post_install()
+ *
+ *  Runs once the Gofast installation is done (via drush command).
+ */
+function gofast_userlist_post_install(){
+    gofast_userlist_create_public_userlist();
+}
+
+
+/*
+ * Create a public userlist and set it as public spaces administrator
+ * Also set all platform admins as userlist admin
+ */
+function gofast_userlist_create_public_userlist(){
+    usurp(1);
+
+    //Create the userlist
+    $nid = gofast_userlist_create_userlist('Public', 'Public');
+
+    //Get userlist roles
+    $roles_query = og_roles('node', "userlist", $nid, FALSE, FALSE);
+    foreach($roles_query as $rkey => $roles){
+      if($roles == GOFAST_OG_ROLE_ADMIN){
+        $admin_rid = $rkey;
+      }
+      if($roles == GOFAST_OG_ROLE_READ_ONLY){
+        $readonly_rid = $rkey;
+      }
+      if($roles == GOFAST_OG_ROLE_STANDARD){
+        $contributor_rid = $rkey;
+      }
+    }
+
+    //Retrieve superadmins list
+    $superadmins = db_query("select users_roles.uid from users_roles INNER JOIN role on users_roles.rid=role.rid WHERE name='administrator'")->fetchAll();
+
+    foreach($superadmins as $superadmin){
+        $uid = $superadmin->uid;
+
+        //Add the superadmin as userlist administrator
+        gofast_og_subscribe_user($nid, $uid);
+        og_role_revoke('node', $nid, $uid, $readonly_rid);
+        og_role_revoke('node', $nid, $uid, $contributor_rid);
+        og_role_revoke('node', $nid, $uid, $admin_rid);
+        og_role_grant('node', $nid, $uid, $admin_rid);
+    }
+
+    //Set drupal variable with userlist id
+    variable_set("public_userlist", $nid);
+
+    //Retrieve all public spaces IDs
+    $public_ids = db_select("node", 'n')
+          ->fields('n', array('nid'))
+          ->condition('type', 'public', '=')
+          ->execute()
+          ->fetchAll();
+
+    //Clear all public administrators, setting them as contrib or RO depending of the configuration
+    foreach($public_ids as $public){
+        $gid = $public->nid;
+
+        //Get space roles
+        $roles_query = og_roles('node', "public", $gid, FALSE, FALSE);
+        foreach($roles_query as $rkey => $roles){
+          if($roles == GOFAST_OG_ROLE_ADMIN){
+            $admin_rid = $rkey;
+          }
+          if($roles == GOFAST_OG_ROLE_READ_ONLY){
+            $readonly_rid = $rkey;
+          }
+          if($roles == GOFAST_OG_ROLE_STANDARD){
+            $contributor_rid = $rkey;
+          }
+        }
+
+        //Retrieve saved spaces configuration
+        $spaces_defaults = gofast_admin_get_space_defaults();
+
+        $public_contributions = $spaces_defaults['public_contrib'];
+
+        foreach($superadmins as $superadmin){
+            $uid = $superadmin->uid;
+
+            if($public_contributions){
+                og_role_revoke('node', $gid, $uid, $admin_rid);
+                og_role_grant('node', $gid, $uid, $contributor_rid);
+            }else{
+                og_role_revoke('node', $gid, $uid, $admin_rid);
+                og_role_grant('node', $gid, $uid, $readonly_rid);
+            }
+        }
+
+        //Set userlist as public administrator
+        $userlist = node_load($nid);
+        $ulid = $userlist->field_userlist_ulid[LANGUAGE_NONE][0]['value'];
+
+        gofast_userlist_og_add_membership($gid, $ulid, $admin_rid);
+    }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function gofast_userlist_menu() {
+
+  $items = array();
+
+  $items['userlist/%'] = array(
+    'title' => 'UserList',
+    'page callback' => 'gofast_userlist_view_userlist',
+    'page arguments' => array(1),
+    'type' => MENU_NORMAL_ITEM,
+    'access arguments' => array('access content'),
+  );
+
+  $items['userlists'] = array(
+    'title' => 'UserList',
+    'page callback' => 'gofast_userlist_view_userlist',
+    'page arguments' => array(1),
+    'type' => MENU_NORMAL_ITEM,
+    'access arguments' => array('access content'),
+  );
+
+  $items['userlist/add'] = array(
+    'title' => t('Userlist add', array(), array('context' => 'gofast:gofast_userlist')),
+    'description' => t('Create a Userlist', array(), array('gofast:gofast_userlist')),
+    'page callback' => 'gofast_userlist_edit_userlist',
+    'type' => MENU_NORMAL_ITEM,
+    'access callback' => 'gofast_userlist_access_callback',
+    'access arguments' => array('create'),
+ //   'delivery callback' => ''
+   );
+
+  $items['userlist/%node/edit'] = array(
+    'title' => t('Userlist edit', array(), array('context' => 'gofast:gofast_userlist')),
+    'description' => t('Edit a Userlist', array(), array('gofast:gofast_userlist')),
+    'page callback' => 'gofast_userlist_edit_userlist',
+    'page arguments' => array(1),
+    'type' => MENU_NORMAL_ITEM,
+    'access callback' => 'gofast_userlist_access_callback',
+    'access arguments' => array('update', 1),
+ //   'delivery callback' => ''
+   );
+
+  $items['userlist/%node/delete'] = array(
+    'title' => t('Userlist delete', array(), array('context' => 'gofast:gofast_userlist')),
+    'description' => t('Delete a Userlist', array(), array('gofast:gofast_userlist')),
+    'page callback' => 'gofast_userlist_delete_userlist',
+    'page arguments' => array(1),
+    'type' => MENU_NORMAL_ITEM,
+    'access callback' => 'gofast_userlist_access_callback',
+    'access arguments' => array('delete', 1),
+ //   'delivery callback' => ''
+   );
+
+  $items['node/add/userlist'] = array(
+      'access callback' => FALSE
+  );
+
+    // Profile popup ajax callback
+  $items['userlist/location_popup/%'] = array(
+    'page callback' => 'gofast_userlist_location_popup',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(2),
+    'access arguments' => array('access content'),
+    'access callback' => TRUE,
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_preprocess_node().
+ */
+function gofast_userlist_preprocess_node(&$variables) {
+    $node = $variables['node'];
+    if ($node->type == 'userlist'){
+
+        //Get the ULID of the userlist
+        $ulid = $node->field_userlist_ulid[LANGUAGE_NONE][0][value];
+        $variables['ulid'] = $ulid;
+
+        $variables['userlist_members'] = gofast_userlists_members_simple_block($node);
+    }
+}
+
+/**
+ * Returns userlist's members block.
+ * @param type $node
+ * @return mixed
+ *   List of members by role.
+ */
+function gofast_userlists_members_simple_block($node){
+ // $members_filter_form = drupal_get_form('gofast_og_member_filter_form');
+ // $searchform = drupal_render($members_filter_form);
+  $searchform = "";
+
+  $icon_creator = '<span class="fa-stack fa-md">
+  <i class="fa fa-shield fa-stack-2x" style="color: gray;"></i>
+  <i class="fa fa-stack-1x" style="font-weight: bolder;">C</i>
+</span>';
+
+
+  if($node->type == 'userlist' && $node->title != 'Public'){
+    $creator = '<h4>'.$icon_creator . t('Userlist creator', array(), array('context' => 'gofast:gofast_userlist')) .'</h4>';
+    $creator .= views_embed_view('gofast_userlist_creator_contributor', 'gofast_userlist_creator',$node->nid);
+  }else{
+    $site = variable_get('site_name');
+    $creator = '<div class="public_userlist_creator" style="margin-bottom: 30px;text-align: center;"><h4 style="font-size: 14px;">' . t('Created by ', array(), array('context' => 'gofast:gofast_userlist')) ." " . $site .   '</h4></div>';
+  }
+
+  $icon_administrator = '<span class="fa-stack fa-md">
+  <i class="fa fa-shield fa-stack-2x" style="color: gray;"></i>
+  <i class="fa fa-stack-1x" style="font-weight: bolder;">A</i>
+</span>';
+  $administrators = '<h4>'.$icon_administrator . t('Userlist administrators', array(), array('context' => 'gofast:gofast_userlist')) . '</h4>';
+  $administrators .= views_embed_view('gofast_userlist_creator_contributor','gofast_userlist_administrator',$node->nid);
+
+
+
+  $contributor = "";
+  /*
+  $icon_contributor = '<span class="fa-stack fa-md">
+  <i class="fa fa-shield fa-stack-2x" style="color: gray;"></i>
+  <i class="fa fa-stack-1x" style="font-weight: bolder;">Co</i>
+</span>';
+  $contributor = '<h4>'.$icon_contributor . t('Userlist contributor', array(), array('context' => 'gofast:gofast_og')) . '</h4>';
+  $contributor .= "TODO";
+ */
+
+  $icon_members = '<span class="fa-stack fa-md">
+  <i class="fa fa-shield fa-stack-2x" style="color: gray;"></i>
+  <i class="fa fa-stack-1x" style="font-weight: bolder;">M</i>
+</span>';
+  $members = '<h4>'.$icon_members . t('Userlist members', array(), array('context' => 'gofast:gofast_userlist')) . '</h4>';
+  $members .= views_embed_view('gofast_userlist_members', 'gofast_userlist_members_displays',$node->field_userlist_ulid[LANGUAGE_NONE][0][value]);
+//  print_r($node->field_userlist_ulid[LANGUAGE_NONE][0][value]);exit;
+
+  $block = $searchform . $creator . $administrators . $contributor . $members;
+
+  return $block;
+}
+
+
+/**
+ * Callback function for displaying the individual userlist page
+ */
+function gofast_userlist_view_userlist($id) {
+
+  $userlists = entity_load('userlist', array($id));
+  $userlist = $userlists[$id];
+
+  $output = node_page_view(node_load($userlist->nid));
+
+  return $output;
+}
+
+/**
+ *
+ * @param type $userlist
+ * @return type
+ */
+function gofast_userlist_edit_userlist($userlist = NULL){
+
+  $form;
+  if($userlist == NULL){ //new
+    $form = node_add('userlist');
+  }else{
+    $form = node_page_edit($userlist);
+  }
+
+  $output = drupal_render($form);
+  return $output;
+}
+
+/**
+ * Delete a userlist
+ * @param type $userlist
+ */
+function gofast_userlist_delete_userlist($userlist = NULL){
+
+  if(is_integer($userlist)){
+    $userlist_object = node_load($userlist);
+  }else{
+    $userlist_object = $userlist;
+  }
+
+  gofast_userlist_insert_into_audit('DUSL', $userlist_object);
+  node_delete($userlist_object->nid);
+}
+
+/**
+ * Call to delete userlist asyncrhonously
+ * @param type $userlist
+ */
+function gofast_userlist_ajax_delete_userlist($form = null, $form_state = null){
+
+  ctools_include('modal');
+  ctools_include('ajax');
+  $node = isset($form_state['build_info']['args'][0]->nid) ? $form_state['build_info']['args'][0] : node_load($_GET["nid"]);
+
+  gofast_userlist_delete_userlist($node);
+
+  $commands = array();
+  $commands[] = gofast_command_toast_message(t('The userlist was deleted'), 'info');
+  $commands[] = gofast_command_processAjax('/userlists');
+  $commands[] = ctools_modal_command_dismiss();
+
+  print ajax_render($commands);
+  exit; //Bypass plateform ajaxification, to improve
+
+}
+
+/**
+ * Access callback for userlist entities
+ * @param type $op
+ * @param type $userlist
+ * @param type $account
+ * @return boolean
+ */
+function gofast_userlist_access_callback($op, $userlist = NULL, $account = NULL) {
+
+  global $user;
+  if ($user->uid == 1) {
+    return TRUE;
+  }
+/*
+  if (!isset($account)) {
+    return FALSE;
+  }
+  */
+
+  switch ($op) {
+    case 'create' : // only user with manager role
+      if (gofast_user_is_manager($user) || gofast_user_is_adm($user) ) {
+        return TRUE;
+      }
+      break;
+    case 'update' :
+    case 'delete' : // Only owner and administrators of the list can edit/update/delete it
+      if(is_integer($userlist)){
+        $userlist_object = node_load($userlist);
+      }else{
+        $userlist_object = $userlist;
+      }
+
+      if ($userlist_object->uid == $user->uid) {
+        return TRUE;
+      }
+
+      $roles = array_values(gofast_og_get_user_roles($userlist_object->nid, $user->uid));
+
+      if(in_array("administrator member", $roles, TRUE)){
+          return true;
+      }
+      break;
+    case 'view':
+      return TRUE;
+      break;
+  }
+
+  return FALSE;
+}
+
+/**
+ * Return an array (uid=>name) of userlist's members
+ * @param type $entity_ulid
+ */
+function gofast_userlist_get_members($entity_ulid, $format = TRUE) {
+
+  $userlist_members = array();
+  $userlists = entity_load('userlist', array($entity_ulid));
+  $userlist = $userlists[$entity_ulid];
+
+  //Retrieve former members
+  if( isset($userlists[$entity_ulid])){
+  foreach ($userlist->field_userlist_members[LANGUAGE_NONE] as $member_uid) {
+      $member = user_load($member_uid['value']);
+      if($format){
+        $userlist_members[$member_uid['value']] = gofast_og_ac_format_value('user', $member, NULL, $member->name, NULL);
+      }else{
+          $userlist_members[$member_uid['value']] = array(
+              "uid" => $member_uid['value'],
+              "username" => $member->name,
+              "display_name" => gofast_user_display_name($member)
+          );
+      }
+    }
+  }
+  return $userlist_members;
+}
+
+/**
+ * Return an array (uid=>name) of userlist's administrators
+ * @param type $entity_ulid
+ */
+function gofast_userlist_get_administrators($entity_ulid, $format = TRUE) {
+
+  $userlist_administrators = array();
+  $userlists = entity_load('userlist', array($entity_ulid));
+  $userlist = $userlists[$entity_ulid];
+
+  $members = gofast_og_get_members(node_load($userlist->nid));
+
+  //Retrieve former administrators
+  foreach ($members as $administrator_uid) {
+    if($administrator_uid === node_load($userlist->nid)->uid || $administrator_uid < 2){
+        continue;
+    }
+
+    $administrator = user_load($administrator_uid);
+
+    if ($format) {
+    $userlist_administrators[$administrator_uid] = gofast_og_ac_format_value('user', $administrator, NULL, $administrator->name, NULL);
+    }else{
+          $userlist_administrators[$administrator_uid] = array(
+              "uid" => $administrator_uid,
+              "username" => $administrator->name,
+              "display_name" => gofast_user_display_name($administrator),
+            );
+    }
+  }
+
+  return $userlist_administrators;
+}
+
+function gofast_userlist_get_all_visible_userlists($account = null, $return_nid = FALSE){
+    if($account == null){
+        global $user;
+        $account = $user;
+    }
+
+  $visibility = variable_get('gofast_user_partitioning', GOFAST_USER_PARTITIONING_DEFAULT);
+  $admin_visibility = variable_get('gofast_admin_visibility', GOFAST_ADMIN_VISIBILITY_DEFAULT);
+  $admin_visibility_condition = ($admin_visibility == GOFAST_ADMIN_VISIBILITY_ON && gofast_user_is_adm($account));
+  if (($visibility == GOFAST_USER_PARTITIONING_ON && $admin_visibility_condition == FALSE) || ($visibility == GOFAST_USER_PARTITIONING_ON_ONLY_EXTRANET && gofast_user_is_extranet() && $admin_visibility_condition == FALSE)) {
+    $array_ulid_visible = array();
+      $userlists = entity_load('userlist');
+
+    if(count($userlists) > 0){
+        foreach($userlists as $userlist){
+               if(gofast_userlist_is_visible($userlist->ulid, $account)){
+                   if($return_nid == TRUE){
+                        $array_ulid_visible[$userlist->nid] = $userlist->nid;
+                   }else{
+                        $array_ulid_visible[$userlist->ulid] = $userlist->ulid;
+                   }
+               }
+        }
+    }
+
+    return $array_ulid_visible;
+  }else{
+      return false;
+  }
+
+}
+
+function gofast_userlist_is_visible($ulid, $account = null){
+   if($account == null){
+        global $user;
+        $account = $user;
+    }
+
+
+  $visibility = variable_get('gofast_user_partitioning', GOFAST_USER_PARTITIONING_DEFAULT);
+  $admin_visibility = variable_get('gofast_admin_visibility', GOFAST_ADMIN_VISIBILITY_DEFAULT);
+  $admin_visibility_condition = ($admin_visibility == GOFAST_ADMIN_VISIBILITY_ON && gofast_user_is_adm($account));
+
+  if (($visibility == GOFAST_USER_PARTITIONING_ON && $admin_visibility_condition == FALSE) || ($visibility == GOFAST_USER_PARTITIONING_ON_ONLY_EXTRANET && gofast_user_is_extranet($account) && $admin_visibility_condition == FALSE)) {
+    //User partitionning is enabled for us
+    $userlists = entity_load('userlist', array($ulid));
+    $userlist = $userlists[$ulid];
+    $userlist_node = node_load($userlist->nid);
+
+    $administrators = gofast_og_get_members($userlist_node);
+    $members = array_keys(gofast_userlist_get_members($ulid));
+    $creator = $userlist_node->uid;
+
+    if(in_array($account->uid, $administrators) || in_array($account->uid, $members) || $creator == $account->uid || (gofast_userlist_check_in_a_common_area($ulid, $account)) == true){
+        return true;
+    }else{
+        return false;
+    }
+  }
+
+  return TRUE;
+}
+
+/*
+ * [GOFAST-6436]
+ * Return "true" or "false" if (account and user list in a common area)
+ */
+function gofast_userlist_check_in_a_common_area($ulid, $account = null){
+    if($account == null){
+        global $user;
+        $account = $user;
+    }
+
+    $all_groups_of_userlist = gofast_userlist_og_get_groups_by_userlist($ulid);
+    $spaces_account = gofast_og_get_spaces_by_user($account);
+    if (!empty($spaces_account) && !empty($all_groups_of_userlist)) {
+        foreach ($spaces_account as $space_account) {
+            foreach($all_groups_of_userlist['node'] as $value) {
+                if ($value == $space_account) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+/*
+ * Implements hook_preprocess_views_view_field
+ * Check if we have the permission to view the name of the userlist
+ */
+function gofast_userlist_preprocess_views_view_field(&$variables) {
+  $view = $variables['view'];
+  $field = $variables['field'];
+
+  if ($view->name == 'gofast_og_members_page'
+  && $field->field == "nothing"
+  && !empty(trim(strip_tags($variables['output'])))) {
+    if(strpos($variables['output'], "/node/")){
+       //We have a userlist to check, extract it's nid
+       $parts = explode('"', $variables['output']);
+       $path = $parts[1];
+       $nid = str_replace("/node/", "", $path);
+
+       if(is_numeric($nid)){
+           //Load the userlist ulid
+           $node = node_load($nid);
+           $ulid = $node->field_userlist_ulid[LANGUAGE_NONE][0]['value'];
+
+           if(!gofast_userlist_is_visible($ulid)){
+               $variables['output'] = t('Hidden list',array(),array('context:gofast_userlist'=>'gofast'));
+           }
+       }
+    }
+  }
+}
+
+/**
+ * Return TRUE if a user is part of a userlist, FALSE if not
+ * @param integer $userlist_ulid
+ * @param integer $uid
+ * @return boolean
+ */
+function gofast_userlist_is_member_of($userlist_ulid, $uid) {
+
+  $userlist_entity = entity_load_single('userlist', $userlist_ulid);
+
+  $members = $userlist_entity->field_userlist_members[LANGUAGE_NONE];
+
+  foreach($members as $member){
+    if($member['value'] == $uid) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Get all the userlist a user is memberof
+ * @param user $account
+ * @return array
+ */
+function gofast_userlist_get_userlists_by_user($account){
+  $userlists = array();
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type' , 'userlist')
+      ->entityCondition('bundle', 'userlist')
+      ->fieldCondition('field_userlist_members', 'value', $account->uid);
+
+  $result = $query->execute();
+  if(isset($result['userlist'])){
+    $userlists = $result['userlist'];
+  }
+
+  return $userlists;
+}
+
+
+/**
+ * Implements hook_form_FORM_ID_alter()
+ */
+function gofast_userlist_form_user_profile_form_alter(&$form, &$form_state){
+
+    //Do not display field that show userlist ownership on user profile form.
+    unset($form['og_user_userlist']);
+}
+
+
+/**
+ * Implements hook_form_FORM_ID_alter()
+ *
+ * Alter only user creation form (user_register)
+ */
+function gofast_userlist_form_user_register_form_alter(&$form, &$form_state){
+  global $user;
+
+  define('GOFAST_OG_USER_USERLIST_MEMBERSHIP_FIELD', 'og_user_userlist');
+
+  $form[GOFAST_OG_USERLIST_MEMBERSHIP_FIELD] = array(
+      '#type' => 'fieldset',
+      '#title' =>  t('Userlist membership', array(), array('context' => 'gofast_userlist')),
+      '#weight' => $form[GOFAST_OG_USER_MEMBERSHIP_FIELD]['#weight'] + 1
+  );
+  $account = $form['#user'];
+  $self = $account->uid === $user->uid;
+
+  //$managed_ulids = $self ? gofast_userlist_get_userlists_managed_by_user($user, TRUE) : gofast_userlist_get_userlists_managed_by_user($account, TRUE);
+  $managed_ulids = gofast_userlist_get_userlists_managed_by_user($user, TRUE) ;
+
+  $options = array();
+  foreach($managed_ulids as $ulid => $node){
+    $options[$ulid] = $node->title;
+  }
+
+  natcasesort($options);
+
+  $form[GOFAST_OG_USERLIST_MEMBERSHIP_FIELD]['userlists'] = array(
+      '#type' => 'checkboxes',
+      '#options' => $options,
+      '#theme' => 'gofast_userlist_userlists_checkboxes'
+  );
+
+  $form['#submit'][] = 'gofast_userlist_form_user_register_submit';
+
+}
+
+function gofast_userlist_location_popup($userlist_nid){
+  $output = '';
+
+  $userlist_node = node_load($userlist_nid);
+  $entity = entity_load_single('userlist', $userlist_node->field_userlist_ulid[LANGUAGE_NONE][0]['value']);
+
+   //Get all userlist's groups
+  $groups_ul = gofast_userlist_og_get_groups_by_userlist($entity);
+
+  foreach($groups_ul['node'] as $nid_ul){
+        if(!gofast_og_is_root_space(node_load($nid_ul))){
+            $path_userlist[$nid_ul] = gofast_cmis_space_get_drupal_path($nid_ul); //Get breadcrumbs for all groups
+        }
+  }
+
+  asort($path_userlist);
+
+  $output = theme('gofast_userlist_location_popup', array(
+      'locations' => $path_userlist ,
+      'ulid' => $userlist_node->field_userlist_ulid[LANGUAGE_NONE][0]['value']
+    ));
+
+  return $output;
+}
+
+
+function gofast_userlist_theme() {
+
+  return array(
+      'gofast_userlist_userlists_checkboxes' => array(
+          'render element' => 'checkboxes',
+          'template' => 'tpl/gofast_userlist-userlists_checkboxes',
+      ),
+      'gofast_userlist_location_popup' => array(
+          'template' => 'tpl/gofast_userlist-userlist_location_popup',
+          'variables' => array(
+          )
+      ),
+      'gofast_userlist_add_user_notif' => array(
+           'template' => 'tpl/gofast_userlist-add_user-notif',
+           'variables' => array(
+               'grps' => '',
+               'mess' => '',
+               'l' => '',
+               'role_member' =>'',
+          )
+      ),
+
+      'gofast_userlist_remove_user_notif' => array(
+           'template' => 'tpl/gofast_userlist-remove_user-notif',
+           'variables' => array(
+               'grps' => '',
+               'mess' => '',
+               'l' => '',
+               'role_member' =>'',
+          )
+      )
+  );
+}
+
+/**
+ *
+ * @param type $form
+ * @param type $form_state
+ */
+function gofast_userlist_form_user_register_submit($form, &$form_state){
+
+  //user already created so we can use it
+  $account = $form['#user'];
+
+  $userlists = $form_state['values']['userlists'];
+
+  $userlists_to_add = array();
+  foreach($userlists as $ulid => $userlist){
+    if($userlist !== 0){
+      $userlists_to_add[] = $ulid;
+    }
+  }
+
+  if(! empty($userlists_to_add)){
+    foreach($userlists_to_add as $userlist_to_add){
+      gofast_userlist_add_members($userlist_to_add, array($account->uid));
+    }
+  }
+
+}
+
+
+/*
+ * Create a userlist programmatically
+ */
+function gofast_userlist_create_userlist($title, $description){
+  module_load_include('inc', 'node', 'node.pages');
+  global $user;
+
+  // Construct og node object
+  $node = new stdClass();
+  $node->is_new = TRUE;
+  $node->title = $title;
+  $node->type = 'userlist';
+  $node->language = "en";
+  $node->options = array();
+  $node->promote = 0;
+  $node->sticky = 0;
+  $node->module = 'node';
+  $node->field_description = array(
+      LANGUAGE_NONE => array(
+        0 => array(
+          'value' => $description
+        )
+      )
+    );
+
+  // Prepares the node object for being submitted (as a form argument). Add few
+  // default values, and then invokes hook_prepare() on the node type module,
+  // and hook_node_prepare() on all modules.
+  node_object_prepare($node);
+
+  // Since node_object_prepare() set the current global $user as the node author
+  // we need to override this behavior to preserve the space manager preset.
+  $node->uid = $user->uid;
+  $node->name = $user->name;
+
+  $node = node_submit($node); // Prepare node for saving
+  node_save($node);
+
+  $errors = form_get_errors();
+  if ($errors) {
+    return $errors;
+  }  else{
+//    gofast_userlist_insert_into_audit('NUSL', $node);
+    return $node->nid;
+  }
+}
+
+/**
+ * Implements hook_entity_presave().
+ * Catch the messages created by Rules module
+ * Provide and stock into the message all needed informations
+ * Trying to to queue the notification in gofast_mail_queue
+ */
+function gofast_userlist_entity_presave($entity, $type){
+
+  if($type == "message" && $entity->type === 'message_log'){ //Catch a message
+
+    $target_entity = $entity->field_target_id['und']['0']['value']; //Entity ID
+    $content = $entity->field_message_log['und']['0']['value']; //Log given by rules about the event
+
+    //Avoid
+    $isUserList = (strpos($content, "NUSL|") === 0 || strpos($content, "EUSL|") === 0 || strpos($content, "DUSL|") === 0);
+    if(! $isUserList){
+      return;
+    }
+
+    if( strpos($content, "EUSL|") !== 0 ){
+      return;
+    }
+
+    $node = node_load($target_entity, NULL, FALSE); //Node before edition
+    $node_refresh = node_load($target_entity, NULL, TRUE); //Node after edition
+    $node_data = gofast_userlist_split_node_extend($node,gofast_message_ext_split_node($node));
+    $node_refresh_data = gofast_userlist_split_node_extend($node_refresh, gofast_message_ext_split_node($node_refresh));
+    $node_compare = gofast_userlist_compare($node_data, $node_refresh_data);
+
+    $event_type = substr($content, 0, 4);
+
+    $node_compare['event']['value'] = $event_type;
+    $message = json_encode($node_compare);
+    $entity->field_message_log['und']['0']['value'] = $message;
+
+    gofast_userlist_insert_into_audit($event_type, $node, $message);
+
+  } else if ($type == 'userlist') { //only for userlist ENTITY
+
+    // Manage audit for userlist edition manually (else there is no way to get back previous userlist members).
+    if (isset($entity->original)) { //Only edition
+
+      $node = node_load($entity->nid, NULL, FALSE); //Node before edition
+      $node_refresh = node_load($entity->nid, NULL, TRUE); //Node after edition
+      $node_data = gofast_userlist_split_node_extend($node, gofast_message_ext_split_node($node));
+      $node_refresh_data = gofast_userlist_split_node_extend($node_refresh, gofast_message_ext_split_node($node_refresh));
+      $node_compare = gofast_userlist_compare($node_data, $node_refresh_data);
+      //compare members
+      $former_enity = $entity->original;
+      $entity_difference = gofast_userlist_compare_entity($former_enity, $entity, $node_compare);
+
+      if(array_diff($node,$node_refresh) == NULL && !isset($entity_difference["userlist members"]["from"])){
+        $event_type = 'NUSL'; //edit userlist
+        $node_compare['event']['value'] = $event_type;
+        $message = json_encode($node_compare);
+
+        $entity->field_message_log['und']['0']['value'] = $message;
+        gofast_userlist_insert_into_audit($event_type, $node, $message);
+      }else{
+        $event_type = 'EUSL'; //edit userlist
+        $node_compare['event']['value'] = $event_type;
+        $message = json_encode($node_compare);
+
+        $entity->field_message_log['und']['0']['value'] = $message;
+      }
+      gofast_userlist_insert_into_audit($event_type, $node, $message);
+
+      drupal_set_message(t("The userlist has been saved"));
+    }
+  }
+}
+
+/**
+ * Compare userlist node
+ * @param type $from
+ * @param type $to
+ * @return type
+ */
+function gofast_userlist_compare($from, $to) {
+
+  $compare_array[] = array();
+
+  foreach ($from as $k_from => $v_from) {
+
+
+    // @TODO : Find a way to retreive previous version of members
+    if($k_from === 'userlist members'){
+
+      $members_deleted = array_diff($v_from, $to[$k_from]);
+      $members_added = array_diff($to[$k_from], $v_from);
+
+      if(count($members_deleted) > 0 || count($members_added) > 0){
+        $compare_array[$k_from]['from'] = $v_from;
+        $compare_array[$k_from]['to'] = $to[$k_from];
+      }else{
+        $compare_array[$k_from]['value'] = $v_from;
+      }
+      continue;
+    }
+
+
+    $isSame = (strcmp($v_from, $to[$k_from]) == 0); //Same values
+
+    if ($isSame) {
+      $compare_array[$k_from]['value'] = $v_from;
+    } else {
+      $compare_array[$k_from]['from'] = $v_from;
+      $compare_array[$k_from]['to'] = $to[$k_from];
+    }
+
+  }
+  return $compare_array;
+}
+
+
+/**
+ * Compare userlist entity
+ * @param type $from
+ * @param type $to
+ * @return type
+ */
+function gofast_userlist_compare_entity($entity_from, $entity_to, &$compare_array) {
+
+  $userlist_members = array();
+
+  if (isset($entity_to->field_userlist_members['und'])) {
+    foreach ($entity_to->field_userlist_members['und'] as $key => $item) {
+      $userlist_members[] = $item['value'];
+    }
+  }
+
+  $userlist_members_old = array();
+  if (isset($entity_from->field_userlist_members['und'])) {
+    foreach ($entity_from->field_userlist_members['und'] as $key => $item) {
+      $userlist_members_old[] = $item['value'];
+    }
+  }
+
+   $role_member = 'MEM';
+  // Retrieve added and removed members then send notfications for inform them
+   // Get nid of userlist
+   $id_userlist = $entity_to->nid;
+   // Get new members added to userList
+   $members_added = array_diff($userlist_members, $userlist_members_old);
+   // Mail them
+   foreach ( $members_added as $uid){
+       gofast_mail_add_user_to_userlist( $uid, $id_userlist, NULL, $role_member ); // this function is implemented in gofast.userlist.form.inc
+   }
+
+   // Get members removed from userlist
+   $members_deleted = array_diff($userlist_members_old, $userlist_members);
+   // Mail them
+   foreach ($members_deleted as $uid){
+       gofast_mail_remove_user_from_userlist( $uid, $id_userlist, NULL, $role_member );
+   }
+
+  if (count(array_diff($userlist_members, $userlist_members_old)) > 0 || count(array_diff($userlist_members_old, $userlist_members)) > 0) {
+    unset($compare_array['userlist members']);
+    $compare_array['userlist members']['from'] = $userlist_members_old;
+    $compare_array['userlist members']['to'] = $userlist_members;
+  }
+
+  return $compare_array;
+}
+
+
+
+/**
+ * Extends gofast_message_ext_api_split_node to add userlist specifics fields
+ * @param type $node
+ * @param type $params
+ * @return type
+ */
+function gofast_userlist_split_node_extend($node, &$params){
+
+  if(isset($node->field_description['und']['0']['value'])){  $description = $node->field_description['und']['0']['value']; }
+  else{ $description = NULL; }
+
+  $userlist_members = array();
+  $userlist_entity = entity_load_single('userlist', $node->field_userlist_ulid['und']['0']['value']);
+  if(isset($userlist_entity->field_userlist_members['und'])){
+    foreach($userlist_entity->field_userlist_members['und'] as $key => $item){
+      $userlist_members[] = $item['value'];
+    }
+  }
+
+  $params['description'] = $description;
+  $params['userlist members'] = $userlist_members;
+
+  //unset unecessary field for userlist
+  unset($params['category']);
+  unset($params['groups']);
+  unset($params['body']);
+  unset($params['summary']);
+  unset($params['URLs']);
+  unset($params['targets']);
+  unset($params['criticity']);
+  unset($params['state']);
+  unset($params['deadline']);
+  unset($params['author']);
+  unset($params['lang']);
+  unset($params['tags']);
+  unset($params['document reference']);
+  unset($params['version']);
+
+  return $params;
+
+}
+
+
+/**
+ * Return the userlist a user can managed
+ * @global type $user
+ * @param type $user, if NULL return the userlists that can be managed by the current user
+ * @param type $full if TRUE return full userlist node, else only userlist NID
+ * @return type
+ */
+function gofast_userlist_get_userlists_managed_by_user($account = NULL, $full = FALSE ){
+
+  if(empty ($account) ){
+    global $user;
+    $account = $user;
+  }
+
+  $groups = og_get_groups_by_user($account);
+  $groups_node = node_load_multiple($groups['node']);
+
+  $userlists_managed = array();
+
+  foreach($groups_node as $node){
+
+    if($node->type === 'userlist'){
+
+      //Check user can update this userlist (ie. userlist admin or creator)
+      if(node_access('update', $node, $account) === TRUE){
+        $userlists_managed[$node->nid] = $full ? $node : $node->nid;
+      }
+    }
+  }
+  return $userlists_managed;
+
+}
+
+/**
+ * Add a single or several users as userlist members
+ * @param type $nid
+ * @param type $uids = array()
+ */
+function gofast_userlist_add_members($nid, $uids = array() ){
+
+  $userlist_node = node_load($nid);
+  $userlist_entity = entity_load_single('userlist', $userlist_node->field_userlist_ulid['und'][0]['value']);
+
+  foreach($uids as $uid){
+    $userlist_entity->field_userlist_members['und'][] = array('value' => $uid);
+    //already sent into "gofast_userlist_compare_entity" function
+    //gofast_mail_add_user_to_userlist( $uid, $nid, NULL, "MEM");      
+  }
+
+  $userlist_entity->save();
+
+}
+/*
+ * Implements hook node_access
+ */
+function gofast_userlist_node_access($node, $op, $account){
+    if($node->type == "userlist"){
+        $ulid = $node->field_userlist_ulid[LANGUAGE_NONE][0]['value'];
+        if(!gofast_userlist_is_visible($ulid)){
+            return NODE_ACCESS_DENY;
+        }else{
+            return NODE_ACCESS_IGNORE;
+        }
+    }
+}
+
+/*
+ * Implements gofast_api_RESSOURCE_ACTION
+ * @ressource userlist
+ * @action userlist
+ */
+function gofast_api_userlist_userlist($params){
+    switch($params['method']){
+        case 'GET':
+            gofast_api_get_userlist_userlist($params);
+          break;
+        case 'PUT':
+            gofast_api_put_userlist_userlist($params);
+            break;
+        case 'PATCH':
+            gofast_api_patch_userlist_userlist($params);
+          break;
+        case 'DELETE':
+            gofast_api_delete_userlist_userlist($params);
+          break;
+        default:
+            gofast_api_not_implemented("This method");
+            break;
+    }
+}
+
+
+/*
+ * Implements gofast_api_RESSOURCE_ACTION
+ * @ressource userlist
+ * @action admins
+ */
+function gofast_api_userlist_admins($params){
+    switch($params['method']){
+        case 'PUT':
+            gofast_api_put_userlist_admins($params);
+            break;
+        case 'DELETE':
+            gofast_api_delete_userlist_admins($params);
+          break;
+        default:
+            gofast_api_not_implemented("This method");
+            break;
+    }
+}
+
+
+function  gofast_api_get_userlist_userlist($params){
+
+   //Check content type
+  if (strpos($params['Content-Type'], "application/json") === FALSE) {
+    return gofast_api_not_implemented("This Content-Type");
+  }
+
+  //Check authentication
+  global $user;
+  if ($user->uid == 0) {
+    gofast_api_not_authorized("Unavailable ressource for anonymous user");
+  }
+
+  //Check if we have a nulid param
+  if (isset($params['nulid'])) {
+    $userlist_node_id = $params['nulid'];
+    if(!is_numeric($userlist_node_id)){
+      gofast_api_mandatory_parameter("nulid must be numeric");
+    }
+  } else {
+    gofast_api_mandatory_parameter("nulid");
+  }
+
+    $userlist_node = node_load($userlist_node_id);
+
+  //Check if we retrieved a node
+  if ($userlist_node == null || $userlist_node->type != 'userlist') {
+    gofast_api_internal_server_error("Unable to load a userlist with id : " . $userlist_node_id);
+  }
+
+  $ulid = $userlist_node->field_userlist_ulid[LANGUAGE_NONE][0]["value"];
+
+  $members['title'] = $userlist_node->title;
+  $members['users'] = gofast_userlist_get_members($ulid,FALSE);
+  $members['admin'] =  gofast_userlist_get_administrators($ulid,FALSE);
+
+   gofast_api_success($members);
+}
+
+
+function  gofast_api_put_userlist_userlist($params){
+
+   //Check content type
+  if (strpos($params['Content-Type'], "application/json") === FALSE) {
+    return gofast_api_not_implemented("This Content-Type");
+  }
+
+  //Check authentication
+  global $user;
+  if ($user->uid == 0) {
+    gofast_api_not_authorized("Unavailable ressource for anonymous user");
+  }
+
+  //Check if we have a title param
+  if (isset($params['title'])) {
+    $title = $params['title'];
+  } else {
+    gofast_api_mandatory_parameter("title");
+  }
+
+  //Check if we have a description param
+  if (isset($params['description'])) {
+    $description = $params['description'];
+  } else {
+    gofast_api_mandatory_parameter("description");
+  }
+
+    $nulid = gofast_userlist_create_userlist($title, $description);
+
+    if (!is_numeric($nulid)) {
+       gofast_api_internal_server_error("error. Please try again later.");
+    }
+
+   $userlist_node = node_load($nulid);
+   $result = [
+      "title"=> $userlist_node->title,
+      "nid"=> $userlist_node->nid,
+      "type"=> $userlist_node->type,
+      "created"=> $userlist_node->created,
+      "creator_id"=> $userlist_node->uid
+   ];
+
+   gofast_api_success($result);
+
+}
+
+function  gofast_api_patch_userlist_userlist($params){
+
+  //Check content type
+  if (strpos($params['Content-Type'], "application/json") === FALSE) {
+    return gofast_api_not_implemented("This Content-Type");
+  }
+
+  //Check authentication
+  global $user;
+  if ($user->uid == 0) {
+    gofast_api_not_authorized("Unavailable ressource for anonymous user");
+  }
+
+    //Check if we have a nulid param
+  if (isset($params['nulid'])) {
+    $userlist_node_id = $params['nulid'];
+    if(!is_numeric($userlist_node_id)){
+      gofast_api_mandatory_parameter("nulid must be numeric");
+    }
+  } else {
+    gofast_api_mandatory_parameter("nulid");
+  }
+
+    $userlist_node = node_load($userlist_node_id);
+    $ulid = $userlist_node->field_userlist_ulid[LANGUAGE_NONE][0]["value"];
+
+  //Check if we retrieved a node
+  if ($userlist_node == null || $userlist_node->type != 'userlist') {
+    gofast_api_internal_server_error("Unable to load a userlist with id : " . $userlist_node_id);
+  }
+
+  //Check node access
+  if (!node_access('update',$userlist_node)) {
+    gofast_api_forbidden("You don't have the permission to update this userlist");
+  }
+
+  //The list of allowed fields
+  $allowed_fields = array(
+    'title',
+    'description'
+  );
+
+  //Get edited fields
+  $edited_fields = array();
+
+  foreach ($params as $key => $param) {
+    if (in_array($key, $allowed_fields, TRUE)) {
+      //This is a requested change, check integrity of the provided values - only string allowed
+      if (is_string($param)) {
+        //Integrity verified, register for change
+        $edited_fields[$key] = $param;
+        continue;
+      }else{
+        gofast_api_mandatory_parameter("Bad format for field " . $key);
+      }
+
+      //Integrity verified, register for change
+      $edited_fields[$key] = $param;
+    }
+  }
+
+  //Check if we do have a field to edit
+  if (count($edited_fields) < 1) {
+    gofast_api_mandatory_parameter('description or/and title');
+  }
+
+  $output = array();
+
+ foreach($edited_fields as $field_name => $field_data){
+   if($field_name == "description" ){
+     $userlist_node->field_description[LANGUAGE_NONE][0]['value'] = $field_data;
+     $output['new_'. $field_name] = $field_data;
+   }else{
+    $userlist_node->{$field_name} = $field_data;
+    $output['new_'. $field_name] = $field_data;
+   }
+  }
+
+  // save changes
+  node_save($userlist_node);
+  $output['status'] = 'OK';
+  gofast_api_success($output);
+
+}
+
+function  gofast_api_delete_userlist_userlist($params){
+  //Check content type
+  if (strpos($params['Content-Type'], "application/json") === FALSE) {
+    return gofast_api_not_implemented("This Content-Type");
+  }
+
+  //Check authentication
+  global $user;
+  if ($user->uid == 0) {
+    gofast_api_not_authorized("Unavailable ressource for anonymous user");
+  }
+
+    //Check if we have a nulid param
+  if (isset($params['nulid'])) {
+    $userlist_node_id = $params['nulid'];
+    if(!is_numeric($userlist_node_id)){
+      gofast_api_mandatory_parameter("nulid must be numeric");
+    }
+  } else {
+    gofast_api_mandatory_parameter("nulid");
+  }
+
+    $userlist_node = node_load($userlist_node_id);
+
+  //Check if we retrieved a node
+  if ($userlist_node == null || $userlist_node->type != 'userlist') {
+    gofast_api_internal_server_error("Unable to load a userlist with id : " . $userlist_node_id);
+  }
+
+  //Check node access
+  if (!node_access('delete',$userlist_node)) {
+    gofast_api_forbidden("You don't have the permission to delete this userlist");
+  }
+
+    node_save($userlist_node);
+
+  gofast_userlist_delete_userlist($userlist_node);
+
+     $output =[
+        "status"=> "OK",
+        "message"=> "Deleting Userlist done !"
+     ];
+
+  gofast_api_success($output);
+}
+
+function  gofast_api_put_userlist_admins($params){
+
+ //Check content type
+  if (strpos($params['Content-Type'], "application/json") === FALSE) {
+    return gofast_api_not_implemented("This Content-Type");
+  }
+
+  //Check authentication
+  global $user;
+  if ($user->uid == 0) {
+    gofast_api_not_authorized("Unavailable ressource for anonymous user");
+  }
+
+    //Check if we have a nulid param
+  if (isset($params['nulid'])) {
+     $userlist_node_id = $params['nulid'];
+    if(!is_numeric($userlist_node_id)){
+      gofast_api_mandatory_parameter("nulid must be numeric");
+    }
+  } else {
+    gofast_api_mandatory_parameter("nulid");
+  }
+
+      //Check if we have a nulid param
+  if (isset($params['uid'])) {
+    $uid = $params['uid'];
+    if(!is_numeric($uid)){
+      gofast_api_mandatory_parameter("uid must be numeric");
+    }
+  } else {
+    gofast_api_mandatory_parameter("uid");
+  }
+
+  //Check if user exist
+  if (user_load($uid) == FALSE) {
+    gofast_api_forbidden("Unable to load a user with uid ". $uid);
+  }
+
+    $userlist_node = node_load($userlist_node_id);
+    $ulid = $userlist_node->field_userlist_ulid[LANGUAGE_NONE][0]["value"];
+
+  //Check if we retrieved a node
+  if ($userlist_node == null || $userlist_node->type != 'userlist') {
+    gofast_api_internal_server_error("Unable to load a userlist with id : " . $userlist_node_id);
+  }
+
+  //Check node access
+  if (!node_access('update',$userlist_node)) {
+    gofast_api_forbidden("You don't have the permission to modify this userlist admin's");
+  }
+
+
+  $admins =  gofast_userlist_get_administrators($ulid,FALSE);
+
+  foreach ($admins as $id_admin => $admin) {
+    if($id_admin ==  $uid){
+        gofast_api_forbidden("User already admin in this userlist");
+    }
+  }
+
+    $roles_query = og_roles('node', "userlist", $userlist_node_id, FALSE, FALSE);
+
+    // get role ID
+    foreach ($roles_query as $rkey => $roles) {
+      if ($roles == GOFAST_OG_ROLE_ADMIN) {
+        $admin_rid = $rkey;
+      }
+      if ($roles == GOFAST_OG_ROLE_READ_ONLY) {
+        $readonly_rid = $rkey;
+      }
+      if ($roles == GOFAST_OG_ROLE_STANDARD) {
+        $contributor_rid = $rkey;
+      }
+    }
+
+      //add user role to the userlist
+      gofast_og_subscribe_user($userlist_node_id, $uid);
+      og_role_grant('node', $userlist_node_id, $uid, $admin_rid);
+
+
+      gofast_api_success(['status'=>"OK",'message'=>'user with uid = '.$uid.' is now an admin of the userlist with nulid = '.$userlist_node_id ]);
+}
+
+function  gofast_api_delete_userlist_admins($params){
+ //Check content type
+  if (strpos($params['Content-Type'], "application/json") === FALSE) {
+    return gofast_api_not_implemented("This Content-Type");
+  }
+
+  //Check authentication
+  global $user;
+  if ($user->uid == 0) {
+    gofast_api_not_authorized("Unavailable ressource for anonymous user");
+  }
+
+    //Check if we have a nulid param
+  if (isset($params['nulid'])) {
+     $userlist_node_id = $params['nulid'];
+    if(!is_numeric($userlist_node_id)){
+      gofast_api_mandatory_parameter("nulid must be numeric");
+    }
+  } else {
+    gofast_api_mandatory_parameter("nulid");
+  }
+
+      //Check if we have a nulid param
+  if (isset($params['uid'])) {
+    $uid = $params['uid'];
+    if(!is_numeric($uid)){
+      gofast_api_mandatory_parameter("uid must be numeric");
+    }
+  } else {
+    gofast_api_mandatory_parameter("uid");
+  }
+
+  //Check if user exist
+  if (user_load($uid) == FALSE) {
+    gofast_api_forbidden("Unable to load a user with uid ". $uid);
+  }
+
+    $userlist_node = node_load($userlist_node_id);
+    $ulid = $userlist_node->field_userlist_ulid[LANGUAGE_NONE][0]["value"];
+
+
+  //Check if we retrieved a node
+  if ($userlist_node == null || $userlist_node->type != 'userlist') {
+    gofast_api_internal_server_error("Unable to load a userlist with id : " . $userlist_node_id);
+  }
+
+  //Check node access
+  if (!node_access('update',$userlist_node)) {
+    gofast_api_forbidden("You don't have the permission to modify this userlist admin's");
+  }
+
+
+  $admins =  gofast_userlist_get_administrators($ulid,FALSE);
+
+  foreach ($admins as $id_admin => $admin) {
+    if($id_admin ==  $uid){
+        // get role ID
+        foreach ($roles_query as $rkey => $roles) {
+          if ($roles == GOFAST_OG_ROLE_ADMIN) {
+            $admin_rid = $rkey;
+          }
+          if ($roles == GOFAST_OG_ROLE_READ_ONLY) {
+            $readonly_rid = $rkey;
+          }
+          if ($roles == GOFAST_OG_ROLE_STANDARD) {
+            $contributor_rid = $rkey;
+          }
+        }
+          // delete user role from the userlist
+          og_role_revoke('node', $userlist_node_id, $uid, $readonly_rid);
+          og_role_revoke('node', $userlist_node_id, $uid, $contributor_rid);
+          og_role_revoke('node', $userlist_node_id, $uid, $admin_rid);
+          gofast_og_unsubscribe_user($userlist_node_id, $uid);
+
+          gofast_api_success(['status'=>"OK",'message'=>'user with uid = '.$uid.' is removed from admins of the userlist with nulid = '.$userlist_node_id ]);
+    }
+  }
+
+ gofast_api_forbidden("User dose not exist in the admin's userlist");
+}

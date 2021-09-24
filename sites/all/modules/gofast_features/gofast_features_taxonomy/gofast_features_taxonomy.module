@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Gofast Features Taxonomy feature.
+ */
+
+include_once 'gofast_features_taxonomy.features.inc';

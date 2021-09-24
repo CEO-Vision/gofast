@@ -1,0 +1,149 @@
+<?php
+
+/**
+ * Implements hook_update()
+ * GOFAST-3570 - GoFAST-3.2.0
+ * Enforce setting of default date_format per type and per language
+ */
+  function gofast_update_7300(){
+    // Ensure default date format are set
+    gofast_set_default_date_formats();
+
+  }
+
+/**
+ * Implements hook_install()
+ */
+  function gofast_install(){
+    // Ensure default date format are set
+    gofast_set_default_date_formats();
+
+    //Change Ckeditor weight
+    $gofast_mobile_weight = db_query("SELECT weight FROM {system} WHERE name = 'gofast_mobile'")->fetchObject()->weight;
+    db_query("UPDATE {system} SET weight = :weight WHERE name = 'ckeditor'", array(':weight' => $gofast_mobile_weight  - 1));
+
+    if(!db_index_exists("node", "gfindex_node_1")){
+        db_add_index("node", "gfindex_node_1", array('status', 'changed'));
+    }
+
+    if(!db_index_exists("node", "gfindex_node_2")){
+        db_add_index("node", "gfindex_node_2", array('nid', 'status'));
+    }
+
+  }
+
+  /*
+   * Implements hook_update
+   * Fix the issue GOFAST-3956 caused by GOFAST-3892
+   */
+  function gofast_update_7322(){
+    usurp(1);
+    set_time_limit(0);
+    $nodes = db_query("select nid from node where uid=0 AND type='alfresco_item' AND status=1")->fetchAll();
+
+    foreach($nodes as $lightnode){
+      $nid = $lightnode->nid;
+      $node = node_load($nid);
+      $item = gofast_cmis_item_get(gofast_cmis_node_get_item_id($node), TRUE);
+      if(isset($item->properties['cmis:createdBy'])){
+        $uid = user_load_by_name($item->properties['cmis:createdBy'])->uid;
+        if($uid > 0){
+          db_query('UPDATE node SET uid=' . $uid . ' WHERE nid=' . $nid);
+        }
+      }else{
+        $_POST['prevent_notify'] = TRUE;
+        $_GET['nid'] = $nid;
+        gofast_ajax_node_unpublish(NULL, NULL, FALSE);
+      }
+    }
+  }
+
+  /*
+   * Implements hook_update
+   * Fix issue GOFAST-4111
+   */
+  function gofast_update_7323(){
+   $main_menu_links = menu_load_links("main-menu");
+   foreach($main_menu_links as $key=>$item){
+        if($item["link_path"] == "og/list_grid/directories"){
+           $new_item = menu_link_load($item["mlid"] );
+          $new_item["href"] = "user_listing_grid";
+          $new_item["link_path"] = "user_listing_grid";
+          $new_item["router_path"] = "user_listing_grid";
+           menu_link_save($new_item);
+       }
+    }
+  }
+
+ /*
+  * Implements hook_update
+  * Fix issue GOFAST-3445 - change ckeditor module weight
+  */
+  function gofast_update_7324() {
+
+    $gofast_mobile_weight = db_query("SELECT weight FROM {system} WHERE name = 'gofast_mobile'")->fetchObject()->weight;
+    db_query("UPDATE {system} SET weight = :weight WHERE name = 'ckeditor'", array(':weight' => $gofast_mobile_weight  - 1));
+
+  }
+
+ /*
+  * Implements hook_update
+  * Fix issue GOFAST-3752 - uninstall password policy module
+  */
+  function gofast_update_7327() {
+    module_disable(array('password_policy'));
+    drupal_uninstall_modules(array('password_policy'));
+  }
+
+   /*
+  * Implements hook_update
+  * Alter themes configuration variables to manage jquery_update versions
+  */
+  function gofast_update_7328() {
+      $variable = variable_get("theme_bootstrap_gofast_settings", array());
+      $variable["jquery_update_jquery_version"] = "3.1";
+      variable_set("theme_bootstrap_gofast_settings", $variable);
+
+      $variable = variable_get("theme_bootstrap_gofast_mobile_settings", array());
+      $variable["jquery_update_jquery_version"] = "3.1";
+      variable_set("theme_bootstrap_gofast_mobile_settings", $variable);
+  }
+
+  /*
+  * Implements hook_update
+  */
+  function gofast_update_7330() {
+    if(!db_index_exists("node", "gfindex_node_1")){
+        db_add_index("node", "gfindex_node_1", array('status', 'changed'));
+    }
+
+    if(!db_index_exists("node", "gfindex_node_2")){
+        db_add_index("node", "gfindex_node_2", array('nid', 'status'));
+    }
+
+    if(!db_index_exists("radioactivity_history", "gfindex_radioactivity_history_1")){
+        db_add_index("radioactivity_history", "gfindex_radioactivity_history_1", array('field_instance_id', 'time'));
+    }
+
+    if(!db_index_exists("locales_source", "gfindex_locales_source_1")){
+        db_add_index("locales_source", "gfindex_locales_source_1", array('textgroup', 'version', 'context'));
+    }
+  }
+
+
+function gofast_update_7331()
+{
+  $main_menu_links = menu_load_links("main-menu");
+  foreach ($main_menu_links as $key => $item) {
+    if ($item["link_path"] == "user_listing_grid") {
+      $new_item = menu_link_load($item["mlid"]);
+      $new_item["href"] = "user_listing_tab";
+      $new_item["link_path"] = "user_listing_tab";
+      $new_item["router_path"] = "user_listing_tab";
+      menu_link_save($new_item);
+    }
+    if ($item["link_path"] == "user_blocked" || $item["link_path"] == "user_listing_grid_contrib" || $item["link_path"] == "inactive_users") {
+      menu_link_delete($item["mlid"]);
+    }
+  }
+}

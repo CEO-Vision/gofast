@@ -1,0 +1,15 @@
+name = OG example
+description = Example module to show Organic groups configuration that can be used as building block.
+core = 7.x
+package = Features
+version = 7.x-2.9
+project = og
+dependencies[] = ctools
+dependencies[] = features
+dependencies[] = list
+dependencies[] = og
+dependencies[] = og_ui
+dependencies[] = rules
+datestamp = 1461150274
+features[ctools][] = page_manager:pages_default:1
+features[features_api][] = api:2

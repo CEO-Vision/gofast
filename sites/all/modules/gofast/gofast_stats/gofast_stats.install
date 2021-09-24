@@ -1,0 +1,60 @@
+<?php
+/**
+ * Implements hook_install()
+ */
+function gofast_stats_install() {
+  //get parent menu_link 'Directories'
+  $parent_title = 'My profile dropdown';
+  $query = db_query("SELECT * FROM {menu_links} WHERE link_title='".$parent_title."'");
+  $plid = $query->fetch()->mlid;
+  
+  $links = array(
+    'link_title' => 'Statistics',
+    'link_path' => 'gofast_stats/dashboard',
+    'router_path' => 'gofast_stats/dashboard',
+    'menu_name' => 'user-menu',
+    'plid' => $plid,
+    'weight' => 0,
+    'expanded' => 0,
+    'cutomized' => 1,
+    'uuid' => 'ca9f0e8a-a355-48c8-bcf6-6c235a171aa2'
+  );
+  
+  // Look the table first if the data does exist
+  $exists_link = db_query("SELECT mlid from {menu_links} WHERE link_title=:link_title AND link_path=:link_path", array(':link_title' =>  $links['link_title'], ':link_path' => $links['link_path']))->fetchField();
+  // Save the record if the data does not exist
+  if (!$exists_link) {
+    menu_link_save($links);
+  }
+}
+
+/**
+ * Implements hook_update()
+ */
+function gofast_stats_update_7301(){
+  
+  //get parent menu_link 'Directories'
+  $parent_title = 'My profile dropdown';
+  $query = db_query("SELECT * FROM {menu_links} WHERE link_title='".$parent_title."'");
+  $plid = $query->fetch()->mlid;
+  
+  $links = array(
+    'link_title' => 'Statistics',
+    'link_path' => 'gofast_stats/dashboard',
+    'router_path' => 'gofast_stats/dashboard',
+    'menu_name' => 'user-menu',
+    'plid' => $plid,
+    'weight' => 0,
+    'expanded' => 0,
+    'cutomized' => 1,
+    'uuid' => 'ca9f0e8a-a355-48c8-bcf6-6c235a171aa2'
+  );
+  
+  // Look the table first if the data does exist
+  $exists_link = db_query("SELECT mlid from {menu_links} WHERE link_title=:link_title AND link_path=:link_path", array(':link_title' =>  $links['link_title'], ':link_path' => $links['link_path']))->fetchField();
+  // Save the record if the data does not exist
+  if (!$exists_link) {
+    menu_link_save($links);
+  }
+  
+}

@@ -1,0 +1,16 @@
+<?php
+
+/**
+ * Implements hook_update()
+ * GOFAST-4032
+ * Set old "Webform" term to "Form"
+ */ 
+  function gofast_webform_update_7300(){
+    $old_tid = db_query("SELECT tid FROM taxonomy_term_data WHERE vid=" . GOFAST_VID_FORMAT . " AND name='Webform'")->fetchAll()[0]->tid;
+    $new_tid = db_query("SELECT tid FROM taxonomy_term_data WHERE vid=" . GOFAST_VID_FORMAT . " AND name='Form'")->fetchAll()[0]->tid;
+
+    if(!empty($old_tid) && !empty($new_tid)){
+        db_query("UPDATE field_data_field_format SET field_format_tid=" . $new_tid . " WHERE field_format_tid=" . $old_tid);
+        db_query("UPDATE field_revision_field_format SET field_format_tid=" . $new_tid . " WHERE field_format_tid=" . $old_tid);
+    }
+  }

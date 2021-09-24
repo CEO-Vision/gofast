@@ -1,0 +1,619 @@
+<?php
+
+
+/**
+ * Implements hook_menu()
+ */
+function gofast_dashboard_menu(){
+  $items['dashboard'] = array(
+    'title' => t('Dashboard', array(), array('context' => 'gofast_cdel')),
+    'page callback' => 'gofast_dashboard_dashboard_page',
+    'access callback' => 'user_is_logged_in',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+ $items['dashboard/ajax/%'] = array(
+    'title' => t('Dashboard', array(), array('context' => 'gofast_cdel')),
+    'page callback' => 'gofast_dashboard_dashboard_element',
+    'access callback' => 'user_is_logged_in',
+    'type' => MENU_NORMAL_ITEM,
+    'page arguments' => array(2),
+  );
+
+   $items['modal/%ctools_js/dashboard_add_to_dashboard'] = array(
+    'title' => t('Add as shortcut on dashboard', array(), array('context' => 'gofast_dashboard')),
+    'page callback' => 'gofast_dashboard_dashboard_add_shortcut',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+    'options'=> array(
+      'attributes' => array(
+        'class' => 'ctools-use-modal'
+      )
+    )
+  );
+
+   $items['modal/%ctools_js/dashboard_add_content_to_dashboard'] = array(
+    'title' => t('Add as shortcut on dashboard', array(), array('context' => 'gofast_dashboard')),
+    'page callback' => 'gofast_dashboard_dashboard_add_content',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+    'options'=> array(
+      'attributes' => array(
+        'class' => 'ctools-use-modal'
+      )
+    )
+  );
+
+   $items['modal/%ctools_js/dashboard_add_folder_to_dashboard'] = array(
+    'title' => t('Add as folder shortcut on dashboard', array(), array('context' => 'gofast_dashboard')),
+    'page callback' => 'gofast_dashboard_dashboard_add_folder',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+    'options'=> array(
+      'attributes' => array(
+        'class' => 'ctools-use-modal'
+      )
+    )
+  );
+
+ $items['dashboard_remove_from_dashboard/%node'] = array(
+    'title' => t('Remove shortcut from dashboard', array(), array('context' => 'gofast_cdel')),
+    'page callback' => 'gofast_dashboard_dashboard_remove_shortcut',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+    'options'=> array(
+      'attributes' => array( )
+    )
+  );
+
+
+    $items['gofast_dashboard_space_autocomplete'] = array(
+    'page callback' => 'gofast_dashboard_space_autocomplete',
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+
+
+  return $items;
+}
+
+
+
+/**
+ * Render API callback: Remove OG shortcut from dashboard page
+ *
+ * This function is used to remove the shortcut on dashboard
+ * for the selected space and reload dashboard shortcut
+ * after validation.
+ */
+function gofast_dashboard_dashboard_remove_shortcut($node){
+
+  global $user;
+  ctools_include('ajax');
+
+   if($node !== null){
+      //get node type
+      $type =$node->type;
+      if($type=='organisation'){
+        $display_id = 'organisation_shortcuts';
+        $selector = '.dashboard_shortcut_orga .panel-body > div:first';
+      }else{
+        $display_id = 'group_shortcuts';
+        $selector = '.dashboard_shortcut_group .panel-body > div:first';
+      }
+
+    $flag = flag_get_flag('bookmarks');
+    $flag->flag('unflag', $node->nid, $user, TRUE);
+
+    drupal_set_message(t('The Space has been removed from your favorites.', array(), array('context' => 'gofast_dashboard')));
+  }
+
+  if (!isset($commands[0])) {
+    $commands = array();
+
+    if(isset($selector)){ //update view
+      $view_updated = views_embed_view('gofast_dashboard_flag_dashboard_shortcut', $display_id);
+      $commands[] = ajax_command_replace($selector, $view_updated);
+    }
+
+    $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+  }
+
+  print ajax_render($commands);
+  exit;
+}
+
+/**
+ * Get space visible by a user
+ * @param type $bundles => array of og bundle keys 'organisation', 'group', etc...)
+ */
+function gofast_dashboard_space_autocomplete($str){
+  $str = trim($str);
+
+  if (empty($str) || strlen($str) < 2) {
+    // This prevents returning irrelevant results, though it should be handled
+    // clientside in order to avoid useless requests.
+    drupal_json_output(array());
+    exit;
+  }
+
+  if(count($bundles) == 0){
+    $bundles = array_keys(gofast_og_node_types(TRUE));
+    unset($bundles['public']);
+    unset($bundles['private_space']);
+  }
+
+  $options_ac_space = array(
+    'bundle' => $bundles,
+    'fields' => array(),
+    'properties' => array(),
+    'key' => 'nid',
+    'value' => 'title',
+    'format_key_callback' => 'gofast_modal_ac_format_space_key',
+    'format_value_callback' => 'gofast_modal_ac_format_space_value'
+  );
+
+  $matches = gofast_ac_query($str, 'node', $options_ac_space);
+
+  // Highlighting string matches.
+  foreach ($matches as $key => &$value) {
+    $value = preg_replace(array('/[\n\r]+/', '/(<[^<>]*>)([^<>]*?)(' . preg_quote($str, '/') . ')/i'), array('', '$1$2<b>$3</b>'), $value);
+  }
+
+  drupal_json_output($matches);
+  exit;
+}
+
+function gofast_dashboard_dashboard_add_shortcut($js){
+
+    $form_id = 'gofast_dashboard_add_space_shortcut_form';
+    $display_id = 'page_2';
+    $selector = '.dashboard_shortcut_group .panel-body > div:first';
+
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array()
+    ),
+    'title' => null
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  if (!isset($commands[0])) {
+    $commands = array();
+    $commands[] = ctools_modal_command_dismiss();
+
+    $view_updated = views_embed_view('gofast_flag_bookmarks', $display_id);
+    $commands[] = ajax_command_replace($selector, $view_updated);
+    $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+
+    $commands[] = gofast_command_callback("Gofast.processDashboardDropdowns");
+  }
+  print ajax_render($commands);
+}
+
+function gofast_dashboard_dashboard_add_folder($js){
+
+    $form_id = 'gofast_dashboard_add_folder_form';
+    $display_id = 'page_2';
+    $selector = '.dashboard_shortcut_group .panel-body > div:first';
+
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array()
+    ),
+    'title' => null
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  if (!isset($commands[0])) {
+    $commands = array();
+    $commands[] = ctools_modal_command_dismiss();
+    $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+    $commands[] = gofast_command_toast_message(t("The selected folders have been added to your bookmarks", array(), array('context' => 'gofast:gofast_dashboard')), "success");
+
+    $block = theme("gofast_dashboard_dashboard_favorites_folders");
+    $commands[] = ajax_command_replace("#dashboard-block-folders", $block);
+  }
+  print ajax_render($commands);
+}
+
+function gofast_dashboard_dashboard_add_content($js){
+
+    $form_id = 'gofast_dashboard_add_space_content_form';
+    $display_id = 'page_1';
+    $selector = '.dashboard_shortcut_group .panel-body > div:last';
+
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array()
+    ),
+    'title' => null
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  if (!isset($commands[0])) {
+    $commands = array();
+    $commands[] = ctools_modal_command_dismiss();
+
+    $view_updated = views_embed_view('gofast_flag_bookmarks', $display_id);
+    $commands[] = ajax_command_replace($selector, $view_updated);
+    $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+
+    $commands[] = gofast_command_callback("Gofast.processDashboardDropdowns");
+  }
+  print ajax_render($commands);
+}
+
+function gofast_dashboard_add_space_shortcut_form($form, &$form_state, $node = NULL){
+  global $user;
+  $ogs = gofast_og_get_spaces_by_user($user, TRUE);
+  foreach($ogs as $gid => &$path){
+      $path = gofast_cmis_space_get_webdav_path($gid);
+  }
+
+  $form['locations_checks'] = array(
+	'#type' => 'item',
+	'#title' => t('Spaces selected to be added in your bookmarks', array(), array('context' => "gofast:gofast_dashboard")),
+	'#suffix' => "<div class='ui-locations-check' style='min-width:800px;margin-bottom:10px;'><i>" . t('You have not chosen any space ...') ."</i></div>",
+  );
+
+  $form['spaces'] = array(
+    '#type' => 'select',
+    '#multiple' => TRUE,
+    '#options' => $ogs,
+    '#required' => TRUE,
+    '#attributes' => array('class' => array('edit-all-spaces')),
+    '#prefix' => "<label>" . t("Select spaces to add in your bookmarks", array(), array('context' => 'gofast')) . "</label><br /><div class='loader-ztree'></div>"
+  );
+  gofast_ztree_form_alter($form, $form_state);
+  $form['#after_build'][] = 'gofast_ztree_after_build';
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Pin on Dashboard', array(), array('context' => 'gofast')),
+    '#attributes' => array('class' => array('btn', 'btn-success', 'btn-sm')),
+    '#submit' => array('gofast_dashboard_add_shortcut_form_submit')
+  );
+
+  return $form;
+}
+
+function gofast_dashboard_add_folder_form($form, &$form_state, $node = NULL){
+    global $user;
+    $form['locations_checks'] = array(
+	'#type' => 'item',
+	'#title' => t('Folders selected to be added'),
+	'#suffix' => "<div class='ui-locations-check' style='min-width:800px;margin-bottom:10px;'><i>" . t('You have not chosen any folder to add...') ."</i></div>",
+    );
+
+    //Get root spaces
+    $groups = gofast_ajax_file_browser_get_nid_from_href("/Sites/_Groups");
+    $organisations = gofast_ajax_file_browser_get_nid_from_href("/Sites/_Organisations");
+    $extranet = gofast_ajax_file_browser_get_nid_from_href("/Sites/_Extranet");
+    $public = gofast_ajax_file_browser_get_nid_from_href("/Sites/_Public");
+    $ztree = array(
+	$groups => "/Sites/_Groups",
+	$organisations => "/Sites/_Organisations",
+	$extranet => "/Sites/_Extranet",
+	$public => "/Sites/_Public",
+    );
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#multiple'] = TRUE;
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#title'] = t("Select folders to add in your bookmarks", array(), array('context' => 'gofast'));
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#required'] = FALSE;
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#type'] = 'select';
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#options'] = $ztree;
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#value'] = $ztree;
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]["#attributes"]["class"][] = "gofast_display_none";
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t("Save", array(), array('context' => 'gofast')),
+  );
+
+  return $form;
+}
+
+/**
+ */
+function gofast_dashboard_add_shortcut_form_submit($form, &$form_state){
+  global $user;
+
+  $nids = $form_state['input']['spaces'];
+
+  $og_pinned = array();
+  foreach($nids as $nid){
+    $flag = flag_get_flag('bookmarks');
+    $flag->flag('flag', $nid, $user, TRUE);
+    $og_pinned[] = gofast_get_node_title($nid);
+  }
+
+  drupal_set_message(t('The following spaces have been added to your favorites: %spaces', array('%spaces' => implode(', ', $og_pinned)), array('context' => 'gofast_dashboard')));
+  $form_state['redirect'] = 'dashboard';
+}
+
+function gofast_dashboard_add_folder_form_submit($form, &$form_state){
+  $selected_folders = $form_state['input']['field_emplacement'];
+
+  foreach($selected_folders as $path){
+      gofast_ajax_file_browser_bookmark_folder("/alfresco/webdav" . $path . "/");
+  }
+
+  $form_state['redirect'] = 'dashboard';
+}
+
+function gofast_dashboard_add_space_content_form($form, &$form_state, $node = NULL){
+  $form['node']= array(
+    '#title' => t('Contents to add as shortcut', array(), array('context' => 'gofast_cdel')),
+    '#type' => 'textfield',
+    '#default_value' => '',
+    '#maxlength' => '', // no maxlength
+    '#required' => FALSE,
+    '#autocomplete_path' => 'gofast/documents-autocomplete',
+    '#attributes' => array('class' => array('labelize-autocomplete'))
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Pin on Dashboard', array(), array('context' => 'gofast')),
+    '#attributes' => array('class' => array('btn', 'btn-success', 'btn-sm')),
+    '#submit' => array('gofast_dashboard_add_content_form_submit')
+  );
+
+  return $form;
+}
+
+/**
+ */
+function gofast_dashboard_add_content_form_submit($form, &$form_state){
+  global $user;
+
+  $ogs = $recipients_value = json_decode($form_state['input']['edit-' . str_replace("_", "-", $form['node']['#name']) . '-hidden-values']);
+
+  $og_pinned = array();
+  foreach($ogs as $og){
+    $flag = flag_get_flag('bookmarks');
+    $flag->flag('flag', $og->id, $user, TRUE);
+    $og_pinned[] = $og->name;
+  }
+
+  drupal_set_message(t('The following contents have been added to your favorites: %spaces', array('%spaces' => implode(', ', $og_pinned)), array('context' => 'gofast_dashboard')));
+  $form_state['redirect'] = 'dashboard';
+}
+
+/**
+ * Implements hook_page() for dashboard
+ */
+function gofast_dashboard_dashboard_page(){
+  drupal_add_css(drupal_get_path('module', 'gofast_dashboard') . "/css/gofast_dashboard.css");
+
+  $output = theme('gofast_dashboard_dashboard_breadcrumb', array());
+  $output .=  theme('gofast_dashboard_dashboard_main');
+  return $output;
+}
+
+/*
+ * Used to load the dashboard blocks async
+ */
+function gofast_dashboard_dashboard_element($element){
+  $output = "";
+
+  switch($element){
+    case 'space_bottom':
+      $space_bottom = gofast_cdel_get_subspaces('bottom');
+      $output .= theme('gofast_dashboard_space_bottom_content', array('childrens' => $space_bottom));
+      break;
+    case 'space_left':
+      $space_left = gofast_cdel_get_subspaces('left');
+      $output .= theme('gofast_dashboard_space_left_content', array('childrens' => $space_left));
+      break;
+    case 'space_right':
+      $space_right = gofast_cdel_get_subspaces('right');
+      $output .= theme('gofast_dashboard_space_right_content', array('childrens' => $space_right));
+      break;
+    case 'last_commented':
+      $block_last_commented = gofast_cdel_block_view('gofast_cdel_last_commented');
+      $output .= $block_last_commented['content'];
+      break;
+    case 'mail':
+      $block_mail = gofast_cdel_block_view('gofast_cdel_mails');
+      $output .= $block_mail['content'];
+      break;
+    case 'favorite_spaces':
+      $_GET['q'] = "gofast-flag-dashboard-shortcut";
+      $output .= views_embed_view('gofast_flag_dashboard_shortcut', $display_id = 'group_shortcuts');
+      break;
+    case 'memo':
+      $memos = gofast_dashboard_get_user_memo();
+      $output .= theme('gofast_dashboard_dashboard_memo_content', array('user_memos' => $memos));
+      break;
+  }
+
+  print $output;
+  exit;
+}
+
+function template_preprocess_gofast_dashboard_dashboard_favorites_folders(&$variables){
+      global $user;
+      global $base_url;
+     //Check folder bookmarked
+     $folder_bookmarks = db_query("SELECT fbid,folder_reference FROM gofast_bookmark_folder WHERE uid=" . $user->uid)->fetchAll();
+     foreach($folder_bookmarks as $folder_bookmark){
+
+         $display_reference = $folder_bookmark->folder_reference;
+         $item = gofast_cmis_item_get($display_reference);
+         $display_path = $item->properties['cmis:path'];
+         $path = $item->properties['cmis:path'];
+         if(substr($display_path, -1, 1) == "/"){
+             $display_path = substr($display_path, 0, -1);
+         }
+         $folder_name = array_pop(explode("/", $display_path));
+
+         $final_path = array();
+         $unencoded_path = $path;
+         if(gofast_mobile_is_mobile_domain()){
+           $final_path["link"] = "<a href='" . $base_url . "/home_page_navigation?&path=" . $path . "#navBrowser'>" . $folder_name . "</a>";
+           $final_path["unthemed_link"] = $base_url . "/home_page_navigation?&path=" . $path . "#navBrowser";
+         }else{
+           $final_path["link"] = l($folder_name, "/gofast/browser", array('attributes' => array('title' => str_replace("/alfresco/webdav", "", $path)), 'query' => array('path' => $path)));
+           $final_path["unthemed_link"] = $base_url . "/gofast/browser?&path=" . $path;
+         }
+         $final_path['unthemed_path'] = $unencoded_path;
+         $final_path["icon"] = '<span class="fa fa file-o fa-folder"></span>';
+         $final_path["path"] = $display_path;
+         $array_folders[] = $final_path;
+     }
+
+      $variables['favorite_folders'] = $array_folders;
+}
+
+function template_preprocess_gofast_dashboard_dashboard_main_orga(&$variables) {
+  $og= gofast_user_get_main_org(NULL, TRUE);
+  $variables['og_nid'] = $og->nid;
+  $variables['og_name'] = $og->title;
+
+  //build search url
+  $terms = taxonomy_get_term_by_name('Forum', 'format');
+  $term = reset($terms);
+  $variables['forum_search_url_params'] = 'f[0]=im_field_format:'.$term->tid.'&f[1]=sm_og_group_content_ref:node:'.$og->nid;
+
+  $terms = taxonomy_get_term_by_name('Web Page', 'format');
+  $term = reset($terms);
+  $variables['article_search_url_params'] = 'f[0]=im_field_format:'.$term->tid.'&f[1]=sm_og_group_content_ref:node:'.$og->nid;
+}
+
+function gofast_dashboard_get_user_memo(){
+    //get all memos ( microblogging);
+  $query = new EntityFieldQuery();
+  $result = $query->entityCondition('entity_type', 'node')
+    ->entityCondition('bundle', 'blog')
+    ->range(0, 20)
+    ->propertyOrderBy('changed', 'DESC')
+    ->execute();
+  $nodes = node_load_multiple(array_keys($result['node']));
+  return $nodes;
+}
+
+
+/**
+ * Implements hook_theme()
+ */
+function gofast_dashboard_theme() {
+  return array(
+    'gofast_dashboard_dashboard_main' => array(
+      'template' => 'tpl/gofast-dashboard-main'
+    ),
+    'gofast_dashboard_dashboard_breadcrumb' => array(
+      'template' => 'tpl/gofast-dashboard-breadcrumb'
+    ),
+    'gofast_dashboard_dashboard_private_space' => array(
+      'template' => 'tpl/gofast-dashboard-private-space'
+    ),
+    'gofast_dashboard_dashboard_main_orga' => array(
+      'template' => 'tpl/gofast-dashboard-main-orga'
+    ),
+      'gofast_dashboard_dashboard_memo' => array(
+      'template' => 'tpl/gofast-dashboard-memo'
+    ),
+    'gofast_dashboard_dashboard_memo_content' => array(
+      'template' => 'tpl/gofast-dashboard-memo-content'
+    ),
+    'gofast_dashboard_dashboard_shortcut_group' => array(
+      'template' => 'tpl/gofast-dashboard-shortcut-group'
+    ),
+   'gofast_dashboard_dashboard_favorites_folders' => array(
+      'template' => 'tpl/gofast-dashboard-favorites-folders'
+    ),
+   'gofast_dashboard_dashboard_favorites_contents' => array(
+      'template' => 'tpl/gofast-dashboard-favorites-contents'
+    ),
+
+
+
+  );
+}
+
+
+/**
+ * Implementation of hook_views_handlers().
+ * Register all of the basic handlers views uses.
+ */
+function gofast_dashboard_views_handlers() {
+  return array(
+    'info' => array(
+      'path' => drupal_get_path('module', 'ceo_vision_dashboard'),
+    ),
+    'handlers' => array(
+      'gofast_dashboard_handler_field_node_actions' => array(
+        'parent' => 'views_handler_field',
+      ),
+    ),
+  );
+}
+
+function gofast_dashboard_views_data() {
+    $data = array();
+
+    // The 'group' index will be used as a prefix in the UI for any of this
+  // table's fields, sort criteria, etc.
+  $data['gofast_dashboard']['table']['group'] = t('CEO-Vision Dashboard');
+  // Define this as a base table.
+  $data['gofast_dashboard']['table']['join'] = array(
+    '#global' => array(),
+  );
+
+
+  // Node actions field
+  $data['gofast_dashboard']['node_actions'] = array(
+    'title' => t('Node actions'),
+    'help' => t('Node actions'),
+    'field' => array(
+      'handler' => 'gofast_dashboard_handler_field_node_actions',
+    ),
+  );
+
+  return $data;
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function gofast_dashboard_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'gofast_dashboard'),
+  );
+}

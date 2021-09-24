@@ -1,0 +1,10 @@
+/* Theme Quadra */
+.navbar-inverse{ /* Main menu */
+  background-color: #2E3753;
+}
+.modal-header{ /* Popup header */
+  background-color: #2E3753;
+}
+
+/* Change the background color of the dropdown button when the dropdown content is shown */
+.dropdown:hover > .fa-question-circle {color: #2E3753;}

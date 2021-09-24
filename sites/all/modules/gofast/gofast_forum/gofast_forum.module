@@ -1,0 +1,283 @@
+<?php
+
+/**
+ * Overrid the gofast_forum's weight, make sure that gofast_forum's functions are executed after the advanced_forum module.
+ */
+function gofast_forum_enable() {
+  $advanced_forum_weight = db_select('system')
+          ->fields('system', array('weight'))
+          ->condition('name', 'advanced_forum', '=')
+          ->execute()
+          ->fetchField();
+
+  db_update('system')
+          ->fields(array('weight' => $advanced_forum_weight + 1))
+          ->condition('name', 'gofast_forum')
+          ->execute();
+  
+}
+/**
+ * Hook theme
+ * @return string
+ */
+function gofast_forum_theme() {
+  $themes = array(
+    'gofast_forum_simple_author_pane' => array(
+      'template' => 'tpl/gofast_forum_simple_author_pane',
+      'variables' => array(
+        'id' => NULL,
+        'displayname' => NULL,
+        'avatar' => NULL
+      )
+    )
+  );
+  
+  return $themes;
+}
+
+function gofast_forum_preprocess_node(&$variables) {
+  $path = drupal_get_path('module', 'gofast_forum');
+  
+  if (isset($variables['node']) && $variables['node']->type == 'forum') {
+    $variables['content']['links']['comment']['#links']['comment-add']['title'] = '<span class="fa fa-reply"></span>';
+    
+    drupal_add_js($path . '/js/gofast_dragdrop_comments.js');
+  }
+  drupal_add_css($path . '/css/gofast_forum.css');
+  
+  //check if all the comments are displayed or not
+  $total_number_comments = $variables['node']->comment_count;
+  $displayed_comments = count($variables["elements"]["comments"]["comments"]) -2;
+  
+  if($total_number_comments > $displayed_comments){
+      $variables['must_load_remaining_comments'] = true;
+  }
+}
+
+/**
+ * Theme function to show simple author pane when not using Author Pane.
+ */
+function template_preprocess_gofast_forum_simple_author_pane(&$variables) {
+  $context = $variables['context'];
+  $variables['id'] = $context->uid;
+  $account = user_load($context->uid);
+  if(user_view_access($account)){
+    $ldap_attributes = gofast_ldap_user_attributes($account);
+    $variables['displayname'] = gofast_user_display_name($account);
+    $variables['profile_score'] = userpoints_get_current_points($account->uid) . ' ' . t('points', array(), array('context' => 'gofast'));
+    $variables['ldap'] = gofast_ldap_user_attributes($account);
+  }
+  $variables['avatar'] = theme('user_picture', array('account' => $account));
+}
+
+/**
+ * Override the function advanced_forum_links_alter
+ */
+function gofast_forum_links_alter(&$object, $view_mode, $object_type = 'node') {
+  // Don't alter anything if in preview mode.
+  if (!empty($object->in_preview)) {
+    return;
+  }
+
+  if (!empty($object->content['links']['comment'])) {
+    $comment_links = $object->content['links']['comment'];
+    $links = empty($comment_links['#links']) ? array() : $comment_links['#links'];
+  }
+  else {
+    $comment_links = array();
+    $links = array();
+  }
+
+  if ($object_type == 'node') {
+
+    $node = $object;
+    // Add edit / delete links to the node links to match replies.
+    if (node_access('update', $node)) {
+      $links['post-edit'] = array(
+        'title' => '<span class="fa fa-edit"></span>',
+        'href' => '/modal/nojs/node/' .$node -> nid . '/edit',
+        'attributes' =>array( 'class' => array( 'ctools-use-modal')) ,
+      );
+      
+    }
+
+    if (node_access('delete', $node)) {
+      $links['post-delete'] = array(
+        'title' => '<span class="fa fa-trash-o"></span>',
+        'href' => '/modal/nojs/node/' . $node->nid . '/manage',
+        'attributes' =>array( 'class' => array( 'ctools-use-modal')) ,
+      );
+      
+    }
+  }
+
+  // Change first post from "add comment" to "reply" if it isn't already.
+  if (!empty($links['comment-add'])) {
+    $links['comment-add']['title'] = '<span class="fa fa-reply"></span>';
+    $links['comment-add']['href'] = "comment/reply/$node->nid";
+  }
+  
+
+  // List the keys we are interested in.
+  $affected_keys = array(
+    'post-edit',
+    'comment-edit',
+    'post-delete',
+    'comment-delete',
+    'quote',
+    'comment-add',
+    'comment-reply',
+  );
+
+  // Add extra span tags for image replacement.
+  foreach ($links as $key => $link) {
+    if (in_array($key, $affected_keys)) {
+
+      $links[$key]['attributes']['class'][] = "af-button-small";
+      $classes = '';
+      if (strpos($key, 'edit')) {
+        $classes = 'fa fa-edit';
+      } elseif (strpos($key, 'delete')) {
+        $classes = 'fa fa-trash-o';
+      } elseif (strpos($key, 'add') || strpos($key, 'reply')) {
+        $classes = 'fa fa-reply';
+      }
+      $links[$key]['title'] = '<span class="'.$classes.'"></span>';
+      $links[$key]['html'] = TRUE;
+    }
+  }
+
+  // Put the links in a consistent order.
+  foreach ($affected_keys as $key) {
+    if (isset($links[$key])) {
+      $temp = $links[$key];
+      unset($links[$key]);
+      $links[$key] = $temp;
+    }
+  }
+  
+  // We want to put comment links last.
+  unset($object->content['links']['comment']);
+  $object->content['links']['comment'] = $comment_links;
+
+  // Put links back.
+  $object->content['links']['comment']['#links'] = $links;
+  
+  //unset($object->content['links']['print_html']);
+  //unset($object->content['taxonomy_forums']['#object'])
+  //$object->content['taxonomy_forums']['#object']->print_display = 0;
+  
+}
+
+function gofast_forum_preprocess_comment(&$variables) {
+  $node = $variables['node'];
+  $comment = $variables['comment'];
+  // Fix the comment title. remove <a>, just keep its text as the title
+  $variables['title'] = check_plain($comment->subject);
+  
+  // Fix the permalink link. Not working
+  //$variables['permalink'] = l('#1', "node/$node->nid");
+
+  $posts_per_page = variable_get('comment_default_per_page_' . $node->type, 50);
+  /* In reply to */
+  $variables['in_reply_to'] = "";
+}
+
+/**
+ * Implements hook_node_view().
+ *
+ * hook_link() and hook_links_alter() functionality implemented here
+ */
+function gofast_forum_node_view($node, $view_mode, $langcode) {
+  gofast_forum_links_alter($node, $view_mode, 'node');
+}
+
+/**
+ * Implements hook_comment_view().
+ */
+function gofast_forum_comment_view($comment, $view_mode, $langcode) {
+  gofast_forum_links_alter($comment, $view_mode, 'comment');
+}
+
+/**
+ * Implements hook_library().
+ */
+function gofast_forum_library() {
+  $path = drupal_get_path('module', 'gofast_forum');
+  
+  $libraries['gofast_forum'] = array(
+    'title' => 'Gofast Forum',
+    'version' => '1.0',
+    'css' => array(
+      $path . '/css/gofast_forum.css' => array(
+        'type' => 'file',
+        'media' => 'screen',
+        'group' => CSS_THEME,
+        'weight' => 1
+      )
+    )
+  );
+  
+  return $libraries;
+}
+
+function gofast_forum_form_comment_form_alter(&$form, &$form_state, $form_id) {
+  $form['comment_body']['#after_build'][] = 'gofast_forum_hide_text_format';
+}
+
+function gofast_forum_hide_text_format(&$form) {
+  $form[LANGUAGE_NONE][0]['format']['#access'] = false;
+  return $form;
+}
+
+function gofast_forum_form_forum_node_form_alter(&$form, &$form_state, $form_id) {
+  end($form['taxonomy_forums'][LANGUAGE_NONE]['#options']);
+  $form['taxonomy_forums'][LANGUAGE_NONE]['#default_value'] = key($form['taxonomy_forums'][LANGUAGE_NONE]['#options']);
+  $form['taxonomy_forums']['#attributes']['class'][] = 'gofast_display_none';
+  $form['field_target_link']['#attributes']['class'][] = 'gofast_display_none';
+  $form['field_criticity']['#attributes']['class'][] = 'gofast_display_none';
+ 
+  // Set default date to empty
+  $form['field_date'][LANGUAGE_NONE][0]['#default_value'] = array();
+  //Display preview button
+  $form['actions']['preview']['#type'] = 'gofast_display_none';
+  //For modal edit forum
+  if (($form_state['modal']) == TRUE){
+      //Display delete button
+      $form['actions']['delete']['#type'] = 'gofast_display_none';
+      //Display title textfield and selectfield language
+      $form['wrapper']['#attributes']['class'][]= 'gofast_display_none';
+      //Display File Location/Sharing 
+      $form['og_group_content_ref']['#attributes']['class'][] = 'gofast_display_none';
+  }
+}
+
+
+/** Implements hook_query_TAG_alter().
+ *
+ * Alter comments query to order by DESC as well as the default ASC.
+ */
+function gofast_forum_query_comment_filter_alter(QueryAlterableInterface $query) {
+$orderby = &$query->getOrderBy();
+  $expressions = &$query->getExpressions();
+  // Sorting for threaded comments.
+  if (isset($orderby['torder'])) {
+    // Get rid of the expressions that prepare the threads for ASC ordering.
+    unset($expressions['torder']);
+    unset($orderby['torder']);
+    // Simply order by the thread field.
+    $orderby['c.thread'] = 'DESC';
+   if(isset($query->limit)){
+        $query->limit(9999);
+    }
+  }
+  // Sorting for flat comments.
+  else {
+    $direction = 'DESC';
+    if (isset($orderby['c.cid'])) {
+      unset($orderby['c.cid']);
+    }
+    $orderby['c.created'] = $direction;
+    $orderby['c.cid'] = $direction;
+  }
+}

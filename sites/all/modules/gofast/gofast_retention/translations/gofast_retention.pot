@@ -1,0 +1,170 @@
+# LANGUAGE translation of PROJECT
+# Copyright (c) YEAR NAME <EMAIL@ADDRESS>
+#
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2017-09-11 11:11+0200\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+"X-Generator: Poedit 2.0.3\n"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Period Retention Matrice"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Contain matrice for retention period and action by category"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Date Retention will expire"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Documents\' retention date expiring tomorrow"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Message sent from GofastPlateform"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Documents\' retention date expiring in 1 week notification"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Current list of mail recipient"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "You can edit an existing retention period"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Recipient(s)"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Email of the person which will be notified once retention period is over"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Current list of retention period"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "You can edit and existing retention period"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Add/Edit a retention period"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "You can add or edit an existing retention period"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "New Retention period"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Select a category"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Category"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Retention duration"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Unit"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Day"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Month"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Year"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Action"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "-None-"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Archive"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Sort"
+msgstr ""
+
+#: /gofast_retention
+msgctxt gofast:gofast_retention""
+msgid "Destruction"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Document Retention"
+msgstr ""
+
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "This document has a retention date, you can only change its category"
+msgstr ""
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Create"
+msgstr ""
+
+
+

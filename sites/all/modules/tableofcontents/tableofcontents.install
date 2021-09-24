@@ -1,0 +1,32 @@
+<?php
+
+/**
+ * @file tableofcontents.install
+ *
+ * Install the schema used for the node types settings.
+ * Uninstall the schema and variables.
+ * Updates for people using older versions.
+ */
+
+/**
+ * Implementation of hook_schema()
+ */
+function tableofcontents_schema() {
+
+  $schema['cache_tableofcontents'] = drupal_get_schema_unprocessed('system', 'cache');
+  $schema['cache_tableofcontents']['description'] = 'Cache table for the Table of Contents module to store pre-generated tables of contents.';
+
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install()
+ */
+function tableofcontents_install() {}
+
+/**
+ * Implementation of hook_uninstall()
+ */
+function tableofcontents_uninstall() {
+  db_query("DELETE FROM {variable} WHERE name LIKE 'tableofcontents_%'");
+}

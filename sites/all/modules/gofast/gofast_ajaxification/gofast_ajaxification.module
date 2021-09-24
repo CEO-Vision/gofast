@@ -1,0 +1,288 @@
+<?php
+function gofast_ajaxification_menu() {
+  $items = array();
+
+  $items['gofast_ajaxification/%ctools_js'] = array(
+    'page arguments' => array(1),
+    'page callback' => 'gofast_ajaxification_callback',
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+function gofast_ajaxification_preprocess_page(&$variables) {
+  global $user;
+  // if (!gofast_mobile_is_mobile_domain() && $user->uid != 1) {
+    $path = drupal_get_path('module', 'gofast_ajaxification');
+    drupal_add_js($path . '/gofast_ajaxification.js', array(
+      'scope' => 'footer',
+      'defer' => TRUE,
+      'cache' => TRUE
+    ));
+  // }
+}
+
+function gofast_ajaxification_get_toast_messages() {
+  $commands = gofast_messages_to_commands();
+  return $commands;
+}
+
+function gofast_ajaxification_callback($js = FALSE) {
+  $temps_debut = microtime(true);
+
+  //TODO mieux commenter cette fonction
+  drupal_add_library('system', 'drupal.ajax', TRUE);
+  $url = $_GET["url"];
+
+   //Prevent navigate into other page than profil
+   global $user;
+   if(isset($_SESSION['pass_reset_' . $user->uid])){
+        $current_url = $url;
+        $profil_edit_url = "user/".$user->uid."/edit";
+        if($current_url != $profil_edit_url && $current_url != "/user/logout"){
+            $url = $profil_edit_url;
+            $warning_message = t('You are using a temporarily session in order to change your password. Please change it from your profil', array(), array('context' => 'gofast'));
+            drupal_set_message($warning_message, "warning");
+            drupal_add_js(array('pass_reset' => "true"), 'setting');
+        }
+   }
+
+  if(isset($_GET["no_sidebar"])){
+      $no_sidebar = true;
+  }else{
+       $no_sidebar = false;
+  }
+  $parts = parse_url($url, PHP_URL_QUERY);
+  $main_url = parse_url($url);
+  parse_str($parts, $query_params);
+
+  if (count($query_params) > 0) {
+    foreach ($query_params as $key => $param) {
+      $_GET[$key] = $param;
+      $_REQUEST[$key] = $param;
+    }
+  }
+
+
+  $url = $main_url["path"];
+
+
+  if (gofast_request_is_ajax()) {
+    $type = "ajax";
+  }
+  else {
+    $type = "normal";
+  }
+
+  if ($url == "/") {
+      if(variable_get('site_frontpage', 'node') !== "node"){
+          $url = variable_get('site_frontpage', 'node');
+      }else{
+            $url = "node";
+      }
+  }
+
+    if($url == '/home'){
+       global $user;
+       $psid = gofast_og_get_user_private_space($user, FALSE);
+       $url = "node/".$psid;
+  }
+
+  if ($url[0] == "/") {
+    $url = substr($url, 1);
+  }
+
+  $_GET['q'] = $url;
+  unset($_GET["url"]);
+
+  // Fix the fast-upload in the second sidebar bug
+  static $drupal_static_fast;
+  $drupal_static_fast['is_front_page'] = &drupal_static('drupal_is_front_page', NULL, TRUE);
+
+  //menu_set_active_item($url);
+
+  if(menu_get_item($url) == false){
+    $conditions = array('alias' => $url);
+    $path = path_load($conditions);
+    if($path != false){
+        $url = $path["source"];
+       menu_set_item($url, menu_get_item($path["source"]));
+       $_GET['q'] = $path["source"];
+    }
+
+  }else{
+    menu_set_item($url, menu_get_item($url));
+  }
+
+  $node = '';
+  if ($url === 'search') {
+    $url = 'search/solr';
+    //return;
+  }
+
+  $temps_o_debut = microtime(true);
+
+  $language_switcher = gofast_get_lang_switcher_content();
+  $page_handler = menu_execute_active_handler($url, FALSE);
+  $block_main_content = render(block_get_blocks_by_region("content"));
+
+  $temps_o_fin = microtime(true);
+  watchdog('AJAX region content LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
+
+  $breadcrumb = '';
+  $breadcrumb_alt = '';
+  $title = '';
+
+  if (isset($page_handler["nodes"])) {
+    reset($page_handler["nodes"]);
+    $first_key = key($page_handler["nodes"]);
+    $node = node_load($first_key);
+
+    radioactivity_update_emitters(FALSE);
+
+    if($no_sidebar == true){
+      $block_main_content = "<div class='breadcrumb'><h2>".l($node->title, "node/".$node->nid)."</h2></div>".$block_main_content;
+   }
+
+    $title = $node->title;
+    if(!gofast_mobile_is_mobile_domain()){
+      $breadcrumb = '<div class="breadcrumb gofast breadcrumb-gofast">&nbsp;</div>';
+      $breadcrumb_alt = gofast_get_breadcrumbs_alt($node);
+    }
+
+  } else if (is_numeric($page_handler)) {
+    switch ($page_handler) {
+      case MENU_ACCESS_DENIED:
+        $url = 'error/403';
+        break;
+      case MENU_NOT_FOUND:
+        $url = 'error/404';
+        break;
+    }
+    $page_handler = menu_execute_active_handler($url, FALSE);
+    //$block_main_content = $page_handler;
+  } else {
+    $title = "GoFast";
+  }
+
+  //need to localize from to display the right space in ITHit
+  $context= gofast_get_context('from_ITHit');
+  if(isset($context['from_ITHit']) && $context['from_ITHit'] == true){
+    $selectedFolder =  str_replace('/Sites', '', rawurldecode($_COOKIE['memorize_last_url_ajax_file_browser']));
+
+    $context['from_ITHit'] = FALSE;
+    gofast_set_context($context);
+  }else{
+    $selectedFolder = str_replace('/Sites', '', gofast_ajax_file_browser_get_alfresco_item_accessible_location($node));
+  }
+
+  //global $user;
+  drupal_add_js(array(
+    'title' => !empty($node) && !isset($node->{GOFAST_CMIS_FOLDER_REFERENCE_FIELD}) ? $node->title : '',
+    'selectedFolder' => $selectedFolder,
+          ), 'setting');
+
+
+  // /!\ IMPORTANT : If $ppage_handler is already generated as a HTML string by some module function (ex: webform_results_submissions in webform/includes/webform.report.inc), the $renderd_html varialble will be just assigned tothe $page_handler
+  // Otherwise, the $page_handler will be generated as HTML string by drupal_render
+  $renderd_html = is_array($page_handler) ? drupal_render($page_handler) : $page_handler;
+
+
+
+  //$menu_html = theme('links', menu_navigation_links('menu-site-menu'));
+
+  $temps_t_debut = microtime(true);
+  $detect = new Mobile_Detect;
+
+  if (!$detect->isMobile() && !$detect->isTablet()) {
+    if($no_sidebar == false){
+      $blocks_sidebar_second = preg_replace("/section id=\"([^\"]*)--[0-9]\"/", "section id=\"$1\"", render(block_get_blocks_by_region("sidebar_second")));
+    }else{
+        $blocks_sidebar_second = "";
+    }
+  }
+
+  $temps_t_fin = microtime(true);
+  watchdog('AJAX node info LOADING TIME', round($temps_t_fin - $temps_t_debut, 4));
+
+
+  $block_main_content = gofast_normalize_string_from_ajaxifying($block_main_content);
+  $renderd_html = gofast_normalize_string_from_ajaxifying($renderd_html);
+  //print($blocks_sidebar_second);exit();
+  $ajax_content_div_start = '<div id="ajax_content">';
+  if($url === 'node') {
+    $ajax_content_div_start .= '<a id="main-content"></a><div class="region region-content well">';
+  }
+  $ajax_content_div_end = '</div>';
+  if($url === 'node') {
+    $ajax_content_div_end .= '</div>';
+  }
+
+  $message_placeholder = "<div id='messages-placeholder'></div>";
+
+
+  if ($js == TRUE) {
+    $commands = array();
+    $commands = gofast_ajaxification_get_toast_messages();
+    $commands[] = ajax_command_html('#gofast-lang-switch', $language_switcher);
+    if($no_sidebar == false){
+        //$commands[] = ajax_command_html('.mCSB_container', $blocks_sidebar_second);
+        $commands[] = ajax_command_html('.col-sm-3', '<div class="region region-sidebar-second"> '.$blocks_sidebar_second."</div>");
+    }
+    $commands[] = ajax_command_html('#gofast_over_content', $message_placeholder . $ajax_content_div_start . $breadcrumb . $breadcrumb_alt . $block_main_content . $renderd_html . $ajax_content_div_end);
+    $setting['gofast_ajaxification'] = $title;
+    $setting['title'] = !empty($node) ? $node->title : '';
+    $setting['selectedFolder'] = str_replace('/Sites', '', gofast_ajax_file_browser_get_alfresco_item_accessible_location($node));
+    $commands[] = ajax_command_settings($setting);
+    if(!gofast_mobile_is_mobile_domain()){
+      if($blocks_sidebar_second == ""){
+           $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+            if(jQuery('#gofast_over_content').hasClass('col-lg-8')){
+                  jQuery('#gofast_over_content').removeClass('col-lg-8').addClass('col-lg-12');
+            }
+
+           </script>");
+      }else{
+          $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+            if(jQuery('#gofast_over_content').hasClass('col-lg-12')){
+                  jQuery('#gofast_over_content').removeClass('col-lg-12').addClass('col-lg-8');
+            }
+
+           </script>");
+      }
+    }
+
+    $page = array(
+      '#type' => 'ajax',
+      '#commands' => $commands
+    );
+
+    $temps_fin = microtime(true);
+    watchdog('AJAX PAGE LOADING TIME', round($temps_fin - $temps_debut, 4));
+
+    gofast_context_fallback();
+
+
+    ajax_deliver($page);
+  }
+  else {
+    drupal_goto($url);
+  }
+}
+
+
+function gofast_ajaxification_ajax_render_alter(&$commands) {
+    //remove some user data from ajax_response ( hostname, pass, data etc)
+   if(isset($commands[0]["settings"]["gofast"]["user"]->hostname)){
+        $commands[0]["settings"]["gofast"]["user"]->hostname = "";
+   }
+   if(isset($commands[0]["settings"]["gofast"]["user"]->pass)){
+        $commands[0]["settings"]["gofast"]["user"]->pass = "";
+   }
+   if(isset($commands[0]["settings"]["gofast"]["user"]->data)){
+        $commands[0]["settings"]["gofast"]["user"]->data = "";
+   }
+}

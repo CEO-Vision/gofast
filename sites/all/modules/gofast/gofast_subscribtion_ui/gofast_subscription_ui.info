@@ -1,0 +1,12 @@
+name        = Gofast Subscription UI
+description = "Create an UI for the 'Message Subscribe' module."
+core        = 7.x
+package     = Gofast
+
+core = "7.x"
+project = "gofast_subscription_ui"
+version = "7.x-3.10.0_r2"
+
+dependencies[] = message
+dependencies[] = flag
+dependencies[] = rules

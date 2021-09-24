@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Manage Multi-filing</shortname>
+    <description>Manage multi-filing using javascript API</description>
+    <url>/set/multi/move/?reference={reference}&amp;destination={destination}</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

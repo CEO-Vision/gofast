@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Get extra informations about items for GFB</shortname>
+    <description>Get last versions, permissions and locations informations of multiple items</description>
+    <url>/post/file_browser_extra_informations</url>
+    <authentication>user</authentication>
+    <format default="html"/>
+</webscript>

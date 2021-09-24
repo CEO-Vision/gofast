@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Gofast Features Init feature.
+ */
+
+include_once 'gofast_features_init.features.inc';

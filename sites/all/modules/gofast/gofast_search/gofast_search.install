@@ -1,0 +1,19 @@
+<?php
+
+/*
+ * Implements hook_install
+ */
+function gofast_search_install(){
+    if(!db_index_exists("apachesolr_index_entities_node", "gfindex_apachesolr_index_entities_node_1")){
+        db_add_index("apachesolr_index_entities_node", "gfindex_apachesolr_index_entities_node_1", array('status','entity_id'));
+    }
+}
+
+/*
+ * Implements hook_update
+ */
+function gofast_search_update_7100(){
+    if(!db_index_exists("apachesolr_index_entities_node", "gfindex_apachesolr_index_entities_node_1")){
+        db_add_index("apachesolr_index_entities_node", "gfindex_apachesolr_index_entities_node_1", array('status','entity_id'));
+    }
+}

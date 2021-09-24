@@ -1,0 +1,40 @@
+<?php
+
+function gofast_pydio_menu() {
+  $items = array();
+  
+ $items['drupal_pydio/test'] = array(
+    'title' => 'Test Page PYDIO',
+    'page callback' => 'gofast_pydio_test',
+    'access callback' => 'user_access',
+    'access arguments' => array('Test Page PYDIO'),
+    'type' => MENU_CALLBACK,
+  );    
+
+  return $items;
+}
+
+function gofast_pydio_test(){
+  //$path=unserialize($_GET["path"]);
+  $path=json_decode($_GET["path"]);
+  if($_GET["path"]){
+    global $repository_id;
+    //for($i=0;$i<$path.length;$i++){
+      foreach($path as $key=>$mypath){      
+        $myobject = cmisapi_getObjectByPath($repository_id,rawurlencode($path[$key]));
+        $sites[$key]=$myobject->{'properties'}['cmis:createdBy'];
+      //$out = array_values($sites[i]);     
+      }
+    echo json_encode($sites);
+    //    print_r(json_encode($sites));
+        
+    //    return "test pydio";
+    //    drupal_json_output($sites);
+    //echo json_encode($sites, JSON_PRETTY_PRINT);    
+    //    print ""+$sites.;
+  }
+  else {
+    print("No Data");
+  }
+    
+}

@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Modifications to folder</shortname>
+    <description>Apply modifications to folders for GF2 toGF3 migration</description>
+    <url>/migratefolder</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

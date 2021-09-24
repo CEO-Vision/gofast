@@ -1,0 +1,161 @@
+<?php
+
+/**
+ * @file
+ * UUID support for i18n_menu.
+ */
+
+/**
+ * Implements hook_enable().
+ *
+ * Use UUID instead of TID as string identifiers.
+ */
+function i18n_menu_uuid_enable() {
+  // Load all menu term translations.
+  // Replace MLID with UUID.
+
+  // Generate missing UUID's.
+  module_load_include('inc', 'uuid', 'uuid');
+  uuid_sync_all();
+  watchdog("i18n_menu_uuid", "Created missing UUID's");
+
+  // Load menu translation sources.
+  $menu_locales_sources = db_select('locales_source')
+    ->fields('locales_source')
+    ->condition('textgroup', 'menu', '=')
+    ->execute()
+    ->fetchAll();
+
+
+  // Heavy, but this is just one time.
+  foreach ($menu_locales_sources as $source) {
+
+    // 'item:{mlid}:{name/description}
+    $context_array = explode(':', $source->context);
+    // 'menu:item:{mlid}:{name/description}
+    $location_array = explode(':', $source->location);
+
+
+    // Skip this source if it is not a menu-item.
+    if ('item' != $context_array[0]) {
+      continue;
+    }
+
+    // UUID id's are not integers, but MLID's are. Check for it if this query
+    // has run before.
+
+    // $mlid is 2nd in 'context' -> 'item:{mlid}:name'
+    $mlid = $context_array[1];
+    
+    if (!is_numeric($mlid) || $mlid == '') {
+      continue;
+    }
+
+    // Load full menu and extract UUID.
+    $menu_link = menu_link_load($mlid);
+//    if (!is_object($menu_link)){
+//      continue;
+//    }
+
+    $uuid = $menu_link['uuid'];
+
+    // Update arrays.
+    $location_array[2] = $uuid;
+    $context_array[1] = $uuid;
+
+    // Update source in db.
+    db_update('locales_source')
+      ->fields(array(
+        'location' => implode(':', $location_array),
+        'context' => implode(':', $context_array),
+      ))
+      ->condition('lid', $source->lid)
+      ->execute();
+    
+    //Updates i18n_string in db
+    db_update('i18n_string')
+      ->fields(array(
+        'objectid' => $uuid,
+        'context' => implode(':', $context_array),
+      ))
+      ->condition('lid', $source->lid)
+      ->execute();
+
+  }
+  watchdog("i18n_menu_uuid", "Converted menu locale string to UUID's");
+}
+
+/**
+ * Implements hook_disable().
+ *
+ * Revert back to MLID as string identifiers.
+ */
+function i18n_menu_uuid_disable() {
+  // Load all menu title/description translations.
+  // Replace UUID with MLID.
+  
+  // Load menu translation sources.
+  $taxonomy_locales_sources = db_select('locales_source')
+    ->fields('locales_source')
+    ->condition('textgroup', 'menu', '=')
+    ->execute()
+    ->fetchAll();
+
+
+  // Heavy, but this is just one time.
+  foreach ($taxonomy_locales_sources as $source) {
+
+    // 'item:{uuid}:{name/description}
+    $context_array = explode(':', $source->context);
+    // 'menu:item:{uuid}:{name/description}
+    $location_array = explode(':', $source->location);
+
+
+    // Skip this source if it is not a menu
+    if ('item' != $context_array[0]) {
+      continue;
+    }
+
+    // UUID id's are not integers, but MLID's are. Check for it if this query
+    // has run before.
+
+    // $uuid is 2nd in 'context' -> 'item:{uuid}:name'
+    $uuid = $context_array[1];
+    if (is_numeric($uuid) || $uuid == '') {
+      continue;
+    }
+
+
+    // Load full menu_link and extract UUID.
+    $menu_link = entity_get_id_by_uuid('menu_link', array($uuid));
+//    if (!is_array($menu_link)) {
+//      continue;
+//    }
+
+    $mlid = reset($menu_link);
+
+    // Update arrays.
+    $location_array[2] = $mlid;
+    $context_array[1] = $mlid;
+
+    // Update source in db.
+    db_update('locales_source')
+      ->fields(array(
+        'location' => implode(':', $location_array),
+        'context' => implode(':', $context_array),
+      ))
+      ->condition('lid', $source->lid)
+      ->execute();
+    
+    //Updates i18n_string in db
+    db_update('i18n_string')
+      ->fields(array(
+        'objectid' => $mlid,
+        'context' => implode(':', $context_array),
+      ))
+      ->condition('lid', $source->lid)
+      ->execute();
+
+  }
+  watchdog("i18n_menu_uuid", "Converted menu locale string to MLID's");
+}

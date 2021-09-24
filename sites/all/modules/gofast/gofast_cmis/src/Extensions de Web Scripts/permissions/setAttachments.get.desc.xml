@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Manage Attachments</shortname>
+    <description>Manage attachments using javascript API</description>
+    <url>/set/attachments/?folderName={folderName}</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

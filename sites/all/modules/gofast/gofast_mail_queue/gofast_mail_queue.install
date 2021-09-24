@@ -1,0 +1,198 @@
+<?php
+
+/**
+ * @file
+ * Installation schema for Gofast Mail Queue module
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function gofast_mail_queue_schema(){
+  $schema = array();
+
+  $schema['gofast_mail_queue'] = array(
+    'description' => 'Mails in queue, waiting to be sent',
+    'fields' => array(
+      'qid' => array(
+        'description' => 'Unique ID to identify an item in queue',
+        'type' => 'serial',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'message' => array(
+        'description' => 'Brut message',
+        'type' => 'text',
+        'not null' => TRUE,
+        'size' => 'big',
+      ),
+      'uid' => array(
+        'description' => 'References the user ID target {user}',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'cron_timestamp' => array(
+        'description' => 'UNIX timestamp representing when the item will be sent',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-size' => 11,
+      ),
+      'timestamp' => array(
+        'description' => 'UNIX timestamp representing when the item was created',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-size' => 11,
+      ),
+      'type' => array(
+        'description' => 'The type of the notification',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'transmitter_id' => array(
+        'description' => 'The transmitter id',
+        'type' => 'text',
+        'not null' => FALSE
+      )
+    ),
+    'primary key' => array('qid'),
+    'indexes' => array(
+        'gfindex_gofast_mail_queue_1' => array('cron_timestamp', 'timestamp', 'qid')
+    )
+  );
+  return $schema;
+}
+
+/**
+ * Implements hook_update_7100
+ */
+function gofast_mail_queue_update_7100(){ //Adding type
+  $field = array(
+        'description' => 'The type of the notification',
+        'type' => 'text',
+        'not null' => TRUE
+  );
+  if(!db_field_exists('gofast_mail_queue', 'type')){
+    db_add_field('gofast_mail_queue', 'type', $field);
+  }
+}
+
+/**
+ * Implements hook_update_7200
+ */
+function gofast_mail_queue_update_7200(){ //Editing type
+    $field = array(
+        'description' => 'References the user ID target {user}',
+        'type' => 'text',
+        'not null' => TRUE,
+  );
+    db_change_field('gofast_mail_queue', 'uid', 'uid', $field);
+}
+
+/**
+ * Implements hook_update_7301
+ */
+function gofast_mail_queue_update_7301(){ //Editing type
+    $field = array(
+        'description' => 'Brut message',
+        'type' => 'text',
+        'mysql_type' => 'longtext',
+        'not null' => TRUE,
+  );
+    db_change_field('gofast_mail_queue', 'message', 'message', $field);
+}
+
+/**
+ * Implements hook_update_7400
+ */
+function gofast_mail_queue_update_7400(){ //Editing type
+    $field = array(
+        'description' => 'Brut message',
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => TRUE,
+  );
+    db_change_field('gofast_mail_queue', 'message', 'message', $field);
+}
+
+/**
+ * Implements hook_update_7400
+ * Prevent table to be full
+ */
+function gofast_mail_queue_update_7500(){
+    $field = array(
+        'description' => 'Unique ID to identify an item in queue',
+        'type' => 'serial',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+  );
+    db_change_field('gofast_mail_queue', 'qid', 'qid', $field);
+}
+
+/**
+ * Implements hook_update_7400
+ * Prevent table to be full
+ */
+function gofast_mail_queue_update_7510(){
+    $field = array(
+        'description' => 'Unique ID to identify an item in queue',
+        'type' => 'serial',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+  );
+    db_change_field('gofast_mail_queue', 'qid', 'qid', $field);
+}
+
+/**
+ * Implements hook_update_7600
+ */
+function gofast_mail_queue_update_7600(){ //Editing type
+    $field = array(
+        'description' => 'Brut message',
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => TRUE,
+  );
+    db_change_field('gofast_mail_queue', 'message', 'message', $field);
+}
+
+/**
+ * Implements hook_update_7700
+ */
+function gofast_mail_queue_update_7700(){ //Editing type
+    if(!db_index_exists("gofast_mail_queue", "gfindex_gofast_mail_queue_1")){
+        db_add_index("gofast_mail_queue", "gfindex_gofast_mail_queue_1", array('cron_timestamp', 'timestamp', 'qid'));
+    }
+}
+
+/**
+ * Implements hook_update_7100
+ */
+function gofast_mail_queue_update_7710(){ //Adding type
+  $field = array(
+        'description' => 'The transmitter id',
+        'type' => 'text',
+        'not null' => FALSE
+  );
+  if(!db_field_exists('gofast_mail_queue', 'transmitter_id')){
+    db_add_field('gofast_mail_queue', 'transmitter_id', $field);
+  }
+}
+
+/**
+ * Implements hook_install().
+ */
+function gofast_mail_queue_install(){
+  // Nothing to do !
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function gofast_mail_queue_uninstall(){
+  // Nothing to do !
+}

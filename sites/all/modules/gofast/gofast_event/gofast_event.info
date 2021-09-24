@@ -1,0 +1,9 @@
+name = Gofast Event
+description = "Provides content event log and allows richer scheduled notifications."
+package = Gofast
+core = 7.x
+dependencies[] = gofast
+;dependencies[] = notifications
+;dependencies[] = notifications_scheduler
+configure=admin/config/gofast/event
+version = "7.x-3.10.0_r2"

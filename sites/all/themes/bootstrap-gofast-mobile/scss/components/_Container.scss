@@ -1,0 +1,23 @@
+.Container {
+
+    width: 100% ;
+
+    @media (min-width: $breakpoint-sm-device) {
+        width: 750px !important;
+    }
+    @media (min-width: $breakpoint-tablet) {
+        width: 970px !important;
+    }
+    @media (min-width: $breakpoint-smlg-device) {
+        width: 1170px !important;
+    }
+    @media (min-width: $breakpoint-laptop) {
+        width: 1320px !important;
+    }
+    @media (min-width: $breakpoint-laptop) {
+    
+    }
+    @media (min-width: $breakpoint-extra) {
+    
+    }
+}

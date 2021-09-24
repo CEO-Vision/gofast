@@ -1,0 +1,166 @@
+<?php
+
+/**
+ * Implements HOOK_install()
+ */
+function gofast_kanban_install() {
+  
+  
+}
+
+
+/**
+ * Implements HOOK_unistall()
+ */
+function gofast_kanban_unistall() {
+
+  //remove specific kanban vocabulary
+  $vocab = taxonomy_vocabulary_machine_name_load('columns');
+  taxonomy_vocabulary_delete($vocab->vid);
+}
+
+/**
+ * Implements HOOK_enable()
+ */
+function gofast_kanban_enable(){
+  
+  //Make sure the field groups are enable for the task node form
+  ctools_include('export');
+  ctools_export_crud_enable('field_group', 'group_row1|node|task|form');
+  ctools_export_crud_enable('field_group', 'group_row2|node|task|form');
+  ctools_export_crud_enable('field_group', 'group_container|node|task|form');
+  
+}
+
+/**
+ * Implements hook_schema().
+ */
+function gofast_kanban_schema() {
+
+  $schema = array();
+
+  $schema['gofast_kanban_checklist'] = array(
+      'description' => 'The base table for Checklist',
+      'fields' => array(
+          'cid' => array(
+              'description' => 'Primary key for the Checklist entity',
+              'type' => 'serial',
+              'unsigned' => TRUE,
+              'not null' => TRUE,
+          ),
+          'task_nid' => array(
+              'description' => 'Primary key for task linked',
+              'type' => 'int',
+              'unsigned' => TRUE,
+              'not null' => TRUE,
+              'default' => 0
+          ),
+          'label' => array(
+              'description' => 'label for the checklist',
+              'type' => 'varchar',
+              'length' => 255,
+              'not null' => TRUE
+          )
+      ),
+      'primary key' => array('cid'),
+      'foreign keys' => array(
+          'task_nid' => array(
+              'table' => 'node',
+              'columns' => array('nid' => 'task_nid')
+          )
+      )
+  );
+
+  $schema['gofast_kanban_checklist_item'] = array(
+      'description' => 'The base table for ChecklistItem',
+      'fields' => array(
+          'ciid' => array(
+              'description' => 'Primary key for the Checklist Item entity',
+              'type' => 'serial',
+              'unsigned' => TRUE,
+              'not null' => TRUE,
+          ),
+          'cid' => array(
+              'description' => 'Primary key for checklist linked',
+              'type' => 'int',
+              'unsigned' => TRUE,
+              'not null' => TRUE,
+              'default' => 0
+          ),
+          'label' => array(
+              'description' => 'label for the checklist item',
+              'type' => 'varchar',
+              'length' => 255,
+              'not null' => TRUE,
+              'default' => ''
+          ),
+          'deadline' => array(
+              'description' => 'deadline for the item',
+              'type' => 'int',
+              'length' => 11,
+              'unsigned' => TRUE,
+              'not null' => FALSE,
+              'default' => 0
+          ),
+          'uid' => array(
+              'description' => 'user assigned to the item',
+              'type' => 'int',
+              'length' => 10,
+              'unsigned' => TRUE,
+              'not null' => FALSE
+          ),
+          'status' => array(
+              'description' => 'completed(1) or not(0)',
+              'type' => 'int',
+              'length' => 1,
+              'not null' => TRUE,
+              'default' => 0
+          )
+      ),
+      'primary key' => array('ciid'),
+      'foreign keys' => array(
+          'cid' => array(
+              'table' => 'gofast_kanban_checklist',
+              'columns' => array('cid' => 'cid')
+          ),
+          'uid' => array(
+              'table' => 'users',
+              'columns' => array('uid' => 'uid')
+          )
+      )
+  );
+
+  return $schema;
+}
+
+/**
+ * GOFAST-5969 : Fixed Taxonomy term + Search indexation
+ */
+function gofast_kanban_update_3701(){
+  
+  //Update term uuid (needed for translation)
+  //TASK
+  $terms = taxonomy_get_term_by_name('Task', 'format' );
+  $term = reset($terms);
+  
+  $term->uuid = '8e7cf030-eab9-4538-b940-2565b3352109' ;
+  $term->field_icone[LANGUAGE_NONE][0]['value'] = 'fa-trello';
+  $term->field_icone[LANGUAGE_NONE][0]['safe_value'] = 'fa-trello';
+  taxonomy_term_save($term);
+  
+  //KANBAN
+  $term = NULL;
+  $terms = taxonomy_get_term_by_name('Kanban', 'format' );
+  $term = reset($terms);
+  
+  $term->uuid = 'b3f22047-2911-450f-97cd-5745d5e3ce71' ;
+  taxonomy_term_save($term);
+  
+  //Update search indexing params to removed Kanban
+  $num_delete = db_delete('apachesolr_index_bundles')
+                  ->condition('env_id', 'gofast_solr')
+                  ->condition('entity_type', 'node')
+                  ->condition('bundle', 'kanban')
+                  ->execute();
+  
+}

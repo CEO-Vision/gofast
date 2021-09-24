@@ -1,0 +1,60 @@
+<div ng-class="{
+    'form-horizontal': properties.labelPosition === 'left' && !properties.labelHidden,
+    'row': properties.labelPosition === 'top' && !properties.labelHidden || properties.labelHidden
+    }">
+    <div class="form-group">
+        <label
+            ng-if="!properties.labelHidden"
+            ng-class="{ 'control-label--required': properties.required }"
+            class="control-label col-xs-{{ !properties.labelHidden && properties.labelPosition === 'left' ? properties.labelWidth : 12 }}">
+            {{ properties.label | uiTranslate }}
+        </label>
+        <div class="col-xs-{{ 12 - (!properties.labelHidden && properties.labelPosition === 'left' ? properties.labelWidth : 0) }}" >
+            <input
+                type="text"
+                class="form-control"
+                placeholder="{{properties.placeholder}}"
+                typeahead-append-to-body="true"
+                typeahead="i for i in ctrl.getData()"
+                typeahead-template-url="customTypeaheadForInputAutocomplete.html"
+                typeahead-wait-ms="500"
+                typeahead-on-select="ctrl.setData($item)"
+                typeahead-min-length="3"
+                ng-model="properties.value"
+                ng-model-options="{ allowInvalid: true }"
+                name="{{ctrl.name}}"
+                ng-readonly="isReadOnly"
+                ng-click="ctrl.clickInput()">
+                
+                <div ng-if="loading" class="loader-autocomplete"></div>
+                <span ng-click="ctrl.clickInput()" style="position: absolute;left: 25px;color:#555;background-color: #eee;top: 7px;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;width: 74%;" ng-bind="properties.currentTitle"></span>
+                
+            <!-- It doesn't work if we put it inside form.html -->
+            <script type="text/ng-template" id="customTypeaheadForInputAutocomplete.html">
+                <a  bind-html-unsafe="match.label | typeaheadHighlight:query"></a>
+            </script>
+        </div>
+    </div>
+</div>
+
+<style>
+    .loader-autocomplete{
+        border:3px solid #f3f3f3;
+        border-radius: 50%;
+        border-top: 3px solid #3498db;
+        border-bottom: 3px solid #3498db;
+        width:20px;
+        height:20px;
+        -webkit-animation: spin 2s linear infinite;
+        animation: spin-loader 2s linear infinite;
+        margin: 0 auto;
+        position: absolute;
+        top:8px;
+        right:20px;
+    }
+    
+    @keyframes spin-loader{
+        0% {transform: rotate(0deg);}
+        100% {transform: rotate(360deg);}
+    }
+</style>

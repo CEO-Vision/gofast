@@ -1,0 +1,118 @@
+#gofast_mobile_arrow {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 20px;
+  height: 40px;
+  display: flex;
+  flex-direction: row;
+  background-color: #CBCBCB;
+  visibility: hidden;
+  border-radius: 10px 0px 0px 10px;
+}
+
+#gofast_mobile_arrow > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#gofast_mobile_arrow > .glyphicon {
+  color: white;
+}
+
+#gofast_mobile_panel > div > div > .panel-title{
+    display: inline-block;
+    margin-left: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow:
+    ellipsis;
+    width: 80%;
+}
+
+.panel-title-edit{
+    width: 65%;
+    display: inline-block;
+}
+
+#panel-heading-title-edit > div > button{
+    height:31px;
+    padding-left:5px;
+    padding-right:5px;
+    padding-top:0px;
+    padding-bottom:0px;
+    vertical-align: initial;
+}
+
+.panel-heading {
+    overflow-wrap: break-word;
+}
+
+#gofast_mobile_panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  background-color: rgba(203,203,203,0.7);
+  width: 300px;
+  height: 100%;
+  margin-bottom: 100px;
+  visibility: hidden;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+
+#facetapi_search_filters > ul {
+  padding: 0px;
+}
+
+@media (min-width: 1100px) {
+
+  #gofast_mobile_panel .block-facetapi {
+    font-size: 1em;
+  }
+  #facetapi_search_filters > ul > div > span{
+      width: 159px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+      padding-left: 4px;
+      padding-right: 4px;
+    }
+
+  /* #facetapi_search_filters > ul > div{
+    display: flex;
+  } */
+}
+
+  /*
+
+
+  #gofast_mobile_panel .block-facetapi ul{
+    padding-left: 0px;
+    padding-top: 5px;
+  }
+
+
+
+
+
+  #gofast_mobile_panel .bootstrap-switch {
+    width: 50px !important;
+  }
+
+  #gofast_mobile_panel .bootstrap-switch-container {
+    width: 80px !important;
+  }
+}
+*/
+
+@media only screen and (max-width: 600px) {
+
+
+}
+
+
+
+

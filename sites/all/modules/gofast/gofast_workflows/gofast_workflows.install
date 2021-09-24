@@ -1,0 +1,192 @@
+<?php
+
+/* 
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+
+//create table ceo_vision_audit ( id INT(6) unsigned auto_increment primary key, nid int(6) not null, timestamp VARCHAR(50) not null, uid int(6) NOT NULL, details VARCHAR(2048));
+function gofast_workflows_schema(){
+    $schema["ceo_vision_wf_history"] = array(
+            'description' => t("Table to store informations about wf history"),
+            'fields' => array(
+                    'id' => array(
+                        'type' => 'serial',
+                        'unsigned' => TRUE,
+                        'not null' => TRUE,                      
+                        'description' => t("Primary Key"),
+                            ),
+                    'pid' => array(
+                        'type' => 'int',
+                        'unsigned' => TRUE,
+                        'not null' => TRUE,
+                        'default' => 0,
+                        'description' => t("Bonita process id"),
+                    ),
+                    'timestamp' => array(
+                        'type' => 'varchar',
+                        'length' => 50,                      
+                        'not null' => TRUE,
+                        'default' => "0",
+                        'description' => t("Timestamp"),
+                    ),
+                    'timestamp_close' => array(
+                        'type' => 'varchar',
+                        'length' => 50,                      
+                        'not null' => TRUE,
+                        'default' => "0",
+                        'description' => t("Timestamp close"),
+                    ),
+                    'uid' => array(
+                        'type' => 'int',
+                        'unsigned' => TRUE,
+                        'not null' => TRUE,
+                        'default' => 0,
+                        'description' => t("Uid of process launcher"),
+                    ),
+                    'gofast_document_reference' => array(
+                        'type' => 'varchar',
+                        'length' => 256,                      
+                        'not null' => TRUE,
+                        'default' => "0",
+                        'description' => t("Document reference"),
+                    ),
+                  'gofast_document_reference_version' => array(
+                        'type' => 'varchar',
+                        'length' => 256,                      
+                        'not null' => TRUE,
+                        'default' => "0",
+                        'description' => t("Document reference version (at the beginning of the WF)"),
+                    ),
+                     'gofast_titre_processus' => array(
+                        'type' => 'varchar',
+                        'length' => 256,                      
+                        'not null' => TRUE,
+                        'default' => "0",
+                        'description' => t("Process title"),
+                    ),
+                    'gofast_type_processus' => array(
+                        'type' => 'varchar',
+                        'length' => 256,                      
+                        'not null' => TRUE,
+                        'default' => "0",
+                        'description' => t("Process type"),
+                    ),
+                     'etat_wf' => array(
+                        'type' => 'int',
+                        'unsigned' => TRUE,
+                        'not null' => TRUE,
+                        'default' => 1,
+                        'description' => t("Status of the process (open or finished)"),
+                    ),
+                    'gofast_date_limite' => array(
+                        'type' => 'varchar',
+                        'length' => 256,                      
+                        'not null' => TRUE,
+                        'default' => "0",
+                        'description' => t("Deadline"),
+                    ),             
+                 ),
+                 'primary key' => array('id'),
+            );
+    
+      $schema["ceo_vision_wf_history_detail"] = array(
+            'description' => t("Table to store detail fields about wf history"),
+            'fields' => array(
+                    'id' => array(
+                        'type' => 'serial',
+                        'unsigned' => TRUE,
+                        'not null' => TRUE,                      
+                        'description' => t("Primary Key"),
+                            ),
+                    'pid' => array(
+                        'type' => 'int',
+                        'unsigned' => TRUE,
+                        'not null' => TRUE,
+                        'default' => 0,
+                        'description' => t("Bonita process id"),
+                    ),
+                    'name' => array(
+                        'type' => 'varchar',
+                        'length' => 256,                      
+                        'not null' => TRUE,
+                        'default' => "0",
+                        'description' => t("Name of the value"),
+                    ),
+
+                    'value' => array(
+                        'type' => 'varchar',
+                        'length' => 2048,                      
+                        'not null' => TRUE,
+                        'default' => "0",
+                        'description' => t("Value of the detail"),
+                    ),
+                   'row' => array(
+                        'type' => 'int',
+                        'unsigned' => TRUE,
+                        'not null' => TRUE,
+                        'default' => 0,
+                        'description' => t("row if of Bonita variable containing history"),
+                    ),
+                ),
+                 'primary key' => array('id'),
+            );
+      
+  
+  $schema['gofast_wf_profil'] = array(
+    'description' => 'Save WF profils',
+    'fields' => array(
+      'id' => array(
+        'description' => 'Unique ID to identify the profil',
+        'type' => 'serial',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'uid' => array(
+        'description' => 'References the user ID author {user}',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'name' => array(
+        'description' => 'The profil name',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+      ),
+      'value' => array(
+        'description' => 'The profil data ( json )',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'type_wf' => array(
+        'description' => 'The WF name',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+      ),
+      'version_wf' => array(
+        'description' => 'The WF version',
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('id'),
+  );
+
+    return $schema;
+    
+}
+
+function gofast_workflows_update_7300(){
+  // Install new schema.
+  drupal_install_schema('gofast_workflows');
+}
+
+function gofast_workflows_update_7303(){
+  $schema = module_invoke('gofast_workflows', 'schema');
+  db_create_table('gofast_wf_profil', $schema['gofast_wf_profil']);
+}
+ 

@@ -1,0 +1,16 @@
+name = Gofast Features Entreprise
+description = The Core of GoFast
+core = 7.x
+package = Gofast Features
+version = 7.x-3.9
+dependencies[] = ctools
+dependencies[] = fe_block
+dependencies[] = gofast_conference
+dependencies[] = gofast_onlyoffice
+dependencies[] = gofast_riot
+dependencies[] = gofast_workflows
+dependencies[] = strongarm
+features[ctools][] = strongarm:strongarm:1
+features[fe_block_settings][] = gofast_riot-gofast_riot_chat
+features[features_api][] = api:2
+features[variable][] = theme_bootstrap_gofast_settings

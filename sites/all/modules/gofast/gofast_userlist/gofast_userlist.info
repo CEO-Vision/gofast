@@ -1,0 +1,6 @@
+name = Gofast UserList
+description = "Managment module for a user list i.e group of user"
+package = Gofast
+core = 7.x
+dependencies[] = gofast
+version = "7.x-3.10.0_r2"

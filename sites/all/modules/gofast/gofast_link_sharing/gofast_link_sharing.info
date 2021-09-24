@@ -1,0 +1,8 @@
+name = Gofast Link Sharing
+description = Share link to files with gofast and anonymous users
+
+core = 7.x
+package = Gofast
+php = 5.2.4
+project = "gofast_link_sharing"
+version = "7.x-3.10.0_r2"

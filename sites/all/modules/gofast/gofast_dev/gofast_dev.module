@@ -1,0 +1,571 @@
+<?php
+
+/**
+ * @file
+ * 
+ *  Gofast dev tools.
+ */
+
+/**
+ * Throw exception on E_NOTICE | E_WARNING, except if : 
+ * - the current script is running in a command-line environment.
+ * - the error control operator is used.
+ */
+/*set_error_handler(function($err_no, $err_str, $err_file, $err_line, $err_context) {
+  if (error_reporting() == 0 || drupal_is_cli()) return;
+  if ($err_no == E_NOTICE || $err_no == E_WARNING) {
+    //throw new ErrorException("{$err_str} in {$err_file} on line {$err_line}", $err_no);
+  }
+});*/
+
+function gofast_dev_init() {
+//  watchdog(' a ', varDumpToString(gofast_request_is_ajax()));
+}
+
+function gofast_dev_menu() {
+  $items = array();
+  $dev_mode = gofast_dev_mode();
+
+  $items['_debug'] = array(
+    'title' => 'Debug Page',
+    'page callback' => '_debug',
+    'access callback' => $dev_mode ? 'user_access' : FALSE,
+    'access arguments' => array('access devel information'),
+    'type' => MENU_CALLBACK
+  );
+
+  $items['_test'] = array(
+    'title' => 'Test Page',
+    'page callback' => '_test',
+    'access callback' => $dev_mode ? 'user_access' : FALSE,
+    'access arguments' => array('access devel information'),
+    'type' => MENU_CALLBACK
+  );
+
+  $items['_var'] = array(
+    'title' => 'Debug variable',
+    'page callback' => '_read_variable',
+    'access callback' => $dev_mode ? 'user_access' : FALSE,
+    'access arguments' => array('access devel information'),
+    'type' => MENU_CALLBACK
+  );
+
+  return $items;
+}
+
+/**
+ * Returns the output of var_dump() instead of doing a print.
+ */
+function varDumpToString($var) {
+  ob_start();
+  var_dump($var);
+  return ob_get_clean();
+}
+
+/**
+ * Dumps safely $var into variable table
+ * 
+ * @param $var
+ *  Data to dump.
+ * @param $id (optional)
+ *  A string id. Resulting variable name is "___dump:$id".
+ */
+function _dump($var, $id = FALSE) {
+  if (is_a($var, 'OgMembership') || is_a($var, 'EntityDrupalWrapper') || $id === 'ldapAuth') {
+    // do not break sql!
+    $var = check_plain(print_r($var, TRUE));
+  }
+  $id = $id ? ":{$id}" : '';
+  variable_set("___dump{$id}", $var);
+}
+
+/**
+ * Reads the {variable} table.
+ * 
+ * @param string $name (optional)
+ *  A variable name. If set, returns only the corresponding value.
+ *  Allow use of wildcard char '%'(url encoded as '%25').
+ */
+function _read_variable($name = NULL) {
+  if (!empty($name) && (strpos($name, '%') === 0 || strrpos($name, '%') === strlen($name) - 1)) {
+    $query = 'SELECT name, CONVERT (value USING utf8) FROM variable WHERE name LIKE :name';
+    $rows = db_query($query, array(':name' => $name))->fetchAllKeyed();
+    foreach ($rows as $name => $value) {
+      $output[$name] = unserialize($value);
+    }
+  }
+  else {
+    global $conf;
+    $output = !empty($name) && isset($conf[$name]) ? $conf[$name] : $conf;
+  }
+  _debug_print($output);
+}
+
+/**
+ * Debug multiple variables during a page load.
+ *  Relies on hook_process_page().
+ */
+function _static_debug() {
+  static $var = array();
+  $args = func_get_args();
+  
+  if (empty($args)) {
+    if (count($var)) {
+      _debug($var);
+    }
+    return;
+  }
+
+  $arg = $args[0];
+  $to_string = array();
+  
+  if (empty($arg) && !is_array($arg)) {
+    if (!is_numeric($arg)) {
+      $to_string = array('to_string' => str_replace(array("\n", "\r"), '', varDumpToString($arg)));        
+    }
+    watchdog('_static_debug', varDumpToString($arg));
+  }
+  
+  $var[] = (array('value' => $arg) + $to_string + array('caller' => gofast_get_caller()));
+}
+
+/**
+ * Implements hook_process_HOOK()
+ *  Flushes the static variable when the page is processed.
+ */
+function gofast_dev_process_page(&$variables) {
+  if (gofast_dev_mode()) {
+    _static_debug();
+  }
+}
+/*
+function gofast_dev_js_alter(&$javascript) {
+  if (isset($_COOKIE['_no_jsxc']) && $_COOKIE['_no_jsxc']){
+    $lib = libraries_load('jsxc');
+    foreach ($lib['files']['js'] as $filename => $info) {
+      if (strpos($filename, 'jquery.ui.min.js') !== FALSE) 
+        continue;
+      $path = $lib['library path'] . '/' . $filename;
+      unset ($javascript[$path]);
+    }
+    $path = drupal_get_path('module', 'gofast_chat') . '/gofast_chat.js';
+    unset ($javascript[$path]);    
+  }
+}
+*/
+/**
+ * _debug callback
+ */
+function _debug() {
+//  backtrace_error_handler($errno, $message, $filename, $line);  dprint_r();
+  $var = NULL;
+  $args = func_get_args();
+  $url_cmp = explode('/', current_path());
+  $requested = reset($url_cmp) === '_debug';
+
+  if (empty($args)) {
+    _read_variable('___dump%');
+    return;
+  }
+  
+  $a1 = array_shift($args);
+
+  if (!$a2 = array_shift($args)) {
+    //$var = is_array($a1) || is_object($a1) ? $a1 : (is_numeric($a1) && ($n = node_load($a1) ) ? $n : (($v = variable_get("___dump:{$a1}", NULL)) ? $v : variable_get($a1, $a1)));
+    if (is_array($a1) || is_object($a1)) {
+      $var = $a1;
+    }
+    elseif ($requested) {
+      if (is_numeric($a1) and $n = node_load($a1)) {
+        $var = $n;
+      }
+      elseif (($_v = variable_get($vn = "___dump:{$a1}", "!{$vn}!")) !== "!{$vn}!") {
+        $var = array($vn => $_v);
+      }
+      else {
+        $var = variable_get($a1, "!{$a1}!");
+      }
+    }
+    else {
+      $var = $a1;
+    }
+    $var = empty($var) || is_numeric($var) || is_bool($var) ? varDumpToString($var) : $var;
+  }
+  elseif (is_numeric($a2) && in_array($a1, array_keys(entity_get_info()))) {
+    $ids = array($a2);
+    while ($ids[] = ($_ = array_shift($args)) && is_numeric($_) or array_pop($ids)) /* do nothing */;
+    $entities = entity_load($a1, $ids);
+    if (!empty($entities)) {
+      if (count($entities) === 1) {
+        $var = reset($entities);
+        // $_ is the last argument
+        if (function_exists($function = "{$a1}_{$_}")) {
+          $function($var);
+        }
+      }
+    }
+  }
+  else {
+    array_unshift($args, $a1, $a2);
+    $var = $args;
+  }
+  
+  list($_from, $caller) = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2);
+  $info = '';
+  
+  if ($_from['function'] === '_debug') {
+    $file = isset($_from['file']) ? end((explode('/', $_from['file']))) : NULL;
+    $function = $caller['function'];
+    $line = isset($_from['line']) ? $_from['line'] : NULL;
+    $info = $line && $file ? "$function() - line $line - $file :" : '';    
+  }
+  
+  _debug_print($var, $info);
+}
+
+/**
+ * Print the given variable in preformated text for debugging purpose.
+ */
+function _debug_print($var, $info = '')  {
+  $output = print_r($var, TRUE);
+  if (preg_match("/<pre class='xdebug-var-dump'.*?(<(?:b|small)>.+?)<\/pre>/s", $output, $matches)) {
+    $output = preg_replace('#.+?' . DRUPAL_ROOT . '.*?:\d+:#', '', $matches[1]);
+  }
+  else {
+    $output = check_plain($output);
+  }
+  $d_style = 'position:relative;top:50px;padding:10px 50px 50px;z-index:999;background:#e0e0d8;overflow:auto;white-space:pre-wrap;';
+  $i_style = 'margin-left:-30px;padding-bottom:20px;font-style:italic;font-size:0.9em;';
+  $output = '<pre style="'. $d_style .'"><div style="'. $i_style .'">'. $info .'</div>'. $output .'</pre>';
+  gofast_request_is_ajax() ? _debug_print_static($output) : print_r($output);
+}
+
+function _debug_print_static() {
+  static $debug = array();
+  if ($args = func_get_args()) {
+    $debug[] = $args[0];
+  }
+  return $debug;
+}
+
+function gofast_dev_ajax_render_alter(&$commands) {
+  $debug = _debug_print_static();
+  if (!empty($debug)) {
+    $commands[] = ajax_command_before('body', implode('', $debug));
+  }
+}
+
+function aaa() {
+  mt_srand(42);
+  
+  function randomAr($size, $maxVal=FALSE) {
+    if ($maxVal === FALSE) $maxVal = $size * 10;
+    $res = array();
+    while ($size-- > 0) {
+      $res[] = mt_rand(0, $maxVal);
+    }
+    return $res;
+  }
+
+  function test_ai($n, &$results) {
+    $r1 = randomAr($n);
+    $r2 = randomAr($n);
+
+    $start = microtime(TRUE);
+    for ($i = 0; $i < 1; $i++) {
+      array_intersect($r1, $r2);
+    }
+    $end = microtime(TRUE);
+    $results[$n] = round(($end-$start)*1000);
+  }
+
+  $results = array();
+  for ($n = 1; $n < 100000; $n *= 2) {
+    test_ai($n, $results);
+  }
+  for ($n = 100000; $n < 300000; $n += 50000) {
+    test_ai($n, $results);
+  }
+
+  _debug(array('Results' => $results));
+}
+
+/**
+ * _test callback
+ */
+function _test() {
+  
+  $uids = [169, 3, 4, 5, 7, 9 , 16, 141, 162, 34];
+  $ret = gofast_search_reindex_entities($uids, 'user');
+  
+  _debug(['$ret' => $ret]);
+  
+//  $query = new EntityFieldQuery();
+//  $res = $query->entityCondition('entity_type', 'node')
+//          ->propertyCondition('nid', 36304, '<')
+//          ->execute();
+//  
+//  $nids = array_keys($res['node']);  
+////  _debug(count($nids));
+//  
+//  ctools_include('apachesolr.index', 'apachesolr', '');    
+//  
+//  try {
+//    apachesolr_set_last_index_updated(GOFAST_SEARCH_ENV_ID, REQUEST_TIME);
+//    _debug('ok');
+//    
+//    $table = apachesolr_get_indexer_table('node');
+//    $num = db_update($table)
+//      ->fields(array('changed' => REQUEST_TIME))
+//      ->condition('entity_id', $nids, 'IN')
+//      ->execute();
+//    
+//    _debug(['affected rows' => $num]);
+//  }
+//  catch (Exception $e) {
+//    _debug(['Apache Solr', nl2br(check_plain($e->getMessage()))]);
+//  }
+  
+  return '';
+
+  
+//  apachesolr_user_solr_reindex();
+  $user_partitioning = variable_get('gofast_user_partitioning', GOFAST_USER_PARTITIONING_DEFAULT);
+  _debug(['$user_partitioning' => ($user_partitioning)]);
+  _debug(['bool' => $user_partitioning === GOFAST_USER_PARTITIONING_ON]);
+  
+  $account = user_load(169);
+  $gids = gofast_og_get_spaces_by_user($account);
+  $root = gofast_og_get_root_spaces(FALSE, TRUE);
+  _debug($gids);
+  _debug($root);
+  _debug(array_diff($gids, $root));
+  return '';
+  
+  $var = apachesolr_environment_variable_get(GOFAST_SEARCH_ENV_ID, 'apachesolr_access_always_add_grants', 'unset');
+  _debug(['$var' => $var]);
+  _debug('test');
+  
+  $node = node_load(71470);
+  $ancestors = gofast_og_get_ancestors($node, FALSE);
+  _debug($ancestors);
+  
+  return '';
+  
+  
+    //Define constants
+    define('PROJECT_ID', 1);
+    define('TEST_SUITE_ID', 4); //AIFE test suite
+    define('TEST_PLAN_ID', 33);
+    
+    require "testrail.php";
+    
+    //First, we need to parse our xlsx file and retrieve the data
+    include 'SimpleXLSX.php';
+    if ( $xlsx = SimpleXLSX::parse('/var/www/d7/sites/all/modules/gofast/gofast_dev/default.xlsx') ) {
+            $data = $xlsx->rows(1);
+    } else {
+            echo SimpleXLSX::parseError();
+    }
+    
+    //Remove unwanted rows
+    unset($data[0]);
+    unset($data[1]);
+    unset($data[2]);
+    
+    //Connect to testrail
+    $client = new TestRailAPIClient('https://gofast.testrail.io');
+    $client->set_user("support@ceo-vision.com");
+    $client->set_password("A4030ma");
+    
+    //Fetch into rows and sort them by campaigns
+    print "<pre>";
+    $campaigns = array();
+    foreach($data as $k => $row){
+        $campaigns[$row[1]][] = $row[2];
+    }
+    
+    //Make sure test cases are unique in the campaign
+    foreach($campaigns as $campaign_name => $campaign){
+        $campaigns_unique[$campaign_name] = array_unique($campaign);
+        $campaigns_unique[$campaign_name] = array_values($campaigns_unique[$campaign_name]);
+    }
+    
+    //Get all test cases
+    $cases = $client->send_get("get_cases/" . PROJECT_ID . "&suite_id=" . TEST_SUITE_ID);
+    
+    //Get cases ids
+    $cases_ids = array();
+    foreach($cases as $case){
+        $cases_ids[$case['title']] = $case['id'];
+    }
+    
+    //Create a test run in our defined test plan for each campaigns
+    foreach($campaigns_unique as $campaign_name => $campaign){
+        //Get for each test case described in the campaign it's ID
+        $run_cases = array();
+        foreach($campaign as $case_title){
+            $run_cases[] = $cases_ids[$case_title];
+        }
+        
+        //Send test run creation request
+        $client->send_post("add_plan_entry/" . TEST_PLAN_ID, array(
+            "suite_id" => TEST_SUITE_ID,
+            "name" => $campaign_name,
+            "description" => "Generated from ALM export",
+            "include_all" => FALSE,
+            "case_ids" => $run_cases,
+        ));
+    }
+    exit;
+}
+
+function _og_toggle_default_access($val = 0) {
+  $og = gofast_og_get_spaces_by_bundle();
+  $og = array_reduce($og, function ($a, $b) {return ($a += $b);}, array());
+//  _debug($og);
+  foreach ($og as $gid => $node) {
+    $node = node_load($gid);
+    $node->{OG_DEFAULT_ACCESS_FIELD}[LANGUAGE_NONE][0]['value'] = $val;
+    node_save($node);
+  }
+}
+
+/**
+ * Iterates all non-private spaces to subsribe main adm into if needed.
+ */
+function _adm_force_membership() {
+  $bundles = gofast_og_node_types();
+  unset($bundles['private_space']);
+  $og = gofast_og_get_spaces_by_bundle(array_keys($bundles));
+  $gids = array_keys(array_reduce($og, function ($a, $b) {return ($a += $b);}, array()));
+
+  foreach (entity_load('node', $gids) as $gid => $node) {
+    $members = gofast_og_get_members($node);
+    if (!in_array(GOFAST_USER_ADMINISTRATOR_ID, $members)) {
+      _debug(array('non-member' => $gid));
+      gofast_og_subscribe_user($gid, GOFAST_USER_ADMINISTRATOR_ID);
+    }
+  }  
+}
+
+/**
+ * Reduce OG non-technical roles to a single one (per user & per space), role 
+ * providing the highest privileges takes precedence.
+ */
+function _user_reduce_og_roles($uids = FALSE) {
+  $accounts = entity_load('user', $uids);
+  $gofast_roles = og_get_default_roles(FALSE);
+
+  unset($accounts[0]); // skip anonymous
+  $debug = array();
+  
+  foreach ($accounts as $uid => $account) {
+    $debug[$uid] = array();
+    foreach (gofast_og_get_spaces_by_user($account, TRUE, TRUE) as $gid => $node) {
+      $is_private = gofast_og_is_user_private_space($node);
+      
+      // Check if we should use defaults or overriden roles.
+      if (og_is_group_default_access('node', $gid)) {
+        // Get global OG roles.
+        $roles = og_roles('node', $node->type, 0, FALSE, TRUE);
+      }
+      else {
+        // Get this specific roles, as the permission set may have been overriden.
+        $roles = og_roles('node', $node->type, $gid, TRUE, TRUE);
+      }
+      
+      $og_roles = gofast_og_get_user_roles($gid, $uid);
+      $og_roles_orig = $og_roles;
+      
+      // Main Adm is always admin of non private space. 
+      if ($uid == GOFAST_USER_ADMINISTRATOR_ID && !$is_private) {
+        $rid = array_search(GOFAST_OG_ROLE_ADMIN, $roles);
+        $og_roles = array($rid => GOFAST_OG_ROLE_ADMIN);
+        $debug[$uid][$gid] = $og_roles;
+      }
+      else {
+        if ($is_private && $node->uid == $uid) {
+          // Owners are already seen as admin by OG access implementation, we do
+          // not want to grant the user with an explicit admin role in its private 
+          // space since it would also grant him with Gofast 'manager' permissions
+          // while he is not. 
+          $og_roles = array_intersect($roles, array(GOFAST_OG_ROLE_STANDARD));
+        }
+        else {
+          if (empty($og_roles)) {
+            // Simple member are read only.
+            $og_roles = array_intersect($roles, array(GOFAST_OG_ROLE_READ_ONLY));
+          }
+          else {
+            // Keep only role with highest privileges.
+            foreach ($gofast_roles as $role_name) {
+              $rid = array_search($role_name, $og_roles);
+              if ($rid !== FALSE) {
+                $og_roles = array($rid => $role_name);
+                break;
+              }
+            }
+          } 
+        }
+      }
+            
+      _debug(array($gid, $uid, $roles, $og_roles, key($og_roles)));
+       
+      // Revoke / Grant.
+      $rid = key($og_roles);
+      og_role_grant('node', $gid, $uid, $rid);
+      if (array_key_exists($rid, $og_roles_orig)) {
+        // Trigger our implementation since OG won't do it for an existing grant.
+        gofast_user_og_role_grant('node', $gid, $uid, $rid);
+      }
+      foreach (array_diff($og_roles_orig, $og_roles) as $rid => $name) {
+        og_role_revoke('node', $gid, $uid, $rid);
+      }
+
+      $debug[$uid][$gid] = $og_roles;
+    }
+  }
+  
+  _debug($debug);
+}
+
+/**
+ * Reduce user global & non-technical roles to a single one (per user), role 
+ * providing the highest privileges takes precedence.
+ */
+function _user_reduce_roles() {
+  $accounts = entity_load('user', FALSE);
+  $gofast_roles = gofast_user_roles();
+  $read_only_rid = array_search(GOFAST_ROLE_READ_ONLY, $gofast_roles);
+
+  unset($accounts[0]); // skip anonymous
+
+  foreach ($accounts as $uid => $account) {
+    $roles = array(DRUPAL_AUTHENTICATED_RID => 'authenticated user');
+    foreach ($gofast_roles as $rid => $role) {
+      if (isset($account->roles[$rid])) {
+        $roles[$rid] = $role;
+        break;
+      }
+    }
+    $gofast_role = array_intersect_key($roles, $gofast_roles);
+    if (empty($gofast_role)) {
+      $roles[$read_only_rid] = GOFAST_ROLE_READ_ONLY;
+    }
+    $account->original = clone $account;
+    user_save($account, array('roles' => $roles));
+    _debug(array($account->uid => $roles));
+  }  
+}
+
+function test_extraction() {
+  $nodes = node_load_multiple(
+          array(
+            841, 840, 839, 838, 327, 613, 614, 642, 653, 667,
+            317, 312, 327, 843, 844, 845, 846, 847, 848, 849
+          )
+  );
+  ctools_include('apachesolr.index', 'apachesolr', '');
+  _debug(apachesolr_index_nodeapi_mass_update($nodes));  
+}

@@ -1,0 +1,5 @@
+version = "7.x-3.10.0_r2"
+name        = Gofast community
+description = "community module fix bugs"
+core        = 7.x
+package     = Gofast

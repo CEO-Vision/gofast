@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Gofast Features Entreprise feature.
+ */
+
+include_once 'gofast_features_enterprise.features.inc';

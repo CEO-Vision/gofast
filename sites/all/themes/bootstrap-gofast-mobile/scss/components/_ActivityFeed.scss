@@ -1,0 +1,10 @@
+#activity-feed-container {
+    margin-bottom: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    @media (max-width: $breakpoint-sm-device) {
+        #activity-feed-table td.views-field-gofast-last-event .glyphicon-search {
+            display: none !important;
+        }
+    }
+}

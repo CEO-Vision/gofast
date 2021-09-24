@@ -1,0 +1,37 @@
+.Document {
+    &__Mobile {
+        top: 50px !important;
+    }
+    .panel-title {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    #gofast_mobile_node_info {
+        & > * {
+            margin: 8px 0;
+        }
+    }
+
+    #panel-heading-title {
+        display: flex;
+        align-items: center;
+        & > i {
+            margin-right: 8px;
+        }
+    }
+
+    #panel-heading-title-edit {
+        & > .form-group {
+            display: flex;
+            & > input {
+                flex: 1 1 auto;
+            }
+            & > button {
+                margin: 0 1px;
+                height: 34px;
+                width: 34px;
+            }
+        }
+    }
+}

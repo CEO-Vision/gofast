@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Set owner</shortname>
+    <description>set owner using javascript API</description>
+    <url>/set/owner/?user={user}&amp;reference={reference}</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

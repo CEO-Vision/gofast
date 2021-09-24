@@ -1,0 +1,654 @@
+<?php
+define ('GOFAST_AUDIT_TABLE_NAME', 'ceo_vision_audit');
+
+require_once(drupal_get_path('module', 'gofast_audit') .'/gofast_audit_views_default.inc');
+
+/* fonction qui renvoit la liste des évènements existants pour l'audit*/
+function gofast_audit_get_list_event_types(){
+    $availables_values =  array(
+          'login' => t('Logins'),
+          'view_node' => t('Document views'),
+          'update_node' => t("Node updates"),
+          'delete_space' => t("Space deletions"),
+          'archive_space' => t("Space archived"),
+          'unarchive_space'=> t("Space unarchived"),
+          'new_node' => t("Node creations"),
+          'linksharing' => t('Mail sharing') ,
+          'sharing_dl' => t('Linksharing downloaded') ,
+          'add_member' => t('Add member') ,
+          'delete_member' => t('Remove member'),
+          'create_user' => t('User create') ,
+          'delete_folder' => t('Folder delete'),
+          'delete_node' => t('Node delete') ,
+          'user_unleave' => t('User re-enabled') ,
+          'user_leave' => t('User disabled') ,
+          'user_blocked' => t('User blocked'),
+          'download_file' => t('File downloaded'),
+          'publication_created' => t('Publication created'),
+          'new_userlist' => t('Userlist created'),
+          'delete_userlist' => t('Userlist deleted'),
+          'update_userlist'=> t('Userlist edited')
+        );
+    return $availables_values;
+}
+
+
+function gofast_audit_views_query_alter(&$view, &$query){
+    if($view->name == "gofast_audit"){
+        set_time_limit(0);
+
+    }
+}
+
+/*
+ * Alter title field for deleted spaces
+ */
+function gofast_audit_views_pre_render(&$view) {
+    if($view->name == "gofast_audit"){
+        foreach($view->result as &$result){
+            if($result->ceo_vision_audit_event_type == "delete_space"){
+                $details = unserialize(rawurldecode($result->ceo_vision_audit_details));
+                $result->node_ceo_vision_audit_title = $details['mod_title'];
+            }
+        }
+    }
+}
+
+function gofast_audit_menu(){
+    $items['gofast/audit/delete/folder'] = array(
+        'page callback' => 'gofast_audit_delete_folder',
+        'access arguments' => array('access content'),
+        'access callback' => TRUE,
+        'type' => MENU_CALLBACK,
+    );
+    $items['gofast/audit/download'] = array(
+        'page callback' => 'gofast_audit_download_files',
+        'access arguments' => array('access content'),
+        'access callback' => TRUE,
+        'type' => MENU_CALLBACK,
+    );
+    return $items;
+}
+
+
+function gofast_audit_init(){
+    drupal_add_js(drupal_get_path('module', 'gofast_audit') . '/js/gofast_audit.js');
+}
+
+function gofast_audit_delete_folder(){
+  global $user;
+  $folder = empty($folder) ? $_POST["folder"] : $folder;
+  $folder = empty($folder) ? $_GET["folder"] : $folder;
+
+  $item = gofast_cmis_item_get_by_path(str_replace('/alfresco/webdav', "", urldecode($folder)));
+  if($item->properties['cmis:objectTypeId'] == "cmis:folder"){
+    $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => 'delete_folder','path' => $folder);
+    $event = serialize($event);
+    $last_event_serialized = rawurlencode($event);
+    $last_event_unserialized["mod_timestamp"] = time();
+    $last_event_unserialized["mod_author"] = $user->uid;
+    gofast_audit_insert_line_audit(0, 'delete_folder', $last_event_serialized, $last_event_unserialized);
+  }
+}
+
+function gofast_audit_user_login(&$edit, $account){
+    if($account->uid != 1){
+        $psid = gofast_og_get_user_private_space($account, FALSE);
+        if(!empty($psid)){
+          $last_event_unserialized["mod_timestamp"] = time();
+          $last_event_unserialized["mod_author"] = $account->uid;
+          $event = array('mod_author' => $account->uid, 'mod_timestamp' => time(), 'login' => 'login_user');
+          $event = serialize($event);
+          $last_event_serialized = rawurlencode($event);
+          $event_type = "login";
+          gofast_audit_insert_line_audit($psid,$event_type, $last_event_serialized, $last_event_unserialized);
+        }
+    }
+}
+
+function gofast_audit_node_view($node){
+    //insert audit line
+    global $user;
+    if($user->uid == 1){
+        return;
+    }
+
+    if($node->type =='userlist'){ //do not audit userlist acces here
+      return;
+    }
+
+    $last_event_unserialized["mod_timestamp"] = time();
+    $last_event_unserialized["mod_author"] = $user->uid;
+    $event_type = "view_node";
+    $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'status' => 'view', "event" => $event_type);
+    $event = serialize($event);
+    $last_event_serialized = rawurlencode($event);
+
+    gofast_audit_insert_line_audit($node->nid,$event_type, $last_event_serialized, $last_event_unserialized);
+}
+
+function gofast_audit_linksharing($node,$values){
+
+    //node not correct
+    if(!isset($node->nid)){
+        return;
+    }
+    //Insert linksharing into audit
+
+    global $user;
+
+    $event_type = "linksharing";
+    $last_event_unserialized["mod_timestamp"] = time();
+    $last_event_unserialized["mod_author"] = $user->uid;
+    $id_list_sharing = array();
+    foreach($values as $key=>$value){
+        if ($value->type === 'user') {
+            $id_list_sharing[] = $values[$key]->id ;
+        }
+        else if ($value->type === 'node') {
+            // Get nid from the group
+            $node_group = node_load($value->id);
+            // Get member id from the group
+            $group_members = gofast_og_get_members($node_group,'active');
+            foreach ($group_members as $member) {
+                $myuser = user_load($member);
+                if ($myuser->status == 1){
+                    $id_list_sharing[] =  $member ;
+                }
+            }
+        }else if($value->type == 'userlist'){
+            // Get the ULID from the userlist to send mails
+            $ulid = $value->id;
+            // Get all members of the group
+            $group_members = gofast_userlist_get_members($ulid);
+            foreach ($group_members as $uid => $member) {
+              $user_members = user_load($uid);
+              // Get only users active to send mail
+              if ($user_members->status == 1){
+                $id_list_sharing[] = $uid ;
+              }
+
+            }
+        }else{
+            if (strpos($value,";") == TRUE){
+                $array_input_addresses = str_replace(' ', '', explode(';',$value));
+            }
+            if(strpos($value,",") == TRUE){
+                $array_input_addresses = str_replace(' ', '',explode(',',$value));
+            }
+            if(empty($array_input_addresses) && strpos($value," ") == TRUE ){
+                $array_input_addresses = str_replace(' ','',explode(' ',$value));
+            }
+            if (!empty($array_input_addresses)){
+                $id_list_sharing = array_merge($array_input_addresses, $id_list_sharing);
+            }else{
+                $id_list_sharing = array_filter($id_list_sharing);
+                $id_list_sharing[] = $value;
+            }
+        }
+    }
+    $id_list_sharing = implode(";", array_unique($id_list_sharing));
+    $last_event_unserialized["mod_dest"] = $id_list_sharing;
+    $last_event_unserialized["mod_version"] = $node->field_current_version['und']['0']['value'];
+    $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), "event" => $event_type, 'mod_dest' => $id_list_sharing, 'mod_version' => $node->field_current_version['und']['0']['value'] );
+    $event = serialize($event);
+    $last_event_serialized = rawurlencode($event);
+    gofast_audit_insert_line_audit($node->nid,$event_type,$last_event_serialized, $last_event_unserialized );
+}
+
+function gofast_audit_add_members($form,$form_state){
+    global $user;
+
+    $nid = $form_state['build_info']['args'][1];
+
+    ## get member/group/userlist role
+    foreach($form_state['values']['roles'] as $key=>$role){
+        if(is_string($role)){
+            $user_role=$key;
+        }
+    }
+    if('user' == $form_state['values']['member_entity_type']){
+        $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => 'add_member', 'user_name' => $form_state['values']['name'] ,'dest_id' => $form_state['values']['member_entity_id'], 'user_role' => $user_role);
+    }elseif('userlist' == $form_state['values']['member_entity_type']){
+        $entity_ulid = $form_state['values']['member_entity_id'];
+        $members_added = array_keys(gofast_userlist_get_members($entity_ulid));
+        $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => 'add_member', 'userlist_name' => $form_state['values']['name'] ,'userlist_id' => $entity_ulid ,'dest_list' => $members_added , 'userlist_role' => $user_role);
+    }
+    $event = serialize($event);
+    $last_event_serialized = rawurlencode($event);
+    $last_event_unserialized["mod_timestamp"] = time();
+    $last_event_unserialized["mod_author"] = $user->uid;
+    $last_event_unserialized["mod_members"] = implode(';',$members_added);
+    gofast_audit_insert_line_audit($nid, 'add_member', $last_event_serialized, $last_event_unserialized);
+}
+
+function gofast_audit_delete_members($node,$membership_data){
+  global $user;
+  if ($membership_data['membership_action'] == 'DMEM') {
+
+    $event_type = 'delete_member';
+    $group_node = array();
+    $group_node['event']['value'] = $membership_data['membership_action']; //NMEM or DMEM
+    //    $group_node['changed']['value'] = time();
+    $group_node['title']['value'] = $node->title;
+    $group_node['type']['value'] = $node->type;
+    $group_node['ruid']['value'] = $user->uid;
+    $group_node['nid']['value'] = $node->nid;
+    $group_node['new_member_type']['value'] = $membership_data['membership_type']; // user or userlist
+    $group_node['new_member_id']['value'] = $membership_data['membership_id']; // uid or ulid
+    $group_node['new_member_name']['value'] = $membership_data['membership_name']; // name or title
+    // $message = $group_node['event']['value'].'|'.json_encode($group_node);
+
+    if ('user' == $group_node['new_member_type']['value']) {
+      $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => $event_type, 'user_name' => $group_node['new_member_name']['value'], 'dest_id' => $group_node['new_member_id']['value'], 'user_role' => $user_role);
+    } elseif ('userlist' == $group_node['new_member_type']['value']) {
+      $entity_ulid = $group_node['new_member_id']['value'];
+      $members_added = array_keys(gofast_userlist_get_members($entity_ulid));
+      $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => $event_type, 'userlist_name' => $group_node['new_member_name']['value'], 'userlist_id' => $entity_ulid, 'dest_list' => $members_added, 'userlist_role' => $user_role);
+    }
+    $event = serialize($event);
+    $last_event_serialized = rawurlencode($event);
+    $last_event_unserialized["mod_timestamp"] = time();
+    $last_event_unserialized["mod_author"] = $user->uid;
+    $last_event_unserialized["mod_members"] = implode(';', $members_added);
+  }
+
+  gofast_audit_insert_line_audit($node->nid, $event_type, $last_event_serialized, $last_event_unserialized);
+}
+
+
+
+function gofast_audit_message_formated($message){
+    //we get only modified values
+    $last_event_serialized = array();
+    $message_json = $message['0'];
+    $message_data = json_decode($message_json, TRUE);
+    foreach($message_data as $key=>$value){
+        if(isset($value["to"])){
+            $last_event_serialized[$key] = array("removed" => $value["from"], "current" => $value["to"]);
+        }
+    }
+
+    $event_type = $message_data["event"]["value"];
+    $ruid = $message_data['ruid']['value'];
+    $last_event_serialized["event"] = $event_type;
+    switch ($event_type){
+        case "NDEL":
+              if(isset($message_data["ruid"]["value"])){
+                  $uid = $message_data["ruid"]["value"];
+              }else{
+                  $uid = $message_data["ruid"]["to"];
+              }
+              $event = array('mod_author' => $uid, 'mod_timestamp' => time(), 'event' => 'delete_node', 'node_path' => $message_data["locations"]["value"]);
+              $event = serialize($event);
+              $last_event_serialized = rawurlencode($event);
+              $last_event_unserialized["mod_timestamp"] = time();
+              $last_event_unserialized["mod_author"] = $uid;
+              gofast_audit_insert_line_audit($message_data["nid"]["value"], 'delete_node', $last_event_serialized, $last_event_unserialized);
+        break;
+        case "ECON":
+        case "NREV":
+        case "ETDL":
+            //$last_event_serialized = array($last_event_message[0]["field"] => array("current" => $last_event_message[0]["to"], "removed" => $last_event_message[0]["from"]));
+            if(isset($message_data["ruid"]["value"])){
+                $uid = $message_data["ruid"]["value"];
+            }else{
+                $uid = $message_data["ruid"]["to"];
+            }
+            $last_event_serialized["mod_author"] = $uid;
+            $last_event_serialized["mod_timestamp"] = time();
+            $last_event_serialized = rawurlencode(serialize($last_event_serialized));
+            $last_event_unserialized["mod_timestamp"] = time();
+            $last_event_unserialized["mod_author"] = $uid;
+
+            $event_type = "update_node";
+            gofast_audit_insert_line_audit($message_data["nid"]["value"],$event_type, $last_event_serialized, $last_event_unserialized);
+        break;
+        case "NCON":
+            //first we check if a creation line already exists in the audit for this node
+             $result = db_select('ceo_vision_audit', 'a')
+            ->fields('a', array('nid')) // select on "nid" field because there is an index on it
+            ->condition('nid', $message_data["nid"]["value"])
+            ->condition('event_type', 'new_node')
+            ->execute();
+
+            if($result->rowCount() > 0){
+                continue;
+            }
+
+            $last_event_unserialized["mod_timestamp"] = time();
+            $last_event_unserialized["mod_timestamp"] = time();
+            $last_event_unserialized["mod_author"] = $message_data["ruid"]["value"];
+            $event = array('mod_author' => $message_data["ruid"]["value"], 'mod_timestamp' => time(), 'status' => 'new');
+            $event = serialize($event);
+            $last_event_serialized = rawurlencode($event);
+            $event_type = "new_node";
+            gofast_audit_insert_line_audit($message_data["nid"]["value"],$event_type, $last_event_serialized, $last_event_unserialized);
+        break;
+    }
+
+}
+
+
+function gofast_audit_insert_line_audit($nid, $event_type, $last_event_serialized, $last_event_unserialized){
+    $table_name = GOFAST_AUDIT_TABLE_NAME;
+
+    //on insert cet evenement dans la table d'audit
+    db_query("INSERT INTO {".$table_name."} (nid,timestamp,uid,details,event_type) VALUES ('".$nid."', '".$last_event_unserialized["mod_timestamp"]."'"
+            . ", '".$last_event_unserialized["mod_author"]."', '".$last_event_serialized."', '".$event_type."')");
+
+
+}
+
+function gofast_audit_views_data() {
+    $data = array();
+
+  // The 'group' index will be used as a prefix in the UI for any of this
+  // table's fields, sort criteria, etc.
+  $data['ceo_vision_audit']['table']['group'] = t('CEO-Vision Audit');
+  // Define this as a base table.
+  $data['ceo_vision_audit']['table']['base'] = array(
+    'field' => 'id',
+    'title' => t('ceo_vision_audit table'),
+    'help' => t("CEO-Vision Audit"),
+    'weight' => -10,
+  );
+  // This table creates an 'implicit' relationship to the node table, so that when 'Node'
+  // is the base table, the fields are automatically available
+  $data['ceo_vision_audit']['table']['join'] = array(
+    'node' => array(
+      'left_field' => 'nid',
+      'field' => 'nid',
+     ),
+  );
+  $data['ceo_vision_audit']['table']['join'] = array(
+    'users' => array(
+      'left_field' => 'uid',
+      'field' => 'uid',
+     ),
+  );
+  // Now, explain all the fields in this table. For
+  // each field, you can define what field, sort, argument, and/or filter
+  // handlers it supports. This will determine where in the Views interface you
+  // may use the field.
+  // Node ID field.
+  $data['ceo_vision_audit']['nid'] = array(
+    'title' => t('Node content'),
+    'relationship' => array(
+      'base' => 'node',
+      'field' => 'nid',
+      'handler' => 'views_handler_relationship',
+      'label' => t('Node id in this table that references a node.'),
+    ),
+  );
+
+  //uid field
+  $data['ceo_vision_audit']['uid'] = array(
+    'title' => t('User content'),
+    'relationship' => array(
+      'base' => 'users',
+      'field' => 'uid',
+      'handler' => 'views_handler_relationship',
+      'label' => t('User id in this table that references a node.'),
+    ),
+  );
+
+
+  // Timestamp field
+  $data['ceo_vision_audit']['timestamp'] = array(
+    'title' => t('Timestamp'),
+    'help' => t('Timestamp'),
+    'field' => array(
+      'handler' => 'gofast_audit_handler_field_date_audit',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_date',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+  );
+
+  //details field
+  $data['ceo_vision_audit']['details'] = array(
+    'title' => t('Details'),
+    'help' => t('Details of modification'),
+    'field' => array(
+      'handler' => 'gofast_audit_handler_field_detail_audit',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_field_serialized',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+  );
+
+    //event type field
+  $data['ceo_vision_audit']['event_type'] = array(
+    'title' => t('Event type'),
+    'help' => t('Type of event'),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'gofast_audit_handler_filter_custom_in_operator',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+  );
+
+  return $data;
+}
+
+
+
+/**
+ * Implementation of hook_views_handlers().
+ * Register all of the basic handlers views uses.
+ */
+function gofast_audit_views_handlers() {
+  return array(
+    'info' => array(
+      'path' => drupal_get_path('module', 'ceo_vision_audit'),
+    ),
+    'handlers' => array(
+      'gofast_audit_handler_field_detail_audit' => array(
+        'parent' => 'views_handler_field',
+      ),
+      'gofast_audit_handler_field_date_audit' => array(
+        'parent' => 'views_handler_field',
+      ),
+      'gofast_audit_handler_filter_custom_in_operator' => array(
+        'parent' => 'views_handler_filter_in_operator',
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function gofast_audit_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'gofast_audit'),
+  );
+}
+
+function gofast_audit_view_node_update_events_log($data){
+    $events = $data['events_log'];
+    $event = (object) $events[$data['update-index']];
+
+    $event_unformatted = $data["events_log"][0];
+    $event_type = $event_unformatted["event"];
+
+    if($event_type == "ECON" || $event_type == "NREV" || $event_type == "ETDL"){
+        $event_message = array();
+        $count = 0;
+        foreach($event_unformatted as $key=>$props){
+            if(isset($props["current"]) && $key != "changed"){
+                $event_message[$count]["from"] = $props["removed"];
+                $event_message[$count]["to"] = $props["current"];
+                $event_message[$count]["field"] = $key;
+                $count++;
+            }
+        $event_message["event"] = $event_type;
+        }
+        $event_message["message"] = "";
+        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>".gofast_message_ext_api_render_event($event_message)."</span></div>";
+
+    }elseif($event_type == "linksharing"){
+        $event_message = array();
+        foreach($event_unformatted as $key=>$props){
+            if($key == "mod_dest"){
+                $event_message[0]["to"] = $props;
+                $event_message[0]["field"] = $key;
+            }
+            if($key == 'mod_version'){
+                $event_message['version'] = $props;
+            }
+        $event_message["event"] = $event_type;
+        }
+        $event_message["message"] = "";
+        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>".gofast_message_ext_api_render_event($event_message)."</span></div>";
+
+    }elseif($event_type == "sharing_dl"){
+        $event_message = array();
+        foreach($event_unformatted as $key=>$props2){
+            if($key == "mod_ip"){
+                $event_message[0]["addr_ip"] = $props2;
+            }
+            if($key == 'mod_version'){
+                $event_message['version'] = $props2;
+            }
+        $event_message["event"] = $event_type;
+        }
+        $event_message["message"] = "";
+        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>".gofast_message_ext_api_render_event($event_message)."</span></div>";
+    }elseif($event_type == "user_blocked" || $event_type == "user_unblocked" || $event_type == "user_leave" || $event_type == "user_unleave"){
+        $event_message = array();
+        $event_message["event"] = $event_type;
+        $event_message[0]['uid_to_block'] = $event_unformatted["uid_to_block"];
+        $event_message["message"] = "";
+        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>".gofast_message_ext_api_render_event($event_message)."</span></div>";
+    }elseif($event_type == "delete_node"){
+        $path = explode(",", $event_unformatted["node_path"]); // can the path be null ??
+        $event_message = array();
+        $event_message["event"] = $event_type;
+        $event_message[0]['node_path'] = $path;
+        $event_message["message"] = "";
+        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>".gofast_message_ext_api_render_event($event_message)."</span></div>";
+    } elseif ($event_type == "delete_folder") {
+      $event_message = array();
+      $event_message["event"] = $event_type;
+      $event_message[0]['path'] = $event_unformatted["path"];
+      $event_message["message"] = "";
+      $details = "<div style='max-width:400px;'><span style='font-size:12px;'>" . gofast_message_ext_api_render_event($event_message) . "</span></div>";
+    }  elseif($event_type == "create_user"){
+        $event_message = array();
+        $event_message["event"] = $event_type;
+        $event_message[0]['user_create'] = $event_unformatted["user_create"];
+        $event_message["message"] = "";
+        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>".gofast_message_ext_api_render_event($event_message)."</span></div>";
+    }elseif ($event_type == 'add_member' || $event_type == 'delete_member'){
+        $event_message = array();
+        $event_message["event"] = $event_type;
+        if (isset($event_unformatted['user_name'])){
+            $event_message[0]['user_name'] = $event_unformatted["dest_id"];
+        }else if(isset($event_unformatted["array_members"])){
+            $event_message[0]['array_members'] = $event_unformatted["array_members"];
+        }else{
+            $event_message[0]['userlist_members'] = $event_unformatted["dest_list"];
+            $event_message[0]['userlist_name'] = $event_unformatted["userlist_name"];
+        }
+        if (isset($event_unformatted['user_role'])){
+            $event_message[0]['user_role'] = $event_unformatted["user_role"];
+        }else{
+            $event_message[0]['userlist_role'] = $event_unformatted["userlist_role"];
+        }
+        $event_message["message"] = "";
+        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>".gofast_message_ext_api_render_event($event_message)."</span></div>";
+    }elseif($event_type == 'update_userlist'){
+
+      $event_message = array();
+      $count = 0;
+      foreach ($event_unformatted as $key => $props) {
+
+        if (isset($props["current"]) && $key != "changed") {
+          $event_message[$count]["from"] = $props["removed"];
+          $event_message[$count]["to"] = $props["current"];
+          $event_message[$count]["field"] = $key;
+          $count++;
+        }
+        $event_message["event"] = $event_type;
+      }
+      $event_message["message"] = "";
+      $details = "<div style='max-width:400px;'><span style='font-size:12px;'>" . gofast_userlist_api_render_event($event_message) . "</span></div>";
+
+    }else{
+        $details =  "";
+    }
+
+  return array('details' => $details, 'mod_author' => $event->mod_author, 'mod_timestamp' => $event->mod_timestamp);
+}
+
+function gofast_audit_block_view_alter(&$data ,$block) {
+  global $user;
+  if (gofast_user_has_role('administrator',$user) == 1){
+	// The $delta parameter tells us which block is being requested.
+	switch ($block->delta) {
+	    case 'gofast_audit_node-block_audit':
+	    // Create your block content here
+//	    if($user->uid == '158'){
+//		print '<pre>'; print_r($data); exit;
+//	    }
+	    $data['subject'] = t('Audit');
+
+	    if ($node = menu_get_object()) {
+		// Get the nid
+		$nid = $node->nid;
+	    }
+	    $data['content'] = views_embed_view('gofast_audit_node', 'gofast_audit_node',$nid);
+	    $data['content'] .= '<a href=/gofast_audit/' . $nid . '><button class="btn btn-default btn-sm">' . t('Go to audit page' , array(), array('context' => 'gofast_audit'))    . '</button></a>';
+	    break;
+    }
+    return $block;
+  }
+
+}
+
+function gofast_audit_download_files(){
+    global $user;
+    $nid = $_POST['node_id'];
+
+    $last_event_unserialized["mod_timestamp"] = time();
+    $last_event_unserialized["mod_author"] = $user->uid;
+    $event_type = "download_file";
+    $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => $event_type);
+    $event = serialize($event);
+    $last_event_serialized = rawurlencode($event);
+
+    gofast_audit_insert_line_audit($nid,$event_type,$last_event_serialized, $last_event_unserialized );
+}
+
+
+
+function gofast_audit_archive_space($nid,$archive=true){
+    global $user;
+    
+
+    $last_event_unserialized["mod_timestamp"] = time();
+    $last_event_unserialized["mod_author"] = $user->uid;
+    $event_type = $archive ? 'archive_space' : 'unarchive_space' ;
+    $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => $event_type);
+    $event = serialize($event);
+    $last_event_serialized = rawurlencode($event);
+
+    gofast_audit_insert_line_audit($nid,$event_type,$last_event_serialized, $last_event_unserialized );
+}
+

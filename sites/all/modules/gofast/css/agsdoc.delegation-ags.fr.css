@@ -1,0 +1,173 @@
+/* Theme AGS */
+
+body{ /* Set background */
+  background-color: #f2fbff !important;
+}
+
+.navbar-inverse{ /* Main menu and panel headings */
+  background-color: #0078a0;
+}
+
+.navbar-nav > li > a, .gofast-magical-menu>.fa-bars, .gofast-about-btn > .fa-question-circle, #block-gofast-menu-gofast-menu-icons, #gofast-lang-switch a{ /* Set default text /icons color in the menu */
+  color: #ffffff !important;
+}
+
+#gofast_nav>.navbar-nav>.open>a { /* Color and BG color when hover menu (text) */
+    background-color: #006587 !important;
+    color: #c9c9c9 !important;
+}
+
+.gofast-magical-menu:hover>.fa-bars, .gofast-about-btn:hover > .fa-question-circle, .gofast-blocks-wrapper > div:hover, #gofast-lang-switch a.current { /* Color when hover menu (icons) */
+    color: #c9c9c9 !important;
+}
+
+.open > a{ /* Set color of opened items in the menu */
+  color: #0078a0 !important;
+}
+
+.navbar-inverse .navbar-nav > li > a{
+  background-color: #0078a0 !important;
+}
+
+.modal-header{ /* Popup header */
+  background-color: #0078a0;
+  
+}
+.modal-header > button.close, .modal-title{
+  color: #c9c9c9;
+  opacity: 1;
+}
+
+body{ /* Font color */
+    color: #3b3b3b;
+}
+
+.region-sidebar-second .block { /* Background color of blocks */
+    background-color: white;
+} /* (Fore more coherence :  #activity-feed-container, .breadcrumb, .well ) */
+
+/*.panel-default>.panel-heading{*/ /* Accented color of panel headings */
+    /*background-color: #e2ecf0;
+}*/
+    
+.content.well{
+    background-color: white;    
+}
+
+.breadcrumb-gofast{
+    background-color: white;
+    border: 1px solid #e3e3e3;
+}
+
+
+/*CODE FAQ */
+/* Espacement entre les questions */
+.faq-section{
+        margin: 40px 0;
+}
+
+/* Masquer les checkbox et les paragraphes */
+.faq-section input,
+.faq-section p{
+        display: none;
+}
+
+/* Montrer uniquement les débuts de réponses */
+.faq-section label{
+        display: block;
+        color: #999;
+        font-size: .85em;
+        transition: all .15s ease-out;
+        /* Couper le texte */
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+}
+
+/* Si le checkbox est coché, montrer tous les paragraphes */
+.faq-section input[type=checkbox]:checked~p{
+        display: block;
+        color: #444;
+        font-size: 1em;
+        /* Restaurer le texte entier */
+        text-overflow: clip;
+        white-space: normal;
+        overflow: visible;
+}
+
+/* Style des label */
+.faq-section label{
+        font-size: 1.2em;
+        cursor: pointer;
+        background: #eee;
+        display: block;
+        position: relative;
+        padding: 7px 10px;
+        font-weight: bold;
+        border: 1px solid #ddd;
+        border-left: 3px solid #888;
+        text-shadow: 0 1px 0 rgba(255,255,255,.5);
+        transition: all .15s ease-out;
+}
+
+/* Éviter de sélectionner le texte en cliquant plusieurs fois */
+.faq-section label::selection{
+        background: none;
+}
+
+.faq-section label:hover{
+        background: #f5f5f5;
+}
+
+/* Style du label si le checkbox est coché */
+.faq-section input[type=checkbox]:checked~label{
+        border-color: #fff;
+        background: #d9edf7;
+        box-shadow: 0 0 1px rgba(0,0,0,.4);
+}
+
+/* Flèche du label par défaut */
+.faq-section label::before{
+        content: '';
+        position: absolute;
+        right: 4px;
+        top: 50%;
+        margin-top: -6px;
+        border: 6px solid transparent;
+        border-left-color: inherit;
+}
+
+/* Flèche du label sélectionné */
+.faq-section input[type=checkbox]:checked~label::before{
+        border: 6px solid transparent;
+        border-top-color: inherit;
+        margin-top: -3px;
+        right: 10px;
+}
+
+p{
+ background-color:none; 
+ text-align:justify;
+  }
+
+
+
+/* Prevent tab pane to highlight at overflow */
+.tab-pane.active{
+	background-color: transparent !important;
+}
+
+
+#gofast_ags_block_pane > .panel-dashboard > .panel-body > .view-gofast-recently-read > div > div > ul > li > .views-field-nothing{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 280px;
+}
+#gofast_ags_block_pane > .panel-dashboard > .panel-body > .view-gofast-recently-read > div > div > ul > li > .views-field-nothing > .field-content{
+    display: flex;
+}
+
+#gofast_ags_block_pane > .panel-dashboard > .panel-body > .view-gofast-recently-read > div > div > ul > li > .views-field-nothing > .field-content > span{
+    margin-right: 6px;
+    margin-top: 3px;
+}

@@ -1,0 +1,48 @@
+<?php
+
+/*
+ * Implements hook_update
+ * Synchronize relations from old relationship mechanism to 3.7.0 chat relations
+ */
+function gofast_chat_update_7001(){
+    //Retrieve all users uids
+    $uids = db_query("select uid from users;")->fetchAll();
+    
+    //Fetch into all uids
+    foreach ($uids as $uid_object){
+        $uid = $uid_object->uid;
+        $requester = user_load($uid);
+        
+        //Skip conditions (admin, anonymous..)
+        if($uid < 2){
+            continue;
+        }
+        
+        //Retrieve relationships of this user
+        $relations = db_query("select requestee_id,approved from user_relationships WHERE requester_id=" . $uid . ";")->fetchAll();
+        
+        foreach($relations as $relation_object){
+            $requestee_id = $relation_object->requestee_id;
+            $requestee = user_load($requestee_id);
+            $approved = $relation_object->approved;
+            
+            if($approved){
+                $ch = curl_init();
+                //Prepare CURL call
+                $command = "add_rosteritem " . $requester->name . " " . XMPP_DOMAIN . " " . $requestee->name . " " . XMPP_DOMAIN . " \"" . gofast_user_display_name($requestee) . "\" \"\" both";
+            }else{
+                //Prepare CURL call
+                $command = "add_rosteritem " . $requester->name . " " . XMPP_DOMAIN . " " . $requestee->name . " " . XMPP_DOMAIN . " \"" . gofast_user_display_name($requestee) . "\" \"\" none";
+            }
+            
+            //Execute CURL call
+            $url = "https://" . XMPP_DOMAIN . "/ejabberdctl?command=" . urlencode($command);
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_PROXY, '');
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+            curl_exec($ch);
+        }
+    }
+}

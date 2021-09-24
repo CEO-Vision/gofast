@@ -1,0 +1,32 @@
+<?php
+/**
+ * @file
+ * Features OG Roles Permissions module file.
+ */
+
+/**
+ * Implements hook_hook_info().
+ */
+function features_og_roles_permissions_info() {
+  $hooks = array(
+    'features_api',
+  );
+  return array_fill_keys($hooks, array('group' => 'features'));
+}
+
+/**
+ * Implements hook_features_api().
+ */
+function features_og_roles_permissions_features_api() {
+  $path = drupal_get_path('module', 'features_og_roles_permissions');
+
+  return array(
+    'og_roles_permissions' => array(
+      'name' => t('OG Roles and permissions'),
+      'feature_source' => TRUE,
+      'default_hook' => 'default_og_roles_permissions',
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+      'file' => $path . '/includes/features.og_roles_permissions.inc',
+    ),
+  );
+}

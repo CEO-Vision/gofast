@@ -1,0 +1,127 @@
+
+
+/** User's Profile Popup **/
+
+.profile-popup-wrapper {
+  position:absolute;
+  z-index:999;
+}
+
+.profile-popup {
+  display:block;
+  position:relative;
+  top:-15px;
+  left:-15px;
+}
+
+.menu.nav .username .caret {
+  margin-left:6px;
+}
+
+#cadre .name-wrapper {
+  border: none;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+#cadre .name-wrapper > div {
+  display: inline-block;
+}
+
+.empty{
+    margin-top: 10px !important;
+    font-size:12px !important;
+    color: #777 !important;
+}
+
+#gofast-profile-info-box{
+  display: flex;
+
+}
+
+#gofast-profile-info-box .profile-box-left{
+  width: 200px !important;
+  margin-right: 20px;
+}
+
+#gofast-profile-info-box .profile-box-right{
+  width: auto;
+}
+
+
+@media screen and (-ms-high-contrast: active), (-ms-high-contrast: none) {
+  #gofast-profile-view .user-picture {
+    display:block;
+  }
+}
+
+#popup-member-list{
+    width:100%;
+    list-style-type:none;
+    min-height:250px;
+    min-width:300px;
+    overflow:auto;
+    clear:both;
+    padding-top:5px;
+}
+.popup-member-lis-tooltip{
+    max-width:400px;
+}
+#popup-member-list-count{
+    float:left;
+}
+#popup-member-list-filter{
+    float:right;
+    width:300px;
+}
+#popup-member-list-filter-search-input{
+    display:block;
+    float:left;
+    width:200px;
+}
+#popup-member-list-filter-filter-refresh{
+    float:left;
+}
+
+#popup-member-list-filter-info-icons{
+  display: inline-block;
+  float: right;
+  font-size: 20px;
+  margin-right: 10px;
+}
+
+#popup-member-list li{
+    float:left;
+    width:33%;
+    display:block;
+    margin-top:7px;
+    min-width:320px;
+    
+}
+.popup-member-list-picture img{
+    width:24px;
+    height:24px;
+    float:left;
+}
+.popup-member-list-name{
+    display:block;
+    float:left;
+    width:165px;
+    height:20px;
+    padding-left:5px;
+    padding-top:3px;
+    overflow:hidden;
+}
+.popup-member-list-role{
+    display:block;
+    float:left;
+    padding-top:3px;
+    margin-left:5px;
+    width:135px;
+    overflow:hidden;
+}
+.popup-member-icon-userlist{
+    padding-top:3px;
+    display:block;
+    float:left;
+}

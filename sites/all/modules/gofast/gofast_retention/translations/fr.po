@@ -1,0 +1,167 @@
+# LANGUAGE translation of PROJECT
+# Copyright (c) YEAR NAME <EMAIL@ADDRESS>
+#
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2017-09-11 11:11+0200\n"
+"PO-Revision-Date: 2017-11-27 11:33+0100\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"X-Generator: Poedit 2.0.4\n"
+"Last-Translator: \n"
+"Language: fr\n"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Period Retention Matrice"
+msgstr "Matrice DUA (Durée d'Utilité Administrative)"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Contain matrice for retention period and action by category"
+msgstr "Contient la matrice DUA ainsi que les actions pour chaque catégorie"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Date Retention will expire"
+msgstr "La DUA expirera"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Documents' retention date expiring tomorrow"
+msgstr "La DUA de ces documents expire demain"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Message sent from GofastPlateform"
+msgstr "Message envoyé depuis la Plateforme GoFAST"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Documents' retention date expiring in 1 week notification"
+msgstr "La DUA de ces documents expire dans 1 semaine"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Current list of mail recipient"
+msgstr "Liste des destinataires du mail de notification"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "You can edit an existing retention period"
+msgstr "Vous pouvez éditer une DUA existante"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Recipient(s)"
+msgstr "Destinataire(s)"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Email of the person which will be notified once retention period is over"
+msgstr "Mail des personnes qui seront notifiés de l'expiration des DUA"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Current list of retention period"
+msgstr "Liste des DUA actuelles"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "You can edit and existing retention period"
+msgstr "Vous pouvez éditer une DUA existante"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Add/Edit a retention period"
+msgstr "Ajouter/Editer une DUA existante"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "You can add or edit an existing retention period"
+msgstr "Vous pouvez ajouter ou éditer des DUA existantes"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "New Retention period"
+msgstr "Nouvelle DUA"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Select a category"
+msgstr "Sélectionner une catégorie"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Category"
+msgstr "Catégorie"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Retention duration"
+msgstr "DUA (Durée d'Utilité Administrative)"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Unit"
+msgstr "Unité"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Day"
+msgstr "Jour"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Month"
+msgstr "Mois"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Year"
+msgstr "Année"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Action"
+msgstr "Action"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "-None-"
+msgstr "-Aucune-"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Archive"
+msgstr "Archiver"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Sort"
+msgstr "Trier"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Destruction"
+msgstr "Détruire"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Document Retention"
+msgstr "DUA (Durée d'Utilité Administrative)"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "This document has a retention date, you can only change its category"
+msgstr "Ce document possède une DUA, vous ne pouvez que modifier sa catégorie"
+
+#: /gofast_retention
+msgctxt "gofast:gofast_retention"
+msgid "Create"
+msgstr "Créer"

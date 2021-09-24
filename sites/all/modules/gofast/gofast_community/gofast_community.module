@@ -1,0 +1,183 @@
+<?php
+
+function gofast_community_init(){
+  
+  // Print the list of called module
+  /*$modules = implode(PHP_EOL, module_list());
+  print $modules;*/
+  drupal_add_css(drupal_get_path('module','gofast_community') . "/css/gofast_community.css");    
+  // If this module do not exist, then ...
+  if (!module_exists('gofast_workflows')){
+    // change the behavior of the workflow icon menu
+    drupal_add_js(drupal_get_path('module', 'gofast_community') . "/js/gofast_community_workflow.js");
+    drupal_add_css(drupal_get_path('module','gofast_community') . "/css/gofast_community_workflow.css");
+  }
+  
+  if (!module_exists('gofast_conference')) {
+    // change the behavior of the item conference of the main menu
+    drupal_add_js(drupal_get_path('module', 'gofast_community') . "/js/gofast_community_conference.js");
+  }
+  
+  if (!module_exists('gofast_onlyoffice')) {
+    // change the behavior of the item "edit with onlyoffice" in the contextual actions menu.
+    drupal_add_js(drupal_get_path('module', 'gofast_community') . "/js/gofast_community_onlyoffice.js");
+    // It is for the onlyOffice module
+    // must have this function, otherwise huge error pop-up when you accessing a document
+    function gofast_onlyoffice_editable_document_extensions() {
+      $editable_extensions = array("docx", "doc", "docm", "odt", "xlsx", "xlsm", "xls", "ods", "csv", "pptx", "ppt", "ppsx", "rtf", "mht", "html", "htm");
+    return $editable_extensions;
+    }
+    function gofast_onlyoffice_is_mimetype_must_convert($current_mimetype){
+      switch($current_mimetype){
+        case 'application/vnd.ms-excel' :
+        case 'application/msword' :
+        case 'application/vnd.ms-powerpoint' :
+        case 'application/vnd.oasis.opendocument.text' :
+        case 'application/vnd.oasis.opendocument.presentation':
+        case 'application/vnd.oasis.opendocument.spreadsheet' :
+          return true;
+          break;
+        default:
+          return false;
+      }   
+    }
+  } 
+  
+//  if (!module_exists('gofast_chat')){
+//    drupal_add_library('gofast_community', 'jsxc', TRUE); // Load library declared in the hook_library()
+//  }
+  
+}
+
+function gofast_community_library() {
+  
+if (!module_exists('gofast_chat')) {
+  $path = drupal_get_path('module', 'gofast_community');
+  $lib = 'sites/all/libraries';
+  $libraries['jsxc'] = array(
+    'title' => 'Gofast JSXC XMPP Chat Client',
+    'version' => '1.0',
+    'js' => array(
+      $lib . '/jsxc/lib/jquery.slimscroll.js' => array(
+        'group' => JS_LIBRARY,
+        'every_page' => TRUE,
+        'weight' => 1
+      ),
+      $lib . '/jsxc/lib/jquery.fullscreen.js' => array(
+        'group' => JS_LIBRARY,
+        'every_page' => TRUE,
+        'weight' => 1
+      ),
+      $lib . '/jsxc/lib/jsxc.dep.min.js' => array(
+        'group' => JS_LIBRARY,
+        'every_page' => TRUE,
+        'weight' => 1,
+        'scope' => 'footer',
+        'defer' => TRUE,
+        'cache' => TRUE
+      ),
+      $lib . '/jsxc/jsxc.js' => array(
+        'group' => JS_LIBRARY,
+        'every_page' => TRUE,
+        'weight' => 2,
+        'scope' => 'footer',
+        'defer' => TRUE,
+        'cache' => TRUE
+      ),
+      $path . '/jsxc_override.js' => array(
+        'group' => JS_LIBRARY,
+        'every_page' => TRUE,
+        'weight' => 3,
+        'scope' => 'footer',
+        'defer' => TRUE,
+        'cache' => TRUE
+      ),
+      /*$path . '/gofast_chat.js' => array(
+        'group' => JS_DEFAULT,
+        'every_page' => TRUE,
+        'weight' => 4,
+        'scope' => 'footer',
+        'defer' => TRUE,
+        'cache' => TRUE
+      )*/
+    ),
+    'css' => array(
+      $lib . '/jsxc/css/jquery-ui.min.css' => array(
+        'type' => 'file',
+        'media' => 'screen',
+        'every_page' => TRUE,
+        'group' => CSS_DEFAULT
+      ),
+      $lib . '/jsxc/css/jsxc.css' => array(
+        'type' => 'file',
+        'media' => 'screen',
+        'every_page' => TRUE,    
+        'group' => CSS_DEFAULT
+      )
+    )
+  );
+  }
+  return $libraries;  
+}
+    
+function gofast_community_form_conference_node_form_alter(&$form, &$form_state) {
+  
+  if (!module_exists('gofast_conference')){
+    // when form /node/add/conference is called
+    // Print message
+    drupal_set_message(t('You can not navigate like this !'), 'error', FALSE);
+    // and so redirect
+    drupal_goto('/');  
+  }
+}
+
+
+function gofast_community_form_alfresco_item_node_form_alter (&$form, &$form_state, $form_id){
+  // we dont need to check this option in community
+  unset($form["field_onlyoffice_lock"]);
+}
+
+
+function gofast_onlyoffice_document_get_soft_lock($node) {
+  return FALSE;
+}
+
+function gofast_community_menu(){
+  $items = array();
+  
+  $items['community/rapiddashboard']= array(
+      'title' => 'Community Rapid Dashboard',
+      'page callback' => 'gofast_community_rapiddashboard',
+      'page arguments' => array(),
+      'type' => MENU_CALLBACK,
+      'access callback' => TRUE
+  );
+  return $items;
+  
+}
+
+/**
+ * 
+ * @global type $user
+ * @return type
+ */
+function gofast_community_rapiddashboard(){
+  
+  global $user;
+  
+  $user_tasks = gofast_kanban_get_user_tasks($user->uid, TRUE);
+  
+  //sort by deadline ASC
+  usort($user_tasks, function($a, $b) {
+    
+    $a_date = new DateTime($a['dueDate']);
+    $b_date = new DateTime($b['dueDate']);
+    return $b_date->diff($a_date)->format("%R%a");
+  });
+  
+  $output = theme('kanban_rapiddashboard', array('tasks' => $user_tasks));
+  
+  print $output;
+  return;
+  
+}

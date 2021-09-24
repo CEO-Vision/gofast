@@ -1,0 +1,76 @@
+.edit-toolbar-label{
+    display:none;
+}
+
+.edit-toolbar-container > .edit-toolbar-pointer{
+    left: 200px;
+}
+
+.edit-toolbar-container{
+    max-width: none !important;
+    width : auto !important;
+}
+body.navbar-is-fixed-top {
+    padding-top: 50px !important;
+}
+
+.edit-processed.edit-field:hover{
+     box-shadow: 0 0 0 2px #74b7ff;
+}
+.edit-field.edit-editable,
+.edit-field .edit-editable {
+  box-shadow: none !important;
+}
+
+#edit-field-form .vertical-tabs-list{
+    display : none;
+}
+
+/*.region-sidebar-first{
+    width : 100px!important;
+}*/
+
+/*
+* TODO TEMPORAIRE CORRECTION DU PETIT BUG AVEC LE MENU DU HAUT
+*/
+
+/*.main-container{
+   margin-top: 40px;
+}*/
+
+/*
+ * TODO TEMPORAIRE
+ */
+#edit-body-und-0-format {
+    display : none;
+}
+
+ul.tree li.selected_tree > div,
+ul.tree li.selected_tree > div:hover {
+	background-color: #84FF9A;
+	background: -webkit-gradient(linear, left top, left bottom, from(#90FC8E), to(#59FB56));
+	background: -moz-linear-gradient(top, #90FC8E, #59FB56);
+	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/*ul.tree li.selected > div,
+ul.tree li.selected > div:hover {
+        background-color: #84FF9A !important;
+	background: -webkit-gradient(linear, left top, left bottom, from(#90FC8E), to(#59FB56)) !important;
+	background: -moz-linear-gradient(top, #90FC8E, #59FB56) !important;
+	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+}*/
+
+.form-item-field-emplacement-und {
+    display : none;
+}
+
+#modalContent{
+  z-index : 1100 !important;
+}
+
+#fast_drag_drop {
+  color: #999;
+  padding: 5px;
+  text-align: center;
+}

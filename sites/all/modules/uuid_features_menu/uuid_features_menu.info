@@ -1,0 +1,6 @@
+name = UUID Features - Menu
+description = Use UUIDs to improve exporting/importing menu links.
+core = 7.x
+dependencies[] = features
+dependencies[] = menu
+dependencies[] = uuid

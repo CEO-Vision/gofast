@@ -1,0 +1,48 @@
+<?php
+
+/**
+ * @file
+ *  Gofast Event installation file. 
+ */
+
+
+/**
+ * Implements hook_install()
+ */
+function gofast_event_install() {
+  // Create the field that will store node events diff. Field instances will be
+  // created and attached to specified bundles later (admin settings).
+  if (!field_read_field(GOFAST_EVENT_LOG_FIELD_NAME, array('include_inactive' => true))) {
+    $field = array(
+      'field_name' => GOFAST_EVENT_LOG_FIELD_NAME,
+      'type' => GOFAST_EVENT_LOG_FIELD_TYPE,
+      'entity_types' => array('node'),
+      'cardinality' => GOFAST_EVENT_LOG_FIELD_CARDINALITY,
+      'translatable' => FALSE,
+      'locked' => FALSE,
+      'settings' => array(),
+      'storage' => array()      
+    );
+    field_create_field($field);
+  }
+}
+
+
+/**
+ * Implements hook_uninstall()
+ */
+function gofast_event_uninstall() {
+  // Load the base module, in case it is already disabled.
+  drupal_load('module', 'gofast_event');
+  
+  // Delete the field, its instances and its data.
+  if (field_read_field(GOFAST_EVENT_LOG_FIELD_NAME, array('include_inactive' => true))) {
+    field_delete_field(GOFAST_EVENT_LOG_FIELD_NAME);
+  }
+  
+  // Delete variable settings as well.
+  variable_del('gofast_event_log_status');
+  variable_del('gofast_event_fields_enabled');
+  variable_del('gofast_event_node_types_enabled');
+}
+

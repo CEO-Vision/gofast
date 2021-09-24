@@ -1,0 +1,1640 @@
+<?php
+
+include_once 'MobileDetect.php';
+
+function gofast_mobile_init()
+{
+  if (isset($_SERVER['HTTP_USER_AGENT']) && strpos($_SERVER['HTTP_USER_AGENT'], 'Safari') !== FALSE) {
+    $default_headers = array(
+      'Expires' => 'Sun, 19 Nov 1978 05:00:00 GMT',
+      'Last-Modified' => gmdate(DATE_RFC1123, REQUEST_TIME),
+      'Cache-Control' => 'no-cache, must-revalidate, post-check=0, pre-check=0',
+      'ETag' => '"' . REQUEST_TIME . '"',
+    );
+    foreach ($default_headers as $k => $v) {
+      drupal_add_http_header($k, $v);
+    }
+  }
+
+  $detect = new Mobile_Detect;
+
+  //detect if the user_agent correspond to an old IE
+  $IE_version = $detect->version('IE');
+  if ($IE_version == "7.0" || $IE_version == "8.0" || $IE_version == "9.0" || $IE_version == "10.0") {
+    drupal_set_message(t("You are using a non compatible Internet Explorer version (< IE11), or you are in Compatibility Mode", array(), array("context" => "gofast")), 'error');
+  }
+
+  // If this is a phone (tablets excluded) display mobile-specific content.
+  if (($detect->isMobile() || $detect->isTablet()) &&  !gofast_mobile_is_mobile_domain()) {
+    $mobile_path = "";
+    $parts = explode('.', $_SERVER['HTTP_HOST']);
+    $mobile_prefix_url = variable_get_value('mobile_prefix_url');
+    $parts[0] = $mobile_prefix_url;
+    $mobile_path = $_SERVER["REQUEST_SCHEME"] . "://" . implode(".", $parts);
+    $current_path = $_SERVER['REQUEST_URI'];
+    drupal_goto($mobile_path . "/" . $current_path);
+  }
+  if (gofast_mobile_is_mobile_domain()) {
+    if (current_path() == 'activity') {
+      header('Location: /home_page_navigation#navBrowser');
+    } elseif (current_path() == 'dashboard') {
+      header('Location: /home_page_navigation#navBrowser');
+    }
+    drupal_add_js(array(
+      'isMobile'  => TRUE
+    ), 'setting');
+  }
+  if ($detect->isMobile() || $detect->isTablet()) {
+    drupal_add_css(drupal_get_path('module', 'gofast_mobile') . '/css/gofast_mobile_activity.css');
+  }
+  drupal_add_library('gofast_mobile', 'gofast_mobile', TRUE);
+  drupal_add_library('gofast_mobile', 'gofast_mobile_panel', TRUE);
+  drupal_add_library('gofast_mobile', 'gofast_mobile_directories', TRUE);
+  drupal_add_library('gofast_mobile', 'gofast_mobile_node', TRUE);
+  drupal_add_library('gofast_mobile', 'gofast_mobile_search', TRUE);
+  drupal_add_library('gofast_mobile', 'gofast_mobile_element_dowload', TRUE);
+}
+
+
+function gofast_mobile_enable()
+{
+  $system_weight = db_select('system')
+    ->fields('system', array('weight'))
+    ->condition('name', 'system', '=')
+    ->execute()
+    ->fetchField();
+
+  db_update('system')
+    ->fields(array('weight' =>  $system_weight - 2))
+    ->condition('name', 'gofast_mobile')
+    ->execute();
+}
+
+function gofast_mobile_is_mobile_domain()
+{
+  $mobile_prefix_url = variable_get_value('mobile_prefix_url');
+
+  $is_mobile_domain = FALSE;
+  $parts = explode('.', $_SERVER['HTTP_HOST']);
+  if ($parts[0] === $mobile_prefix_url) {
+    $is_mobile_domain = TRUE;
+  }
+  return $is_mobile_domain;
+}
+
+function gofast_mobile_menu()
+{
+  $items = array();
+
+  $items['browser'] = array(
+    'page callback' => 'gofast_mobile_load_ajax_file_browser',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access_callback' => 'user_access',
+    'delivery_callback' => 'gofast_ajax_delivery'
+  );
+
+  $items['calendar-mobile'] = array(
+    'page callback' => 'gofast_mobile_load_calendar',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access_callback' => 'user_access',
+    'delivery_callback' => 'gofast_ajax_delivery'
+  );
+  $items['home_page_navigation'] = array(
+    'page callback' => 'gofast_mobile_home_page_navigation',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access_callback' => 'user_access',
+    'delivery_callback' => 'gofast_ajax_delivery'
+  );
+  $items['tasks_page_navigation'] = array(
+    'page callback' => 'gofast_mobile_tasks_page_navigation',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access_callback' => 'user_access',
+    'delivery_callback' => 'gofast_ajax_delivery'
+  );
+
+  $items['kanban_simplified'] = array(
+    'title' => 'Kanban simplified version',
+    'page callback' => 'gofast_mobile_kanban_simplified_board',
+    'type' => MENU_CALLBACK,
+    'access_callback' => 'user_access',
+    'access arguments' => array('access content'),
+  );
+  $items['calendar_simplified'] = array(
+    'title' => 'Calendar simplified version',
+    'page callback' => 'gofast_calendar_simplified',
+    'type' => MENU_CALLBACK,
+    'access_callback' => 'user_access',
+    'access arguments' => array('access content'),
+  );
+  $items['download_element'] = array(
+    'title' => 'Download element mobile',
+    'page callback' => 'gofast_download_element',
+    'type' => MENU_CALLBACK,
+    'access_callback' => 'user_access',
+    'access arguments' => array('access content'),
+  );
+
+  return $items;
+}
+
+function gofast_mobile_theme()
+{
+  $themes = array();
+
+  $themes = array(
+    'gofast_mobile_mobile_navbar_page_tpl' => array(
+      'template'  => 'tpl/gofast-mobile-mobile-navbar-page-tpl',
+      'arguments' => array(
+        'navbar_classes' => NULL,
+        'logo' => NULL,
+        'site_name', NULL,
+        'front_page' => NULL,
+        'page' => NULL,
+        'search_form_class' => NULL,
+        'lang_switch' => NULL
+      ),
+    ),
+    'gofast_mobile_simplified_navbar_page_tpl' => array(
+      'template'  => 'tpl/gofast-mobile-simplified-navbar-page-tpl',
+      'arguments' => array(
+        'navbar_classes' => NULL,
+        'logo' => NULL,
+        'site_name', NULL,
+        'site_slogan' => NULL,
+        'front_page' => NULL,
+        'breadcrumb' => NULL,
+        'content_column_class' => NULL,
+        'contextual_actions' => NULL,
+        'messages' => NULL,
+        'primary_nav' => NULL,
+        'secondary_nav' => NULL,
+        'page' => NULL,
+        'node' => NULL,
+        'tabs' => NULL,
+        'action_links' => NULL,
+        'search_form_class' => NULL,
+        'lang_switch' => NULL
+      ),
+    ),
+    'gofast_mobile_ajax_file_browser' => array(
+      'template'  => 'tpl/gofast-mobile-ajax-file-browser'
+    ),
+    'gofast_mobile_node_actions' => array(
+      'template'  => 'tpl/gofast-mobile-node-actions',
+      'arguments' => array(
+        'node' => NULL
+      )
+    ),
+    'gofast_mobile_node_info' => array(
+      'template'  => 'tpl/gofast-mobile-node-info',
+      'arguments' => array(
+        'node' => NULL
+      )
+    ),
+    'gofast_mobile_panel' => array(
+      'template'  => 'tpl/gofast-mobile-panel',
+      'arguments' => array(
+        'actions' => NULL,
+        'info' => NULL,
+        'title' => NULL,
+        'context' => NULL,
+        'node' => NULL,
+      )
+    ),
+    'gofast_mobile_simplified_calendar' => array(
+      'template' => 'tpl/gofast-mobile-simplified-calendar',
+      'arguments' => array(
+        'view' => NULL,
+      )
+    ),
+    'gofast_mobile_element_download' => array(
+      'template' => 'tpl/gofast-mobile-element-download'
+    ),
+    'gofast_mobile_activity_dashboard_browser_page' => array(
+      'template' => 'tpl/gofast-mobile-activity-dashboard-browser-page'
+    ),
+    'gofast_mobile_tasks_page' => array(
+      'template' => 'tpl/gofast-mobile-tasks-page'
+    )
+  );
+
+  return $themes;
+}
+
+function gofast_mobile_library()
+{
+  $libraries = array();
+  $path = drupal_get_path('module', 'gofast_mobile');
+  $lib = 'sites/all/libraries';
+
+  $libraries['gofast_mobile_ajax_file_browser'] = array(
+    'title' => 'Gofast Mobile Ajax File Browser',
+    'version' => '1.0',
+    'js' => array(
+      $lib . '/ajax_file_browser/Browser/ITHitAJAXFileBrowserLoader.js' => array(
+        'group' => JS_LIBRARY, // JS_DEFAULT
+        'every_page' => TRUE,
+        'weight' => 10
+      ),
+      $lib . '/jquery-finger/dist/jquery.finger.js' => array(
+        'group' => JS_THEME + 1, // JS_DEFAULT
+        'every_page' => TRUE,
+        'weight' => 10
+      ),
+      $path . '/js/gofast_mobile_ajax_file_browser.js' => array(
+        'group' => JS_THEME + 1,
+        'every_page' => TRUE,
+        'weight' => 11
+      )
+    )
+  );
+
+  $libraries['gofast_mobile_panel'] = array(
+    'title' => 'Gofast Mobile Panel',
+    'version' => '1.0',
+    'css' => array(
+      $path . '/css/gofast_mobile_panel.css' => array(
+        'type' => 'file',
+        'media' => 'screen',
+        'group' => CSS_THEME + 1,
+        'weight' => 100
+      ),
+    ),
+    'js' => array(
+      $path . '/js/gofast_mobile_panel.js' => array(
+        'group' => JS_THEME + 1,
+        'every_page' => TRUE,
+        'weight' => 11
+      )
+    )
+  );
+
+  $libraries['gofast_mobile_node'] = array(
+    'title' => 'Gofast Mobile Node',
+    'version' => '1.0',
+    'css' => array(
+      $path . '/css/gofast_mobile_node.css' => array(
+        'type' => 'file',
+        'media' => 'screen',
+        'group' => CSS_THEME + 1,
+        'weight' => 100
+      ),
+    ),
+    'js' => array(
+      $path . '/js/gofast_mobile_node.js' => array(
+        'group' => JS_THEME + 1,
+        'every_page' => TRUE,
+        'weight' => 11
+      )
+    )
+  );
+
+  $libraries['gofast_mobile_search'] = array(
+    'title' => 'Gofast Mobile Search',
+    'version' => '1.0',
+    'css' => array(
+      $path . '/css/gofast_mobile_search.css' => array(
+        'type' => 'file',
+        'media' => 'screen',
+        'group' => CSS_THEME + 1,
+        'weight' => 100
+      ),
+    )
+  );
+
+  $libraries['gofast_mobile_directories'] = array(
+    'title' => 'Gofast Mobile Search',
+    'version' => '1.0',
+    'css' => array(
+      $path . '/css/gofast_mobile_directories.css' => array(
+        'type' => 'file',
+        'media' => 'screen',
+        'group' => CSS_THEME + 1,
+        'weight' => 100
+      ),
+    ),
+  );
+
+  $libraries['gofast_mobile'] = array(
+    'title' => 'Gofast Mobile',
+    'version' => '1.0',
+    'css' => array(
+      $path . '/css/gofast_mobile.css' => array(
+        'type' => 'file',
+        'media' => 'screen',
+        'group' => CSS_THEME + 1,
+        'weight' => 5
+      ),
+    ),
+    'js' => array(
+      $lib . '/touchswipe/jquery.touchSwipe.js' => array(
+        'group' => JS_LIBRARY, // JS_DEFAULT
+        'every_page' => TRUE,
+        'weight' => 10
+      ),
+      $path . '/js/gofast_mobile.js' => array(
+        'group' => JS_THEME + 1,
+        'every_page' => TRUE,
+        'weight' => 5
+      )
+    )
+  );
+  $libraries['gofast_mobile_element_dowload'] = array(
+    'title' => 'Gofast Mobile',
+    'version' => '1.0',
+    'css' => array(
+      $path . '/css/gofast-mobile-element-dowload.css' => array(
+        'type' => 'file',
+        'media' => 'screen',
+        'group' => CSS_THEME + 1,
+        'weight' => 5
+      ),
+    )
+  );
+
+  return $libraries;
+}
+
+
+function gofast_mobile_load_ajax_file_browser()
+{
+  if (gofast_mobile_is_mobile_domain()) {
+
+    global $user;
+    $ticket = gofast_cmis_get_user_ticket();
+    if ($ticket == FALSE) {
+      $ticket = gofast_cmis_retrieve_and_store_ticket($user);
+    }
+    drupal_add_js(array(
+      'ticket' => $ticket
+    ), 'setting');
+
+    return theme('gofast_mobile_ajax_file_browser');
+  }
+}
+
+function gofast_mobile_menu_alter(&$items)
+{
+  // Add an access callback to user item so that user menu links are not shown
+  // to anonymous users.
+  if (isset($items['browser'])) {
+    $items['browser']['access callback'] = 'user_is_logged_in';
+  }
+}
+
+function gofast_mobile_get_preserved_alfresco_item_actions($node)
+{
+  $detect = new Mobile_Detect;
+  $archived_node = gofast_get_content_state_archived($node);
+  $retention_node = false;
+  if (module_exists('gofast_retention')) {
+    if (gofast_retention_get_retention_date($node) !== NULL) {
+      $retention_node = true;
+    }
+  }
+
+  $preserved_actions = array();
+  if ($node->status === strval(NODE_PUBLISHED)) {
+    $preserved_actions[] = theme('gofast_download_link', array('node' => $node));
+    $preserved_actions[] = theme('gofast_link_add_comment', array('node' => $node));
+    $preserved_actions[] = theme('gofast_link_share_email', array('node' => $node));
+    if (node_access('update', $node) && !$archived_node && !$retention_node) {
+      $preserved_actions[] = theme('gofast_link_generic', array(
+        'text' => t('Share/Edit locations', array(), array('context' => 'gofast:gofast_views')),
+        'link_id' => "manage-locations",
+        'link_class' => 'btn btn-sm ctools-use-modal ctools-use-moal-processed',
+        'href' => '/modal/nojs/node/' . $node->nid . '/manage-locations',
+        'onclick' => 'Gofast.ITHit.bulkSelected(event)',
+        'icon_class' => "fa fa-share-alt",
+        'title' => t('Manage locations of this document')
+      ));
+
+      if (!$detect->isMobile() && !$detect->isTablet()) {
+        if (in_array(strtolower(gofast_cmis_node_get_extension($node)), gofast_onlyoffice_editable_document_extensions())) {
+          if (gofast_cmis_node_is_locked($node) != false && !$node->field_onlyoffice_lock['und']['0']['value']) {
+            $preserved_actions[] = theme('gofast_link_edit_onlyoffice', array('node' => $node, 'disabled' => true));
+          } else {
+            $preserved_actions[] = theme('gofast_link_edit_onlyoffice', array('node' => $node));
+          }
+        } else {
+          $preserved_actions[] = theme('gofast_link_edit_onlyoffice', array('node' => $node, 'disabled' => true));
+        }
+      }
+
+      $preserved_actions[] = theme('gofast_link_new_version', array('node' => $node));
+    }
+  }
+  return $preserved_actions;
+}
+
+function gofast_mobile_get_preserved_conference_item_actions($node)
+{
+  $preserved_actions = array();
+  $archived_node = gofast_get_content_state_archived($node);
+  $retention_node = false;
+  if (module_exists('gofast_retention')) {
+    if (gofast_retention_get_retention_date($node) !== NULL) {
+      $retention_node = true;
+    }
+  }
+  if (node_access("update", $node) && !$archived_node) {
+    $preserved_actions[] = theme('gofast_link_edit', array('node' => $node));
+  } else {
+    $preserved_actions[] = theme('gofast_link_edit', array('node' => $node, 'disabled' => true));
+  }
+  $preserved_actions[] = 'divider:';
+  if ($node->status === strval(NODE_PUBLISHED)) {
+    $permalink_link = theme('gofast_link_generic', array(
+      'text' => t('Permalink', array(), array('context' => 'gofast:gofast_views')),
+      'link_id' => "permalink",
+      'link_class' => 'btn btn-sm permalink',
+      'href' => '/node/' . $node->nid,
+      'icon_class' => "fa fa-external-link"
+    ));
+    $preserved_actions[] = $permalink_link;
+  }
+  if (node_access('delete', $node) && !$archived_node && !$retention_node) {
+    $more[] = theme('gofast_link_delete_modal', array('node' => $node));
+  } else {
+    $more[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
+  }
+  $more_link = array(
+    'children' => $more,
+    'action' => '<a class="dropdown-toogle">' . t('More...', array(), array('context' => 'gofast:gofast_views')) . '</a>'
+  );
+  $preserved_actions[] = $more_link;
+  return $preserved_actions;
+}
+
+function gofast_mobile_get_preserved_article_forum_actions($node)
+{
+  $preserved_actions = array();
+  $preserved_actions[] = theme('gofast_link_add_comment', array('node' => $node));
+  if (node_access('delete', $node)) {
+    $preserved_actions[] = theme('gofast_link_delete_modal', array('node' => $node));
+  }
+  return $preserved_actions;
+}
+
+function gofast_mobile_get_preserved_webform_actions($node)
+{
+  $preserved_actions = array();
+  $preserved_actions[] = theme('gofast_link_add_comment', array('node' => $node));
+  //$preserved_actions[] = theme('gofast_link_webform_results', array('node' => $node));
+  if (node_access('delete', $node)) {
+    $preserved_actions[] = theme('gofast_link_delete_modal', array('node' => $node));
+  }
+  return $preserved_actions;
+}
+
+function gofast_mobile_get_node_format($node)
+{
+  $wrapper = entity_metadata_wrapper('node', $node);
+  if (isset($wrapper->{'field_format'})) {
+    $format = $wrapper->{'field_format'}->value();
+  } else {
+    $format = NULL;
+  }
+  $format_value = theme('gofast_node_icon_format', array('node' => $node));
+  $format_value .= $format ? $format->name : NULL;
+  return theme('gofast_node_info_field', array('title' => 'Format', 'values' => $format_value));
+}
+
+function gofast_mobile_get_node_category($node, $canEdit, $isMobile)
+{
+  $wrapper = entity_metadata_wrapper('node', $node);
+  if (isset($wrapper->{'field_category'})) {
+    $category = $wrapper->{'field_category'}->value();
+    $category_value = $category ? i18n_taxonomy_localize_terms($category)->name : '';
+  } else {
+    $category_value = NULL;
+  }
+
+
+  if ($canEdit) {
+    // Init variables for taxonomy fields
+    $field_taxonomy = array(
+      'pk' => $node->nid,
+      'type' => 'select2',
+      'showbuttons' => 'bottom',
+      'select2' => array(
+        'multiple' => true,
+        'allowClear' => true,
+      ),
+      'placement' => 'bottom',
+      'mode' => 'popup',
+      'url' => '/update_node_field',
+      'inputclass' => $isMobile ? "input-mobile-xeditable" : "input-extra-large",
+      'delegated' => 'true',
+    );
+
+    //retention date
+    if ($node->type === "alfresco_item" && module_exists('gofast_retention')) {
+      $date_format_retention = 'm/d/Y h:i';
+      if ($node->field_retention_end[LANGUAGE_NONE][0]['value'] !== NULL) {
+        $retention_end_date = new DateObject();
+        $retention_end_date->setTimestamp($node->field_retention_end[LANGUAGE_NONE][0]['value']);
+        $retention_end_date_value = $retention_end_date->format($date_format_retention);
+      }
+    }
+
+    // Field category of the node
+    //TODO prevent edit this field if node is in retention mode ( must be after change of criteria to fire retention mode )
+    if ($retention_end_date_value  == NULL) {
+      $available_categories = gofast_xeditable_vocabulary_to_select_items(GOFAST_VID_CATEGORY, $node);
+      $field_node_category = array(
+        'name' => 'field_category',
+        'value' => $category_value,
+        'title' => t('Node category', array(), array('context' => 'gofast')),
+        'emptytext' => t('None', array(), array('context' => 'gofast')),
+        'source' => $available_categories,
+        'params' => ['vid' => GOFAST_VID_CATEGORY],
+        'select2' => array(
+          'placeholder' => t('Type any category', array(), array('context' => 'gofast')),
+          'multiple' => false,
+          'allowClear' => true,
+        ),
+      );
+      $field_category = array_replace_recursive($field_taxonomy, $field_node_category);
+      $node_category = theme('x-editable_field', gofast_xeditable_enrich_values($field_category));
+    }
+  } else {
+
+    if ($node->type === 'alfresco_item') {
+      $node_reference = gofast_cmis_node_get_item_id($node);
+      $lock_state = gofast_cmis_webservice_execute_request("getlocked", $node_reference);
+    } else {
+      $lock_state = 'nolocked';
+    }
+
+    if (
+      $node->type === "alfresco_item" && module_exists('gofast_retention') && isset($info['retention_end_date'])
+      && (node_access("update", $node) && $lock_state === "nolocked" && !gofast_get_content_state_archived($node))
+    ) {
+      // Field category of the node
+      $available_categories = gofast_xeditable_vocabulary_to_select_items(GOFAST_VID_CATEGORY, $node);
+      $field_category = array(
+        'pk' => $node->nid,
+        'name' => 'field_category',
+        'value' => $category_value,
+        'title' => t('Node category', array(), array('context' => 'gofast')),
+        'mode' => 'popup',
+        'url' => '/update_node_field',
+        'type' => 'select2',
+        'placement' => 'bottom',
+        'inputclass' => $isMobile ? "input-mobile-xeditable" : "input-extra-large",
+        'delegated' => 'true',
+        'emptytext' => t('None', array(), array('context' => 'gofast')),
+        'source' => $available_categories,
+        'params' => ['vid' => GOFAST_VID_CATEGORY],
+        'select2' => array(
+          'placeholder' => t('Type any category', array(), array('context' => 'gofast')),
+          'multiple' => false,
+          'allowClear' => true,
+        )
+      );
+
+      $node_category = theme('x-editable_field', gofast_xeditable_enrich_values($field_category));
+    }
+  }
+  return theme('gofast_node_info_field', array('title' => 'Category', 'values' => $node_category));
+}
+
+
+function gofast_mobile_get_node_external_links($node, $canEdit, $isMobile)
+{
+  $wrapper = entity_metadata_wrapper("node", $node);
+
+  // We retrieve node external links
+  $external_page_url = isset($wrapper->{'field_external_page_url'}) ? $wrapper->{'field_external_page_url'}->value() : array();
+  $external_links = array_map(function ($element) {
+    $url = !isset(parse_url($element)["scheme"]) ? 'http://' . $element : $element;
+    return l($element, $url);
+  }, $external_page_url);
+  $node_external_page_url_value = !empty($external_page_url) ? implode('<br />', $external_links) : '';
+  if ($canEdit) {
+    $field_taxonomy = array(
+      'pk' => $node->nid,
+      'type' => 'select2',
+      'showbuttons' => 'bottom',
+      'select2' => array(
+        'multiple' => true,
+        'allowClear' => true,
+      ),
+      'placement' => 'bottom',
+      'mode' => 'popup',
+      'url' => '/update_node_field',
+      'inputclass' => $isMobile ? "input-mobile-xeditable" : "input-extra-large",
+      'delegated' => 'true',
+    );
+
+    $field_node_external_page_url = array(
+      'name' => 'field_external_page_url',
+      'value' => implode(',', $external_page_url),
+      'data' => array('links' => !empty($external_links) ? $external_links : null),
+      'title' => t('Links webpages content', array(), array('context' => 'gofast')),
+      'delegated' => 'true',
+      'emptytext' => t('None', array(), array('context' => 'gofast')),
+      'select2' => array(
+        'tags' => array(),
+        'multiple' => true,
+        'placeholder' => t('Enter website url', array(), array('context' => 'gofast')),
+      ),
+    );
+    $field_external_page_url = array_replace_recursive($field_taxonomy, $field_node_external_page_url);
+    $node_external_page_url_value = theme('x-editable_field', gofast_xeditable_enrich_values($field_external_page_url));
+  }
+  return theme('gofast_node_info_field', array('title' => 'External links', 'values' => $node_external_page_url_value, 'multiline' => TRUE));
+}
+
+
+function gofast_mobile_get_node_tags($node, $canEdit, $retention_end_date, $isMobile)
+{
+  $wrapper = entity_metadata_wrapper("node", $node);
+  $tags =  $wrapper->{'field_tags'}->value();
+
+  if ($canEdit && (!module_exists('gofast_retention') || (module_exists('gofast_retention') && $retention_end_date == NULL))) {
+    $tags_values = array_map(function ($element) {
+      if (isset($element->name)) { //We parse names and IDs of tags
+        return htmlspecialchars($element->name) . "[GOFAST_TAG_SEPARATOR]" . $element->tid;
+      }
+      return NULL;
+    }, $tags);
+    $node_keywords_value = is_array($tags) ? implode(', ', $tags_values) : '';
+  } else {
+    $node_keywords_value = '<ul class="select2-tags">';
+    $tags_values = array_map(function ($element) {
+      if (isset($element->name)) { //We parse names and IDs of tags
+        return '<li class="gofast-tags-noedit" data-name="' . $element->name . '" data-id="' . $element->tid . '">' . $element->name . '</li>';
+      }
+      return NULL;
+    }, $tags);
+    $node_keywords_value .= is_array($tags) ? implode('', $tags_values) : '';
+    $node_keywords_value .= '</ul>';
+  }
+
+
+  if ($canEdit) {
+    $field_node_keywords = array(
+      'pk' => $node->nid,
+      'type' => 'select2',
+      'placement' => 'top',
+      'showbuttons' => 'bottom',
+      'mode' => 'popup',
+      'url' => '/update_node_field',
+      'inputclass' => $isMobile ? "input-mobile-xeditable" : "input-extra-large",
+      'name' => 'field_tags',
+      'value' => implode(',', $tags_values),
+      'data' => array('tags' => !empty($tags_values) ? $tags_values : null),
+      'source' => '/gofast/tag_autocomplete',
+      'title' => t('Node keywords', array(), array('context' => 'gofast')),
+      'emptytext' => t('None', array(), array('context' => 'gofast')),
+      'params' => ['vid' => GOFAST_VID_TAGS],
+      'delegated' => 'true',
+      'wrapper_class' => array(
+        'node-info-keywords',
+      )
+    );
+    $node_keywords_value = theme('x-editable_field', gofast_xeditable_enrich_values($field_node_keywords));
+  }
+
+  return theme('gofast_node_info_field', array('title' => 'Tags', 'values' => $node_keywords_value, 'multiline' => TRUE, 'seemore' => TRUE));
+}
+
+function gofast_mobile_get_node_state($node, $canEdit, $isMobile)
+{
+  $wrapper = entity_metadata_wrapper('node', $node);
+  if (isset($wrapper->{'field_state'})) {
+    $state = $wrapper->{'field_state'}->value();
+  } else {
+    $state = NULL;
+  }
+
+  $state_value = $state ? i18n_taxonomy_localize_terms($state)->name : '';
+
+  if ($canEdit) {
+    // Init variables for taxonomy fields
+    $field_taxonomy = array(
+      'pk' => $node->nid,
+      'type' => 'select2',
+      'showbuttons' => 'bottom',
+      'select2' => array(
+        'multiple' => true,
+        'allowClear' => true,
+      ),
+      'placement' => 'bottom',
+      'mode' => 'popup',
+      'url' => '/update_node_field',
+      'inputclass' => $isMobile ? "input-mobile-xeditable" : "input-extra-large",
+      'delegated' => 'true',
+    );
+
+    //retention date
+    if (
+      $node->type === "alfresco_item" && module_exists('gofast_retention')
+    ) {
+      $date_format_retention = 'm/d/Y h:i';
+      if ($node->field_retention_end[LANGUAGE_NONE][0]['value'] !== NULL) {
+        $retention_end_date = new DateObject();
+        $retention_end_date->setTimestamp($node->field_retention_end[LANGUAGE_NONE][0]['value']);
+
+        $retention_end_date_value = $retention_end_date->format($date_format_retention);
+      }
+    }
+
+    $states_options = gofast_xeditable_vocabulary_to_select_items(GOFAST_VID_STATE);
+
+    if ($retention_end_date_value == NULL || ($retention_end_date_value !== NULL && node_access("delete", $node))) {
+      $field_node_state = array(
+        'name' => 'field_state',
+        'value' => $state_value,
+        'title' => t('Node state', array(), array('context' => 'gofast')),
+        'emptytext' => t('None', array(), array('context' => 'gofast')),
+        'source' => $states_options,
+        'params' => ['vid' => GOFAST_VID_STATE],
+        'select2' => array(
+          'placeholder' => t('Type any state', array(), array('context' => 'gofast')),
+          'multiple' => false,
+          'allowClear' => true,
+        ),
+      );
+      $field_state = array_replace_recursive($field_taxonomy, $field_node_state);
+      $state_value = theme('x-editable_field', gofast_xeditable_enrich_values($field_state));
+    }
+  }
+
+  return theme('gofast_node_info_field', array('title' => 'State', 'values' => $state_value));
+}
+
+function gofast_mobile_get_node_deadline($node, $canEdit, $isMobile)
+{
+  global $user;
+
+  $wrapper = entity_metadata_wrapper('node', $node);
+  $deadline = $wrapper->{'field_date'}->value();
+  $date_format = $user->language === 'fr' ? 'd/m/Y' :  'm/d/Y';
+  $deadline_value = $deadline ? date($date_format, $deadline) : '';
+
+  if ($canEdit) {
+    $date_format = $user->language === 'fr' ? 'd/m/Y' :  'm/d/Y';
+    // Field deadline of the node
+    $field_node_deadline = array(
+      'pk' => $node->nid,
+      'name' => 'field_date',
+      'showbuttons' => 'bottom',
+      'value' => $deadline_value,
+      'format' => dateformat_PHP_to_bootstrapDatePicker($date_format),
+      'type' => 'datetime',
+      'title' => t('Node deadline', array(), array('context' => 'gofast')),
+      'emptytext' => t('None', array(), array('context' => 'gofast')),
+      'url' => '/update_node_field',
+      'delegated' => 'true',
+      'datetimepicker' => array(
+        'minView' => 1,
+        'todayHighlight' => true,
+        'language' => $user->language,
+        'bootcssVer' => 3,
+      ),
+      'mode' => 'popup',
+      'placement' => 'top',
+    );
+
+    $deadline_value = theme('x-editable_field', gofast_xeditable_enrich_values($field_node_deadline));
+  }
+
+  return  theme('gofast_node_info_field', array('title' => 'Deadline', 'values' => $deadline_value, 'medium'));
+}
+
+function gofast_mobile_get_node_criticity($node, $canEdit, $isMobile)
+{
+  $wrapper = entity_metadata_wrapper("node", $node);
+  $criticity = isset($wrapper->{'field_criticity'}) ? $wrapper->{'field_criticity'}->value() : FALSE;
+  $criticity_value = $criticity ? i18n_taxonomy_localize_terms($criticity)->name : '';
+
+  if ($canEdit) {
+    // Init variables for taxonomy fields
+    $field_taxonomy = array(
+      'pk' => $node->nid,
+      'type' => 'select2',
+      'showbuttons' => 'bottom',
+      'select2' => array(
+        'multiple' => true,
+        'allowClear' => true,
+      ),
+      'placement' => 'top',
+      'mode' => 'popup',
+      'url' => '/update_node_field',
+      'inputclass' => $isMobile ? "input-mobile-xeditable" : "input-extra-large",
+      'delegated' => 'true',
+    );
+
+    $is_confidential_or_internal = isset($node->field_criticity['und'][0]['tid']) && (taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Confidential Data" || taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Internal Distribution");
+
+    // Field state of the node
+    if (!$is_confidential_or_internal || node_access("delete", $node)) {
+      $field_node_criticity = array(
+        'name' => 'field_criticity',
+        'value' => $criticity_value,
+        'title' => t('Node criticity', array(), array('context' => 'gofast')),
+        'emptytext' => t('None'),
+        'source' => gofast_xeditable_sort_criticity(gofast_xeditable_vocabulary_to_select_items(GOFAST_VID_CRITICITY), $node),
+        'params' => ['vid' => GOFAST_VID_CRITICITY],
+        'select2' => array(
+          'placeholder' => t('Type any criticity', array(), array('context' => 'gofast')),
+          'multiple' => false,
+          'allowClear' => true,
+        ),
+      );
+      $field_criticity = array_replace_recursive($field_taxonomy, $field_node_criticity);
+      $criticity_value = theme('x-editable_field', gofast_xeditable_enrich_values($field_criticity));
+    }
+  }
+
+  return theme('gofast_node_info_field', array('title' => 'Criticity', 'values' => $criticity_value));
+}
+
+function gofast_mobile_get_node_locations($node, ?bool $canEdit)
+{
+  $locations = array();
+
+  $icon_members = '  <a style="padding: 0px 4px 0px 4px;" title="' . t('Show user access', array(), array('context' => 'gofast')) . '" class="ctools-use-modal btn btn-default node-info-member-link" href="/gofast/nojs/node/' . $node->nid . '/locations-members"><i class="fa fa-users" style="color: #333;"></i></a> ';
+  $formatted_locations_string = '';
+
+  if ($canEdit) {
+    // get all paths with needed values such as node ids
+    $locations = gofast_get_node_locations_async($node);
+    $ztree_options = array();
+
+    // init parameters for ztree rendering
+    if ($node->type === "alfresco_item") {
+      $ztree_options = array(
+        "widget_locations" => "true",
+        "form" => array(
+          'field_name' => GOFAST_CMIS_LOCATIONS_FIELD,
+          'id' => $node->nid,
+          'url' => '/update_node_field'
+        )
+      );
+    } else {
+      $ztree_options = array(
+        "widget_locations" => "true",
+        "form" => array(
+          'field_name' => GOFAST_OG_CONTENT_MEMBERSHIP_FIELD,
+          'id' => $node->nid,
+          'url' => '/update_node_field'
+        )
+      );
+    }
+
+    $location_widget = gofast_ztree_block_content($node->nid, $locations['all_paths'], $ztree_options, $locations, true);
+
+    // unset ztree variables to avoid errors
+    unset($location_widget['user_visible_paths']);
+    unset($location_widget['pre_selected_paths']);
+    unset($location_widget['disabled_paths']);
+    unset($location_widget['obfuscated_paths']);
+    unset($locations['selected_paths']['/Sites']);
+
+    drupal_render($location_widget);
+
+    // if multiple groups are involved
+    if (count($node->og_group_content_ref) > 0) {
+      // loop through all authorized paths and template them
+      foreach ($locations['selected_paths'] as $key => $pre_selected_location) {
+        $cleaned_path = gofast_ztree_get_drupal_path_from_webdav_path(array($pre_selected_location));
+        // simple path
+        if (intval($key) !== 0) {
+          $location_values[] =  l(reset($cleaned_path), 'node/' . $key, array('attributes' => array("class" => "ajax-navigate " . gofast_access_spaces($key), "nid" => $key)));
+          // complex path
+        } else {
+          $parts = explode('/', $pre_selected_location);
+          $parent_group = null;
+          while ($parent_group === null) {
+            array_pop($parts);
+            // after removing the last treated part, have we reached the space's root folder?
+            $parent_group = gofast_og_get_group_id_from_title_2(implode('/', $parts), TRUE);
+          }
+          // root path
+          $location_values[] = l(reset($cleaned_path), "/node/" . $parent_group, array('attributes' => array("class" => "ajax-navigate " . gofast_access_spaces($parent_group), "nid" => $parent_group), 'fragment' => 'ogdocuments'));
+        }
+      }
+      $formatted_locations_string = isset($location_values) && is_array($location_values) ? implode('<br />', $location_values) : '';
+    } else {
+      $formatted_locations_string = $locations['selected_paths'][0];
+    }
+    $options = array(
+      'node_locations_options' => array(
+        'link_text' => $formatted_locations_string,
+        'href' => '/modal/nojs/node/' . $node->nid . '/manage-locations',
+        'container_id' => 'popup_block_' . $node->nid,
+        'container_class' => NULL,
+      )
+    );
+
+    if ($formatted_locations_string !== null) {
+      $formatted_locations_string = theme('node_locations', $options);
+    } else {
+      $formatted_locations_string = "<div></div>";
+    }
+    // if current user has no edit right
+  } else {
+    $wrapper = entity_metadata_wrapper('node', $node);
+
+    if ($node->type === 'alfresco_item' && isset($node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE])) {
+      $locations = array_map(function ($element) {
+        return $element['value'];
+      }, $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE]);
+    } else {
+      if (isset($wrapper->{GOFAST_OG_CONTENT_MEMBERSHIP_FIELD})) {
+        $og_selected_locations = $wrapper->{GOFAST_OG_CONTENT_MEMBERSHIP_FIELD}->value();
+        foreach ($og_selected_locations as $location) {
+          $locations[] = gofast_cmis_space_get_webdav_path($location->nid);
+        }
+      }
+    }
+    $formatted_locations_string = implode('<br />', (array) gofast_ztree_get_drupal_path_from_webdav_path($locations));
+  }
+  // edit buttons visible on tablets
+  $detect = new Mobile_Detect;
+  if ($detect->isMobile() || $detect->isTablet()) {
+    drupal_add_css('.xeditable-trigger {
+      visibility: visible !important;
+    }', ['type' => 'inline']);
+  }
+
+  return theme('gofast_node_info_field', array('title' => 'Locations / Shares', 'values' => $formatted_locations_string, 'multiline' => TRUE, 'seemore' => TRUE, 'title_suffix_html' => $icon_members));
+}
+
+function gofast_mobile_get_node_publication_sources($node)
+{
+  $publication_source = gofast_cmis_get_publication_source($node);
+  $publication_source_node = $publication_source !== FALSE ? node_load($publication_source) : NULL;
+
+  if ($publication_source_node !== null) {
+    $publication_source_value = $publication_source_node !== NULL ? l($publication_source_node->title, '/node/' . $publication_source_node->nid) : '';
+    return theme('gofast_node_info_field', array('title' => 'Publication Source', 'values' => $publication_source_value, 'multiline' => TRUE));
+  } else {
+    return '';
+  }
+}
+
+function gofast_mobile_get_node_link_to($node, $canEdit, $isMobile)
+{
+  $wrapper = entity_metadata_wrapper('node', $node);
+  $target_nodes = isset($wrapper->{'field_target_link'}) ? $wrapper->{'field_target_link'}->value() : array();
+  $target_links = array_map(function ($element) {
+    if ($element->status == "1") {
+      return theme('node_title', array('node' => $element));
+    } else {
+      return;
+    }
+  }, $target_nodes);
+
+  if ($canEdit) {
+    $field_target_links = array(
+      'pk' => $node->nid,
+      'type' => 'select2',
+      'placement' => 'bottom',
+      'showbuttons' => 'bottom',
+      'mode' => 'popup',
+      'url' => '/update_node_field',
+      'inputclass' => $isMobile ? "input-mobile-xeditable" : "input-extra-large",
+      'name' => 'field_target_link',
+      'value' => implode(', ', array_map(function ($element) {
+        return $element->nid;
+      }, $target_nodes)),
+      'data' => array('links' => !empty($target_links) ? $target_links : null),
+      'source' => '/gofast/node_autocomplete',
+      'title' => t('Links to other content', array(), array('context' => 'gofast')),
+      'emptytext' => t('None', array(), array('context' => 'gofast')),
+      'delegated' => 'true',
+      'wrapper_class' => array(
+        'node-info-target-links',
+      )
+    );
+
+    $node_target_links_value = theme('x-editable_field', gofast_xeditable_enrich_values($field_target_links));
+  } else {
+    $node_target_links_value = !empty($target_nodes) ? implode('<br />', $target_links) : '';
+  }
+  return theme('gofast_node_info_field', array('title' => 'Links to', 'values' => $node_target_links_value, 'multiline' => TRUE));
+}
+
+function gofast_mobile_get_node_link_from($node)
+{
+  $source_link_ids = array();
+  if (!$excluded) {
+    $results = db_select('field_data_field_target_link', 'f')
+      ->fields("f");
+    $results->join('node_revision', 'n', 'n.nid = f.entity_id');
+    $results = $results->condition('f.field_target_link_target_id', $node->nid)
+      ->condition('n.status', "1")
+      ->execute()->fetchAll();
+    foreach ($results as $row) {
+      $source_link_ids[] = $row->entity_id;
+    }
+  }
+  $source_links = array_map(function ($element) {
+    return theme('node_title', array('node' => $element));
+  }, node_load_multiple($source_link_ids));
+  $links_from_value = !empty($source_links) ? implode('<br /> ', $source_links) : t('None', array(), array('context' => 'gofast'));
+
+  return  theme('gofast_node_info_field', array('title' => 'Links from', 'values' => $links_from_value, 'multiline' => TRUE));
+}
+
+function gofast_mobile_get_node_language($node, $canEdit, $isMobile)
+{
+  $wrapper = entity_metadata_wrapper('node', $node);
+  $node_language = $wrapper->language->value();
+  $translatable_languages = i18n_node_language_list($node);
+  $translated_languages = translation_node_get_translations($node->tnid);
+  $language_icon = gofast_get_flag_icon_by_langcode($node_language) . '&nbsp;' . $translatable_languages[$node_language];
+  $available_languages = array_map(function ($lang_key) use ($translatable_languages, $translated_languages) {
+    $item = array('id' => $lang_key, 'text' => $translatable_languages[$lang_key], 'icon' => gofast_get_flag_icon_by_langcode($lang_key));
+    if (isset($translated_languages[$lang_key])) {
+      $item['disabled'] = TRUE;
+    }
+    return $item;
+  }, array_keys($translatable_languages));
+  $node_language_value = !empty($node_language) ? $language_icon : null;
+
+  $available_translations = array();
+  if (!empty($node_translations)) {
+    unset($node_translations[$wrapper->language->value()]);
+    foreach ($node_translations as $lang_key => $node_translation) {
+      $lang_link = '/node/' . $node_translation->nid;
+      $title = $translatable_languages[$lang_key] . ' - ' . $node_translation->title;
+      $icon = gofast_get_flag_icon_by_langcode($lang_key);
+      $link = '<a class="node-lang-icon" type="button" href="' . $lang_link . '" title="' . $title . '">' . $icon . '</a>';
+      $available_translations[$lang_key] = $link;
+    }
+  }
+
+  if ($canEdit) {
+    libraries_load("flag-icon-css");
+    $field_node_language = array(
+      'pk' => $node->nid,
+      'type' => 'select2',
+      'showbuttons' => 'bottom',
+      'name' => 'language',
+      'value' => $node_language,
+      'data' => array('links' => !empty($node_language) ? $language_icon : null),
+      'title' => t('Node language', array(), array('context' => 'gofast')),
+      'source' => $available_languages,
+      'placement' => 'top',
+      'mode' => 'popup',
+      'url' => '/update_node_field',
+      'inputclass' => $isMobile ? "input-mobile-xeditable" : "input-extra-large",
+      'delegated' => 'true',
+      'emptytext' => 'Select language',
+      'wrapper_class' => array(
+        'select2-node-language',
+      )
+    );
+
+    $field_node_language_theme =  theme('x-editable_field', gofast_xeditable_enrich_values($field_node_language));
+  } else {
+    $field_node_language_theme = '<span class="translations">' . implode(' ', $available_translations) . '</span>';
+  }
+
+  return theme('gofast_node_info_field', array('title' => 'Language', 'values' =>  $field_node_language_theme));
+}
+
+function gofast_mobile_get_node_workflow($node)
+{
+  $return = "<div id='mobile-workflow-action' style='position: absolute; top: 8px; right: 16px;'>";
+  $node_workflow_action = gofast_get_workflow_action_node($node, true);
+  $return .= theme('contextual_links', array('btn_group_id' => 'breadcrumb-alt-wf', 'buttons' => $node_workflow_action));
+  $return .= "</div>";
+
+  return $return;
+}
+
+function gofast_mobile_get_node_author($node, $canEdit, $infos, $isMobile)
+{
+  $author = ($node->type !== 'alfresco_item') ? user_load($node->uid)->name : $infos['document_author'];
+
+  if ($canEdit) {
+    $field_document_author = array(
+      'pk' => $node->nid,
+      'placement' => 'top',
+      'showbuttons' => 'bottom',
+      'mode' => 'popup',
+      'url' => '/update_node_field',
+      'inputclass' => $isMobile ? "input-mobile-xeditable" : "input-extra-large",
+      'name' => GOFAST_CMIS_DOCUMENT_AUTHOR_FIELD,
+      'value' => $author,
+      'title' => t('Enter document author', array(), array('context' => 'gofast')),
+      'emptytext' => t('None', array(), array('context' => 'gofast')),
+      'delegated' => 'true',
+      'type' => 'typeaheadjs',
+      'wrapper_class' => array(
+        'node-info-document_author',
+      )
+    );
+    $author =  theme('x-editable_field', gofast_xeditable_enrich_values($field_document_author));
+  }
+
+  return theme('gofast_node_info_field', array('title' => 'Author', 'values' => $author));
+}
+
+function gofast_mobile_get_node_history($node, $infos)
+{
+  //if the node is not an alfresco_item, the history is not the same ( don't execute cmis requests)
+  if ($node->type != "alfresco_item") {
+    $history_content = '<br /><ul id="node-history" class="list-unstyled">';
+    $created = $node->created;
+    $changed = $node->changed;
+    $display_update_date = false;
+    if ($created !== $changed && $node->last_comment_timestamp !== $changed) {
+      $display_update_date = true;
+    }
+
+    $node_created_date = $created;
+
+    $user_creator = $node->uid;
+    $creator = user_load($user_creator);
+    $creator_img = theme('user_picture', array('account' => $creator, 'dimensions' => 20));
+    $history_content .= '<li>' . $creator_img . ' ' . format_date($node_created_date, 'medium') . " (" . t('Creation', array(), array('context' => 'gofast')) . ")</li>";
+
+    if ($display_update_date) {
+      $user_modifier = $node->revision_uid;
+      $node_modification_date = $changed;
+
+      $modifier = user_load($user_modifier);
+      $modifier_img = theme('user_picture', array('account' => $modifier, 'dimensions' => 20));
+      $history_content .= '<li>' . $modifier_img . " " . format_date($node_modification_date, 'medium') . " (" . t('Last version', array(), array('context' => 'gofast')) . ")</li>";
+    }
+
+    $db_comments = db_query("select uid,cid,field_comment_is_private_value,changed from comment INNER JOIN field_data_field_comment_is_private ON cid=entity_id where nid=" . $node->nid . " AND field_comment_is_private_value=0 ORDER BY changed DESC;")->fetchAll();
+    if (count($db_comments) > 0) {
+      $commenter = user_load($db_comments[0]->uid);
+      $commenter_img = theme('user_picture', array('account' => $commenter, 'dimensions' => 20));
+      $history_content .= '<li>' . $commenter_img . " " . format_date($db_comments[0]->changed, 'medium') . " (" . t('Last comment', array(), array('context' => 'gofast')) . ")</li>";
+    }
+
+
+    $history_content .= '</ul>';
+  } else {
+
+    $versions_item = gofast_cmis_webservice_item_get_versions($node->field_reference[LANGUAGE_NONE][0]['value'], false);
+    $last_version_item = reset(gofast_cmis_webservice_item_get_versions($node->field_reference[LANGUAGE_NONE][0]['value'], false));
+    $first_version_item = end(gofast_cmis_webservice_item_get_versions($node->field_reference[LANGUAGE_NONE][0]['value'], false));
+
+    $created = strtotime($first_version_item->createdDate);
+    $changed = strtotime($last_version_item->createdDate);
+
+    $history_content = '<br /><ul id="node-history" class="list-unstyled">';
+    if ($infos !== false) {
+      //on verifie si la version actuelle vaut 1.0 Si oui, on n'affiche que la date de création, pas de modification
+      $last_version = $infos["last_version"];
+      $display_update_date = $created !== $changed;
+    } else {
+      $node_revisions = node_revision_list($node);
+      $display_update_date = $created !== $changed;
+    }
+    $node_created_date = $created;
+
+    $user_creator = $first_version_item->creator;
+    $creator = user_load_by_name(array('name' => check_plain(gofast_alter_username_before_load($user_creator))));
+    $creator_img = theme('user_picture', array('account' => $creator, 'dimensions' => 20));
+    $history_content .= '<li>' . $creator_img . ' ' . format_date($node_created_date, 'medium') . " (" . t('Creation', array(), array('context' => 'gofast')) . ")</li>";
+
+    if ($display_update_date) {
+      $user_modifier = $last_version_item->creator;
+      $node_modification_date = $changed;
+
+      $modifier = user_load_by_name(array('name' => check_plain(gofast_alter_username_before_load($user_modifier))));
+      $modifier_img = theme('user_picture', array('account' => $modifier, 'dimensions' => 20));
+      $history_content .= '<li>' . $modifier_img . " " . format_date($node_modification_date, 'medium') . " (" . t('Last version', array(), array('context' => 'gofast')) . ")</li>";
+    }
+
+    $db_comments = db_query("select uid,cid,field_comment_is_private_value,changed from comment INNER JOIN field_data_field_comment_is_private ON cid=entity_id where nid=" . $node->nid . " AND field_comment_is_private_value=0 ORDER BY changed DESC;")->fetchAll();
+    if (count($db_comments) > 0) {
+      $commenter = user_load($db_comments[0]->uid);
+      $commenter_img = theme('user_picture', array('account' => $commenter, 'dimensions' => 20));
+      $history_content .= '<li>' . $commenter_img . " " . format_date($db_comments[0]->changed, 'medium') . " (" . t('Last comment', array(), array('context' => 'gofast')) . ")</li>";
+    }
+    $history_content .= '</ul>';
+  }
+
+  return theme('gofast_node_info_field', array('title' => 'History', 'values' => $history_content, 'seemore' => TRUE));
+}
+
+function gofast_mobile_get_node_size($infos)
+{
+  return !is_null($infos) ? theme('gofast_node_info_field', array('title' => 'Size', 'values' => $infos['size'])) : '';
+}
+
+function gofast_mobile_get_node_current_version($node, $infos)
+{
+
+  $revisions_content = '';
+
+  if ($node->type === 'alfresco_item') {
+    gofast_cmis_set_context("node", "version", $infos["last_version"]);
+
+    //get the field_publication_history content, to get the mapping between versions doc and versions publication
+    $publication_history = $node->field_publication_history[LANGUAGE_NONE][0]["value"];
+    $publication_history = json_decode($publication_history, true);
+
+    if (isset($node->field_publication[LANGUAGE_NONE][0]['target_id'])) {
+      $publication_node = node_load($node->field_publication[LANGUAGE_NONE][0]['target_id']);
+      if (isset($publication_history[$infos["last_version"]])) {
+        $attribute_title_publication = t("Publication") . " : " . format_date($publication_history[$infos["last_version"]]["date"], 'medium') . t(" by ");
+        $attribute_title_publication .= $publication_history[$infos["last_version"]]["creator"];
+
+        if (isset($publication_history[$infos["last_version"]]["comment"])) {
+          $attribute_title_publication .= " " . t("Comment") . ": " . $publication_history[$infos["last_version"]]["comment"];
+        }
+        $version_reference_publication = $publication_node->reference . ";" . $publication_history[$infos["last_version"]]["published_version"];
+        $link_published_version = l($publication_history[$infos["last_version"]]["published_version"], "/cmis/browser", array('attributes' => array('title' => $attribute_title_publication, 'style' => $style), 'query' => array("id" => $version_reference_publication)));
+        $return_str = " (" . $link_published_version . ")";
+      }
+    } else {
+      $return_str = "";
+    }
+
+    $html_list = "<ul class='list-inline' id='block-last-version'><li>" . $infos["last_version"] . $return_str . "</li></ul>";
+    $revisions_content .= "<span id='gofast_cmis_container_versions'><input id='gofast_cmis_container_versions_button' type='button' value='" . t("Show versions list", array(),  array('context' => 'gofast')) . "' onClick='Drupal.gofast_cmis.async_show_all_versions(" . $node->nid . ");' />$html_list</span>";
+  } else {
+    $revisions_content = "";
+  }
+
+  return theme('gofast_node_info_field', array('title' => 'Revisions', 'values' => $revisions_content, 'multiline' => TRUE, 'seemore' => TRUE));
+}
+
+function gofast_mobile_get_node_info($node)
+{
+  $info = '';
+  $node_infos = null;
+
+
+  if ($node->type === 'alfresco_item') {
+    $lock_state = isset($node->cmis_lock_owner) ? $node->cmis_lock_owner : gofast_cmis_webservice_execute_request("getlocked", gofast_cmis_node_get_item_id($node));
+  } else {
+    $lock_state = 'nolocked';
+  }
+
+  $detect = new Mobile_Detect;
+  $isMobile = $detect->isMobile() == true && $detect->isTablet() == false ? true : false;
+  $canEdit = node_access("update", $node) && $lock_state === "nolocked";
+
+  if ($canEdit) {
+    libraries_load('x-editable');
+    drupal_add_js(drupal_get_path('module', 'gofast') . '/js/gofast_xeditable.js', array('type' => 'file', 'weight' => 5));
+    libraries_load('select2');
+  }
+
+  //retention date
+  if ($node->type === "alfresco_item" && module_exists('gofast_retention')) {
+    $date_format_retention = 'm/d/Y h:i';
+    if ($node->field_retention_end[LANGUAGE_NONE][0]['value'] !== NULL) {
+      $retention_end_date = new DateObject();
+      $retention_end_date->setTimestamp($node->field_retention_end[LANGUAGE_NONE][0]['value']);
+      $retention_end_date = $retention_end_date->format($date_format_retention);
+    }
+  }
+
+  $publication_source = gofast_cmis_get_publication_source($node);
+
+  if ($publication_source !== FALSE) {
+    $info .= '<p class="text-danger bg-warning">' . t("This document is a publication", array(), array('context' => 'gofast')) . '</p><br />';
+  }
+
+  if (!node_access("update", $node)) {
+    if ($lock_state !== 'nolocked') {
+      $info .= '<p class="text-danger bg-warning">' . t("The document is being edited, you can't change its metadatas", array(), array('context' => 'gofast')) . '</p><br />';
+    } else {
+      $info .= '<p class="text-danger bg-warning">' . t("You have read-only permission on this document", array(), array('context' => 'gofast')) . '</p><br />';
+    }
+  } else if (module_exists('gofast_retention') && isset($retention_end_date)) {
+    if (node_access("delete", $node)) {
+      $info .= '<p class="text-danger bg-warning">' . t("This document has a retention date, you can't change its content or its category", array(), array('context' => 'gofast:gofast_retention')) . '</p>';
+    } else {
+      $info .= '<p class="text-danger bg-warning">' . t("This document has a retention date, you can't change its content, its category or its state", array(), array('context' => 'gofast:gofast_retention')) . '</p>';
+    }
+  } elseif (node_access("delete", $node) && gofast_get_content_state_archived($node)) {
+    $info .= '<p class="text-danger bg-warning">' . t("This document is archived, you can't change its content", array(), array('context' => 'gofast:gofast_retention')) . '</p>';
+  }
+
+  $is_confidential = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Confidential Data";
+  if ($is_confidential) {
+    $info .= '<p class="text-danger bg-warning">' . t("This document is confidential: you can't download and share it", array(), array('context' => 'gofast:gofast_cmis')) . '</p>';
+  }
+
+  $is_internal = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Internal Distribution";
+  if ($is_internal) {
+    $info .= '<p class="text-danger bg-warning">' . t("This document is for Internal Distribution: you can't download and share it", array(), array('context' => 'gofast:gofast_cmis')) . '</p>';
+  }
+
+  if ($node->type === 'alfresco_item') {
+    $node_infos = gofast_cmis_alfresco_get_infos($node);
+    gofast_cmis_set_context("node", "version", $node_infos["last_version"]);
+  }
+
+
+  if (!module_exists('gofast_community')) {
+    //Set the workflow count in the context
+    $node_workflow_action = gofast_get_workflow_action_node($node);
+    $context['workflows_document'] = $node_workflow_action[0]['button-text'];
+    gofast_set_context($context);
+  }
+
+  $info .= gofast_mobile_get_node_format($node);
+  $info .= gofast_mobile_get_node_size($node_infos);
+  $info .= gofast_mobile_get_node_category($node, $canEdit, $isMobile);
+
+  if ($node->type !== 'forum') {
+    $info .= gofast_mobile_get_node_state($node, $canEdit, $isMobile);
+  }
+
+  $info .= gofast_mobile_get_node_locations($node, $canEdit);
+  $info .= gofast_mobile_get_node_publication_sources($node);
+  $info .= gofast_mobile_get_node_link_to($node, $canEdit, $isMobile);
+  $info .= gofast_mobile_get_node_link_from($node);
+  $info .= gofast_mobile_get_node_external_links($node, $canEdit, $isMobile);
+  $info .= gofast_mobile_get_node_tags($node, $canEdit, $retention_end_date, $isMobile);
+
+
+
+
+  $info .= gofast_mobile_get_node_deadline($node, $canEdit, $isMobile);
+
+
+  $info .= gofast_mobile_get_node_criticity($node, $canEdit, $isMobile);
+
+
+  $info .= gofast_mobile_get_node_author($node, $canEdit, $node_infos, $isMobile);
+
+  $info .= gofast_mobile_get_node_history($node, $node_infos);
+
+  $info .= gofast_mobile_get_node_current_version($node, $node_infos);
+
+
+  $info .= gofast_mobile_get_node_language($node, $canEdit, $isMobile);
+
+
+  return $info;
+}
+
+function gofast_mobile_preserved_node_actions($node)
+{
+  $preserved_actions = array();
+  switch ($node->type) {
+    case 'alfresco_item':
+      $preserved_actions = gofast_mobile_get_preserved_alfresco_item_actions($node);
+      break;
+    case 'conference':
+      $preserved_actions = gofast_mobile_get_preserved_conference_item_actions($node);
+    case 'article':
+    case 'forum':
+      $preserved_actions = gofast_mobile_get_preserved_article_forum_actions($node);
+      break;
+    case 'webform':
+      $preserved_actions = gofast_mobile_get_preserved_webform_actions($node);
+      break;
+    default:
+      break;
+  }
+  return $preserved_actions;
+}
+
+function gofast_mobile_preprocess_node(&$variables)
+{
+  if (gofast_mobile_is_mobile_domain()) {
+    drupal_add_library('gofast_mobile', 'gofast_mobile_node', TRUE);
+  }
+}
+
+function gofast_mobile_preprocess_page(&$variables)
+{
+  if (gofast_mobile_is_mobile_domain()) {
+    if (isset($variables['logo'])) {
+      $variables['search_form_class'] = 'col-xs-6 col-sm-7';
+    } else {
+      $variables['search_form_class'] = 'col-xs-10 col-sm-9';
+    }
+
+    if (isset($variables['logo'])) {
+      $variables['icon_form_class'] = 'col-xs-4 col-sm-4';
+    } else {
+      $variables['icon_form_class'] = 'col-xs-5 col-sm-5';
+    }
+  }
+}
+
+function gofast_mobile_form_user_login_block_alter(&$form, &$form_state)
+{
+  if (gofast_mobile_is_mobile_domain()) {
+    $form['show_password'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Show password ?', array(), array('context' => 'gofast')),
+      '#prefix' => '<div style="margin-bottom: 10px;">',
+      '#suffix' => '</div>'
+    );
+  }
+}
+
+function gofast_mobile_home_page_navigation()
+{
+  return theme('gofast_mobile_activity_dashboard_browser_page');
+}
+
+function gofast_mobile_tasks_page_navigation()
+{
+  return theme('gofast_mobile_tasks_page');
+}
+
+/**
+ * Implement Kanban theme in simplified version
+ *
+ * @return void
+ */
+function gofast_mobile_kanban_simplified_board()
+{
+  global $user;
+
+  $private_space_id = gofast_og_get_user_private_space($user)->nid;
+  $kanban_id = gofast_kanban_get_space_kanban($private_space_id)[0];
+
+  $groups_user_gids = gofast_og_get_spaces_by_user($user);
+  return theme('kanban_simplified', array('kanban_id' => $kanban_id, 'group_user_gids' => $groups_user_gids));
+}
+
+function gofast_calendar_simplified()
+{
+  return theme('gofast_mobile_simplified_calendar');
+}
+
+function gofast_download_element()
+{
+  return theme('gofast_mobile_element_download');
+}
+
+function gofast_mobile_load_calendar()
+{
+  if (gofast_mobile_is_mobile_domain()) {
+    $_GET["q"] = "calendar-node-field-date/month-mobile/" . date("Y-m");
+    return views_embed_view('calendar', 'page_4');
+  }
+
+  // return theme('gofast_mobile_simplified_calendar');
+}
+
+
+/**
+ * Template preprocess section
+ */
+function template_preprocess_gofast_mobile_node_actions(&$variables)
+{
+  if (isset($variables['node'])) {
+    $node = $variables['node'];
+    $node_actions = gofast_mobile_preserved_node_actions($node);
+    $actions = '';
+    foreach ($node_actions as $node_action) {
+      $actions .= '<li>' . $node_action . '</li>';
+    }
+    $variables['actions'] = $actions;
+  }
+}
+
+function template_preprocess_gofast_mobile_node_info(&$variables)
+{
+  if (isset($variables['node'])) {
+    $node = $variables['node'];
+    $node_info = gofast_mobile_get_node_info($node);
+    $variables['info'] = $node_info;
+  }
+}
+
+function template_preprocess_gofast_mobile_panel(&$variables)
+{
+  if (arg(0) === 'user_listing_tab') {
+    $sidebar_second =  block_get_blocks_by_region('sidebar_second');
+    $variables['info'] = render($sidebar_second);
+    $variables['context'] = 'directories';
+  } else if (isset($variables['node']) && !in_array($variables['node']->type, array('group', 'organisation', 'extranet', 'public', 'private_space'), TRUE)) {
+    $node = $variables['node'];
+    $variables['info'] = theme('gofast_mobile_node_info', array('node' => $node));
+    $variables['title'] = $node->title;
+
+    $detect = new Mobile_Detect;
+    if ($detect->isMobile() || $detect->isTablet()) {
+      $variables['actions'] = theme('gofast_mobile_node_actions', array('node' => $node));
+    }
+
+    $variables['context'] = 'node';
+    $variables['node'] = $node;
+  } else if (arg(0) === 'search') {
+    $sidebar_second =  block_get_blocks_by_region('sidebar_second');
+    $variables['info'] = render($sidebar_second);
+    $variables['context'] = 'search';
+  }
+}
+
+/************************************************************************
+ * OVERRIDE CKEDITOR BEHAVIOUR
+ *
+ * Mandatory to be able to load a different profile on mobile version
+ ************************************************************************/
+
+/**
+ * Override Ckeditor default pre_render_function
+ * To be able to handle special mobile version for all textarea fields
+ *
+ * @param type $element
+ */
+function gofast_mobile_pre_render_text_format($element)
+{
+  static $init = FALSE;
+  if (!isset($element['#format'])) {
+    return $element;
+  }
+
+  module_load_include('inc', 'ckeditor', 'includes/ckeditor.lib');
+
+  if ($init === FALSE) {
+    $input_formats = gofast_mobile_ckeditor_profiles_compile();
+    drupal_add_js(array('ckeditor' => array('input_formats' => $input_formats, 'plugins' => array())), 'setting');
+    $init = TRUE;
+  }
+
+  if (isset($element['value'])) {
+    if (!isset($element['format'])) {
+      return $element;
+    }
+    if (isset($element['summary'])) {
+      $element['value'] = ckeditor_load_by_field($element['value'], $element['format']['format'], TRUE, $element['summary']['#id']);
+      $element['summary'] = ckeditor_load_by_field($element['summary'], $element['format']['format'], FALSE);
+    } else {
+      $element['value'] = ckeditor_load_by_field($element['value'], $element['format']['format']);
+    }
+  } else {
+    $element = ckeditor_load_by_field($element, $element['#format']);
+  }
+
+  return $element;
+}
+
+/**
+ * Implementation of hook_element_info_alter().
+ *
+ * Replace the textarea with CKEditor using a callback function (ckeditor_pre_render_text_format).
+ */
+function gofast_mobile_element_info_alter(&$types)
+{
+
+  if (gofast_mobile_is_mobile_domain() == TRUE) {
+    $types['text_format']['#pre_render'][] = 'gofast_mobile_pre_render_text_format';
+  }
+}
+
+/**
+ * Compile ckeditor profile (which profile for which field type)
+ * /!\ it overrides ckeditor default function for GoFAST mobile needs
+ * @staticvar boolean $compiled
+ * @staticvar array $_ckeditor_compiled
+ * @param type $input_format
+ * @param type $clear
+ * @return type
+ */
+function gofast_mobile_ckeditor_profiles_compile($input_format = FALSE, $clear = FALSE)
+{
+  static $compiled = FALSE;
+  static $_ckeditor_compiled = array();
+
+  if ($clear !== FALSE && $compiled !== FALSE) {
+    $compiled = FALSE;
+  }
+
+  if ($compiled === TRUE) {
+    return ($input_format === FALSE) ? $_ckeditor_compiled : (isset($_ckeditor_compiled[$input_format]) ? $_ckeditor_compiled[$input_format] : array());
+  }
+
+  $global_profile = ckeditor_profile_load('CKEditor Global Profile');
+
+  //$profiles_list = ckeditor_profile_input_formats();
+  $profiles_list = array(
+    "Mobile" => array("filtered_html", "full_html")
+  );
+
+  foreach ($profiles_list as $_profile => $_inputs) {
+    $profile = ckeditor_profile_load($_profile);
+    $setting = ckeditor_profile_settings_compile($global_profile, $profile);
+
+    foreach ($_inputs as $_input) {
+      $_ckeditor_compiled[$_input] = $setting;
+    }
+  }
+  $compiled = TRUE;
+
+  return ($input_format === FALSE) ? $_ckeditor_compiled : $_ckeditor_compiled[$input_format];
+}
+
+/************************************************************************
+ ************************************************************************/

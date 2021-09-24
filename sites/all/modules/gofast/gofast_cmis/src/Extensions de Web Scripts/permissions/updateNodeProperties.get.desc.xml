@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Update node properties</shortname>
+    <description>Update node properties using javascript API</description>
+    <url>/updateNodeProperties?reference={reference}</url>
+    <format default="html"/>
+    <authentication>user</authentication>
+</webscript>

@@ -1,0 +1,1700 @@
+<?php
+
+
+/**
+ * Define the vocabulary identifier that lists 'format' taxonomy terms.
+ */
+define('GOFAST_VID_FORMAT', variable_get('gofast_vocabulary_format', 0));
+
+/**
+ * Define the vocabulary identifier that references 'tags' taxonomy terms.
+ */
+define('GOFAST_VID_TAGS', variable_get('gofast_vocabulary_tags', 0));
+
+/**
+ * Define the vocabulary identifier that references 'state' taxonomy terms.
+ */
+define('GOFAST_VID_STATE', variable_get('gofast_vocabulary_state', 0));
+
+/**
+ * Define the vocabulary identifier that references 'category' taxonomy terms.
+ */
+define('GOFAST_VID_CATEGORY', variable_get('gofast_vocabulary_category', 0));
+
+/**
+ * Define the vocabulary identifier that references 'category' taxonomy terms.
+ */
+define('GOFAST_VID_CRITICITY', variable_get('gofast_vocabulary_criticity', 0));
+
+/**
+ * Define vocabulary identifiers that references user-centric taxonomy terms.
+ */
+define('GOFAST_VID_SKILLS', variable_get('gofast_vocabulary_skills', 0));
+define('GOFAST_VID_HOBBIES', variable_get('gofast_vocabulary_hobbies', 0));
+define('GOFAST_VID_INTERESTS', variable_get('gofast_vocabulary_interests', 0));
+
+define('GOFAST_TAXONOMY_FORMAT_FIELD', 'field_format');
+
+/**
+ * Helper to iterate over Gofast taxonomy vocabularies.
+ * @return An array of vocabulary machine names.
+ */
+function gofast_taxonomy_vocabularies() {
+  return array(
+    'format',
+    'tags',
+    'state',
+    'category',
+    'criticity',
+    'skills',
+    'hobbies',
+    'interests'
+  );
+}
+
+/**
+ * Helper that returns the cardinality of a given gofast vocabulary field.
+ * @param $vid A vocabulary id.
+ */
+function gofast_taxonomy_vocabulary_cardinality($vid) {
+  if (!$vid || ($vocabulary = taxonomy_vocabulary_load($vid)) === FALSE) {
+    return FALSE;
+  }
+
+  $field_name = 'field_' . $vocabulary->machine_name;
+  return gofast_field_get_cardinality($field_name);
+}
+
+/**
+ * Implements hook_enable()
+ */
+function gofast_taxonomy_enable() {
+
+  $gofast_weight = db_select('system')
+          ->fields('system', array('weight'))
+          ->condition('name', 'gofast', '=')
+          ->execute()
+          ->fetchField();
+
+  db_update('system')
+          ->fields(array('weight' => $gofast_weight))
+          ->condition('name', 'gofast_taxonomy')
+          ->execute();
+
+
+  // Set/reset gofast vocabulary identifiers.
+  $vocabularies = taxonomy_vocabulary_get_names();
+  $missing = array();
+  foreach (gofast_taxonomy_vocabularies() as $name) {
+    if (!isset($vocabularies[$name]->vid)) {
+      $missing[$name] = $name;
+      watchdog('gofast_taxonomy', "Vocabulary '{$name}' does not exist.");
+      /**
+       * @todo : we rely on Features for vocabulary creation but it would be
+       *  nice to handle the creation programatically.
+       */
+      continue;
+    }
+    variable_set('gofast_vocabulary_' . $name, $vocabularies[$name]->vid);
+    watchdog('gofast_taxonomy', "{$name} vid reset : {$vocabularies[$name]->vid}");
+  }
+  if (!empty($missing)) {
+    watchdog('gofast_taxonomy', 'If features is used to enable this module, the
+      last messages are expected "normal" because vocabularies are not yet
+      replicated in database when running hook_enable().');
+  }
+}
+
+
+/**
+ * Implements hook_init()
+ */
+function gofast_taxonomy_init() {
+  drupal_add_js(drupal_get_path('module', 'gofast_taxonomy') . '/js/gofast_taxonomy.js');
+}
+
+/**
+ * Implements hook_field_access().
+ */
+function gofast_taxonomy_field_access($op, $field, $entity_type, $entity, $account) {
+  if (empty($entity)) {
+    // We are in field settings page.
+    return;
+  }
+
+  if ($op != 'edit') {
+    return;
+  }
+
+  // Prevent user to edit format, it should be mainained automatically.
+  if ($field['field_name'] === 'field_format') {
+    return FALSE;
+  }
+}
+
+/**
+ * Helper that retrieve all format term id's along with their respective
+ * icons name. The mapping array is loaded once during a page load.
+ *
+ * @return Array
+ *  An array of icon names keyed by their respective taxonomy (format) term ID.
+ */
+function gofast_taxonomy_load_icons() {
+  static $icons;
+  if (!isset($icons)) {
+    $icons = gofast_get_field_values('field_icone', 'taxonomy_term', 'format');
+  }
+  return $icons;
+}
+
+/**
+ * Returns an icon format filename given its format term ID.
+ * @param type $tid
+ */
+function gofast_taxonomy_icon_filename($tid) {
+  $icons = gofast_taxonomy_load_icons();
+  return isset($icons[$tid]) ? $icons[$tid] : 'unknown.png';
+}
+
+function gofast_taxonomy_node_presave($node) {
+  if ($node->type == "alfresco_item") {
+    // add/remove template tag as necessary.
+    gofast_taxonomy_update_template_tag($node);
+
+    //on récupere l'extension du fichier
+    $filename = isset($node->{GOFAST_CMIS_FILENAME_FIELD}[LANGUAGE_NONE][0]["value"]) ? $node->{GOFAST_CMIS_FILENAME_FIELD}[LANGUAGE_NONE][0]["value"] : gofast_cmis_item_get(gofast_cmis_node_get_item_id($node))->properties["cmis:contentStreamFileName"];
+    $file_info = pathinfo($filename);
+    $extension = isset($file_info['extension']) && $file_info['extension'] !== NULL ? $file_info['extension'] : '';
+
+    //si l'extension vaut html, soit c'est un doc html, soit c'est une page externe aspirée par Drupal
+    //pour savoir, je verifie si le champs field_external_page_url est remplit ou non. Si oui c'est une page externe aspirée
+    if ($extension === "html") {
+      if (count($node->field_external_page_url[LANGUAGE_NONE]) > 0) {
+        $extension = "external_page";
+      }
+    }
+
+    //Check if we don't have empty tags to fix GOFAST-6773 & GOFAST-6748
+    foreach($node->field_tags['und'] as $k => $tag){
+        if(empty(trim($tag['tid']))){
+            unset($node->field_tags['und'][$k]);
+        }
+    }
+  }
+  else {
+    $extension = $node->type;
+  }
+
+  if (!isset($node->nid)){
+    $is_pdf_image = gofast_cmis_detect_pdf_image($node);
+    if ($is_pdf_image == true){
+      $extension = "pdf_image";
+    }
+  }
+
+  $tid = gofast_taxonomy_get_taxo_id_from_extension($extension);
+  $node->{GOFAST_TAXONOMY_FORMAT_FIELD}[LANGUAGE_NONE][0]['tid'] = $tid;
+}
+
+//fonction qui renvoit le tid (term id) qui correspond a l'entité du terme du vocabulaire "Format" qui correspond a l'extension recu en parametre
+// par exemple si on recoit PDF en parametre, on charge le terme de vocabulaire pdf du vocabulaire format
+function gofast_taxonomy_get_taxo_id_from_extension($extension) {
+  $extension = strtolower($extension);
+
+  $query = new EntityFieldQuery();
+  $entities = $query->entityCondition('entity_type', 'taxonomy_term')
+          ->propertyCondition('vid',GOFAST_VID_FORMAT)
+          ->fieldCondition('field_extensions', 'value', "%;$extension;%", 'like')
+          ->execute();
+
+  if (!empty($entities['taxonomy_term'])) {
+
+    $taxonomy_term = taxonomy_term_load_multiple(array_keys($entities['taxonomy_term']));
+    $tid = reset($taxonomy_term);
+    $tid = $tid->tid;
+  }
+  else {
+    $tid = gofast_taxonomy_get_default_term_format();
+  }
+
+  return $tid;
+}
+
+/*
+ * Map extensions with associated font awsome icons
+ */
+function gofast_taxonomy_get_map_extensions_icons(){
+  $return_map = array();
+
+  //Get extensions mapped to tids
+  $ext_mapping = db_select('field_data_field_extensions', 'fext')
+      ->fields('fext', array('entity_id', 'field_extensions_value'))
+      ->execute()
+      ->fetchAllAssoc("entity_id");
+
+  //Get tids mapped to icons
+  $tid_mapping = gofast_taxonomy_load_icons();
+
+  foreach($ext_mapping as $exts){
+    //Split extensions
+    $extensions = $exts->field_extensions_value;
+    $tid = $exts->entity_id;
+    $ext_split = explode(";", $extensions);
+
+    //Fill the array
+    foreach($ext_split as $ext){
+      if(!empty($ext)){
+        $return_map[$ext] = $tid_mapping[$tid];
+      }
+    }
+  }
+
+  return $return_map;
+}
+
+/**
+ * Returns the taxonomy term id of the default format.
+ */
+function gofast_taxonomy_get_default_term_format() {
+  $entities = (new EntityFieldQuery())
+          ->entityCondition('entity_type', 'taxonomy_term')
+          ->fieldCondition('field_extensions', 'value', ";default;", '=')
+          ->execute();
+
+  return isset($entities['taxonomy_term']) ? reset((array_keys($entities['taxonomy_term']))) : NULL;
+}
+
+function gofast_taxonomy_taxonomy_vocabulary_insert($vocabulary) {
+  if ($vocabulary->machine_name == 'skills' || $vocabulary->machine_name == 'hobbies' || $vocabulary->machine_name == 'interests' || $vocabulary->machine_name == 'category' || $vocabulary->machine_name == 'format' || $vocabulary->machine_name == 'tags' || $vocabulary->machine_name == 'state' || $vocabulary->machine_name == 'criticity') {
+    //on stock dans une variable l'id de ce vocabulaire (car cet id est susceptible de changer selon les environements)
+    variable_set("gofast_vocabulary_" . $vocabulary->machine_name, $vocabulary->vid);
+  }
+}
+
+/**
+ * Implements hook_menu()
+ */
+function gofast_taxonomy_menu() {
+  $items = array();
+
+  $items['taxonomy/vocabulary/%'] = array(
+    'title' => 'Get taxonomy vocabulary',
+    'description' => 'Returns the terms of the given taxonomy vocabulary',
+    'page callback' => 'taxonomy_vocabulary_get',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => TRUE,
+  );
+  $items['taxonomy/vocabulary/%/addTerm/%'] = array(
+    'title' => 'Add new term to taxonomy vocabulary',
+    'description' => 'Adds a new term for the given taxonomy vocabulary',
+    'page callback' => 'taxonomy_vocabulary_set',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => TRUE,
+  );
+  $items['taxonomy/tags_autocomplete'] = array(
+    'page callback' => 'gofast_taxonomy_tag_autocomplete',
+    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['taxonomy/manage_locations/process'] = array(
+    'page callback' => 'gofast_taxonomy_manage_locations_process',
+    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['taxonomy/add_locations/process'] = array(
+    'page callback' => 'gofast_taxonomy_add_locations_process',
+    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['taxonomy/manage_taxonomy/process'] = array(
+    'page callback' => 'gofast_taxonomy_manage_taxonomy_process',
+    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Helper to programatically add a term to an existing vocabulary.
+ * @param type $vid
+ * @param type $name
+ */
+function gofast_taxonomy_vocabulary_add_term($vid, $name) {
+  // IF TERM IS NOT FOUND : taxonomy_term_load_multiple(array(), array('name' => trim($name), 'vid' => $vid));
+  $term = new stdClass();
+  $term->name = $name;
+  $term->vid = $vid;
+  taxonomy_term_save($term);
+  return $term;
+}
+
+/**
+ * Implements hook_theme()
+ */
+function gofast_taxonomy_theme() {
+  return array(
+    'node_format' => array(
+      'variables' => array(
+        'node' => NULL,
+        'icon_size' => NULL
+      )
+    ),
+    'gofast_taxonomy_add_location_progression' => array(
+      'template'  => 'tpl/add-location-progression',
+    ),
+    'gofast_taxonomy_manage_location_progression' => array(
+      'template'  => 'tpl/manage-location-progression',
+    ),
+    'gofast_taxonomy_manage_taxonomy_progression' => array(
+      'template'  => 'tpl/manage-taxonomy-progression',
+    ),
+    'gofast_progress_bar' => array(
+      'template'  => 'tpl/progress-bar',
+    ),
+  );
+}
+
+/**
+ * Returns HTML for a node format icon.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - node: A node object.
+ *   - icon_size [optional]: image size of the format icon, defaults to 24.
+ *
+ * @ingroup themeable
+ */
+function theme_node_format($variables) {
+  $node = $variables['node'];
+  $size = in_array($variables['icon_size'], array(24, 32, 48)) ? $variables['icon_size'] : 24;
+
+  $format_tid = isset($node->field_format[LANGUAGE_NONE][0]['tid']) ?
+          $node->field_format[LANGUAGE_NONE][0]['tid'] : gofast_taxonomy_get_default_term_format();
+
+  $format = taxonomy_term_load($format_tid);
+
+  $path = drupal_get_path('module', 'gofast_taxonomy') . '/icons/' . $size;
+  $icon = isset($format->field_icone[LANGUAGE_NONE][0]['value']) ?
+          $format->field_icone[LANGUAGE_NONE][0]['value']: gofast_taxonomy_icon_filename($format_tid);
+
+  return theme('image', array('path' => "{$path}/{$icon}", 'alt' => $format->name, 'title' => $format->description, 'width' => $size, 'height' => $size));
+}
+
+/**
+ * Helper function that returns TRUE if the given $node is an email content.
+ */
+function gofast_node_is_email($node) {
+  list ($term_mail,) = array_values(taxonomy_get_term_by_name('email', 'format'));
+  return isset($node->field_format[LANGUAGE_NONE][0]['tid']) && $node->field_format[LANGUAGE_NONE][0]['tid'] === $term_mail->tid;
+}
+
+/**
+ * Helper that returns the file extension associated with a given entity. Bundle
+ * 'alfresco_item' is extracted extension from its filename field, other
+ * bundles have the extension associated with their attached format field.
+ * @param $entity
+ *  A fully loaded drupal entity object.
+ * @return string
+ *  The matched extension, or an empty string if no extension was found.
+ */
+function gofast_node_extension($entity) {
+  // Get the extension from filename when possible.
+  if (isset($entity->field_filename[LANGUAGE_NONE][0]['value'])) {
+    return extract_file_extension($entity->field_filename[LANGUAGE_NONE][0]['value']);
+  }
+  else {
+    // Load 'format' taxonomy term and retrieve file types/ext. associations.
+    $format = isset($entity->field_format[LANGUAGE_NONE][0]['tid']) ? taxonomy_term_load($entity->field_format[LANGUAGE_NONE][0]['tid']) : NULL;
+    if (isset($format->field_extensions[LANGUAGE_NONE][0]['value'])) {
+      list(, $ext) = explode(';', $format->field_extensions[LANGUAGE_NONE][0]['value']);
+      return $ext;
+    }
+  }
+  return '';
+}
+
+/**
+ * This form allow to set some metadata of selected items from ITHit.
+ * @param type $form
+ * @param array $form_state
+ * @return type
+ */
+function gofast_taxonomy_manage_taxonomy_form($form, &$form_state) {
+
+  $selected_items_json = array();
+  global $user;
+  if(variable_get("ithit_bulk_".$user->uid, NULL)){
+      $selected_items_json = json_decode(rawurldecode(variable_get("ithit_bulk_".$user->uid, NULL)));
+      variable_del("ithit_bulk_".$user->uid);
+  }
+
+  //Add the functionnality in the cart
+  if(variable_get("ithit_bulk_cart_".$user->uid, NULL)){
+
+      //Get all nid node in the cart
+      $selected_items_json = json_decode(rawurldecode(variable_get("ithit_bulk_cart_".$user->uid, NULL)));
+      $nid_cart = array();
+      $nodes_cart = array();
+      $title_cart = array();
+      // Reach all nid and transform it to a path (available with folders)
+      foreach($selected_items_json as $select){
+          $node = node_load($select->url);
+          $nodes_cart[$node->nid] = $node;
+          $paths = $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE];
+          foreach($paths as $path){
+              array_push($nid_cart, $path['value'] . '/' . $node->title);
+              array_push($title_cart,$node->title);
+          }
+      }
+      foreach($nid_cart as $key=>$path_cart){
+              $selected_items_json[$key]->url = '/alfresco/webdav' . $path_cart;
+          }
+      variable_del("ithit_bulk_cart_".$user->uid);
+  }
+
+  /*if (isset($_COOKIE['ithit_bulk'])) {
+    $selected_items_json = json_decode($_COOKIE['ithit_bulk']);
+  }*/
+
+  $form['keywords'] = array(
+    '#title' => t('Labels', array(), array('context' => 'gofast')),
+    '#type' => 'textfield',
+    '#prefix' => '<div class="col-md-12">',
+    '#suffix' => '</div>',
+    '#default_value' => '',
+    '#maxlength' => '', // no maxlength
+    '#autocomplete_path' => 'taxonomy/tags_autocomplete',
+    '#attributes' => array('class' => array('labelize-autocomplete labelize-insert'))
+  );
+
+
+  $allowed_taxonomy_state = taxonomy_allowed_values(field_info_field('field_state'));
+  foreach ($allowed_taxonomy_state as $tid => $term){
+    if($term == "Archived"){
+        unset($allowed_taxonomy_state[$tid]);
+    }
+    $localized_term = i18n_taxonomy_localize_terms(taxonomy_term_load($tid));
+    $allowed_taxonomy_state[$localized_term->tid] = $localized_term->name;
+  }
+
+  $form['state'] = array(
+    '#title' => t('State', array(), array('context' => 'gofast')),
+    '#type' => 'select',
+    '#prefix' => '<div class="col-md-4">',
+    '#suffix' => '</div>',
+    '#options' => array(0 => t('No change', array(), array('context' => 'gofast')), -1 => t('None', array(), array('context' => 'gofast'))) + $allowed_taxonomy_state,
+  );
+
+  $categories_standard = array();
+  $categories_custom = array();
+
+  $terms = taxonomy_term_load_multiple(FALSE, array('vid' => GOFAST_VID_CATEGORY));
+
+  //sort form table
+    usort($terms, function ($a, $b) {
+      return (i18n_taxonomy_localize_terms($a)->name < i18n_taxonomy_localize_terms($b)->name) ? -1 : 1;
+    });
+
+  foreach ($terms as $term) {
+
+    $allowed_term = gofast_taxonomy_category_allowed($term, $nodes_cart);
+
+    if($allowed_term) {
+      $localized_term = i18n_taxonomy_localize_terms($term);
+      if($term->field_standard_gf[LANGUAGE_NONE][0]['value'] == 1){
+        $categories_standard[$localized_term->tid] = $localized_term->name;
+      }else{
+        $categories_custom[$localized_term->tid] = $localized_term->name;
+      }
+    }
+  }
+
+  $categories[t('Standard', array(), array('context' => 'gofast'))] = $categories_standard;
+  $categories[t("@site_name's categories", array('@site_name' => variable_get('site_name') ), array('context' => 'gofast'))] = $categories_custom;
+
+  $form['category'] = array(
+    '#title' => t('Category', array(), array('context' => 'gofast')),
+    '#type' => 'select',
+    '#prefix' => '<div class="col-md-4">',
+    '#suffix' => '</div>',
+    '#options' => array(0 => t('No change', array(), array('context' => 'gofast')), -1 => t('None', array(), array('context' => 'gofast'))) + $categories,
+  );
+
+  $form['language'] = array(
+    '#title' => t('Language', array(), array('context' => 'gofast')),
+    '#type' => 'select',
+    '#prefix' => '<div class="col-md-4">',
+    '#suffix' => '</div>',
+    '#options' => array(0 => t('No change', array(), array('context' => 'gofast'))) + array_merge(array(LANGUAGE_NONE => t("Language neutral")), locale_language_list('name', TRUE)),
+  );
+
+  // Sorting the items received in parameter (Folders first, then Resource)
+  usort($selected_items_json, function($a, $b) {
+    return $a->type > $b->type;
+  });
+
+  $items_by_type = array();
+  foreach ($selected_items_json as $selected_item_type) {
+    $items_by_type[$selected_item_type->type][] = $selected_item_type->url;
+  }
+
+  $form_state['selected_item_by_type'] = $items_by_type;
+  $form['selected_item_by_type'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Selected locations'),
+      '#maxlength' => "99999",
+      '#default_value' => json_encode($items_by_type),
+    );
+  $form['selected_item_by_type']['#attributes']['class'][] = "gofast_display_none";
+
+  $rendered_items = '<h2>' . t('Folders and documents concerned by this modification:', array(), array('context' => 'gofast:gofast_taxonomy')) . '</h2>';
+  foreach ($items_by_type as $key => $items) {
+    $rendered_items .= '<ul><li>' . implode('</li><li>', $items) . '</li></ul>';
+  }
+
+  $form['selected_items'] = array(
+    '#markup' => $rendered_items,
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t("Save", array(), array('context' => 'gofast')),
+  );
+
+  return $form;
+}
+
+/**
+ * Hook form validate
+ * Filling the selected keywords in the "keywords" form value.
+ * @param type $form
+ * @param array $form_state
+ */
+function gofast_taxonomy_manage_taxonomy_form_validate($form, &$form_state){
+
+  $keyword_values = json_decode($form_state['input']['edit-' . str_replace("_", "-", $form['keywords']['#name']) . '-hidden-values']);
+  $keywords_mixed = array_map(function($element) {
+    if(is_object($element)) {
+      return $element->name;
+    } else {
+      return $element;
+    }
+  }, $keyword_values);
+  $form_state['values']['keywords'] = implode(',', $keywords_mixed);
+}
+
+/**
+ * Hook form submit (for manage_taxonomy_form)
+ * @param type $form
+ * @param type $form_state
+ */
+function gofast_taxonomy_manage_taxonomy_form_submit($form, &$form_state) {
+
+  $updated_nids = array();
+  $html = "";
+  foreach (json_decode($form_state["values"]['selected_item_by_type']) as $type => $items_by_type) {
+    if ($type === 'Folder') {
+      foreach ($items_by_type as $item_path) {
+        //Force replication of this content if it's not yet replicated
+        $_GET['href'] = $item_path;
+        gofast_cmis_replicate(FALSE);
+
+        $alfresco_path = str_replace("/alfresco/webdav", "", $item_path);
+        $folder_item = gofast_cmis_item_get_by_path($alfresco_path);
+        $descendants = gofast_cmis_item_get_children($folder_item->id, FALSE, 'documents');
+        foreach ($descendants as $descendants) {
+          if (isset($descendants->nid)) {
+            $selected_nids[$descendants->nid] = $descendants->path;
+          }else{
+            $selected_nids[rand(-9999999, -1)] = $descendants->path;
+          }
+        }
+      }
+    } else {
+      foreach ($items_by_type as $item_path) {
+        //Force replication of this content if it's not yet replicated
+        $_GET['href'] = $item_path;
+        gofast_cmis_replicate(FALSE);
+
+        $alfresco_path = str_replace("/alfresco/webdav", "", $item_path);
+        $item = gofast_cmis_item_get_by_path($alfresco_path);
+        if(isset($item->id) && isset($item->properties['gofast:nid'])) {
+                if($item->properties['gofast:nid'] == 0){
+                  $selected_nids[rand(-9999999, -1)] = $alfresco_path;
+                }else{
+                  $selected_nids[$item->properties['gofast:nid']] = $alfresco_path;
+                }
+        }else if(isset($item->id) && isset($item->properties['alfcmis:nodeRef'])){
+          $reference = $item->properties['alfcmis:nodeRef'];
+          $nid = gofast_ajax_file_browser_get_nid_from_reference($reference);
+          if(is_numeric($nid) && $nid > 0){
+            $selected_nids[$nid] = $alfresco_path;
+          }
+        }
+      }
+    }
+  }
+  $updated_nids = array_keys($selected_nids);
+
+ if(count($updated_nids) > 0){
+    foreach($updated_nids as $nid) {
+      $node = node_load($nid);
+      $title = gofast_get_node_title($nid);
+      if(empty($title)){
+        $title = array_pop(explode("/",  urldecode($selected_nids[$nid])));
+        $nid = NULL;
+      }
+
+      $keywords = explode(',', $form_state['values']['keywords']);
+      if($keywords[0] == ""){
+        unset($keywords[0]);
+        $keywords = array_values($keywords);
+      }
+      $keywords_terms = gofast_xeditable_terms_get_from_array(GOFAST_VID_TAGS, $keywords);
+      $new_keywords = array();
+      $node_new_keywords = array();
+      $node_keywords = array();
+      $map_tid = function($element) {
+        if (is_array($element)) {
+          return $element['tid'];
+        }
+        else {
+          return $element->tid;
+        }
+      };
+      if(isset($node->{'field_tags'}[LANGUAGE_NONE])) {
+        $node_keywords = $node->{'field_tags'}[LANGUAGE_NONE];
+        $new_keywords = array_diff(array_map($map_tid, $keywords_terms), array_map($map_tid, $node_keywords));
+      } else {
+        $new_keywords = array_map($map_tid, $keywords_terms);
+      }
+
+      foreach($new_keywords as $new_keyword_tid) {
+        $node_new_keywords[]['tid'] = $new_keyword_tid;
+      }
+
+      $merged_keywords = array_merge($node_keywords, $node_new_keywords);
+
+      if(count($new_keywords) > 0) {
+        $html .= theme('gofast_taxonomy_manage_taxonomy_progression', array('nid' => $nid, 'title' => $title, 'field' => 'field_tags', 'value' => $merged_keywords, 'vid' => GOFAST_VID_TAGS));
+      }
+
+      if ($form_state['values']['language'] !== '0') {
+        $html .= theme('gofast_taxonomy_manage_taxonomy_progression', array('nid' => $nid, 'title' => $title, 'field' => 'language', 'value' => $form_state['values']['language']));
+      }
+      if($form_state['values']['category'] !== '0') {
+        // If the value is -1 it means we want to reset the category
+        if($form_state['values']['category'] === '-1') {
+          $html .= theme('gofast_taxonomy_manage_taxonomy_progression', array('nid' => $nid, 'title' => $title, 'field' => 'field_category', 'value' => "", 'vid' => GOFAST_VID_CATEGORY));
+        } else {
+          $html .= theme('gofast_taxonomy_manage_taxonomy_progression', array('nid' => $nid, 'title' => $title, 'field' => 'field_category', 'value' => $form_state['values']['category'], 'vid' => GOFAST_VID_CATEGORY));
+        }
+      }
+      if($form_state['values']['state'] !== '0') {
+        // If the value is -1 it means we want to reset the state
+        if($form_state['values']['state'] === '-1') {
+          $html .= theme('gofast_taxonomy_manage_taxonomy_progression', array('nid' => $nid, 'title' => $title, 'field' => 'field_state', 'value' => "", 'vid' => GOFAST_VID_STATE));
+        } else {
+          $html .= theme('gofast_taxonomy_manage_taxonomy_progression', array('nid' => $nid, 'title' => $title, 'field' => 'field_state', 'value' => $form_state['values']['state'], 'vid' => GOFAST_VID_STATE));
+        }
+      }
+    }
+    $commands = array();
+    if($html === ""){
+      $commands[] = gofast_command_toast_message(t("You have to modify at least 1 field.", array(), array('context' => 'gofast')), "warning");
+    }else{
+      $commands[] = ctools_modal_command_dismiss();
+      $commands[] = ctools_modal_command_display(t("In progress", array(), array('context' => 'gofast:taxonomy')), $html);
+      $commands[] = gofast_command_callback('Gofast.taxonomy_manage_taxonomy_process');
+    }
+    print ajax_render($commands);
+    exit;
+  }
+}
+
+/*
+ * Process an item of the massive taxonomy management
+ */
+function gofast_taxonomy_manage_taxonomy_process(){
+  $nid = $_POST['process_nid'];
+  $vid = $_POST['process_vid'];
+  $field = $_POST['process_field'];
+  $value = $_POST['process_value'];
+  $node = node_load($nid);
+
+  //Make the change
+  unset($_POST);
+  //$_POST["value"] = $locations;
+  $_POST["pk"] = $nid;
+  $_POST["name"] = $field;
+
+  switch($field){
+    case 'language':
+      $_POST["value"] = $value;
+      gofast_update_node_field();
+      $node = node_load($nid, NULL, TRUE);
+      $return = $node->language;
+      break;
+    case 'field_tags':
+      $tags = explode(",", $value);
+      foreach($tags as $k => $tag){
+        $tags[$k] = taxonomy_term_load($tag)->name;
+      }
+      $_POST["value"] = $tags;
+      $_POST["vid"] = $vid;
+      gofast_update_node_field();
+      $node = node_load($nid, NULL, TRUE);
+      $return = json_encode($node->field_tags[LANGUAGE_NONE]);
+      break;
+    case 'field_state':
+      $_POST["value"] = taxonomy_term_load($value)->name;
+      $_POST["vid"] = $vid;
+      gofast_update_node_field();
+      $node = node_load($nid, NULL, TRUE);
+      $return = $node->field_state[LANGUAGE_NONE][0]['tid'];
+      break;
+    case 'field_category':
+      $_POST["value"] = taxonomy_term_load($value)->name;
+      $_POST["vid"] = $vid;
+      gofast_update_node_field();
+      $node = node_load($nid, NULL, TRUE);
+      $return = $node->field_category[LANGUAGE_NONE][0]['tid'];
+      break;
+  }
+
+
+  print($return);
+  exit;
+}
+
+function gofast_taxonomy_ac_display_value($entity_type, $entity, $key, $value, $options) {
+  switch ($entity_type) {
+    case 'taxonomy_term':
+      $metadata = '<span class="labelize-metadata gofast_display_none" '
+              . 'data-type="' . $entity_type . '" '
+              . 'data-name="' . $value . '" '
+              . 'data-id="' . $key . '"/></snap>';
+      $item = $metadata . $value;
+      return $item;
+  }
+}
+
+function gofast_taxonomy_tags_autocomplete($str) {
+  $str = trim($str);
+  if (empty($str)) {
+    drupal_json_output();
+  }
+
+  $matches = array();
+  $result = db_select('taxonomy_term_data', 't')
+          ->fields('t')
+          ->condition('vid', GOFAST_VID_TAGS)
+          ->condition('name', '%' . db_like($str) . '%', 'LIKE')
+          ->execute();
+
+  foreach ($result as $row) {
+    $matches[$row->name] = gofast_taxonomy_ac_display_value( $row, $row->name);
+  }
+
+  drupal_json_output($matches);
+}
+
+function gofast_taxonomy_tag_autocomplete($str) {
+  $str = trim($str);
+
+  if (empty($str) || strlen($str) < 2) {
+    // This prevents returning irrelevant results, though it should be handled
+    // clientside in order to avoid useless requests.
+    drupal_json_output(array());
+    exit;
+  }
+
+  $options_ac_tag = array(
+    'bundle' => array('tags'),
+    'format_value_callback' => 'gofast_ac_format_value'
+  );
+
+  $matches = gofast_ac_query($str, 'taxonomy_term', $options_ac_tag);
+
+  // Highlighting string matches.
+  foreach ($matches as $key => &$value) {
+    $value = preg_replace(array('/[\n\r]+/', '/(<[^<>]*>)([^<>]*?)(' . preg_quote($str, '/') . ')/i'), array('', '$1$2<b>$3</b>'), $value);
+  }
+
+  drupal_json_output($matches);
+  exit;
+}
+
+/**
+ * This form allow to set some metadata of selected items from ITHit.
+ * @param type $form
+ * @param array $form_state
+ * @return type
+ */
+function gofast_taxonomy_add_locations_form($form, &$form_state)
+{
+  global $user;
+  $selected_items_json = array();
+  if (variable_get("ithit_bulk_" . $user->uid, NULL)) {
+    $selected_items_json = json_decode(rawurldecode(variable_get("ithit_bulk_" . $user->uid, NULL)));
+    variable_del("ithit_bulk_" . $user->uid);
+  }
+
+  //Add the functionnality in the cart
+  if (variable_get("ithit_bulk_cart_" . $user->uid, NULL)) {
+
+    //Get all nid node in the cart
+    $selected_items_json = json_decode(rawurldecode(variable_get("ithit_bulk_cart_" . $user->uid, NULL)));
+
+    $nid_cart = array();
+    $title_cart = array();
+    // Reach all nid and transform it to a path (available with folders)
+
+    foreach ($selected_items_json as $select) {
+      $node = node_load($select->url);
+      $path = $node->{GOFAST_CMIS_MAIN_LOCATION_FIELD}[LANGUAGE_NONE][0];
+      array_push($nid_cart, $path['value'] . '/' . $node->title);
+      array_push($title_cart, $node->title);
+    }
+    foreach ($nid_cart as $key => $path_cart) {
+      $selected_items_json[$key]->url = '/alfresco/webdav' . $path_cart;
+    }
+    variable_del("ithit_bulk_cart_" . $user->uid);
+  }
+
+  // Sorting the items received in parameter (Folders first, then Resource)
+  usort($selected_items_json, function ($a, $b) {
+    return $a->type > $b->type;
+  });
+
+  $items_by_type = array();
+  foreach ($selected_items_json as $selected_item_type) {
+    $items_by_type[$selected_item_type->type][] = $selected_item_type->url;
+  }
+
+  $selected_nids = array();
+  foreach ($items_by_type['Resource'] as $key => $item_path) {
+    //Force replication of this content if it's not yet replicated
+    $_GET['href'] = $item_path;
+    gofast_cmis_replicate(FALSE);
+
+    $alfresco_path = str_replace("/alfresco/webdav", "", $item_path);
+    $item = gofast_cmis_item_get_by_path($alfresco_path);
+    if (isset($item->id)) {
+      if (isset($item->properties['gofast:nid'])) {
+        if ($item->properties['gofast:nid'] == 0) {
+          $selected_nids[rand(-9999999, -1)] = $alfresco_path;
+        } else {
+          $selected_nids[$item->properties['gofast:nid']] = $alfresco_path;
+        }
+      } else {
+        if (gofast_ajax_file_browser_get_nid_from_reference($item->properties['alfcmis:nodeRef']) == 0) {
+          $selected_nids[rand(-9999999, -1)] = $alfresco_path;
+        } else {
+          $selected_nids[gofast_ajax_file_browser_get_nid_from_reference($item->properties['alfcmis:nodeRef'])] = $alfresco_path;
+        }
+      }
+    }
+  }
+
+  $form_state['selected_nids'] = array_keys($selected_nids);
+  $form['selected_nids'] = array(
+    '#type' => 'textfield',
+    '#title' => t(''),
+    '#default_value' => json_encode(array_keys($selected_nids)),
+    '#maxlength' => "99999"
+      );
+    $form['selected_nids']['#attributes']['class'][] = "gofast_display_none";
+
+    $all_og = array();
+    $bundles = gofast_og_node_types();
+    unset($bundles['private_space']);
+  foreach (gofast_og_get_spaces_by_bundle(array_keys($bundles)) as $space_bundle) {
+    $bundle_ogs = array_combine(array_keys($space_bundle), array_keys($space_bundle));
+    $all_og += $bundle_ogs;
+  }
+  $private_space_nid = gofast_og_get_user_private_space()->nid;
+  $all_og[$private_space_nid] = intval($private_space_nid);
+
+  $form[GOFAST_OG_CONTENT_MEMBERSHIP_FIELD] = array(
+    '#type' => 'select',
+    '#multiple' => TRUE,
+    '#options' => $all_og,
+    '#attributes' => array("class" => array("gofast_display_none"))
+  );
+
+
+  $form['locations_checks'] = array(
+    '#type' => 'item',
+    '#title' => t('Locations selected to added'),
+    '#suffix' => "<div class='ui-locations-check' style='min-width:800px;margin-bottom:10px;'><i>" . t('You have not chosen locations to add...') . "</i></div>",
+  );
+
+  //Get root spaces
+  $groups = gofast_ajax_file_browser_get_nid_from_href("/Sites/_Groups");
+  $organisations = gofast_ajax_file_browser_get_nid_from_href("/Sites/_Organisations");
+  $extranet = gofast_ajax_file_browser_get_nid_from_href("/Sites/_Extranet");
+  $public = gofast_ajax_file_browser_get_nid_from_href("/Sites/_Public");
+  $ztree = array(
+    $groups => "/Sites/_Groups",
+    $organisations => "/Sites/_Organisations",
+    $extranet => "/Sites/_Extranet",
+    $public => "/Sites/_Public",
+  );
+
+  $is_internal = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Internal Distribution";
+  $is_confidential = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Confidential Data";
+
+  $is_internal = false;
+  $is_confidential = false;
+
+  foreach (array_keys($selected_nids) as $nid) {
+    $node = node_load($nid);
+    if (isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Internal Distribution") {
+      $is_internal = true;
+    }
+    if (isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Confidential Data") {
+      $is_confidential = true;
+    }
+  }
+
+  $form[GOFAST_CMIS_LOCATIONS_FIELD]['#multiple'] = TRUE;
+  $form[GOFAST_CMIS_LOCATIONS_FIELD]['#title'] = t("Select locations where your selected documents will be added", array(), array('context' => 'gofast'));
+
+  if ($is_internal && $is_confidential) {
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#description'] = '<p class="text-danger bg-warning" role="alert">' .
+    t("Extranets Spaces not available: document for Internal Distribution only (level of importance)", array(), array('context' => 'gofast'))
+    . '</p>
+     <p class="text-danger bg-warning" role="alert">' .
+    t("Public Spaces not available: confidential document (level of importance)", array(), array('context' => 'gofast'))
+    . '</p>';
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]["#attributes"]["class"][] = "gofast_is_internal_document_form";
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]["#attributes"]["class"][] = "gofast_is_confidential_document_form";
+  }elseif ($is_internal) {
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#description'] = '<p class="text-danger bg-warning" role="alert">' . t("Extranets Spaces not available: document for Internal Distribution only (level of importance)", array(), array('context' => 'gofast')) . '</p>';
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]["#attributes"]["class"][] = "gofast_is_internal_document_form";
+  } elseif ($is_confidential) {
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#description'] = '<p class="text-danger bg-warning" role="alert">' . t("Public Spaces not available: confidential document (level of importance)", array(), array('context' => 'gofast')) . '</p>';
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]["#attributes"]["class"][] = "gofast_is_confidential_document_form";
+  }
+
+  $form[GOFAST_CMIS_LOCATIONS_FIELD]['#required'] = FALSE;
+  $form[GOFAST_CMIS_LOCATIONS_FIELD]['#type'] = 'select';
+  $form[GOFAST_CMIS_LOCATIONS_FIELD]['#options'] = $ztree;
+  $form[GOFAST_CMIS_LOCATIONS_FIELD]['#value'] = $ztree;
+  $form[GOFAST_CMIS_LOCATIONS_FIELD]["#attributes"]["class"][] = "gofast_display_none";
+
+  if (gofast_user_is_broadcaster($user)) {
+    $form['broadcast_og'] = array(
+      '#title' => "",
+      '#type' => 'textfield',
+      '#size' => 128,
+      '#maxlength' => '', // no maxlength
+      '#default_value' => '',
+      '#prefix' => "<div style='clear:both;'>",
+      '#suffix' => "</div>",
+      '#description' => "<p class='text-danger bg-warning'>" . t("Warning : if you choose only a broadcast's location, you will not be able to access this document after creation", array(), array('context' => 'gofast')) . "</p>",
+      '#autocomplete_path' => 'gofast_user_space_broadcast_autocomplete',
+      '#attributes' => array("name" => array("broadcast[]"), 'class' => array('labelize-autocomplete'), "id" => "broadcast_og")
+    );
+  }
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t("Save", array(), array('context' => 'gofast')),
+  );
+
+  variable_del("ithit_bulk_async_" . $user->uid);
+
+  return $form;
+}
+
+/**
+ * Hook form validate
+ * Filling the selected keywords in the "keywords" form value.
+ * @param type $form
+ * @param array $form_state
+ */
+function gofast_taxonomy_add_locations_form_validate($form, &$form_state){
+  $selected_locations = $form_state['input']['field_emplacement'];
+  $broadcast_values = $form_state['input']['broadcast_og-hidden-values'];
+  $broadcast_array = json_decode(trim($broadcast_values));
+
+  if (count($selected_locations) == 0 && count($broadcast_array) == 0 && $broadcast_array[0] == "") {
+    $commands = array();
+    $commands[] = gofast_command_toast_message(t("You need to select at least 1 location", array(), array('context' => 'gofast')), "warning");
+    print ajax_render($commands);
+    exit;
+  }
+
+}
+
+/**
+ * Hook form submit (for manage_taxonomy_form)
+ * @param type $form
+ * @param type $form_state
+ */
+function gofast_taxonomy_add_locations_form_submit($form, &$form_state) {
+
+    $broadcast_values = $form_state["input"]["broadcast_og-hidden-values"];
+    $broadcast_array = json_decode(trim($broadcast_values));
+    if(count($broadcast_array) > 0 && $broadcast_array[0] != ""){
+	global $cmis_as_publisher;
+	global $cmis_sudo_admin;
+	$cmis_as_publisher = true;
+	$cmis_sudo_admin = true;
+	foreach($broadcast_array as $key => $broadcast_object){
+		 $form_state['input']["og_group_content_ref"][] = array("target_id" => $broadcast_object->id, "field_mode" => "default");
+		 $form_state['input']["field_emplacement"][] = $broadcast_object->id;
+	}
+    }
+
+    $selected_locations = $form_state['input']['field_emplacement'];
+    $selected_nids = json_decode($form['selected_nids']['#value'], true);
+    $html = "";
+
+    if(!empty($selected_nids)){
+        $progress_bar = theme('gofast_progress_bar');
+        $html .= $progress_bar;
+	foreach($selected_nids as $nid) {
+	    $title = gofast_get_node_title($nid);
+	    if(empty($title)){
+	      $title = array_pop(explode("/",  urldecode($_SESSION['selected_file_path'][$nid])));
+	      $nid = NULL;
+	    }
+	    $html .= theme('gofast_taxonomy_add_location_progression', array('nid' => $nid, 'title' => $title, 'locations' => $selected_locations, "is_broadcast" => $cmis_as_publisher));
+	}
+    }
+
+    $commands = array();
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = ctools_modal_command_display(t("In progress", array(), array('context' => 'gofast:taxonomy')), $html);
+    $commands[] = gofast_command_callback('Gofast.taxonomy_add_locations_process');
+    print ajax_render($commands);
+    exit;
+}
+
+/*
+ * Process an item of the massive location management
+ */
+function gofast_taxonomy_add_locations_process(){
+
+    ## retrieve informations
+    $nid = $_POST['process_nid'];
+    $locations = json_decode($_POST['process_locations']);
+    $is_broadcast = $_POST['broadcast'];
+    ## treat broadcast
+    if($is_broadcast == 1){
+        global $cmis_as_publisher;
+        global $cmis_sudo_admin;
+        $cmis_as_publisher = true;
+        $cmis_sudo_admin = true;
+    }
+    $node = node_load($nid);
+
+    $parents_formatted = array();
+    $parent = gofast_cmis_item_get_parent($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']);
+    if(count($parent->objectList) > 0){
+	foreach($parent->objectList as $myparent){
+	    $parents_formatted[] = $myparent->properties["cmis:path"];
+        }
+    }
+
+    $locations_paths = array_unique(array_merge($parents_formatted,$locations));
+
+    ## update location of the node
+    unset($_POST);
+    $_POST["value"] = $locations_paths;
+    $_POST["pk"] = $nid;
+    $_POST["name"] = "field_emplacement";
+    gofast_update_node_field();
+
+    //Then, we retrieve once again the locations to check if everything is ok
+    gofast_cmis_static_cache(node_load($nid, NULL, true)->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value'] . '_parents', TRUE);
+
+    $parent_after = gofast_cmis_item_get_parent($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']);
+    $parents_formatted_after = array();
+    if(count($parent_after->objectList) > 0){
+	foreach($parent_after->objectList as $myparent_after){
+            if(in_array($myparent_after->properties["cmis:path"], $locations)){
+                $parents_formatted_after[] = $myparent_after->properties["cmis:path"];
+            }
+	}
+    }
+    print(json_encode($parents_formatted_after));
+    exit;
+}
+/**
+ * This form allow to set some metadata of selected items from ITHit.
+ * @param type $form
+ * @param array $form_state
+ * @return type
+ */
+function gofast_taxonomy_manage_locations_form($form, &$form_state) {
+    global $user;
+
+    $nid = $form_state['build_info']['args'][0];
+    global $user;
+    $node = node_load($nid);
+    $paths_target = array();
+
+    if($node->type == "article" || $node->type == "webform" || $node->type == "forum"){
+        $locations_ids = $node->{GOFAST_OG_CONTENT_MEMBERSHIP_FIELD}[LANGUAGE_NONE];
+        $array_locations = array();
+        foreach($locations_ids as $locations_id){
+            $article_path = gofast_cmis_space_get_webdav_path($locations_id['target_id']);
+            array_push($paths_target, $article_path . '/' . $node->title);
+            $array_locations[$locations_id['target_id']] = $article_path;
+        }
+    }else{
+        $paths = $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE];
+        foreach($paths as $path){
+            array_push($paths_target, $path['value'] . '/' . $node->title);
+        }
+    }
+    foreach($paths_target as $key=>$path_target){
+        $selected_items_json[$key]->url = '/alfresco/webdav' . $path_target;
+    }
+
+  // Sorting the items received in parameter (Folders first, then Resource)
+  usort($selected_items_json, function($a, $b) {
+    return $a->type > $b->type;
+  });
+
+  $items_by_type = array();
+  foreach ($selected_items_json as $selected_item_type) {
+    $items_by_type[$selected_item_type->type][] = $selected_item_type->url;
+  }
+
+  $selected_nids = array();
+  foreach ($items_by_type as  $items) {
+    foreach ($items as $item_path) {
+      //Force replication of this content if it's not yet replicated
+      if($node->type == "alfresco_item"){
+        $_GET['href'] = $item_path;
+        gofast_cmis_replicate(FALSE);
+      }
+
+      $alfresco_path = str_replace("/alfresco/webdav", "", $item_path);
+      $item = gofast_cmis_item_get_by_path($alfresco_path);
+      if (isset($item->id)) {
+          if(isset($item->properties['gofast:nid'])){
+              if($item->properties['gofast:nid'] == 0){
+                $selected_nids[rand(-9999999, -1)] = $alfresco_path;
+              }else{
+                $selected_nids[$item->properties['gofast:nid']] = $alfresco_path;
+              }
+          }else{
+              if(gofast_ajax_file_browser_get_nid_from_reference($item->properties['alfcmis:nodeRef']) == 0){
+                $selected_nids[rand(-9999999, -1)] = $alfresco_path;
+              }else{
+                $selected_nids[gofast_ajax_file_browser_get_nid_from_reference($item->properties['alfcmis:nodeRef'])] = $alfresco_path;
+              }
+          }
+      }else{
+          $selected_nids = $array_locations;
+      }
+    }
+  }
+  //used later into async request
+  variable_set("ithit_bulk_async_".$user->uid, $nid);
+
+  $form_state['selected_locations_ids'] = array_keys($selected_nids);
+  $form['selected_locations_ids'] = array(
+      '#type' => 'textfield',
+      '#title' => '',
+      '#default_value' => json_encode(array_keys($selected_nids)),
+      '#maxlength' => "99999"
+    );
+  $form['selected_locations_ids']['#attributes']['class'][] = "gofast_display_none";
+
+  $form['selected_nid'] = array(
+      '#type' => 'textfield',
+      '#title' => '',
+      '#default_value' => $nid,
+      '#maxlength' => "99999"
+    );
+  $form['selected_nid']['#attributes']['class'][] = "gofast_display_none";
+
+  $form['locations_checks'] = array(
+	'#type' => 'item',
+	'#title' => t('Location of the document'),
+	'#suffix' => "<div class='ui-locations-check' style='min-width:800px;margin-bottom:10px;'><i>" . t('You did not choose locations ...') ."</i></div>",
+  );
+
+  $selected_spaces = array();
+  $selected_locations = array();
+  $map_id_locations = array();
+  $disabled_locations = array();
+  if($node->type == "article" || $node->type == "webform" || $node->type == "forum"){
+        $node_locations_paths = $array_locations;
+        foreach($node_locations_paths as $node_location_path) {
+          // For every location we retrieve the node id
+          if(!isset($map_id_locations[$node_location_path])) {
+            $item = gofast_cmis_item_get_by_path($node_location_path);
+            $item_nid = $item->properties['gofast:nid'];
+            if(isset($item_nid)) {
+              $map_id_locations[$node_location_path] = $item_nid;
+            } else {
+              $map_id_locations[$node_location_path] = $node_location_path;
+            }
+            $paths_parts = explode('/', $node_location_path);
+            while(count($paths_parts) > 3) {
+              array_pop($paths_parts);
+              $parent_path = implode("/", $paths_parts);
+              if(!isset($map_id_locations[$parent_path])) {
+                $item = gofast_cmis_item_get_by_path($parent_path);
+                $item_nid = $item->properties['gofast:nid'];
+                if(isset($item_nid)) {
+                  $map_id_locations[$parent_path] = $item_nid;
+                } else {
+                  $map_id_locations[$parent_path] = $parent_path;
+                }
+              }
+            }
+          }
+          $selected_locations[$map_id_locations[$node_location_path]]= $map_id_locations[$node_location_path];
+        }
+        $node_parents = gofast_og_get_parent($node);
+        $selected_spaces = array_merge($selected_spaces, $node_parents);
+        // For every parent we check the permission, disable check if not member
+        foreach($node_parents as $node_parent) {
+          if(!node_access('view', node_load($node_parent))) {
+            $disabled_locations[$node_parent] = gofast_cmis_space_get_webdav_path($node_parent);
+          }
+        }
+  }else{
+      foreach(node_load_multiple(array_keys($selected_nids)) as $node) {
+        $node_locations_paths = array_map(function($element) {
+          return $element['value'];
+        }, $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE]);
+        foreach($node_locations_paths as $node_location_path) {
+          // For every location we retrieve the node id
+          if(!isset($map_id_locations[$node_location_path])) {
+            $item = gofast_cmis_item_get_by_path($node_location_path);
+            $item_nid = $item->properties['gofast:nid'];
+            if(isset($item_nid)) {
+              $map_id_locations[$node_location_path] = $item_nid;
+            } else {
+              $map_id_locations[$node_location_path] = $node_location_path;
+            }
+            $paths_parts = explode('/', $node_location_path);
+            while(count($paths_parts) > 3) {
+              array_pop($paths_parts);
+              $parent_path = implode("/", $paths_parts);
+              if(!isset($map_id_locations[$parent_path])) {
+                $item = gofast_cmis_item_get_by_path($parent_path);
+                $item_nid = $item->properties['gofast:nid'];
+                if(isset($item_nid)) {
+                  $map_id_locations[$parent_path] = $item_nid;
+                } else {
+                  $map_id_locations[$parent_path] = $parent_path;
+                }
+              }
+            }
+          }
+          $selected_locations[$map_id_locations[$node_location_path]]= $map_id_locations[$node_location_path];
+        }
+        $node_parents = gofast_og_get_parent($node);
+        $selected_spaces = array_merge($selected_spaces, $node_parents);
+        // For every parent we check the permission, disable check if not member
+        foreach($node_parents as $node_parent) {
+          if(!node_access('view', node_load($node_parent))) {
+            $disabled_locations[$node_parent] = gofast_cmis_space_get_webdav_path($node_parent);
+          }
+        }
+      }
+  }
+
+  $selected_paths = array_flip($map_id_locations);
+
+  $all_og = array();
+  $bundles = gofast_og_node_types();
+  unset($bundles['private_space']);
+  foreach (gofast_og_get_spaces_by_bundle(array_keys($bundles)) as $space_bundle) {
+    $bundle_ogs = array_combine(array_keys($space_bundle), array_keys($space_bundle));
+    $all_og += $bundle_ogs;
+  }
+  $private_space_nid = gofast_og_get_user_private_space()->nid;
+  $all_og[$private_space_nid] = intval($private_space_nid);
+
+  $form[GOFAST_OG_CONTENT_MEMBERSHIP_FIELD] = array(
+    '#type' => 'select',
+    '#multiple' => TRUE,
+    '#options' => $all_og,
+    '#default_value' => $selected_spaces,
+    '#attributes' => array("class" => array("gofast_display_none"))
+  );
+
+  $user_available_paths = gofast_ztree_get_paths();
+
+  $all_paths = $user_available_paths + $selected_paths + $selected_locations;
+  array_unique($all_paths);
+
+  $is_internal = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Internal distribution";
+  $is_confidential = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Confidential Data";
+
+  $form[GOFAST_CMIS_LOCATIONS_FIELD]['#multiple'] = TRUE;
+  $form[GOFAST_CMIS_LOCATIONS_FIELD]['#title'] = t("Select locations where your selected documents will be multi-filed", array(), array('context' => 'gofast'));
+  if($is_internal){
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#description'] = '<p class="text-danger bg-warning" role="alert">'.t("Extranets Spaces not available: document for Internal Distribution only (level of importance)", array(), array('context' => 'gofast')).'</p>';
+  }elseif($is_confidential){
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#description'] = '<p class="text-danger bg-warning" role="alert">' . t("Public Spaces not available: confidential document (level of importance)", array(), array('context' => 'gofast')) . '</p>';
+  }
+  $form[GOFAST_CMIS_LOCATIONS_FIELD]['#required'] = FALSE;
+  $form[GOFAST_CMIS_LOCATIONS_FIELD]['#type'] = 'select';
+  $form[GOFAST_CMIS_LOCATIONS_FIELD]['#options'] = $all_paths;
+  $form[GOFAST_CMIS_LOCATIONS_FIELD]['#default_value'] = $selected_locations;
+  $form[GOFAST_CMIS_LOCATIONS_FIELD]['#value'] = $selected_locations;
+  $form[GOFAST_CMIS_LOCATIONS_FIELD]['#options_check_disabled'] = $disabled_locations;
+  $form[GOFAST_CMIS_LOCATIONS_FIELD]["#attributes"]["class"][] = "gofast_display_none";
+
+  if(!empty($selected_nids)){
+    $_SESSION['selected_file_path'] = $selected_nids;
+  }
+
+    if (gofast_user_is_broadcaster($user)) {
+       $form['broadcast_og'] = array(
+	 '#title' => "",
+	 '#type' => 'textfield',
+	 '#size' => 128,
+	 '#maxlength' => '', // no maxlength
+	 '#default_value' => '',
+	 '#prefix' => "<div style='clear:both;'>",
+	 '#suffix' => "</div>",
+	 '#description' => "<p class='text-danger bg-warning'>".t("Warning : if you choose only a broadcast's location, you will not be able to access this document after creation", array(), array('context' => 'gofast'))."</p>",
+	 '#autocomplete_path' => 'gofast_user_space_broadcast_autocomplete',
+	 '#attributes' => array("name" => array("broadcast[]"), 'class' => array('labelize-autocomplete'), "id" => "broadcast_og")
+       );
+    }
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t("Save", array(), array('context' => 'gofast')),
+  );
+
+  variable_del("ithit_bulk_async_".$user->uid);
+
+  return $form;
+}
+
+/**
+ * Hook form validate
+ * Filling the selected keywords in the "keywords" form value.
+ * @param type $form
+ * @param array $form_state
+ */
+function gofast_taxonomy_manage_locations_form_validate($form, &$form_state){
+  $selected_locations = $form_state['input']['field_emplacement'];
+  $broadcast_values = $form_state['input']['broadcast_og-hidden-values'];
+  $broadcast_array = json_decode(trim($broadcast_values));
+
+  if (count($selected_locations) == 0 && count($broadcast_array) == 0 && $broadcast_array[0] == "") {
+    $commands = array();
+    $commands[] = gofast_command_toast_message(t("You need to select at least 1 location", array(), array('context' => 'gofast')), "warning");
+    print ajax_render($commands);
+    exit;
+  }
+
+  $form_state['selected_locations'] = $selected_locations;
+}
+
+/**
+ * Hook form submit (for manage_taxonomy_form)
+ * @param type $form
+ * @param type $form_state
+ */
+function gofast_taxonomy_manage_locations_form_submit($form, &$form_state) {
+
+   $broadcast_values = $form_state["input"]["broadcast_og-hidden-values"];
+    $broadcast_array = json_decode(trim($broadcast_values));
+     if(count($broadcast_array) > 0 && $broadcast_array[0] != ""){
+         global $cmis_as_publisher;
+         global $cmis_sudo_admin;
+         $cmis_as_publisher = true;
+         $cmis_sudo_admin = true;
+         foreach($broadcast_array as $key => $broadcast_object){
+                  $form_state['input']["og_group_content_ref"][] = array("target_id" => $broadcast_object->id, "field_mode" => "default");
+                  $form_state['input']["field_emplacement"][] = $broadcast_object->id;
+         }
+     }
+    $selected_locations = $form_state['input']['field_emplacement'];
+    if(!empty($form['selected_nid']['#value'])){
+        $selected_nid = $form['selected_nid']['#value'];
+        $html = "";
+
+        $progress_bar = theme('gofast_progress_bar');
+        $html .= $progress_bar;
+        $title = gofast_get_node_title($selected_nid);
+        if(empty($title)){
+          $title = array_pop(explode("/",  urldecode($_SESSION['selected_file_path'][$nid])));
+          $nid = NULL;
+        }
+        $html .= theme('gofast_taxonomy_manage_location_progression', array('nid' => $selected_nid, 'title' => $title, 'locations' => $selected_locations, "is_broadcast" => $cmis_as_publisher));
+
+        $commands = array();
+        $commands[] = ctools_modal_command_dismiss();
+        $commands[] = ctools_modal_command_display(t("In progress", array(), array('context' => 'gofast:taxonomy')), $html);
+        $commands[] = gofast_command_callback('Gofast.taxonomy_manage_locations_process');
+        print ajax_render($commands);
+        exit;
+    }else{
+        $selected_nids = json_decode($form['selected_locations_ids']['#value'], true);
+        $html = "";
+
+        $progress_bar = theme('gofast_progress_bar');
+        $html .= $progress_bar;
+        foreach($selected_nids as $nid) {
+          $title = gofast_get_node_title($nid);
+          if(empty($title)){
+            $title = array_pop(explode("/",  urldecode($_SESSION['selected_file_path'][$nid])));
+            $nid = NULL;
+          }
+          $html .= theme('gofast_taxonomy_manage_location_progression', array('nid' => $nid, 'title' => $title, 'locations' => $selected_locations, "is_broadcast" => $cmis_as_publisher));
+        }
+
+        $commands = array();
+        $commands[] = ctools_modal_command_dismiss();
+        $commands[] = ctools_modal_command_display(t("In progress", array(), array('context' => 'gofast:taxonomy')), $html);
+        $commands[] = gofast_command_callback('Gofast.taxonomy_manage_locations_process');
+        print ajax_render($commands);
+        exit;
+    }
+}
+
+/*
+ * Process an item of the massive location management
+ */
+function gofast_taxonomy_manage_locations_process(){
+
+    ## retrieve informations
+    $nid = $_POST['process_nid'];
+    $locations = json_decode($_POST['process_locations']);
+    $is_broadcast = $_POST['broadcast'];
+    ## treat broadcast
+    if($is_broadcast == 1){
+      global $cmis_as_publisher;
+      global $cmis_sudo_admin;
+      $cmis_as_publisher = true;
+      $cmis_sudo_admin = true;
+    }
+    $node = node_load($nid);
+
+    ## ARTICLE / WEBFORM / FORUM
+    if($node->type == "article" || $node->type == "webform" || $node->type == "forum"){
+        foreach($locations as $location){
+            ## for node we have access
+            $item_nid = gofast_ajax_file_browser_get_nid_from_href($location);
+            ## if we don't have access
+            if(empty($item_nid)){
+                ## get group id we don't have access to
+                $gid = gofast_og_get_gid_from_webdav_path_without_cmis($location);
+                ## if it's not a group
+                if(empty($gid)){
+                    ## get private space id
+                    $is_private_space = str_replace("/Sites/_" , "", $location);
+                    $account = user_load_by_name($is_private_space);
+                    if(!empty($account)){
+                        $private_gid = gofast_og_get_user_private_space($account, FALSE);
+                        $locations_nid[] = $private_gid;
+                    }
+                }else{
+                    $locations_nid[] = $gid;
+                }
+            }else{
+                $locations_nid[] = $item_nid;
+            }
+        }
+        #update location of the node
+        unset($_POST);
+        $_POST["value"] = $locations_nid;
+        $_POST["pk"] = $nid;
+        $_POST["name"] = "og_group_content_ref";
+        gofast_update_node_field();
+        $node = node_load($nid, NULL, true);
+
+        ## get the emplacements of the node and return them
+        $parents = $node->{GOFAST_OG_CONTENT_MEMBERSHIP_FIELD}[LANGUAGE_NONE];
+        $parents_formatted = array();
+        if(count($parents) > 0){
+            foreach($parents as $myparent){
+                $parents_formatted[] = gofast_cmis_space_get_webdav_path($myparent['target_id']);
+            }
+        }
+    }else{
+        ## update location of the node
+        unset($_POST);
+        $_POST["value"] = $locations;
+        $_POST["pk"] = $nid;
+        $_POST["name"] = "field_emplacement";
+        gofast_update_node_field();
+
+        //Then, we retrieve once again the locations to check if everything is ok
+        gofast_cmis_static_cache(node_load($nid, NULL, true)->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value'] . '_parents', TRUE);
+
+        ## get the emplacements of the node and return them
+        $parent = gofast_cmis_item_get_parent($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']);
+        $parents_formatted = array();
+        if(count($parent->objectList) > 0){
+            foreach($parent->objectList as $myparent){
+                $parents_formatted[] = $myparent->properties["cmis:path"];
+            }
+        }
+    }
+
+    print(json_encode($parents_formatted));
+    exit;
+}
+
+/*
+ * Implements gofast_api_RESSOURCE_ACTION
+ * @ressource taxobomy
+ * @action terms
+ * @methods GET
+ */
+function gofast_api_taxonomy_terms($params){
+    switch($params['method']){
+        case 'GET':
+            gofast_api_get_taxonomy_terms($params);
+            break;
+        default:
+            gofast_api_not_implemented("This method");
+            break;
+    }
+}
+
+function gofast_api_get_taxonomy_terms($params){
+    //Check content type
+    if(strpos($params['Content-Type'], "application/json") === FALSE){
+        return gofast_api_not_implemented("This Content-Type");
+    }
+
+    //Check authentication
+    global $user;
+    if($user->uid == 0){
+       gofast_api_not_authorized("Unavailable ressource for anonymous user");
+    }
+
+    //Check if we have a vocabulary_name param
+    if(isset($params['vocabulary_name'])){
+        $vname = $params['vocabulary_name'];
+    }else{
+        gofast_api_mandatory_parameter("vocabulary_name");
+    }
+
+    //Get vocabulary ID
+    foreach(taxonomy_get_vocabularies() as $vocabulary){
+        if($vocabulary->machine_name == $vname){
+            $vid = $vocabulary->vid;
+        }
+    }
+
+    //Check if we have a vid
+    if(empty($vid)){
+        gofast_api_not_found("Vocabulary " . $vname . " not found.");
+    }
+
+    //Load all terms related to this vocabulary
+    $tree = taxonomy_get_tree($vid);
+
+    //Prepare output
+    $output = array();
+    foreach($tree as $term){
+        $output[$term->name] = array(
+            'tid' => $term->tid,
+            'description' => $term->description,
+            'uuid' => $term->uuid
+        );
+    }
+
+    gofast_api_success($output);
+}
+
+/*
+ * Implements gofast_api_RESSOURCE_ACTION
+ * @ressource taxobomy
+ * @action vocabularies
+ * @methods GET
+ */
+function gofast_api_taxonomy_vocabularies($params){
+    switch($params['method']){
+        case 'GET':
+            gofast_api_get_taxonomy_vocabularies($params);
+            break;
+        default:
+            gofast_api_not_implemented("This method");
+            break;
+    }
+}
+
+function gofast_api_get_taxonomy_vocabularies($params){
+    //Check authentication
+    global $user;
+    if($user->uid == 0){
+       gofast_api_not_authorized("Unavailable ressource for anonymous user");
+    }
+
+    //Get vocabularies and prepare output
+    $output = array();
+    foreach(taxonomy_get_vocabularies() as $vocabulary){
+        $output[$vocabulary->machine_name] = array(
+            'vid' => $vocabulary->vid,
+            'display_name' => $vocabulary->name,
+            'description' => $vocabulary->description,
+        );
+    }
+
+    gofast_api_success($output);
+}
+
+/**
+ * Add/remove automatic template tag to the given node when needed.
+ */
+function gofast_taxonomy_update_template_tag (&$node) {
+  $tpl_tag = taxonomy_get_term_by_name('Template', 'tags');
+  $tpl_tag = array_shift(array_values($tpl_tag));
+  $tpl_cat = taxonomy_get_term_by_name('Template', 'category');
+  $tpl_cat = array_shift(array_values($tpl_cat));
+
+  $is_tpl = FALSE;
+
+  // Iterate locations and check for TEMPLATES in path.
+  foreach ($node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE] as $location) {
+    if (strpos($location['value'], TEMPLATES_FOLDER_NAME) !== FALSE) {
+      $is_tpl = TRUE;
+      break;
+    }
+  }
+
+  // Node should also have the template tag if it has it as a category.
+  if (isset($node->field_category['und'][0]['tid']) && isset($tpl_cat->tid) && $node->field_category['und'][0]['tid'] == $tpl_cat->tid) {
+    $is_tpl = TRUE;
+  }
+
+  // Check if tag is set, if found but not a template remove it.
+  foreach ($node->{'field_tags'}[LANGUAGE_NONE] as $key => $tag) {
+    if ($tag['tid'] == $tpl_tag->tid) {
+      $has_tpl_tag = TRUE;
+      if (!$is_tpl) {
+        // don't break in case of duplicates.
+        unset($node->{'field_tags'}[LANGUAGE_NONE][$key]);
+      }
+      else {
+        break;
+      }
+    }
+  }
+
+  // Else add it if necessary.
+  if ($is_tpl && !$has_tpl_tag) {
+    $node->{'field_tags'}[LANGUAGE_NONE][]['tid'] = $tpl_tag->tid;
+  }
+}

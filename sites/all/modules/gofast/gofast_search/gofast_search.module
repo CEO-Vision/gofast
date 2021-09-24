@@ -1,0 +1,4115 @@
+<?php
+
+include_once 'MobileDetect.php';
+
+/**
+ * @file
+ *  Integrates Apache Solr Search Toolkit with Gofast.
+ *
+ * @see http://drupalcontrib.org/api/drupal/contributions%21apachesolr%21apachesolr.api.php/7
+ *
+ *  - Index:
+ *    - HOOK_apachesolr_[ENTITY_TYPE]_exclude()
+ *    - HOOK_node_update_index()
+ *    - HOOK_apachesolr_mappings_alter()
+ *    - HOOK_index_document_build() -> apachesolr.module index CCK
+ *    - HOOK_index_document_build_[ENTITY_TYPE]()
+ *
+ *  - Query :
+ *    - HOOK_apachesolr_mappings_alter()
+ *    - HOOK_facetapi_facet_info()
+ *    - HOOK_apachesolr_query_prepare()
+ *    - HOOK_apachesolr_query_alter()
+ *
+ *  - Preprocess :
+ *    -  HOOK_apachesolr_preprocess_results()
+ *    -  HOOK_apachesolr_preprocess_result()
+ *
+ *  - Deletion :
+ *    - HOOK_apachesolr_remove_entity() (remove from index)
+ */
+
+/**
+ * Include gofast_search.facetapi.inc that contains some hook implementations.
+ */
+include_once DRUPAL_ROOT . '/sites/all/modules/gofast/gofast_search/gofast_search.facetapi.inc';
+
+/**
+ * Define search evironment name.
+ */
+define('GOFAST_SEARCH_ENV_NAME', 'Gofast Solr');
+
+/**
+ * Define Gofast search evironment id.
+ */
+define('GOFAST_SEARCH_ENV_ID', 'gofast_solr');
+
+/**
+ * Define Gofast' Solr searcher name.
+ */
+define('GOFAST_SEARCH_SOLR_SEARCHER', 'apachesolr@' . GOFAST_SEARCH_ENV_ID);
+
+/**
+ * Define path for gofast environment search page.
+ */
+define('GOFAST_SEARCH_PATH', 'search/solr');
+
+/**
+ * Define number of items to index per cron run. We can safely set higher value
+ * as default to speedup indexing now that the limit is adjusted at each cron
+ * run depending on how much work needs to be done.
+ */
+define('GOFAST_SEARCH_CRON_LIMIT_DEFAULT', 400);
+
+/**
+ * Define lower limit for the number of items to index per cron (ie. consider
+ * case when whole batch of nodes needs extraction, or bulk creation/updates).
+ */
+define('GOFAST_SEARCH_CRON_LIMIT_LOW', 25);
+
+/**
+ * Define number of items to index per cron run, specific to user.
+ */
+define('GOFAST_SEARCH_CRON_LIMIT_USER', 300);
+
+/**
+ * Define which user should init the index process.
+ */
+define('GOFAST_SEARCH_INDEX_USER', 1);
+
+/**
+ * Define a fake id that will be used to provide facetting for all public nodes.
+ */
+define('GOFAST_SEARCH_PUBLIC_REF', 'node:-1');
+
+/**
+ * Define the max. size (in Mo) of a document content stream to be indexed.
+ */
+define('GOFAST_CONTENT_STREAM_MAX_SIZE', 100);
+
+/**
+ * Define username and password of the restricted user (solr authorization).
+ * Values are stored in db but still we use a constant because drupal should
+ * not modify these values.
+ */
+define('GOFAST_SEARCH_RESTRICTED_USER', variable_get('gofast_search_restricted_user', FALSE));
+define('GOFAST_SEARCH_RESTRICTED_USER_PASS', variable_get('gofast_search_restricted_user_pass', FALSE));
+
+/**
+ * Enable/Disable user authorization. If enabled, Gofast users are granted with
+ * Solr GOFAST_SEARCH_RESTRICTED_USER permissions via authorization header.
+ * Roles & Permissions are defined in $SOLR_HOME/security.json.
+ */
+define('GOFAST_SEARCH_RESTRICTED_USER_AUTHORIZE', variable_get('gofast_search_restricted_user_authorize', FALSE));
+
+/**
+ *  Register shutdown handler
+ */
+register_shutdown_function('gofast_shutdown_handler');
+
+/**
+ * Implements hook_init()
+ *  Init global variables.
+ */
+function gofast_search_init() {
+  global $tika_runs, $solr_runs, $gofast_search;
+
+  $tika_runs = FALSE; // switch: true while extracting content (tika)
+  $solr_runs = FALSE; // switch: true while indexing content (solr commit)
+  $gofast_search = array();
+
+  if (isset($_COOKIE['_no_query_string']) && $_COOKIE['_no_query_string']) {
+    global $conf;
+    $conf['css_js_query_string'] = '';
+  }
+}
+
+/**
+ * Implements hook_apachesolr_entity_info_alter
+ */
+function gofast_search_apachesolr_entity_info_alter(&$entity_info) {
+  // Use our own result callback for user entities, default callback provided
+  // by apachesolr_user module calls user_view() for every matched user, thus
+  // calling too heavy theming functions. In addition we want some user infos
+  // to be loaded along with the document result.
+  $entity_info['user']['result callback'] = 'gofast_search_user_result';
+  // Use our own result callback also with node because the default one provided
+  // by apachesolr_search.module uses a fake user account thus causing error in
+  // functions expecting a full user account.
+  $entity_info['node']['result callback'] = 'gofast_search_node_result';
+
+  // Override status callback : Using its own callback, Apache Solr module will
+  // delete from the index all nodes being unpuplished, and it will then ignore
+  // any updates for these nodes. We want unpublished nodes to be searchable so
+  // we have to override apachesolr callback to prevent node exclusion.
+  $entity_info['node']['status callback'] = array('gofast_search_index_node_status_callback');
+}
+
+/**
+ * Implements hook_enable()
+ */
+function gofast_search_enable() {
+
+  $gofast_weight = db_select('system')
+          ->fields('system', array('weight'))
+          ->condition('name', 'gofast', '=')
+          ->execute()
+          ->fetchField();
+
+  db_update('system')
+          ->fields(array('weight' => $gofast_weight))
+          ->condition('name', 'gofast_search')
+          ->execute();
+
+  return; // @todo !
+
+  module_load_include('inc', 'gofast_search', 'gofast_search.settings');
+  module_load_include('inc', 'apachesolr', 'apachesolr.admin');
+
+  if (!apachesolr_environment_load(GOFAST_SEARCH_ENV_ID)) {
+    // Create Gofast search environment.
+    $ret = gofast_search_create_environment();
+    if ($ret === TRUE) {
+      debug('Gofast Search Environment was created successfully.');
+      // Delete apachesolr environment to avoid duplication of the index (cannot
+      // just disable it).
+      apachesolr_environment_delete('solr');
+    }
+    else {
+      debug($ret, 'An error occured while creating Gofast Search Environment!');
+    }
+
+    // Set index defaults.
+    if (($ret = gofast_search_create_index()) !== TRUE) {
+      debug($ret, 'Error : Gofast index setup failed.');
+    }
+
+    // Set the number of items to index per cron run.
+    variable_set('apachesolr_cron_limit', GOFAST_SEARCH_CRON_LIMIT_DEFAULT);
+
+    // Indexing can take place as a different user. Module apachesolr's default
+    // is to build the content for the index as an anonymous user to avoid
+    // exposing restricted fields and such. We override this in order to index
+    // all contents as superuser because
+    // 1. the index (and the admin interface as well) is ssl protected.
+    // 2. we do access restriction at query time, excluding contents that a user
+    // should not see.
+    variable_set('apachesolr_index_user', GOFAST_SEARCH_INDEX_USER);
+
+    // Create the gofast search page.
+    module_load_include('inc', 'apachesolr_search', 'apachesolr_search.admin');
+    if (($ret = gofast_search_create_page()) !== TRUE) {
+      debug($ret, 'Error : Gofast default search page setup failed.');
+    }
+
+    /**
+     * @todo : set defaults for boost bias / facetting
+     * @todo : disable search modules and active Apache solr Search as default.
+     * -> exported with features but still having pb with active_search_modules.
+     */
+  }
+
+  // We have to prevent comments from being indexed by other modules, hidden var
+  // 'apachesolr_exclude_nodeapi_types' provided by apachesolr is intended to
+  // be used for this purpose. Here we build an exclusion array of node types,
+  // each of which is an array of one or more module names. Any type listed will
+  // have any hook_node_update_index() implementation skipped when indexing.
+  // This module handle comments indexation through the implementation of the
+  // hook hook_apachesolr_index_document_build_ENTITY_TYPE().
+  $excluded = node_type_get_types();
+  $this_module = basename(__FILE__, '.module');
+  foreach ($excluded as $type => &$settings) {
+    $settings = array(); // Override type settings to build our module list.
+    foreach (module_implements('node_update_index') as $module) {
+      if ($module !== $this_module) {
+        $settings[$module] = $module;
+      }
+    }
+  }
+  variable_set('apachesolr_exclude_nodeapi_types', $excluded);
+
+  // Use our own process response callback.
+  apachesolr_environment_variable_set(GOFAST_SEARCH_ENV_ID, 'process_response_callback', 'gofast_search_process_response');
+
+  // Enable soft commits.
+  apachesolr_environment_variable_set(GOFAST_SEARCH_ENV_ID, 'apachesolr_soft_commit', TRUE);
+
+  // Define the solr core to use by default. Actually our solr environment path
+  // already appends the core name (compliant with solr 5.x / solrcloud configs)
+  // to avoid Apache Solr modules patches.
+  apachesolr_environment_variable_set(GOFAST_SEARCH_ENV_ID, 'defaultCoreName', 'gofast');
+
+  /**
+   * @todo: set variable 'apachesolr_tags_to_index' to override list of tags.
+   * -> exported with features
+   */
+}
+
+/**
+ * @Implement HOOK_theme()
+ * @return type
+ */
+function gofast_search_theme(){
+    return array(
+        'gofast_modal_add_search_results_to_cart' => array(
+            'template' => 'tpl/gofast_search-add-search-results-to-cart',
+        ),
+    );
+}
+
+
+/**
+ * Implements hook_library()
+ */
+function gofast_search_library() {
+  $path = drupal_get_path('module', 'gofast_search');
+
+  $libraries['main'] = array(
+    'title' => 'Gofast Search Library',
+    'version' => '1.0',
+    'js' => array(
+      $path . '/js/jquery.paginatetable.js' => array(
+        'group' => JS_DEFAULT
+      ),
+      $path . '/js/gofast_search.js' => array(
+        'group' => JS_DEFAULT
+      )
+    ),
+    'css' => array(
+      $path . '/css/gofast_search.css' => array(
+        'type' => 'file',
+        'media' => 'screen',
+        'group' => CSS_DEFAULT
+      )
+    )
+  );
+
+  return $libraries;
+}
+
+function gofast_search_menu() {
+  $items = array();
+  $items['gofast-search/solr-autocomplete'] = array(
+    'delivery callback' => 'gofast_search_ajax_deliver',
+    'page callback' => 'gofast_search_solr_autocomplete',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'file' => 'gofast_search.suggest.inc'
+  );
+
+  $items['gofast-search/node-autocomplete'] = array(
+    'page callback' => 'gofast_search_node_autocomplete',
+    'page arguments' => array(2),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'file' => 'gofast_search.suggest.inc'
+  );
+
+  $items['gofast-search/user-autocomplete'] = array(
+    'page callback' => 'gofast_search_user_autocomplete',
+    'page arguments' => array(2),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access user profiles'),
+    'access callback' => 'user_access',
+    'file' => 'gofast_search.suggest.inc'
+  );
+
+  $items['gofast-search/manage-excluded/%/%/%'] = array(
+    'page callback' => 'gofast_search_manage_excluded_docs',
+    'page arguments' => array(2, 3, 4),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_CALLBACK,
+    'file' => 'gofast_search.admin.inc'
+  );
+
+  $items['gofast-search/start_full_reindex'] = array(
+    'page callback' => 'gofast_search_start_full_reindex',
+    'page arguments' => array(),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_CALLBACK,
+    'file' => 'gofast_search.admin.inc'
+  );
+
+  $items['gofast-search/cancel_full_reindex'] = array(
+    'page callback' => 'gofast_search_cancel_full_reindex',
+    'page arguments' => array(),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_CALLBACK,
+    'file' => 'gofast_search.admin.inc'
+  );
+
+  $items['modal/%ctools_js/gofast_search/add_search_results_to_cart'] = array(
+   'title' => 'Add search results to cart',
+   'page callback' => 'gofast_modal_add_search_results_to_cart',
+   'page arguments' => array(),
+   'access arguments' => array('access content'),
+   'type' => MENU_CALLBACK,
+  );
+
+  $items['gofast_search/add_search_results_to_cart_submit'] = array(
+   'title' => 'Add search results to cart submit',
+   'page callback' => 'gofast_add_search_results_to_cart_submit',
+   'page arguments' => array(),
+   'access arguments' => array('access content'),
+   'type' => MENU_CALLBACK,
+  );
+
+  $items['gofast-search/more-snippets-async'] = array(
+    'page callback' => 'gofast_search_get_more_snippets',
+    'page arguments' => array(),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'delivery callback' => 'gofast_search_ajax_deliver'
+  );
+
+  return $items;
+}
+
+/**
+ * Ajax delivery callback.
+ *
+ * Sends the output of a page callback straight to the browser (JSON only).
+ * Does not perform end-of-request tasks (ie. hook_exit not invoked).
+ *
+ * @param string $output
+ *  A JSON formatted string.
+ */
+function gofast_search_ajax_deliver($output) {
+  drupal_json_output($output);
+  exit;
+}
+
+/**
+ * This is invoked for each entity that is being inspected to be added to the
+ * index. If any module returns TRUE, the entity is skipped for indexing.
+ */
+function gofast_search_apachesolr_exclude($entity_id, $entity_type, $row, $env_id) {
+  if ($env_id !== GOFAST_SEARCH_ENV_ID) {
+    return TRUE;
+  }
+  
+  switch ($entity_type) {
+    case 'node':
+      if ($nid = variable_get('gofast_search_tika_is_working', FALSE)) {
+        // Assuming the last apachesolr_cron job crashed due to PHP OOM (Tika),
+        // register the referenced node as "excluded from Tika".
+        gofast_search_prevents_extraction($nid, array('type' => 1, 'message' => 'Last apachesolr_cron job crashed due to PHP OOM (cron channel default run started while the Tika flag was still "on").'));
+        variable_del('gofast_search_tika_is_working');
+      }
+
+      // Do not index nodes that may cause trouble to Solr (ie. java/php oom error).
+      $excluded = variable_get('gofast_search_index_node_exclude', array());
+
+      if (isset($excluded[$entity_id])) {
+        watchdog('Gofast Search', $entity_type. ' excluded from index: ' . $entity_id);
+        return TRUE;
+      }
+      break;
+      
+    case 'user':
+      if (in_array($entity_id, [0 , 1])) {
+        watchdog('Gofast Search', $entity_type. ' excluded from index: ' . $entity_id);
+        return TRUE;
+      }
+      break;
+      
+    default:
+      // Do not index entities other than node or user. 
+      return TRUE;
+  }
+
+  return FALSE;
+}
+
+/**
+ * Node status callback for Gofast Search.
+ *
+ * @param $entity_id
+ * @param $entity_type
+ * @param $entity
+ *  In the case where the status is being checked while the entity is being
+ *  saved, this contains the full entity object. In other cases, it will be
+ *  NULL.
+ *
+ * @return int 1
+ */
+function gofast_search_index_node_status_callback($entity_id, $entity_type, $entity = NULL) {
+  // Since we want unpublished nodes to be searchable, we return 1 regardless of
+  // the node status so that apachesolr modules behave accordingly.
+  return 1;
+}
+
+/**
+ * Implements hook_cronapi()
+ *
+ * Registers Gofast Search cronjobs (elysia_cron api)
+ *
+ */
+function gofast_search_cronapi($op, $job = NULL) {
+
+  $items['gofast_search_cron_postcrash'] = array(
+    'description' => 'Check if a script crash occured during the last indexing cronjob',
+    'rule' => '* * * * *', // runs every minute (as for indexing jobs)
+    'callback' => 'gofast_search_cron_postcrash',
+    'file' => 'gofast_search.cron.inc'
+  );
+
+  $items['gofast_search_cron_reindex_pop'] = array(
+    'description' => 'Reindex nodes which have popularity modified',
+    'rule' => '30 23 * * *', // runs every day at 23:30
+    'callback' => 'gofast_search_cron_reindex_pop',
+    'file' => 'gofast_search.cron.inc'
+  );
+
+//  $items['gofast_search_cron_rebuild_suggester'] = array(
+//    'description' => 'Rebuild the suggester indexes',
+//    'rule' => '30 * * * *', // runs every hour
+//    'callback' => 'gofast_search_cron_rebuild_suggester',
+//    'file' => 'gofast_search.cron.inc'
+//  );
+
+  $items['gofast_search_cron_rebuild_spellchecker'] = array(
+    'description' => 'Rebuild the spellchecker indexes',
+    'rule' => '30 * * * *', // runs every hour
+    'callback' => 'gofast_search_cron_rebuild_spellchecker',
+    'file' => 'gofast_search.cron.inc'
+  );
+
+  return $items;
+}
+
+/*
+ * function return true if we currently are into open hour ( TODO make it configurable )
+ */
+function gofast_search_is_open_hour(){
+
+    $day = date("D");
+    $hour = intval(date("G"));
+
+    if ($day == "Sun" || day == "Sat"){
+        return false;
+    }
+
+    if($hour > 7 && $hour < 19){
+        return true;
+    }
+    else{
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * Provides a default list of filename extensions to exclude from the index.
+ *
+ * @return
+ *   An array of file extensions.
+ */
+function gofast_search_files_excluded() {
+  return array(
+    '7zip', 'aif', 'art', 'avi', 'bak', 'bmp', 'bz2', 'deb', /*'dwg',*/ 'exe', 'gif',
+    'gzip', 'ico', 'jar', 'jpeg', 'jpg', 'mov', 'mp3', 'mp4', 'mpg', 'oga', 'ogv',
+    'png', 'psd', 'ra', 'ram', 'rar', 'rgb', 'skp', 'skb', 'tif', 'wmv', 'sql',
+    'swf', 'tar', 'war', 'zip', 'ipynb'
+  );
+}
+
+/**
+ * Implements hook_node_update_index()
+ *  Adds extra content to the document being indexed.
+ *  'tos_content_extra'
+ */
+function gofast_search_node_update_index($node) {
+  // We don't need it
+  // return 'some string';
+}
+
+function gofast_search_apachesolr_index_document_build_user(ApacheSolrDocument $document, $account, $env_id) {
+  if ($env_id !== GOFAST_SEARCH_ENV_ID || (int) $account->uid === 1) {
+    return;
+  }
+
+  // Add this field for conditional boosting at query time.
+  $document->setField('bs_user', TRUE);
+
+  // This flag must be set for access filtering.
+  $document->setField('bs_group_group', FALSE);
+
+  watchdog('Gofast Search', 'Indexing : User | %uid | %name', array('%uid' => $account->uid, '%name' => $account->name));
+  // User entity label is based on the bundle label that relies on the username.
+  // Override it so that user label displays user defined 'display name'.
+  $document->label = ! empty(gofast_user_display_name($account)) ? gofast_user_display_name($account): $document->label;
+
+  // Username
+  $document->ss_name = $account->name;
+  $document->tos_name = $account->name;
+
+  // Make email searchable
+  $document->tos_mail = $account->mail;
+
+  // Date fields
+  $document->ds_created = apachesolr_date_iso($account->created);
+  $document->ds_changed = apachesolr_date_iso(isset($account->data['changed']) ? $account->data['changed'] : NULL);
+  $birthdate = isset($account->field_birthdate[0]['value']) ? $account->field_birthdate[0]['value'] : null;
+  $document->ds_field_birthdate = apachesolr_date_iso(strtotime($birthdate));
+
+  // Concatenate ldap data in the content field.
+  $profile_content = array();
+  foreach (array('title', 'o', 'ou', 'description') as $alias) {
+    if (isset($account->{"ldap_user_{$alias}"}[LANGUAGE_NONE][0]['value'])) {
+
+      if($alias == 'ou' || $alias == 'o'){
+        $nid = str_replace('_#', '', trim($account->{"ldap_user_{$alias}"}[LANGUAGE_NONE][0]['value']));
+        $profile_content[] = gofast_get_node_title($nid).trim($account->{"ldap_user_{$alias}"}[LANGUAGE_NONE][0]['value']);
+
+      }else{
+        $profile_content[] = trim($account->{"ldap_user_{$alias}"}[LANGUAGE_NONE][0]['value']);
+      }
+
+    }
+  }
+
+  // Profile content & teaser (no teaser because it would be the same as content).
+  $content = implode(' ', array_filter($profile_content)); //apachesolr_clean_text ?
+  $document->content = $content;
+  $document->teaser = $content;
+
+  $document->tus_content = $content;
+  $document->tus_teaser = $content;
+  $document->tus_label = $document->label;
+
+  // Add extra field for title match (can't be set from <copyField> @see schema.xml).
+  $document->tws_label = $document->label;
+
+  // Same for building suggestions against title.
+  $document->suggest_label = $document->label;
+
+  // Add user membership reference to the document so that users can be searched
+  // and filtered out within spaces. The membership is registered as if it's a
+  // content node, thus allowing for faceting on both node & user entity type
+  // with one single facet.
+  if (isset($account->{GOFAST_OG_USER_MEMBERSHIP_FIELD}[LANGUAGE_NONE][0]['target_id'])) {
+    foreach ($account->{GOFAST_OG_USER_MEMBERSHIP_FIELD}[LANGUAGE_NONE] as $key => $value) {
+      $document->addField('sm_' . GOFAST_OG_CONTENT_MEMBERSHIP_FIELD, "node:{$value['target_id']}");
+    }
+  }
+
+  // Make a string copy of the status to enable context filtering.
+  $status = $account->status ? 'true' : 'false';
+  $document->setField('ss_status', $status);
+
+  // Add flag for extranet users.
+  $document->setField('bs_extranet', gofast_user_is_extranet($account));
+
+  // Add user access grants
+  // By default set profile as public except for admin.
+  $document->setField('access__user', (int) $account->uid !== 1);
+  $user_partitioning = (int) variable_get('gofast_user_partitioning', GOFAST_USER_PARTITIONING_DEFAULT);
+  if ($user_partitioning === GOFAST_USER_PARTITIONING_ON) {
+    $document->setField('access__user', 0);
+  }
+  if (in_array($user_partitioning, [GOFAST_USER_PARTITIONING_ON, GOFAST_USER_PARTITIONING_ON_ONLY_EXTRANET])) {
+    $gids = gofast_og_get_spaces_by_user($account);
+    $root = gofast_og_get_root_spaces(FALSE, TRUE);
+    $grants = array_diff($gids, $root);
+    $realm = 'gofast_partitioning';
+    $key = 'access_user_' . apachesolr_site_hash() . '_' . $realm;
+    foreach ($grants as $gid) {
+      $document->addField($key, $gid);
+    }
+  }
+
+//  _dump(array($account, $document), 'user_index');
+}
+
+/**
+ * Allows to flag/track the node being indexed.
+ */
+function  _gofast_search_static_node($node = NULL, $clear = FALSE) {
+  static $nid;
+  if ($clear === TRUE) {
+    $nid = NULL;
+  }
+  if (isset($node->nid)) {
+    $nid = $node->nid;
+  }
+  return $nid;
+}
+
+
+/**
+ * Implements hook_apachesolr_index_document_build_ENTITY_TYPE().
+ */
+function gofast_search_apachesolr_index_document_build_node(ApacheSolrDocument $document, $node, $env_id) {
+  if ($env_id !== GOFAST_SEARCH_ENV_ID) {
+    return;
+  }
+
+  //check which modification date we want to index ( not always node changed )
+  $modification_date = gofast_search_get_index_modification_date($node, $document);
+  $document->ds_changed = $modification_date;
+  
+  // Add this filed for conditional boosting at query time.
+  $document->setField('bs_user', FALSE);
+
+  watchdog('Gofast Search', 'Indexing : Node | %nid | %title', array('%nid' => $node->nid, '%title' => $node->title));
+
+  // Flag this node as a node currently being indexed.
+  _gofast_search_static_node($node);
+
+  // Extend space membership to the ancestors to allow faceting on a space tree.
+  if (isset($document->{'sm_' . GOFAST_OG_CONTENT_MEMBERSHIP_FIELD})) {
+    // Index space contents as part of parent spaces. 1st level (close parents)
+    // memberships are already registered, only space ancestors are missing.
+    $ancestors = [];
+    foreach (gofast_og_get_ancestors($node, FALSE) as $gid => $tree) {
+      if (empty($tree['ancestors']))
+        continue;
+      foreach ($tree['ancestors'] as $ancestor) {
+        // Prevent duplicates.
+        if (empty($ancestors[$ancestor])) {
+          // This is a multivalued string field 'sm'.
+          $document->addField('sm_' . GOFAST_OG_CONTENT_MEMBERSHIP_FIELD, "node:{$ancestor}");
+          $ancestors[$ancestor] = $ancestor;
+        }
+      }
+    }
+  }
+
+  // Make a string copy of the status to enable context filtering.
+  $status = $node->status ? 'true' : 'false';
+  $document->setField('ss_status', $status);
+
+  // Add node access grants for searching unpublished documents.
+  if ($node->status == 0){
+    $result = $node->{GOFAST_OG_CONTENT_MEMBERSHIP_FIELD}[LANGUAGE_NONE];
+    if (count($result) > 0) {
+      foreach ($result as $grant) {
+        $grant_realm = "og_access_node";
+        $key = 'access_node_' . apachesolr_site_hash() . '_' . $grant_realm;
+        $document->addField($key, $grant["target_id"]);
+      }
+    }
+    else {
+      $grant_realm = "og_access_node";
+      $key = 'access_node_' . apachesolr_site_hash() . '_' . $grant_realm;
+      $document->addField($key, '0');
+    }
+  }
+
+  // This flag must be set
+  $document->setField('bs_group_group', gofast_og_is_space($node));
+
+  // Index all public nodes (except og-nodes) as part of a fake public space to
+  // provide facetting and an easy way to filter all public nodes.
+  if (!gofast_og_is_space($node) && gofast_og_content_is_public($node)) {
+    $document->addField('sm_' . GOFAST_OG_CONTENT_MEMBERSHIP_FIELD, GOFAST_SEARCH_PUBLIC_REF);
+  }
+
+  // Extract content from a file or take the node body.
+  $document->content = '';
+
+  if ($node->type === 'alfresco_item') {
+    $node_ref = gofast_cmis_node_get_item_id($node);
+
+    // Index document version.
+    $versions = gofast_cmis_webservice_item_get_versions($node_ref, TRUE);
+    $document->fs_version = (float) $versions[0]->label;
+
+    // Extract the content of the document only if necessary, or just retrieve
+    // the content from the last extraction stored in Solr.
+    $content = FALSE;
+    if (!gofast_search_content_needs_extraction($node)) {
+      $content = gofast_search_get_stored_content($node);
+    }
+
+    if ($content === FALSE) {
+      $content = gofast_search_extract_content($node);
+      $content = apachesolr_clean_text($content);
+    }
+
+    $document->content = $content;
+
+    if (!empty($node->body[LANGUAGE_NONE][0]['value'])) {
+      $document->content = $document->content . apachesolr_clean_text($node->body[LANGUAGE_NONE][0]['value']);
+    }
+
+    // Index alfresco node reference so that we can easily add a download link
+    // to search result informations without having to load the node.
+    $document->alfresco_reference = $node->reference;
+  }
+  elseif (!empty($node->body[LANGUAGE_NONE][0]['value'])) {
+    $document->content = apachesolr_clean_text($node->body[LANGUAGE_NONE][0]['value']);
+  }
+  
+  if ($node->type === 'webform' && !empty($node->webform['components'])) {
+    // Index webform components content.
+    $wf_content = [];
+    foreach ($node->webform['components'] as $key => $comp) {
+      $wf_content[] = $comp['name'];
+      if (!empty($comp['value'])) {
+        $wf_content[] = $comp['value'];
+      }      
+      foreach (['items', 'description'] as $prop) {
+        if (!empty($comp['extra'][$prop])) {
+          $wf_content[] = $comp['extra'][$prop];
+        }
+      }
+    }
+    $document->content .= apachesolr_clean_text(implode(' - ', $wf_content));
+  }
+
+  // Feed additional tag fields based on the HTML body.
+  apachesolr_index_add_tags_to_document($document, $document->content);
+
+  // Summary
+  $document->summary = '';
+  if (!empty($node->body[LANGUAGE_NONE][0]['summary'])) {
+    $document->summary = apachesolr_clean_text($node->body[LANGUAGE_NONE][0]['summary']);
+  }
+
+  // Teaser fallback - This field is not indexed but stored.
+  // Ensure we always get some text in result snippets even if there is no match
+  // (faceted search) or if matches comes from other or non-text fields.
+  $document->teaser = isset($node->teaser) && !empty($node->teaser) ? apachesolr_clean_text($node->teaser) : (
+          !empty($document->summary) ? $document->summary : (
+                  !empty($content) ? apachesolr_clean_text(gofast_teaser($content)) : ''));
+
+  // Comments.
+  unset($document->ts_comments);
+  $document->tm_comments = array();
+  if ($node->comment == COMMENT_NODE_OPEN) {
+    // Retrieve node cid's.
+    $query = new EntityFieldQuery();
+    $comments = $query->entityCondition('entity_type', 'comment')
+            ->propertyCondition('status', 1)
+            ->propertyCondition('nid', $node->nid)
+            ->execute();
+
+    // Load all comments if any.
+    if (isset($comments['comment'])) {
+      $cids = array_keys($comments['comment']);
+      $comments = entity_load('comment', $cids);
+      $all_comments = array();
+      foreach ($comments as $cid => $comment) {
+        if ($comment->field_comment_is_private[LANGUAGE_NONE][0]['value'] == 1) {
+          continue;
+        }
+
+        // Get the subject and the body.
+        $format = $comment->comment_body[LANGUAGE_NONE][0]['format'];
+        $comment->subject = trim($comment->subject);
+        $comment->body = trim(strip_tags($comment->comment_body[LANGUAGE_NONE][0]['value']));
+        if ($comment->body == $comment->subject || strpos($comment->body, $comment->subject) !== FALSE) {
+          // Do not index the subject if it's a copy (or a truncated copy) of
+          // the body (prevents biased resultset and double snippets).
+          $comment->subject = '';
+        }
+        // Index each comment separately (multivalued field)
+        $comment_str = $comment->subject ? $comment->subject . ($comment->body ? ' - ' . $comment->body : '') : $comment->body;
+        $comment_formatted = apachesolr_clean_text($comment_str);
+        $document->addField('tm_comments', $comment_formatted);
+        // Catenate all comments in one field to feed exact_match field.
+        $all_comments[] = $comment_formatted;
+      }
+    }
+  }
+
+  // Popularity
+  if (module_exists('radioactivity')) {
+    // This value cannot be empty, boost functions need it at query time.
+    $document->ps_popularity = (int) isset($node->field_popularity[LANGUAGE_NONE][0][RADIOACTIVITY_FIELD_ENERGY]) ?
+            $node->field_popularity[LANGUAGE_NONE][0][RADIOACTIVITY_FIELD_ENERGY] : 0;
+  }
+
+  // Deadline (UTC). We cannot send no date to Solr because it would throw a Bad
+  // Request error. Send a valid date string (corresponds to timestamp 0).
+  /** @todo exclude this value of timestamp 0 from facet results. */
+  $deadline = !empty($node->field_date[LANGUAGE_NONE][0]['value']) ? $node->field_date[LANGUAGE_NONE][0]['value'] : NULL;
+  $document->ds_field_date = apachesolr_date_iso(strtotime($deadline));
+
+  // Creator
+  $document->tos_name = $node->name;
+
+  // Author of the last modification.
+  $mod_account = user_load($node->revision_uid);
+  $document->is_mod_uid = $node->revision_uid;
+  $document->tos_mod_name = $mod_account->name;
+  //$document->tos_mod_displayname = $mod_account->ldap_user_displayname[LANGUAGE_NONE][0]['safe_value'];
+
+  // Author(s) of the document (unrestricted field).
+  $document->tom_unr_author = array(); // unstemmed stored searchable field
+  $document->sm_unr_author = array(); // string field, faceted
+  if (isset($node->field_document_author[LANGUAGE_NONE][0]['value'])) {
+    $authors = apachesolr_clean_text($node->field_document_author[LANGUAGE_NONE][0]['value']);
+    foreach (explode(';', $authors) as $author) {
+      $document->addField('tum_unr_author', $author);
+      $document->addField('sm_unr_author', $author);
+    }
+  }
+
+  // Document reference (unrestricted field).
+  $document->tos_unr_document_reference = array(); // unstemmed stored searchable field
+  $document->sm_unr_document_reference = array(); // string field, faceted
+  if (isset($node->field_document_reference[LANGUAGE_NONE][0]['value'])) {
+    $document_reference = apachesolr_clean_text($node->field_document_reference[LANGUAGE_NONE][0]['value']);
+    $document->addField('tos_unr_document_reference', $document_reference);
+    $document->addField('sm_unr_document_reference', $document_reference);
+  }
+
+  // Exact match
+  // Index each text field in the apropriated fieldtype using glob-like pattern
+  // matching for naming.
+  foreach (gofast_search_text_input_fields(TRUE) as $fieldname => $fm_flag) {
+    $dyn_field = ($fm_flag ? 'tum_' : 'tus_') . preg_replace('/^(?:s|t)(?:s|m)_(.+)$/', '$1', $fieldname);
+    $document->{$dyn_field} = $document->{$fieldname};
+  }
+
+  // Add extra field for title match (can't be set from <copyField> @see schema.xml).
+  $document->tws_label = $document->label;
+
+  // Same for building suggestions against title.
+  $document->suggest_label = $document->label;
+
+  // Taxonomy module automatically provides fields managed under the search
+  // index display but all field are set multivalued. We need single valued
+  // fields for those that have a cardinality of 1.
+  $doc = $document->getIterator();
+  foreach ($doc as $field => $value) {
+    if (preg_match('/im_vid_(\d+)/', $field, $match) && gofast_taxonomy_vocabulary_cardinality($match[1])) {
+      $document->{"is_vid_{$match[1]}"} = $value[0];
+    }
+  }
+
+  // Language specific analysis - We want to avoid unnecessary processing so if
+  // language is already known, Solr language detection processor should not
+  // override the field mapping but still map fields to their text_<langcode>
+  // counterparts according to the value of `ss_language` (@see solrconfig.xml
+  // langid.overwrite set to false).
+  // If language is undetermined on the other hand, we need to remove the value
+  // of ss_language so that the processor can make his try.
+  // This does not apply to unstemmed or unfiltered field types.
+  if ($document->ss_language === 'und') {
+    unset($document->ss_language);
+  }
+  else {
+    $document->addField('sm_language', $document->ss_language);
+  }
+
+  // Cannot build text field taxonomy_names from <copyField> (@see schema.xml).
+  $doc = $document->getIterator();
+  foreach ($doc as $field => $value) {
+    if (preg_match('/tm_vid_\d+_names/', $field))
+      foreach ($value as $v)
+        $document->addField('taxonomy_names', $v);
+  }
+
+  // Used for building suggestions.
+  $document->suggestm_taxonomy = $document->taxonomy_names;
+
+  // Cannot build field sort_label from <copyField> (@see schema.xml).
+  $document->setField('sort_label', $document->label);
+
+//  // dev
+//  $o = clone $document;
+//  unset($o->content, $o->txs_content, $o->tus_content);
+//  _dump($o, 'node_index');
+
+  /** @todo: deelte unwanted fields brought by other moduyles. */
+}
+
+/**
+ * Implements hook_apachesolr_remove_entity()
+ */
+function gofast_search_apachesolr_remove_entity($env_id, $entity_type, $entity_id) {
+  // It is not possible to delete 'solr' env. provided by the apachesolr module,
+  // and we can't prevent apachesolr from querying it when an entity is deleted,
+  // even if this environment is excluded from index process and/or is readonly,
+  // thus resulting in annoying warning/errors.
+
+  // Prevent querying unused environments.
+  if ($env_id !== GOFAST_SEARCH_ENV_ID) {
+    return TRUE;
+  }
+
+  // Nodes should remain searchable but user can be deleted.
+
+  if ($entity_type === 'user') {
+    return FALSE;
+  }
+
+  // If the node is still loadable there is no reason to remove it, unless it
+  // is really deleted or being deleted (drupal unpublish vs hard delete).
+  if (!_gofast_search_is_deleted($entity_type, $entity_id)) {
+    return TRUE;
+  }
+}
+
+/**
+ * Checks whether node content needs an extraction or if we can grab it from
+ * Solr.
+ *
+ * @param object $node
+ * @return boolean
+ */
+function gofast_search_content_needs_extraction($node) {
+  // If no version found, that means the document is not indexed yet.
+  if (!$indexed_version = gofast_search_content_get_version_indexed($node)) {
+    return TRUE;
+  }
+
+  $item_id = gofast_cmis_node_get_item_id($node);
+
+  // Compare document's current version and indexed version.
+  $versions = gofast_cmis_webservice_item_get_versions($item_id, TRUE);
+  $current_version = (float) $versions[0]->label;
+
+  return $current_version !== $indexed_version;
+}
+
+/**
+ * Get the version of the document from Solr index, corresponding to the version
+ * of the document at the time it was indexed.
+ *
+ * Returns FALSE in case no version is found or if document not indexed yet or
+ * if an error occured.
+ *
+ * @param object $node
+ * @return mixed number|boolean The document indexed version or FALSE
+ */
+function gofast_search_content_get_version_indexed($node) {
+  // Target standard solr request handler /query.
+  $path = 'solr/gofast/query';
+  $username = 'admin';
+  $pass = gofast_get_admin_pwd();
+
+  $query_string = drupal_http_build_query([
+    'q' => 'id:' . apachesolr_site_hash($node) . '/node/' . $node->nid,
+    'fl' => 'fs_version',
+    'wt' => 'json'
+  ]);
+
+  $url = "http://{$username}:{$pass}@localhost:8983/{$path}?{$query_string}";
+
+  $options = array(
+    'headers' => array(),
+    'method' => 'GET',
+    'data' => NULL,
+  );
+
+  $result = drupal_http_request($url, $options);
+  if ($result->code != 200) {
+    watchdog('Gofast Search', $result->error, [], WATCHDOG_ERROR);
+    return FALSE;
+  }
+
+  $json = drupal_json_decode($result->data);
+  if (empty($json['response']['docs'][0]['fs_version'])) {
+    return FALSE;
+  }
+
+  $version = (float) $json['response']['docs'][0]['fs_version'];
+
+  return $version;
+}
+
+/**
+ * Same as gofast_search_content_get_version_indexed() but takes an array of
+ * nids as parameter and returns an array with nid as key and version or FALSE
+ * as value.
+ */
+function gofast_search_content_get_versions_indexed($nids) {
+  if (empty($nids)) {
+    return [];
+  }
+
+  // Target standard solr request handler /query.
+  $path = 'solr/gofast/query';
+  $username = 'admin';
+  $pass = gofast_get_admin_pwd();
+
+  $fq = array_map(function ($nid) {
+    return 'entity_id:' . $nid;
+  }, $nids);
+
+  $params = [
+    'q' => 'entity_type:node',
+    'fq' => implode(' ', $fq),
+    'fl' => 'entity_id fs_version',
+    'rows' => count($nids),
+    'wt' => 'json'
+  ];
+  
+  $options = [
+    'headers' => [
+      'Content-Type' => 'application/x-www-form-urlencoded'
+    ],
+    'method' => 'POST',
+    'data' => drupal_http_build_query($params),
+  ];
+
+  $url = "http://{$username}:{$pass}@localhost:8983/{$path}";
+  $result = drupal_http_request($url, $options);
+
+  if ($result->code != 200) {
+    watchdog('Gofast Search', $result->error, [], WATCHDOG_ERROR);
+    return array_fill_keys($nids, FALSE);
+  }
+
+  $json = drupal_json_decode($result->data);
+
+  if (empty($json['response']['docs'])) {
+    return array_fill_keys($nids, FALSE);
+  }
+
+  $versions = [];
+  foreach ($json['response']['docs'] as $key => $doc) {
+    if (!isset($doc['fs_version'])) {
+      $indexed_version = FALSE;
+    }
+    else {
+      $indexed_version = (float) $doc['fs_version'];
+    }
+    $versions[$doc['entity_id']] = $indexed_version;
+  }
+
+  return $versions;
+}
+
+/**
+ * Retrieve $node content stored in Solr. Returns FALSE if the field is unset
+ * or if an error occured.
+ *
+ * @param type $node
+ * @return mixed string|boolean
+ */
+function gofast_search_get_stored_content($node) {
+  watchdog('Gofast Search', 'Retrieve stored content');
+
+  $path = 'solr/gofast/query';
+  $username = 'admin';
+  $pass = gofast_get_admin_pwd();
+
+  $query_string = drupal_http_build_query([
+    'q' => 'id:' . apachesolr_site_hash($node) . '/node/' . $node->nid,
+    'fl' => 'tus_content',
+    'wt' => 'json'
+  ]);
+
+  $url = "http://{$username}:{$pass}@localhost:8983/{$path}?{$query_string}";
+
+  $options = array(
+    'headers' => array(),
+    'method' => 'GET',
+    'data' => NULL,
+  );
+
+  $result = drupal_http_request($url, $options);
+  if ($result->code != 200) {
+    watchdog('Gofast Search', $result->error, [], WATCHDOG_ERROR);
+    return FALSE;
+  }
+
+  $json = drupal_json_decode($result->data);
+  if (!isset($json['response']['docs'][0]['tus_content'])) {
+    watchdog('Gofast Search', 'field `tus_content` is not set.', [], WATCHDOG_ERROR);
+    return FALSE;
+  }
+
+  $content = $json['response']['docs'][0]['tus_content'];
+
+  return $content;
+}
+
+/**
+ * Extracts content from the file that $node refers to.
+ *  Builds ApacheSolrDocument 'content' field for alfresco items.
+ *  Uses Tika (stand-alone)
+ *
+ * @param $node
+ *  The node being indexed ($node->reference must be set).
+ * @return string
+ *  Safe file content.
+ */
+function gofast_search_extract_content($node) {
+  // Do not reattempt to extract content where Tika has failed once.
+  if (in_array($node->nid, array_keys(variable_get('gofast_search_tika_node_exclude', array())))) {
+    watchdog('Gofast Search', 'Prevent content extraction, node excluded (Tika)');
+    return '';
+  }
+
+  // Also prevent extraction with certain (excluded) file types.
+  $extension = gofast_node_extension($node);
+  if (in_array($extension, gofast_search_files_excluded())) {
+    watchdog('Gofast Search', 'Prevent content extraction, extension excluded (Tika) : .' . $extension);
+    return;
+  }
+
+  // Email content is already extracted, get it from the node body.
+  if (gofast_node_is_email($node)) {
+    return isset($node->body[LANGUAGE_NONE][0]['value']) ? $node->body[LANGUAGE_NONE][0]['value'] : '';
+  }
+
+  // Try to get the raw content from Alfresco.
+  try {
+    $item_id = gofast_cmis_node_get_item_id($node);
+    $cmisobject = gofast_cmis_item_get($item_id);
+
+    $size = $cmisobject->properties['cmis:contentStreamLength'] / 1000000;
+    if ($size > GOFAST_CONTENT_STREAM_MAX_SIZE) {
+      watchdog('Gofast Search', 'Content stream is too big (:size Mo). Maximum is :max Mo.', array(':size' => $size, ':max' => GOFAST_CONTENT_STREAM_MAX_SIZE));
+      return;
+    }
+
+    $mime = $cmisobject->properties['cmis:contentStreamMimeType'];
+    if ($mime === 'application/octet-stream') {
+      watchdog('Gofast Search', 'Binary content ' . $node->nid);
+      return;
+    }
+
+    if (!$content = gofast_cmis_item_get_content($item_id)) {
+      watchdog('Gofast Search', 'Content is empty ' . $node->nid);
+      return;
+    }
+
+  }
+  catch (Exception $e) {
+    watchdog('Gofast Search', $node->nid . ' Error: ' . $e->getMessage());
+    return;
+  }
+
+  if ($extension === 'html') {
+    // In this case the raw content can be returned as is (don't need Tika).
+    return $content;
+  }
+
+  watchdog('Gofast Search', '--begins extraction');
+  // Si le document n'est pas "exclu" on créé un fichier dans lequel on met
+  // le contenu brut du document afin que Tika puisse en extraire le texte.
+  $filepath = DRUPAL_ROOT . '/' . variable_get('file_public_path', conf_path() . '/files');
+  $filename = $filepath . '/_gofast_extraction_tmp';
+  $file = fopen($filename, 'w+');
+  fwrite($file, $content);
+  fclose($file);
+
+  $command = sprintf('java -jar %s -x %s', GOFAST_TIKA_PATH, $filename);
+
+  // Activate "tika_runs" flags.
+  global $tika_runs;
+  $tika_runs = $node->nid;
+  variable_set('gofast_search_tika_is_working', $node->nid);
+
+  // Memory limit: pour pouvoir prendre en charge les cas ou l'extraction
+  // prendrait trop de temps / mémoire, on la bride un peu (l'ideal serait
+  // un timeout en paramètre de l'appel Tika..) afin que php puisse lancer
+  // une fatal error et interrompre l'extraction. Dans ce cas la fonction
+  // de shutdown gofast_shutdown_handler() prends le relai.
+  ini_set('memory_limit', '128M');
+  $result = array();
+
+  exec($command, $result);
+
+  // Preprocess extracted content (remove <head> content)
+  array_splice($result, 0, array_search('</head>', $result) + 1);
+  $result = implode('<br>', $result);
+
+   // Release memory and flags.
+  ini_set('memory_limit', '512M');
+  variable_del('gofast_search_tika_is_working');
+  $tika_runs = FALSE;
+  watchdog('Gofast Search', '--extraction ok');
+
+  return $result;
+}
+
+/**
+ * Implementation of hook_apachesolr_query_prepare().
+ *
+ * Prepare the query by adding parameters, sorts, etc. This hook is invoked
+ * before the query is cached. The cached query is used after the search such
+ * as for building facet and sort blocks, so parameters added during this hook
+ * may be visible to end users.
+ * This is otherwise the same as HOOK_apachesolr_query_alter(), but runs before
+ * it.
+ *
+ * @param object $query:
+ *  An object implementing DrupalSolrQueryInterface. No need for &.
+ */
+function gofast_search_apachesolr_query_prepare($query) {
+  ctools_include('gofast_search.facetapi', 'gofast_search', '');
+
+// $query->getAvailableSorts()
+// apachesolr_search_basic_params()
+
+  // Add sorting parameters to the query
+
+  $query->setAvailableSort('ps_popularity', array(
+    'title' => t('Popularity', array(), array('context' => 'gofast:gofast_search')), // how the sort is to appear in the sorts block
+    'default' => 'desc',
+  ));
+
+  // Note: this field is already set as sortable by apachesolr, but a 'reset' is
+  // a simple way to modify its title or direction.
+  $query->removeAvailableSort('ds_created');
+  $query->setAvailableSort('ds_created', array(
+    'title' => t('Creation Date', array(), array('context' => 'gofast:gofast_search')),
+    'default' => 'desc',
+  ));
+
+  $query->setAvailableSort('ds_changed', array(
+    'title' => t('Modification Date', array(), array('context' => 'gofast:gofast_search')),
+    'default' => 'desc',
+  ));
+
+  // Sorting by type is more disturbing than useful, we use format/type taxonomy
+  // field instead.
+  $query->removeAvailableSort('bundle');
+
+  // Add sort by "format". Taxonomy fields are defined as multivalued
+  // dynamicField, indexed as "im_vid_13" and "sm_vid_format".
+  // Because Solr can't sort by multivalued fields, we use a single valued
+  // copy.
+  //   @see patch apachesolr_add_taxonomy_to_document() (drupal 6)
+  //   @see apachesolr_term_indexing_callback() (drupal 7)
+  $query->setAvailableSort('is_vid_' . GOFAST_VID_FORMAT, array(
+    'title' => t('Format/Type', array(), array('context' => 'gofast')),
+    'default' => 'desc',
+  ));
+  // note: sorting by the equivalent string field doesn't work ([sort_]ss_vid_format) ...
+}
+
+/**
+ * Implementation of hook_apachesolr_query_alter().
+ *
+ * @param DrupalSolrQueryInterface $query
+ * @see apachesolr.interface.inc
+ */
+function gofast_search_apachesolr_query_alter(DrupalSolrQueryInterface $query) {
+  $query_type = $query->getParam('qt');
+  if ($query_type === '/autocomplete') {
+    // Use a lighter implementation for suggestions.
+    ctools_include('gofast_search.suggest', 'gofast_search', '');
+    return gofast_search_autocomplete_query_alter($query);
+  }
+
+  global $user;
+  watchdog(' SEARCH ', ' QUERY ALTER ');
+
+  $env_id = $query->solr('getId');
+  $solr = apachesolr_get_solr($env_id);
+  $data = $solr->getLuke();
+
+  $account = user_load($user->uid);
+
+  // Search options.
+  $options = array();
+  if (isset($_COOKIE['search_params'])) {
+    foreach (explode('&', $_COOKIE['search_params']) as $option) {
+      list ($key, $value) = explode('=', $option);
+      $options[$key] = $value;
+    }
+  }
+  else {
+    $options = array_map(function ($item) { return $item['value']; }, gofast_search_options());
+  }
+
+  $restrict_qf = FALSE;
+  $q = trim($query->getParam('q'));
+
+  // Alternative query
+  $query->replaceParam('q.alt', '*:*');
+
+  // phrase_match => We search an exact phrase.
+  // Identified by a search string started and ending by ".  In this case, do
+  // an exact search (no stemming), and don't split keywords;
+  $phrase_match = (strpos($q, '"') === 0 && substr($q, -1) === '"' && substr_count($q, '"') === 2);
+
+  // Exact_search => Default behavior. Each keywords are mandatory, and do an
+  // exact search(no stemming)
+  $exact_search = !$_COOKIE["strict_search"] || $_COOKIE["strict_search"] === "true";
+
+  if(!$exact_search && !$phrase_match){
+     $q = gofast_remove_accents($q);
+  }
+  
+  if (empty($q)) {
+    $q = '*:*';
+  }
+  else {
+    // <script> tag are escaped to prevent highlighter from introducing flaws.
+    $q = preg_replace('/<(\/?)script(.*?)>/', '___$1script$2___', $q);
+  }
+  
+  // Wildcard query flag.
+  $wildcard = FALSE;  
+  
+  if ($q === '*:*') {
+    $wildcard = TRUE;
+    $exact_search = FALSE;
+  }
+  
+    if(!$phrase_match && !$exact_search ){     
+        //put search into lowercase
+        $q = mb_strtolower($q);
+        /*$q = str_replace("_", " ", $q);
+        if($q[0] == "-"){
+           $q = substr($q, 1);
+           $q = "***".$q;
+        }
+        $q = str_replace(" -", "***", $q);         
+        $q = str_replace("-", " ", $q);
+        $q = str_replace("***", " -", $q);
+*/
+
+        if(is_numeric(str_replace(array(" ", ","), array("", "."), $q))){
+            //just a number, don't split
+            $splitted_keywords = array('"'.$q.'"');          
+        }else{
+
+            //automatically split words by _  excepts if there are mandatory
+              $keywords = array_filter(explode(' ', $q), function ($str) {
+               return $str && trim($str) !== '"';
+             });
+            $splitted_keywords = array();
+             $previous_keyword = "";  
+             $current_not_split = false;            
+            foreach($keywords as $keyword){                 
+                if($keyword[0] !== "+" && $keyword[0] !== "-"){                    
+                    if($keyword[0] == '"' && strpos($keyword, " ") !== false){
+                        $previous_keyword = $previous_keyword . $keyword;
+                        $current_not_split = true;
+                    }elseif(substr($keyword, -1) == '"'){  
+                      $splitted_keywords[] = $previous_keyword . " " .$keyword; 
+                       $current_not_split = false;  
+                       $previous_keyword = "";
+                    }elseif($current_not_split == true){
+                       $previous_keyword = $previous_keyword . $keyword; 
+                    }else{  
+                      $subkeywords = array_filter(preg_split('/(-|_)/', $keyword), function ($str) {
+                          return $str && trim($str) !== '"';
+                        });                 
+                        $dont_split = false;
+                        foreach($subkeywords as $subkeyword){
+                            if(strlen($subkeyword) < 3){
+                                 $dont_split = true;
+                            }
+                        }
+                        if(!$dont_split){
+                            foreach($subkeywords as $subkeyword){                        
+                               $splitted_keywords[] = $subkeyword;
+                            }
+                        }else{ 
+                            $splitted_keywords[] = $keyword;
+                        }
+                    }
+                }else{                           
+                    $splitted_keywords[] = $keyword;                     
+                }
+            }  
+        }
+        $q = implode(" ", $splitted_keywords);
+     }else{
+          $splitted_keywords = array($q);
+     }
+     
+  $query->replaceParam('q', $q);
+  //$keywords = array_filter(explode(' ', $q));
+  $keywords = $splitted_keywords;
+  $term_expansion = FALSE;
+
+  // If phrase match (the user search an exact string)
+  if ($phrase_match){
+    $url = str_replace(rawurlencode($q), $keywords_noquotes, $_SERVER['REQUEST_URI']);
+    if (strpos($url, "/gofast_ajaxification") !== FALSE){
+      $url = str_replace("/gofast_ajaxification/ajax?url=" , "", $url);
+    }
+    $message = t(
+      "You are performing an exact search. <a href='@click_url'>Click here</a> if you want to perform a search including similar terms",
+      array("@click_url" => rawurldecode($url)),
+      array('context' => 'gofast:gofast_search')
+    );
+    drupal_set_message($message);
+  }
+  /* @see GOFAST-5947
+  elseif ($exact_search && count($keywords) === 1) {
+    $term = $keywords[0];
+    // Wildcard expansion (eg. for "tesla" to match untokenized "TeslaModelX")
+    // We need to add 'OR <term>*' to the query because adding the wildcard char
+    // to the term will just trigger a wildcard query that doesn't allow to tie
+    // scores between all macthes. By doing an OR, full match ("tesla") will get
+    // regular (highest) scores while expanded-term matches will get the same
+    // tied score (lower, per field).
+    // -> Don't do this on short query to prevent garbage results except if
+    // requested by user.
+    $wildcard_q_min_len = 5;
+    $is_wildcard = substr($term, -1) === '*';
+    if (strlen($term) >= $wildcard_q_min_len || $is_wildcard) {
+      if ($is_wildcard) {
+        // If user uses wildcard we do the same job to improve scoring.
+        $term = substr($term, 0, -1);
+      }
+      $query->replaceParam('q', "{$term} OR {$term}*");
+      $term_expansion = TRUE;
+    }
+  }*/
+
+  // Query type (defType:edismax - cf. solrconfig.xml SearchHandler)
+  $query->addParam('qt', 'gofast');
+  $query->addParam('defType', 'edismax');
+
+  // Minimum 'Should' Match
+  // 1<-1 3<75% : 1 match obligatoire pour 1 ou 2 termes, puis 2 pour 3, et 75%
+  // au dela (arrondi par defaut).
+  $query->replaceParam('mm', '1<-1 3<75%');
+
+  if ($exact_search || $phrase_match) {
+    // All terms must match except for wildcard expansion.
+    if ($term_expansion === FALSE) {
+      $query->replaceParam('mm', '100%');
+    }
+
+    // Don't search into "classique" fields ( with stemming, stopwords, etc)
+    $defaults = array(
+      'tws_label^10000.0',  // used for highighting (precision)
+      'tos_name^3.0',   // to properly boost matches against profiles we'll use a bq.
+      'tos_mail^100.0', // set higher boost because we know it's a profile field.
+      'tos_mod_name^3.0',
+      'tum_unr_author^3.0',
+      'tus_unr_document_reference^3.0'
+    );
+  }
+  else {
+    $defaults = array(
+      'label^10000.0',    
+      'tws_label^100.0',
+      'summary^2.0',
+      'content^1.0',
+      'tm_comments^0.5',
+      'tos_content_extra^0.5',
+      'tos_name^3.0',
+      'tos_mail^100.0',
+      'tos_mod_name^3.0',
+      'tum_unr_author^3.0',
+      'tos_unr_document_reference^3.0',
+      'taxonomy_names^3.0',
+      'tags_h1^5.0',
+      'tags_h2_h3^3.0',
+      'tags_h4_h5_h6^2.0',
+      'tags_inline^1.0',
+      'tags_a^1.0'
+    );
+  }
+
+  // Extremely Exact/Phrase match fields.
+  $xpf = [
+    'tus_label^100000.0',    
+    'tus_summary^20.0',
+    'tus_content^10.0',
+    'tum_comments^5.0'
+  ];
+  
+  // Taxonomy qf - Get all fields related to vocabulary terms
+  $fields = $query->solr('getFields');
+  $taxonomy_tm = $taxonomy_sm = $taxonomy_qf = array();
+  $pattern = $exact_search ? '/(sm)_vid_(.*)/' : '/(tm|sm)_vid_(.*)/';
+  foreach ($fields as $fieldname => $field) {
+    if (preg_match($pattern, $fieldname, $match)) {
+      ${"taxonomy_{$match[1]}"}[] = $fieldname;
+      if ($fieldname == "sm_vid_Tags" || $fieldname == "tm_vid_".GOFAST_VID_TAGS."_names"){
+        $taxonomy_qf[] = $fieldname . '^150000.0';
+      }
+      else {
+        $taxonomy_qf[] = $fieldname . '^5.0';
+      }
+    }
+  }
+
+  // Restricted search qf (by title: qf=label, phrase search: qf=tu[m|s]_*)
+  if (isset($options['restrict']) && $options['restrict']) {
+    if ($exact_search || $phrase_match) {
+      $restrict_qf = ['tus_label^10.0', 'tws_label^1.0'];
+    }
+    else {
+      $restrict_qf = ['label'];
+    }
+  }
+
+  $qf = $restrict_qf ? $restrict_qf : array_merge($xpf, $defaults, $taxonomy_qf);
+  $query->replaceParam('qf', $qf);
+
+  // Boost Functions : add boost for "popularity" and newer documents.
+  // http://fr.slideshare.net/LucidImagination/boosting-documents-in-solr-by-recency-popularity-and-user-preferences
+ 
+  if(count($keywords) < 3 && !$exact_search){
+     //few keywords so increase date and popularity boost
+    $query->replaceParam('bf', ['sqrt(ps_popularity)^9000.0', 'recip(ms(NOW,ds_changed),3.16e-11,1,1)^900000.0']);
+  }else{
+     //more keywords so date and popularity are less critical 
+     //$query->replaceParam('bf', ['sqrt(ps_popularity)^100.0', 'recip(ms(NOW,ds_changed),3.16e-11,1,1)^10000.0']);
+     $query->replaceParam('bf', ['sqrt(ps_popularity)^7000.0', 'recip(ms(NOW,ds_changed),3.16e-11,1,1)^1000000.0']);
+  }
+  # Lower score for gofast spaces. Use edismax multiplcative boost to preserve
+  # score of unmatched documents.
+  $query->addParam('boost', 'if(field(bs_group_group),0.5,1.0)');
+
+  # Same for users so that they are ranked after documents.
+  $query->addParam('boost', 'if(field(bs_user),0.8,1.0)');
+  if (!$wildcard) {
+    // We need to boost username & full-name matches against user profiles so
+    // that their score can compete properly with documents score.
+    $qq = DrupalApacheSolrService::phrase(trim($q, '"'));
+    $query->addParam('bq', ['(bs_user:true AND tos_name:' . $qq . ')^100.0']);
+    $query->addParam('bq', ['(bs_user:true AND tus_label:' . $qq . ')^50']);// text_und ?
+  }
+
+      // Boost Query
+//  if (!$restrict_qf) {    
+//           //boost query when all keywords match
+//            gofast_search_boost_query_light($query);
+//  }
+
+  // Apply filter from search options
+  gofast_search_query_alter_from_options($query, $options);
+
+  if ($account->uid != 1){
+    // Exclude orphan nodes.
+    $query->addFilter('access_node_nn0szh_all', 0, TRUE);
+
+    // Add grants for the user performing search.
+    try {
+      // $query passed by reference
+      gofast_search_query_alter_access($account, $query);
+    }
+    catch (Exception $e) {
+      watchdog("Gofast Solr", 'User %name (UID:!uid) cannot search: @message', array('%name' => $account->name, '!uid' => $account->uid, '@message' => $e->getMessage()));
+      $query->abort_search = TRUE;
+    }
+  }
+
+  // Phrase boosted Fields : Once the list of matching documents has been
+  // identified using the "fq" and "qf" params, the "pf" param can be used to
+  // "boost" the score of documents in cases where all of the terms in the "q"
+  // param appear in close proximity.
+  // The format is the same as the "qf" param: a list of fields and "boosts"
+  // to associate with each of them when making phrase queries out of the entire
+  // "q" param.
+  $pf_default = $restrict_qf ? $restrict_qf : $xpf;
+  $pf = gofast_search_qf_alter_boost($pf_default, 10);
+
+ // $query->replaceParam('pf', $pf); // array_map(function ($field_name) { return $field_name . '^100.0'; }, $pf));
+
+  // Phrase boost Slop :
+  // Amount of slop on phrase queries built for "pf" fields (affects boosting).
+  $query->replaceParam('ps', 1);
+
+  // Query string phrase Slop :
+  // Amount of slop on phrase queries explicitly included in the user's query
+  // string (in qf fields affects matching).
+  $query->replaceParam('qs', 0);
+
+  // Phrase bigram fields / slop (as with 'pf' but chops the input into bi-grams)
+  $pf2 = gofast_search_qf_alter_boost($pf_default, 20);
+  //$query->replaceParam('pf2', $pf2); // array_map(function ($field_name) { return $field_name . '^20.0'; }, $pf));
+  $query->replaceParam('ps2', 1);
+
+  // Phrase trigram fields (chops the input into tri-grams)
+  $pf3 = gofast_search_qf_alter_boost($pf_default, 50);
+  //$query->replaceParam('pf3', $pf3); // array_map(function ($field_name) { return $field_name . '^50.0'; }, $pf));
+  $query->replaceParam('ps3', 1);
+
+  // Tie breaker : Float value to use as tiebreaker in DisjunctionMaxQueries.
+  // Dismax will search for terms on the fields defined in the 'qf' parameter
+  // like this: +(field1:terms | field2:terms | field3:terms | ...). Of those
+  // sub-queries dismax will pick the highest one as the "main part" of the
+  // score. The tie parameter is used like this :
+  // Score = highest scoring sub-query + (Tie * Sum(other sub-queries scores))
+  // Tie of 0 -> disjunction max
+  // Tie of 1 -> disjunction sum
+  $query->replaceParam('tie', 0.8); // plus près du 1 permet d'adoucir l'effet induit par les boosts query et boost functions à savoir: diminuer l'impact des boost de qf de base comme celui du titre ^8.0 qui est le plus élévé)
+
+  // Field List (fl) : Set of fields to return
+  $fl = array_merge($taxonomy_tm, $taxonomy_sm, array(
+    'id',
+    'entity_id',
+    'entity_type',
+    'bundle',
+    'bundle_name',
+    'tus_label',
+    'ss_language',
+    'is_comment_count',
+    'ds_created',
+    'ds_changed',
+    'score',
+    'path',
+    'url',
+    'is_uid',
+    'tus_name',
+    'is_mod_uid',
+    'tus_mod_name',
+    'teaser',
+    'alfresco_reference',
+    'ps_popularity',
+    'im_field_format',
+    'sm_og_group_content_ref',
+    'tos_unr_document_reference',
+    'tid'
+  ));
+
+  $query->replaceParam('fl', $fl);
+  
+  // Highlighting (hl.fl) : Fields for which to generate highlighted snippets.
+  // Built from $qf parameter that already takes account of phrase, exact or
+  // restricted search options.
+  $hl_fl = array_map(function($item){
+    list ($fieldname,) = explode('^', $item, 2);
+    return $fieldname;
+  }, $qf);
+
+  if (!$exact_search && !$phrase_match) {
+    // In non-strict mode don't request hl for xpf fields since we already have
+    // the same content returned by lang/und fields. 
+    $hl_fl = array_filter($hl_fl, function($item) {
+      return !preg_match('/^(?:tus_|tum_).+/', $item);
+    });
+  }
+
+  $hl_phrase = $phrase_match;
+  if (!$hl_phrase && !$wildcard && count($keywords) === 1) {
+    $hl_phrase = preg_match('/[\w\W]+/', $q) && ($exact_search || strlen(preg_replace('/\w/', '', $q)) === 1);
+  }
+
+  $query->replaceParam('hl.fl', $hl_fl);
+  $query->replaceParam('hl.method', 'unified');
+  $query->replaceParam('hl.offsetSource', 'ANALYSIS');
+  $query->replaceParam('hl.weightMatches', 'true');
+  $query->replaceParam('hl.usePhraseHighlighter', $hl_phrase ? 'true' : 'false');
+  $query->replaceParam('hl.multiTermQuery', 'true');
+  $query->replaceParam('hl.bs.type', 'WORD');
+  $query->replaceParam('hl.fragsizeIsMinimum', 'false');
+  $query->replaceParam('hl.requireFieldMatch', 'false');
+  $query->replaceParam('hl.snippets', 20);
+  $query->replaceParam('hl.fragsize', $phrase_match && !gofast_mobile_is_mobile_domain() ? 300 : 200);
+  $query->replaceParam('hl.simple.pre', ':hl-pre:');
+  $query->replaceParam('hl.simple.post', ':hl-post:');
+  $query->replaceParam('hl.mergeContiguous', 'false');
+  $query->removeParam('hl.alternateField', 'teaser');
+
+  // maxAnalyzedChars: setting a very high value tells solr to retrieve snippets
+  // by searching matches in at least this range of chars. This ensures solr can
+  // bring snippets even if matches are at the end of a very long document.
+  // -> Performance are impacted, query times can be multiplied up to 20x when
+  // matching very long documents (i.e. maxAnalyzedChars) with a long search
+  // query. So we use the most reasonable value at query time and then request
+  // more snippets asynchronously (@see GOFAST-2205/GOFAST-4511).
+  $query->replaceParam('hl.maxAnalyzedChars', 51200);
+
+  // Spellcheck
+  $query->replaceParam('spellcheck.q', $q);
+  $query->replaceParam('spellcheck.count', 5);
+  $query->replaceParam('spellcheck.maxResultsForSuggest', 6000); // threshold.
+  $query->replaceParam('spellcheck.alternativeTermCount', 5);
+  $query->replaceParam('spellcheck.accuracy', 0.5);
+
+  $query->replaceParam('spellcheck.collate', TRUE);
+  $query->replaceParam('spellcheck.maxCollations', 3);
+  $query->replaceParam('spellcheck.maxCollationTries', 99);
+  $query->replaceParam('spellcheck.collateMaxCollectDocs', 1);
+  $query->replaceParam('spellcheck.maxCollationEvaluations', 10000);
+
+  $query->replaceParam('spellcheck.collateParam.q.op', 'AND');
+  $query->replaceParam('spellcheck.collateParam.mm', '100%');
+
+  $query->replaceParam('spellcheck.extendedResults', TRUE);
+  $query->replaceParam('spellcheck.collateExtendedResults', TRUE);
+
+  gofast_search_query_alter_by_language($query);
+  
+    // Boost Query
+  if (!$restrict_qf) {    
+           //boost query when all keywords match
+            gofast_search_boost_query_light($query);
+  }
+
+ /*$queryInfos = array(
+    'keywords' => $keywords,
+    'searcher' => $query->getSearcher(),
+    'queryParams' => $query->getParams(),
+    'queryFilters' => $query->getFilters()
+  );
+    //print_r("<pre>");print_r($queryInfos);exit;   
+   */
+
+ 
+}
+
+/**
+ * Alter the query so that regular text fields are referenced with their
+ * language-specific declination (in fl, qf, hl parameter) in order to perform
+ * search by language.
+ *
+ * @param DrupalSolrQueryInterface $query
+ */
+function gofast_search_query_alter_by_language(DrupalSolrQueryInterface $query) {
+  $text_fields = _gofast_search_language_specific_text_fields();
+  $languages = _gofast_search_language_list(TRUE);
+
+  // Fields list
+  $fl = [];
+  foreach ($query->getParam('fl') as $key => $fieldname) {
+    if (in_array($fieldname, $text_fields)) {
+      $lang_fields = array_map(function ($lang) use ($fieldname) {
+        return $fieldname . '_' . $lang;
+      }, $languages);
+      $fl = array_merge($fl, $lang_fields);
+    }
+    else {
+      $fl[] = $fieldname;
+    }
+  }
+  $query->replaceParam('fl', $fl);
+
+  // Query fields
+  $qf = [];
+  foreach ($query->getParam('qf') as $key => $_qf) {
+    list ($fieldname, $boost) = explode('^', $_qf);
+    if (in_array($fieldname, $text_fields)) {
+      $lang_fields = array_map(function ($lang) use ($fieldname, $boost) {
+        $boost = empty($boost) ? '1.0' : $boost;
+        return $fieldname . '_' . $lang . '^' . $boost;
+      }, $languages);
+      $qf = array_merge($qf, $lang_fields);
+    }
+    else {
+      $qf[] = $_qf;
+    }
+  }
+  $query->replaceParam('qf', $qf);
+
+  // Highlight fields
+  $hl_fl = [];
+  foreach ($query->getParam('hl.fl') as $key => $fieldname) {
+    if (in_array($fieldname, $text_fields)) {
+      $lang_fields = array_map(function ($lang) use ($fieldname) {
+        return $fieldname . '_' . $lang;
+      }, $languages);
+      $hl_fl = array_merge($hl_fl, $lang_fields);
+    }
+    else {
+      $hl_fl[] = $fieldname;
+    }
+  }
+  $query->replaceParam('hl.fl', $hl_fl);
+  
+}
+
+/**
+ * Adds Solr subqueries to the main query, adding/removing access grants for a
+ * given user.
+ *
+ * @param object $account
+ *  An account to get grants for and build access subqueries.
+ *
+ * @param DrupalSolrQueryInterface $query
+ *  A Solr all 'query' objects interface, passed by reference.
+ */
+function gofast_search_query_alter_access($account, DrupalSolrQueryInterface &$query) {
+  $qs = $query->getFilterSubQueries();
+
+  if (!$access_subquery = array_shift($qs)) {
+    $access_subquery = apachesolr_drupal_subquery('OR');
+  }
+
+  // Orphan nodes : remove inclusion filter if any (GOFAST-4415)
+  if ($access_subquery->hasFilter('access_node_nn0szh_all', 0)){
+    $access_subquery->removeFilter('access_node_nn0szh_all');
+  }
+
+  // User visibility.
+  $admin_visibility = variable_get('gofast_admin_visibility', GOFAST_ADMIN_VISIBILITY_DEFAULT);
+  $user_partitioning = (int) variable_get('gofast_user_partitioning', GOFAST_USER_PARTITIONING_DEFAULT);
+  
+  if($admin_visibility == GOFAST_ADMIN_VISIBILITY_ON && gofast_user_is_adm($account)){
+      $access_subquery->addFilter('access__user', (int) ($user_partitioning != GOFAST_USER_PARTITIONING_ON));
+  }else{
+    switch ($user_partitioning) {
+      case GOFAST_USER_PARTITIONING_ON_ONLY_EXTRANET:
+        if (!gofast_user_is_extranet($account)) {
+          // nothing to do
+          break;
+        }
+        // else
+        $access_subquery->removeFilter('access__user', 1);
+        // no break intended, partitioning is ON for extranet users
+      case GOFAST_USER_PARTITIONING_ON:
+        $gids = gofast_og_get_spaces_by_user($account, FALSE);
+        $root = gofast_og_get_root_spaces(FALSE, TRUE);
+        $grants = array_diff($gids, $root);
+        $realm = 'gofast_partitioning';
+        $key = 'access_user_' . apachesolr_site_hash() . '_' . $realm;
+        foreach ($grants as $gid) {
+          $access_subquery->addFilter($key, $gid);
+        }
+        break;
+
+      case GOFAST_USER_PARTITIONING_OFF:
+      default:
+        // do nothing, query already hasFilter('access__user', 1)
+    }
+  }
+
+  // Add to the main query (space visibility filter may need another subquery).
+  $query->addFilterSubQuery($access_subquery);
+
+  // In case we want to enforce partitioning between extranet users and others
+//  if (gofast_user_is_extranet($account) && $user_partitioning) {
+//    $extranet_subquery = apachesolr_drupal_subquery('OR');
+//    $extranet_subquery->addFilter('bs_user', 0);
+//    $extranet_subquery->addFilter('bs_extranet', 1);
+//    $query->addFilterSubQuery($extranet_subquery);
+//  }
+
+  // Space visibility
+  $space_partitioning = (int) variable_get('gofast_og_partitioning', GOFAST_OG_PARTITIONING_DEFAULT);
+  switch ($space_partitioning) {
+    case GOFAST_OG_PARTITIONING_ON_ONLY_EXTRANET:
+      if (!gofast_user_is_extranet($account)) {
+        // User is not affected, nothing to do.
+        break;
+      }
+      // Else no break intended, partitioning is ON for extranet users
+    case GOFAST_OG_PARTITIONING_ON:
+      if($admin_visibility == GOFAST_ADMIN_VISIBILITY_ON && gofast_user_is_adm($account)){
+          break;
+      }
+      // We need another OR subquery to be ANDed with the rest
+      $space_access_subquery = apachesolr_drupal_subquery('OR');
+      // We want a contional filter: show space only if user is a member of,
+      // same as if 'not a space' OR 'any of user spaces'
+      $space_access_subquery->addFilter('bs_group_group', 0);
+      foreach (gofast_og_get_spaces_by_user($account) as $gid) {
+        $space_access_subquery->addFilter('entity_id', $gid);
+      }
+      $query->addFilterSubQuery($space_access_subquery);
+      break;
+
+    case GOFAST_OG_PARTITIONING_OFF:
+    default:
+      // do nothing
+  }
+}
+
+/**
+ * Apply search options (filters) to the passed in query (eg. archive, obsolete,
+ * deleted).
+ *
+ * @param DrupalSolrQueryInterface $query
+ * @param array $options
+ */
+function gofast_search_query_alter_from_options(DrupalSolrQueryInterface &$query, $options = NULL) {
+  if (empty($options)) {
+    $options = [];
+    if (isset($_COOKIE['search_params'])) {
+      foreach (explode('&', $_COOKIE['search_params']) as $option) {
+        list ($key, $value) = explode('=', $option);
+        $options[$key] = $value;
+      }
+    }
+    else {
+      $options = array_map(function ($item) {
+        return $item['value'];
+      }, gofast_search_options());
+    }
+  }
+
+  // Filtering (exclude by default) archived contents.
+  if (isset($options['include-archive'])) {
+    $term = reset((taxonomy_get_term_by_name('Pre-Archived', 'state')));
+    if (isset($term->tid)){
+      if ($options['include-archive']){
+        $query->addFilter('im_vid_' . GOFAST_VID_STATE, $term->tid, FALSE);
+      }
+      else {
+        $query->addFilter('im_vid_' . GOFAST_VID_STATE, $term->tid, TRUE);
+      }
+    }
+  }
+
+   // Filtering (exclude by default) obsolete contents.
+  if (isset($options['include-obsolete'])) {
+    $term = reset((taxonomy_get_term_by_name('obsolete', 'state')));
+    if (isset($term->tid)) {
+      $exclude = !$options['include-obsolete'];
+      $query->addFilter('im_vid_' . GOFAST_VID_STATE, $term->tid, $exclude);
+    }
+  }
+
+  // Filtering (exclude by default) deleted (drupal-unpublished) contents.
+  // by default we exclude them
+  // if a status filter is already into the request, don't do anything
+  if (!$query->hasFilter('bs_status', NODE_NOT_PUBLISHED)){
+    $query->addFilter('bs_status', NODE_NOT_PUBLISHED, TRUE);
+    if (isset($options['include-deleted']) && $options['include-deleted']) {
+      $query->removeFilter('bs_status');
+      $query->addFilter('bs_status', NODE_NOT_PUBLISHED, FALSE);
+    }
+  }
+}
+
+/**
+ * DrupalApacheSolrService::escape() equivalent but allow the use of '+' and '-'
+ * meaning users have to escape these characters themselves, otherwise they will
+ * be parsed as lucene operators.
+ */
+function gofast_search_escape($value) {
+  $pattern = '/(&&|\|\||!|\(|\)|\{|}|\[|]|\^|"|~|\*|\?|:|\\\)/';
+  return preg_replace($pattern, '\\\$1', $value);
+}
+
+/**
+ * Retrieve all of the suggestions that were given after a certain search
+ */
+function gofast_search_get_search_suggestions($env_id) {
+  ctools_include('gofast_search.suggest', 'gofast_search', '');
+  return _gofast_search_get_search_suggestions($env_id);
+}
+
+/**
+ * Solr process response callback.
+ */
+function gofast_search_process_response($response, DrupalSolrQueryInterface $query) {
+  $results = array();
+  // We default to getting snippets from the body content and comments.
+  $hl_fl = $query->getParam('hl.fl');
+  if (!$hl_fl) {
+    $hl_fl = array('content', 'ts_comments', 'tm_comments');
+  }
+  $total = $response->response->numFound;
+  pager_default_initialize($total, $query->getParam('rows'));
+  if ($total > 0) {
+    $fl = $query->getParam('fl');
+    $languages = language_list();
+    // 'id' and 'entity_type' are the only required fields in the schema, and
+    // 'score' is generated by solr.
+    foreach ($response->response->docs as $doc) {
+      $extra = array();
+      // Allow modules to alter each document and its extra information.
+      drupal_alter('apachesolr_search_result', $doc, $extra, $query);
+
+      // Start with an empty snippets array.
+      $snippets = array();
+
+      // Find the nicest available snippet.
+      foreach ($hl_fl as $hl_param) {
+        if (isset($response->highlighting->{$doc->id}->$hl_param)) {
+          // Merge arrays preserving keys.
+          foreach ($response->highlighting->{$doc->id}->$hl_param as $value) {
+            $snippets[$hl_param][] = $value;
+          }
+        }
+      }
+
+      // If there's no snippet at this point, add the teaser fallback.
+      /** @todo: rake this code and catch in preprocess_result */
+      if (!$snippets) {
+        if (isset($doc->teaser)) {
+          $snippets[] = $doc->teaser;
+        }
+        else {
+          $snippets[] = t('No overview available.', array(), array('context' => 'gofast:gofast_search'));
+        }
+      }
+
+      $hook = 'apachesolr_search_snippets__' . $doc->entity_type;
+      $bundle = !empty($doc->bundle) ? $doc->bundle : NULL;
+      if ($bundle) {
+        $hook .= '__' . $bundle;
+      }
+      $snippet = theme($hook, array('doc' => $doc, 'snippets' => $snippets));
+
+      if (!isset($doc->content)) {
+        $doc->content = $snippet;
+      }
+
+      // Normalize common dates so that we can use Drupal's normal date and
+      // time handling.
+      if (isset($doc->ds_created)) {
+        $doc->created = strtotime($doc->ds_created);
+      }
+      else {
+        $doc->created = NULL;
+      }
+
+      if (isset($doc->ds_changed)) {
+        $doc->changed = strtotime($doc->ds_changed);
+      }
+      else {
+        $doc->changed = NULL;
+      }
+
+      if (isset($doc->tus_name)) {
+        $doc->name = $doc->tus_name;
+      }
+      else {
+        $doc->name = NULL;
+      }
+
+      $doc->label = $doc->tus_label;
+
+      // Set all expected fields from fl to NULL if they are missing so
+      // as to prevent Notice: Undefined property.
+      $fl = array_merge($fl, array('path', 'label', 'score'));
+      foreach ($fl as $field) {
+        if (!isset($doc->{$field})) {
+          $doc->{$field} = NULL;
+        }
+      }
+
+      $fields = (array) $doc;
+      // Define our url options. They depend on the document language.
+      $url_options = array('absolute' => TRUE);
+      if (isset($doc->ss_language) && isset($languages[$doc->ss_language])) {
+        $url_options['language'] = $languages[$doc->ss_language];
+      }
+
+      $result = array(
+        // link is a required field, so handle it centrally.
+        'link' => url($doc->path, $url_options),
+        // template_preprocess_search_result() runs check_plain() on the title
+        // again.  Decode to correct the display.
+        'title' => htmlspecialchars_decode($fields['label'], ENT_QUOTES),
+        // These values are not required by the search module but are provided
+        // to give entity callbacks and themers more flexibility.
+        'score' => $doc->score,
+        'snippets' => $snippets,
+        'snippet' => $snippet,
+        'fields' => $fields,
+        'entity_type' => $doc->entity_type,
+        'bundle' => $bundle,
+      );
+
+      // Call entity-type-specific callbacks for extra handling.
+      $result_callback = apachesolr_entity_get_callback($doc->entity_type, 'result callback', $bundle);
+      if (is_callable($result_callback)) {
+        $result_callback($doc, $result, $extra);
+      }
+
+      $result['extra'] = $extra;
+
+      $results[] = $result;
+    }
+  }
+  // Hook to allow modifications of the retrieved results
+  foreach (module_implements('apachesolr_process_results') as $module) {
+    $process_results_callback = $module . '_apachesolr_process_results';
+    $process_results_callback($results, $query);
+  }
+  return $results;
+}
+
+/**
+ * Callback function for user search results.
+ *
+ * @param stdClass $doc
+ *   The result document from Apache Solr.
+ * @param array $result
+ *   The result array for this record to which to add.
+ */
+function gofast_search_user_result($doc, &$result, &$extra) {
+  $result['fields']['is_uid'] = $doc->entity_id;
+
+  $result += [
+    'type' => 'user',
+    'user' => $doc,
+    'date' => isset($doc->changed) ? $doc->changed : 0,
+    'uid' => $doc->is_uid,
+  ];
+}
+
+/**
+ * Callback function for node search results.
+ *
+ * This is a patched version of the default apachesolr_search callback. It will
+ * prevents error in user_view_access() where a real $account object is expected
+ * (here theme 'username' was given a fake user account).
+ *
+ * @param stdClass $doc
+ *   The result document from Apache Solr.
+ * @param array $result
+ *   The result array for this record to which to add.
+ */
+function gofast_search_node_result($doc, &$result, &$extra) {
+  $result += array(
+    'type' => node_type_get_name($doc->bundle),
+    'user' => $doc->tus_name,
+    'date' => isset($doc->changed) ? $doc->changed : 0,
+    'node' => $doc,
+    'uid' => $doc->is_uid,
+  );
+
+  if (isset($doc->is_comment_count)) {
+    $extra['comments'] = format_plural($doc->is_comment_count, '1 comment', '@count comments');
+  }
+}
+
+/**
+ * Invoked by apachesolr_search for the whole resultset returned in  a search.
+ *
+ * @param array $results
+ *  The returned search results.
+ *
+ * @param DrupalSolrQueryInterface $query
+ *  The query for which we want to process the results from
+ */
+function gofast_search_apachesolr_process_results(&$results, $query) {
+  $keywords = $query->getParam('q');
+  
+  foreach ($results as $key => &$result) {
+    $result['keywords'] = $keywords;
+  }
+  
+  if ($q !== '*:*') {
+    // Add settings for getting more snippets asynchronousl
+    $settings = [
+      'gofast_search' => [
+        'more-snippets-async' => TRUE, 
+        'q' => $keywords, 
+        'start' => $query->getParam('start'),
+        'rows' => $query->getParam('rows')
+      ]
+    ];
+    drupal_add_js($settings, 'setting');    
+  }
+
+  // Add search related css/js files.
+  drupal_add_library('gofast_search', 'main', TRUE);
+}
+
+function gofast_search_preprocess_page(&$variables) {
+  // Add required js file for the search box to work outside of the search page.
+  drupal_add_js(drupal_get_path('module', 'gofast_search') . '/js/gofast_search.js');
+}
+
+
+function gofast_search_preprocess_search_results(&$var) {
+  $results = $var['results'];
+
+  // By flagging this var, theme can choose to display or not sort block.
+  $var['sort'] = count ($results) > 1;
+
+  // Collect authors and modifiers uids from results and load all at once
+  // to leverage drupal load/cache process. We will retrieve user accounts
+  // individually from cache in single result preprocess function.
+  $uids = array();
+  foreach ($results as $key => $result) {
+    $uids[] = $result['fields']['is_uid'];
+    if (!empty($result['fields']['is_mod_uid'])) {
+      $uids[] = $result['fields']['is_mod_uid'];
+    }
+  }
+
+  user_load_multiple(array_unique($uids));
+
+//  _dump($var['results'], 'solr-result');
+}
+
+/**
+ *  Alter each document, add some extra information.
+ */
+function gofast_search_apachesolr_search_result_alter($doc, &$extra, $query) {
+//  $extra['q'] = $query->getParam('q');
+ // _dump(array($doc, &$extra, $query), 'solr-result');
+}
+
+/**
+ * Preprocess a search result
+ * @param type $var
+ */
+function gofast_search_preprocess_search_result(&$var) {
+  $result = &$var['result'];
+  $document = (object) $result['fields'];
+  $q = $result['keywords'];
+  
+  $entity_type = $var['entity_type'] = $result['fields']['entity_type'];
+  $entity_id = $var['entity_id'] = $result['fields']['entity_id'];
+  $bundle = $var['bundle'] = $result['fields']['bundle'];
+
+  $format = $var['format'] = $document->{'tm_vid_' . GOFAST_VID_FORMAT . '_names'}[0];
+  $hl_tags = '';
+  
+//  _debug_once($var);
+
+  if ($bundle == "user") {
+    $account = user_load($result["fields"]["entity_id"]);
+    if (gofast_user_view_access($account) === FALSE) {
+      $var['result'] = array();
+      $result = array();
+      $var["title"] = t("You don't have permission to view this profile.", array(), array('context' => 'gofast:gofast_user'));
+      $var["entity_id"] = "0";
+      $var["url"] = "";
+      $var["snippet"] = "";
+      $document->teaser = "";
+    }
+  }
+  elseif ($bundle == "group" || $bundle == "organisation" || $bundle == "extranet") {
+    $node = node_load($result["fields"]["entity_id"]);
+    if (!node_access("view", $node)) {
+      $var['result'] = array();
+      $result = array();
+      $var["title"] = t("You don't have permission to view this space.", array(), array('context' => 'gofast:gofast_user'));
+      $var["entity_id"] = "0";
+      $var["url"] = "";
+      $var["info"] = "";
+      $document->teaser = "";
+    }
+  }
+
+  /* Add "tags", "category" and "state" metadata to the search results */
+  
+  $vocabs = [
+    GOFAST_VID_TAGS => 'Tags', 
+    GOFAST_VID_CATEGORY => 'Category',
+    GOFAST_VID_STATE => 'State'
+  ];
+  
+  // Load and translate all terms at once. 
+  $terms = taxonomy_term_load_multiple($document->tid);
+  $loc_terms = i18n_taxonomy_localize_terms($terms);
+
+  foreach ($vocabs as $vid => $voc_label) {
+    $voc_terms = array_filter($loc_terms, function($term) use ($vid) {
+      return $term->vid == $vid; 
+    });
+    
+    if (empty($voc_terms))
+      continue;
+    
+    $term_names = '';
+    $voc_name = reset($voc_terms)->vocabulary_machine_name;
+    $voc_label = i18n_string_translate('taxonomy:vocabulary:' . $vid . ':name', $voc_label);
+    
+    foreach ($voc_terms as $term) {
+      $term_names .= '<span class="hl-tag">' . $term->name . '</span>&nbsp;';
+    }
+       
+    $hl_tags .= "<div class='tm_vid_{$vid}_names {$voc_name}' title='{$voc_label}'>{$term_names}</div>";    
+  }
+ 
+  /* DOCUMENT REFERENCE */
+  if (count($document->{'sm_unr_document_reference'}) > 0) {
+    $vocab_label = t("Document reference", array(), array('context' => 'gofast'));
+    $terms_state = "<span class='hl-document-reference'>" . $document->{'sm_unr_document_reference'}[0] . "</span>&nbsp;";
+    $hl_tags .= "<div class='tm_reference_names state' title='{$vocab_label}'>{$terms_state}</div>";
+  }
+
+  $textsnippet = $is_image = FALSE;
+  $lang_fields = _gofast_search_language_mapped_fields();
+  $label_fields = array_merge(['tws_label', 'tus_label'], $lang_fields['label']);
+  
+  $textfields = array_filter($lang_fields, function($field) {
+    return in_array($field, ['summary', 'content', 'tm_comments']);
+  }, ARRAY_FILTER_USE_KEY);
+  
+  $textfields = array_flatten($textfields + ['tus_content'], FALSE);
+  $final_snippets = "<table entity_type='{$entity_type}' etid='{$entity_id}' class='snippets' cellspacing='0' cellpadding='0' border='0' style='width:100%;'><tbody>";
+
+  // Trim every text field to avoid wrong (empty?like) test.
+  foreach ($textfields as $textfield) {
+    if (isset($document->{$textfield}))
+      $document->{$textfield} = is_array($document->{$textfield}) ?
+              array_map(function($item){ return trim($item); }, $document->{$textfield}) :
+              trim($document->{$textfield});
+  }
+
+  // If the result is an image file, add a preview
+  if ($is_image = ($format === 'Picture' && !empty($document->alfresco_reference))) {
+    $node = node_load($document->entity_id);
+    $img = '<img src="'.gofast_cmis_node_get_pdf_link($node).'" style="max-width:100%;max-height:100%;" />';
+    $final_snippets .= "<tr><td><div class='snippet-wrapper'><div class='snippet image-preview' style='cursor:pointer;' title='".t("Click to show full size", array(), array("context" => "gofast"))."' onClick='Gofast.modal(jQuery(this).html())'>{$img}</div></div></td></tr>";
+  }
+
+  // Highlight title
+  $hl_label = gofast_search_hl_label($document->tus_label, $result['snippets'], $q);
+  $var['title'] = htmlspecialchars_decode($hl_label);
+
+  foreach ($result['snippets'] as $field_name => $field_snip) {
+    if (!is_array($field_snip) || in_array($field_name, $label_fields, TRUE)) {
+      continue;
+    }
+    if (in_array($field_name, $textfields, TRUE)) {
+      // We have at least one text snippet.
+      $textsnippet = TRUE;
+    }
+    // Output hl strings as anchor links when possible so that user can find 
+    // the searched terms on the target page. 
+    gofast_search_hl_snippet_link($final_snippets, $entity_id, $bundle, $field_name, $field_snip, $q);
+  }
+
+  // Text snippet fallback : Add customized teaser if any, or a message if there
+  // is no overview field available.
+  if (!$textsnippet) {
+    if (!empty($document->teaser)) {
+      $teaser_fallback = $document->teaser;
+      $final_snippets .= "<tr><td><div class='snippet-wrapper'><div class='snippet fallback-teaser'>{$teaser_fallback}</div></div></td></tr>";
+    }
+    elseif (!$is_image) {
+      $teaser_fallback = '<span style="font-style:italic; color:#999;">' . t('No overview available.', array(), array('context' => 'gofast:gofast_search')) . '</span>';
+      $final_snippets .= "<tr><td><div class='snippet-wrapper'><div class='snippet fallback-teaser'>{$teaser_fallback}</div></div></td></tr>";
+    }
+  }
+
+  /* fast actions */
+  $fast_actions = '<div class="gofast-node-actions btn-group ">
+    <a class="btn btn-default btn-xs dropdown-toggle dropdown-placeholder" type="button" id="dropdown-placeholder-'.$entity_id.'" data-toggle="dropdown">
+      <span class="fa fa-bars"></span>
+      <ul class="dropdown-menu gofast-dropdown-menu" role="menu" id="dropdownactive-placeholder-'.$entity_id.'">
+        <li><div class="loader-activity-menu-active"></div></li>
+      </ul>
+    </a>
+  </div>';
+
+  $var['fast_actions'] = $fast_actions;
+
+  $final_snippets .= '</tbody></table>';
+  $var['snippet'] = $final_snippets;
+
+  $var['tags'] = $hl_tags;
+  $var['popularity'] = $result['fields']['ps_popularity'];
+
+  if ($document->is_uid > 1) {
+    $account = user_load($document->is_uid);
+    if (gofast_user_view_access($account) === FALSE) {
+      $var['author'] = "";
+    }
+    else {
+      $var['author'] = theme('user_picture', array('account' => $account, 'dimensions' => 20));
+    }
+  }
+  elseif ($bundle === 'alfresco_item') {
+    //Cannot retrieve the creator of the node, we need to ask alfresco
+    $last_version_item = array_pop(gofast_cmis_webservice_item_get_versions($document->alfresco_reference, true));
+    $user_creator = $last_version_item->creator;
+    $creator = user_load_by_name(array('name' => check_plain(gofast_alter_username_before_load($user_creator))));
+    $var['author'] = theme('user_picture', array('account' => $creator, 'dimensions' => 20));
+  }
+  $var['last_modifier'] = theme('user_picture', array('account' => user_load($document->is_mod_uid), 'dimensions' => 20));
+  $var['created_formatted'] = format_date($document->created);
+  $var['changed_formatted'] = format_date($document->changed);
+
+  // Use a dummy node object to avoid entity load when calling theme node_title.
+  // Add the bundle property to let our theme recognize user entity type.
+  $dummy = (object) array(
+      'nid' => $entity_id,
+      'title' => $var['title'],
+      'type' => $bundle,
+      'field_format' => array(
+        LANGUAGE_NONE => array(
+          array('tid' => $document->im_field_format[0])
+        )
+      )
+  );
+
+  $var['title'] = theme('node_title', array('node' => $dummy));
+  $var['url'] = isset($result['fields']['path_alias']) ? $result['fields']['path_alias'] : $result['fields']['path'];
+  
+  // Spaces (info output)
+  $gids = [];
+  $og_ref = $result[$entity_type]->{'sm_'. GOFAST_OG_CONTENT_MEMBERSHIP_FIELD} ?? [];
+  $og_root = gofast_og_get_root_spaces(FALSE, FALSE);
+  foreach($og_ref as $ref){
+    list (, $gid) = explode(':', $ref);
+    if (!in_array($gid, $og_root, TRUE)) {
+      $gids[] = $gid;
+    }
+  }
+  $og_labels = $gids ? implode('; ', gofast_get_node_title_multiple($gids)) : ''; 
+  $spaces = t('Spaces', [], ['context' => 'gofast:gofast_search']) . ': ' . $og_labels;
+  $var['spaces'] = truncate_utf8($spaces, 80, TRUE, TRUE, 10);
+  
+//  _debug_once($var);
+}
+
+/**
+ * Helper for highlighting label properly. 
+ */
+function gofast_search_hl_label($label, $snippets, $q) {
+  // In general lang/stemmed fields are ok for highighting in non-strict mode 
+  // but they will miss stopwords, while tus_*/tws_* are more precise but maybe
+  // too much sometimes. We will try to take the best hl string.
+  $hl_label = FALSE;
+  
+  $q = trim($q, " \t\n\r\0\x0B\"");
+  $keys = explode(' ', $q);
+  
+  $lang_fields = _gofast_search_language_mapped_fields();
+  $label_fields = array_merge(['tws_label', 'tus_label'], $lang_fields['label']);
+  $strict_search = !$_COOKIE["strict_search"] || $_COOKIE["strict_search"] === "true";
+  
+  if (!$strict_search) {
+    // We can try to combine the hl strings returned from the matching lang fields, 
+    // which discards stopwords, with those from tus_*/tws_* fields, highlighting  
+    // stopwords but discarding stemmed words.
+    $candidates = ['_combined_' => []];
+    $best = [];
+    
+    foreach ($label_fields as $label_field) {
+      if (!in_array($label_field, array_keys($snippets), TRUE)) {
+        continue;
+      }
+      
+      $l_snip = $snippets[$label_field][0];
+      
+      if (preg_match_all('/:hl-pre:(.+?):hl-post:/', $l_snip, $matches, PREG_OFFSET_CAPTURE)) {
+        // In lang/stemmed fields matches are expanded to neighbour tokens, we 
+        // need to check if delimiters are present in the match and remove any
+        // tokens that shouldn't be there.        
+        $hl_terms = array_slice($matches, 1)[0];
+        
+        if (in_array($label_field, $lang_fields['label'])) {
+          $fix = _gofast_search_fix_hl_label($hl_terms, $keys);
+          // Use union operator to let $fix override $hl_terms based on keys.
+          $hl_terms = $fix + $hl_terms;
+        }
+
+        // Capture terms with offsets foreach candidate + _combined_.
+        $candidates[$label_field] = $hl_terms;
+        $count_tags = count($candidates[$label_field]);
+        
+        for ($i=0; $i < $count_tags; $i++) {
+          $c = $candidates[$label_field][$i];
+          list($term, $offset) = $c;
+          $_offset = $offset - (($i+1)*8 + $i*9);
+          
+          // Keep longest match at same offset.
+          if (!isset($candidates['_combined_'][$_offset]) || strlen($candidates['_combined_'][$_offset]) < strlen($term)) {
+            $candidates['_combined_'][$_offset] = $term;
+          }
+        }
+        
+        // Keeping track of the best hl field to compare with _combined_. 
+        if (empty($best) || $count_tags > $best['tag_count']) {
+          $best = [
+            'field' => $label_field, 
+            'tag_count' => $count_tags
+          ];
+        }
+      }
+    }
+    
+    if (count($candidates['_combined_']) > $best['tag_count']) {
+      // We have a good candidate, reorder by offset for ltr replacements.
+      ksort($candidates['_combined_']);
+      $hl_label = $label;
+      $offset_from = $offset_from = $m = 0;
+      
+      foreach ($candidates['_combined_'] as $offset => $term) {
+        $pos = strpos($label, $term, $offset_from);
+        $offset_to = $offset + ($m*17);
+        // Replace only if offsets match. 
+        if ($pos !== FALSE && $pos === $offset) {
+          $pattern = $offset_to > 0 ? "/^(.{{$offset_to}})({$term})(.*)/" : "/^()({$term})(.*)/";
+          $hl_label = preg_replace($pattern, '$1:hl-pre:$2:hl-post:$3', $hl_label, 1);
+          $m++; 
+        }
+        $offset_from = $offset + strlen($term);
+      }
+      
+      // Check the effective number of tags after replacments.
+      if ($m < $best['tag_count']) {
+        $hl_label = FALSE;
+      }
+    }
+  }
+  
+  // In non strict search, we may have a $hl_label combination from above ready
+  // to be used, or if $hl_label is unset|FALSE fallback as in strict search.
+  // In strict search, we take the label fields by order of precision to get the 
+  // best snippet (keeping the first match). 
+  if (!$hl_label) {
+    $hl_label = $label;
+    foreach ($label_fields as $label_field) {
+      if (in_array($label_field, array_keys($snippets), TRUE)) {
+        $hl_label = $snippets[$label_field][0];
+        break;
+      }
+    }
+  }
+  
+  $hl_label = str_replace([' ... ', ':hl-pre:', ':hl-post:'], ['', '<em class=\'solr-highlight\'>', '</em>'], $hl_label);
+
+  return $hl_label;
+}
+
+/**
+ * Helper function meant to fix highlight on label lang fields.
+ */
+function _gofast_search_fix_hl_label($hl_terms, $keys) {
+  $fix = [];
+  
+  $esc_keys = array_map(function ($key) {
+    return preg_quote($key, '/');
+  }, $keys);  
+  
+  foreach ($hl_terms as $k => $hl_term) {
+    list ($term, $offset) = $hl_term;
+    $sub_words = preg_split('/[^a-zA-Z0-9]/', $term);
+    
+    if (!(count($sub_words) > 1)) {
+      continue;
+    }
+    
+    $_k = $k;
+    foreach ($esc_keys as $key) {
+      $pos = 0;
+      
+      foreach ($sub_words as $sub_word) {
+        $pos = stripos($term, $sub_word, $pos);
+        $_offset = $offset + $pos;
+        
+        if (preg_match("/{$key}.*?/i", $sub_word)) {
+          $fix[$_k] = [$sub_word, $_offset];
+          $_k++;
+        }
+      }
+    }
+  }
+  
+  return $fix;
+}
+
+/**
+ * Appends themed highlight snippets to $output.
+ * Replace hl.tags by html tags, creating a link to the matched entity with
+ * parameters for highlighting terms on the target page when possible. 
+ * Fix highlighter over-splitting by merging contiguous tags or when separated 
+ * by a word delimiter (hl takes matched tokens from query, cf. WDF delimiters).
+ */
+function gofast_search_hl_snippet_link(&$output, $entity_id, $bundle, $field_name, $snippets, $q) {
+  $q = trim($q, " \t\n\r\0\x0B\"");
+  $keys = explode(' ', $q);
+  $esc_keys = array_map(function ($key) {
+    return preg_quote($key, '/');
+  }, $keys);
+  
+  $strict_search = !$_COOKIE["strict_search"] || $_COOKIE["strict_search"] === "true";
+  
+  $entity_type = $bundle === 'user' ? 'user' : 'node';
+  $og_bundles = array_keys(gofast_og_node_types());
+  $is_space = in_array($bundle, $og_bundles);
+  
+  $m1 = preg_match('/tm_vid_(\d+)_names/', $field_name, $taxo_tids);
+  $m2 = preg_match('/sm_vid_(.+)/', $field_name, $taxo_tnames);
+  
+  // If $field_name is a taxonomy field
+  if ($m1 || $m2) {
+    // nothing to do. 
+    return;
+  }
+
+  // Highlighting snippets on the target ressource.
+  $target = FALSE;
+
+  $langs = _gofast_search_language_list(TRUE);
+  $lang_suffix = array_map(function($lang) { return '_' . $lang; }, $langs);
+  $_field_name = str_replace($lang_suffix, '', $field_name);
+
+  if ($entity_type === 'user') {
+    $target = 'user';
+  }
+  elseif (in_array($_field_name, ['summary', 'content', 'tus_content'])) {
+    $target = 'content';
+    if ($bundle === 'alfresco_item' && $_field_name !== 'summary') {
+      $target = 'doc-content';
+    }
+  }
+  elseif (in_array($_field_name, ['tm_comments', 'tum_comments'])) {
+    $target = 'comment';
+  }
+
+  foreach ($snippets as $key => $snippet) {
+    if (empty($snippet))
+      continue;
+    
+    // Replace extra spaces by a delimiter to prevent weird result. 
+    $snippet = preg_replace('/\s\s+/', ' | ', $snippet);    
+        
+    // Replace non-breaking whitespaces to prevent overflowing content.
+    $snippet = preg_replace('/(?:&nbsp;|&#160;|&#xA0;|\xa0|\x{00A0})+?/um', ' ', $snippet);
+
+    // Prevent breaking html entities. 
+    $pattern = [
+      '/&:hl-pre:(gt|lt|amp|quote|#039)(?::hl-post:;|;:hl-post:)/', 
+      '/:hl-pre:&(gt|lt|amp|quote|#039)(?::hl-post:;|;:hl-post:)/'
+    ];
+    $snippet = preg_replace($pattern, ':hl-pre:&$1;:hl-post:', $snippet);
+
+    // Merge ~contiguous highlighted terms (except when the preceding term is 
+    // already a full match). If keywords contain whitespace(s), include \s
+    // as a delimiter (don't exclude it).
+    $ws = preg_match('/\s/', $q) ? '' : '\s';
+    $del = '[^a-zA-Z0-9'. $ws .']?';
+    
+    // In non strict search we would include any keys parsed from query to catch 
+    // non-highlighted stopwords, in which case we can assume they behave as 
+    // delimiters here. We also consider any one letter word left alone between 
+    // two tags as a stopword (but not with digits).
+    if (!$strict_search) {
+      $special = mb_str_split(_gofast_search_special_chars());
+      // Seems PHP regex can't handle mb-strings in character range, so we try 
+      // to match them using OR conditions. 
+      $or = array_merge(['[a-zA-Z]'], $esc_keys, $special);
+      $stop = '(?:'. implode('|', $or) .')?';
+      $del = $del . $stop . $del;
+    }
+        
+    $pattern = '/(?<!' . preg_quote($q, '/') . "):hl-post:({$del}):hl-pre:/";
+    $prevent_loop = 30; // that many replacements should not happen.
+
+    while (1) {
+      // Do one replacement at a time instead of a global replacement. This is 
+      // intended as we need the lookbehind assertion to be false for each 
+      // potential replacement considering the previous one.
+      $str = preg_replace($pattern, '$1', $snippet, 1);
+      if ($str != $snippet && --$prevent_loop >= 0) {
+        $snippet = $str;
+        continue;
+      }
+      break;
+    }
+
+    // @TODO remove highlight on stopword ? 
+    // Check lang, if not und load stopword.<lang> from solr config.
+    // Set/load static cache for next result.
+    // Strip tags from snippet if a tag is highlighting a stopword alone and
+    // the previous/next tags, if any, are not directly preceding or following
+    // the stopword.
+
+    // Stripped string used for finding the snippet on the target page.
+    $snip_str = str_replace(array(':hl-pre:', ':hl-post:'), '', $snippet);
+
+    // Set the selector for finding the snippet on the target page.
+    switch ($target) {
+      case 'doc-content':
+        $selector = FALSE;
+        break;
+      case 'content':
+        $selector = '#' . ($bundle === 'forum' ? 'post' : $entity_type) . "-{$entity_id}";
+        if ($is_space) {
+          $selector .= ' #oghome';
+        }
+        break;
+      case 'user':
+        $selector = '#gofast-profile-view';
+        break;
+      case 'comment':
+        $selector = $bundle === 'forum' ? "#post-{$entity_id} + #comments-container" : "#{$entity_type}-{$entity_id} #comments-container";
+        break;
+    }
+
+    // Replace hl tags by html tags, creating a link to the matched entity 
+    // with parameters for finding hl terms on the page. 
+    $pattern = '/:hl-pre:(.*?):hl-post:/';
+    $snippet = preg_replace_callback($pattern, function($match) use ($selector, $snip_str, $entity_type, $entity_id, $is_space) {
+      if ($selector) {
+        // Query params are used to highlight snippets on target page, if the
+        // page is ajax-loaded, highlighting can be managed using attributes.            
+        $options = [
+          'absolute' => TRUE, // required to prevent ajax-nav bug when the snippet contains an url scheme.
+          'query' => ['word' => $match[1], 'snippet' => $snip_str, 'selector' => $selector],
+          'attributes' => [
+            'word' => $match[1],
+            'snippet' => $snip_str,
+            'class'=> 'ajax-navigate go-search-snippet',
+            'etid' => $entity_id,
+          ]
+        ];
+        if ($is_space) {
+          $options['fragment'] = 'oghome';
+        }
+      }
+      else {
+        $options = [
+          'absolute' => TRUE,
+          'attributes' => ['etid' => $entity_id]
+        ];
+        $options['query'] = ['search' => $match[1]];
+      }
+
+      $href = url("{$entity_type}/{$entity_id}", $options);
+      return '<a href="'.$href.'" ><em class="solr-highlight">' . $match[1] . '</em></a>';
+
+    }, $snippet);
+
+    // Show only the first text snippet since we use a pagination table to
+    // slide across all snippets.
+    $style = $key > 1 ? 'style="display:none;"' : '';
+    $snippet_wrapper = "<tr {$style}><td width='95%'>"
+    . "<div class='snippet-wrapper'>"
+    . "<div class='snippet {$field_name}'> ... {$snippet} ... </div>"
+    . "</div></td></tr>";
+
+    $output .= $snippet_wrapper;
+  }
+}
+
+function gofast_search_apachesolr_search_page_alter($results, $search_page, $build) {
+  //_debug(array($results, $search_page, $build), '', true);
+}
+
+function gofast_search_prevents_indexation($eids, $message = '', $chunk_size = NULL) {
+  $eids = (array) $eids;
+  $count = count($eids);
+
+  // Low down the set of documents & let solr retry on next cron...
+  if ($count > 1) {
+    $docs_chunk = min($count, variable_get('apachesolr_cron_limit', GOFAST_SEARCH_CRON_LIMIT_DEFAULT));
+    $size = $chunk_size > 0 ? $chunk_size : ceil($docs_chunk / 2);
+    watchdog('Gofast Search', 'Reducing index chunk size to ' . $size . ' docs.');
+    variable_set('apachesolr_cron_limit', $size);
+    return;
+  }
+
+  $nid = $eids[0];
+  watchdog('Gofast Search', 'Excluding node ' . $nid . ' from the index.');
+
+  // Exclude the incriminated node from index & reset apachesolr_cron_limit.
+  $excluded = variable_get('gofast_search_index_node_exclude', array());
+  $dump = '<div style="font-size:0.8em;">List of nodes already excluded from index : <br />' . array_to_html($excluded) . '</div>';
+
+  $date = date('D M H:i', time());
+  $excluded[$nid] = $date . ' :<br /><br />' . $message;
+  variable_set('gofast_search_index_node_exclude', $excluded);
+  variable_set('apachesolr_cron_limit', GOFAST_SEARCH_CRON_LIMIT_DEFAULT);
+
+  // Send notifications to admins
+  if(module_exists('gofast_community')){
+    $message = "<span style='font-weight:bold;color:#DA292F;'>{$date}<br /><br />{$message}.</span><br /><br /><br />{$dump}";
+    gofast_mail_report('Solr indexation failed', $message, array('nid' => $nid));
+  }
+}
+
+/**
+ * Prevents from crashing while extracting content from a document. Tika won't
+ * re-attempt extraction on next cron run.
+ * @param type $nid
+ * @param type $error
+ */
+function gofast_search_prevents_extraction($nid, $error) {
+  watchdog('Gofast Search', 'Excluding node ' . $nid . ' from content extraction.');
+
+  // Update the list of "documents NOT to extract"
+  $excluded = variable_get('gofast_search_tika_node_exclude', array());
+  $dump = '<div style="font-size:0.8em;">List of nodes already excluded from Tika :<br />' . array_to_html($excluded) . '</div>';
+
+  $date = date('D d M H:i', time());
+  $excluded[$nid] = array('date' => $date) + $error;
+  variable_set('gofast_search_tika_node_exclude', $excluded);
+
+  // If the script fails before arriving here, we will still be able to avoid a
+  // Tika re-attempt on next cron run by testing this flag.
+  variable_del('gofast_search_tika_is_working');
+
+  // Create report for admins.
+  global $base_url;
+  $subject = 'Tika extraction failed';
+  $nodelink = "<a style='font-weight:bold;' href='{$base_url}/node/{$nid}'>{$nid}</a>";
+  $message = "<span style='font-weight:bold;color:#DA292F;'>{$date}<br /><br />{$subject} on node {$nodelink}.</span><br /><br /><br />{$dump}";
+  //gofast_mail_report($subject, $message, array('nid' => $nid));
+  // The report sending is scheduled on next cron run since php has not enough
+  // memory to process notification templates now.
+  $report = variable_get('gofast_mail_report_scheduled', array());
+  $report[] = array('subject' => $subject, 'message' => $message, 'context' => array('nid' => $nid));
+  variable_set('gofast_mail_report_scheduled', $report);
+}
+
+/**
+ * Shutdown function used for unexpected termination of code
+ */
+function gofast_shutdown_handler() {
+  // Note: Le dossier de travail du script peut changer dans la fonction
+  // d'extinction sur certains serveurs web comme Apache.
+  if ($error = error_get_last()) {
+    global $tika_runs, $solr_runs, $elysia_cron_current_channel, $cron_completed;
+    $message = '';
+    foreach ($error as $key => $value) {
+      $message .= "{$key} : {$value} <br />";
+    }
+    //watchdog('gofast_shutdown_handler', $message);
+    if ($nid = $tika_runs) {
+      // If code breaks while Tika is running, increase memory limit to delay
+      // the script crash.
+      ini_set('memory_limit', '512M');
+      $tika_runs = FALSE;
+      // Do not re-attempt to extract this content.
+      gofast_search_prevents_extraction($nid, $error);
+    }
+    elseif (is_array($eids = $solr_runs)) {
+      // If code breaks while adding documents to Solr, try to reduce the chunk
+      // size. As a last resort, if the offending document has been identified,
+      // prevent any reindexing attempt.
+      $solr_runs = FALSE;
+      gofast_search_prevents_indexation($eids, $message);
+    }
+    elseif (!$cron_completed && elysia_cron_is_channel_running($elysia_cron_current_channel)) {
+      // Cron semaphore is still locked, see if it's related to Solr.
+      $last_job = elysia_cron_execute_aborted($elysia_cron_current_channel);
+      if ($last_job === 'apachesolr_cron') {
+        _gofast_search_cron_error_handler($message);
+      }
+    }
+  }
+}
+
+function _gofast_search_cron_error_handler($error_msg) {
+  // Error (probably OOM) occured after a single entity extraction or indexing
+  // process, and before sending indexed documents to Solr for committing. Try
+  // to identify any offending node, otherwise ensure that the set of documents
+  // to index next run is reduced to prevent error loops.
+  $chunk_size = variable_get('apachesolr_cron_limit', GOFAST_SEARCH_CRON_LIMIT_DEFAULT);
+  $nodes = apachesolr_index_get_entities_to_index(GOFAST_SEARCH_ENV_ID, 'node', $chunk_size);
+  $eids = array_keys($nodes);
+  $index = FALSE; $_chunk_size = NULL;
+  if ($nid = _gofast_search_static_node()) {
+    if (isset($nodes[$nid])) {
+      $index = array_search($nid, $eids);
+      if ($index === 0) {
+        // Exclude this one.
+        $eids = array($nid);
+      }
+      elseif ($index !== FALSE) {
+        // Reduce the chunk size accordingly.
+        $_chunk_size = $index;
+      }
+    }
+  }
+  gofast_search_prevents_indexation($eids, $error_msg, $_chunk_size);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter()
+ *  Alter the search form provided by apachesolr module search_custom_page.
+ */
+function gofast_search_form_apachesolr_search_custom_page_search_form_alter(&$form, &$form_state) {
+  ctools_include('gofast_search.suggest', 'gofast_search', '');
+
+  // Add a clearfix class so the results don't overflow onto the form.
+  $form['#attributes']['class'][] = 'clearfix';
+
+  // Remove container-inline from the container classes.
+  $form['basic']['#attributes']['class'] = array();
+
+  // Hide the default button from display.
+  $form['basic']['submit']['#attributes']['class'][] = 'element-invisible';
+
+  // Implement a theme wrapper to add a submit button containing a search
+  // icon directly after the input element.
+  $form['basic']['keys']['#theme_wrappers'] = array('bootstrap_search_form_wrapper');
+  $form['basic']['keys']['#title'] = '';
+  $form['basic']['keys']['#title_display'] = 'invisible';
+
+  $form['basic']['keys']['#attributes']['placeholder'] = t('Search', array(), array('context' => 'gofast'));
+  $form['basic']['keys']['#attributes']['title'] = t('Append "*" to a keyword to match every terms beginning with this keyword. Prepend "+" to keyword to make it mandatory.',
+                                                      array(), array('context' => 'gofast:gofast_search'));
+
+  // Attach search xAc settings to the form.
+  $form['basic']['keys']['#xac'] = gofast_search_autocomplete_settings();
+
+  // Set autocomplete path and prevent ac icon display.
+  $form['basic']['keys']['#no_icon'] = 1;
+
+  // Search options: restrict title, exclude archive, keep filters...
+  $options = gofast_search_options();
+
+  $items = array();
+  foreach ($options as $name => $option) {
+    $form['basic'][$name] = array (
+      '#type' => 'hidden',
+      '#default_value' => $option['value'],
+    );
+}
+
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter()
+ *  Alter the search block form.
+ */
+function gofast_search_form_search_block_form_alter(&$form, &$form_state) {
+  ctools_include('gofast_search.suggest', 'gofast_search', '');
+
+  $form['search_block_form']['#xac'] = gofast_search_autocomplete_settings();
+  $form['search_block_form']['#no_icon'] = 1;
+
+  // Adds a submit handler.
+  $form['#submit'][] = 'gofast_search_box_form_submit';
+}
+
+/**
+ * Search block form submit handler.
+ */
+function gofast_search_box_form_submit(&$form, &$form_state) {
+  if ($form_state['values']['search_block_form'] !== '') {
+    return;
+  }
+
+  $errors = form_get_errors();
+  if (isset($errors['keys'])) {
+    // Prevent drupal from showing this error, "no keywords" is intended and we
+    // implement a specific behavior for it when it happens.
+    $error = t('Please enter some keywords.', array(), array('context' => 'gofast:gofast_search'));
+
+    $_errors = &drupal_static('form_set_error', array());
+    if ($_errors['keys'] === $error) {
+      unset($_errors['keys']);
+    }
+
+    if (isset($_SESSION['messages']['error'])) {
+      $messages = $_SESSION['messages']['error'];
+      $key = array_search($error, $messages);
+
+      if ($key !== FALSE) {
+        unset($_SESSION['messages']['error'][$key]);
+      }
+
+      if (empty($_SESSION['messages']['error'])) {
+        unset($_SESSION['messages']['error']);
+      }
+    }
+  }
+}
+
+/**
+ * Return user-defined search options
+ */
+function gofast_search_options() {
+  $options = array();
+
+  if (isset($_COOKIE['search_params']) && $_options = explode('&', $_COOKIE['search_params'])) {
+    $_form_opt = array('keys', 'get', 'form_build_id', 'form_token', 'form_id', 'addrs_hidden');
+
+    array_walk($_options, function ($v, $k) use (&$options, $_form_opt) {
+      list ($k, $v) = explode('=', $v);
+      // Keep only user-defined options.
+      if (!in_array($k, $_form_opt)) {
+        $options[$k]['value'] = $v;
+      }
+    });
+  }
+
+  // Merge in defaults, restricted by permissions.
+  $defaults = gofast_search_options_defaults();
+  gofast_search_options_access_filter($defaults);
+  $options = drupal_array_merge_deep($defaults, $options);
+
+  return $options;
+}
+
+/**
+ * Return default parameters for the search form options.
+ */
+function gofast_search_options_defaults() {
+  return array(
+    'retain-filters' => array(
+      'title' => t('Retain current filters', array(), array('context' => 'gofast:gofast_search')),
+      'value' => 1
+    ),
+    'restrict' => array(
+      'title' => t('Only in title', array(), array('context' => 'gofast:gofast_search')),
+      'value' => 0
+    ),
+    'include-archive' => array(
+      'title' => t('Search into archived contents', array(), array('context' => 'gofast:gofast_search')),
+      'value' => 0
+    ),
+    'include-obsolete' => array(
+      'title' => t('Search into obsolete contents', array(), array('context' => 'gofast:gofast_search')),
+      'value' => 0
+    ),
+    'include-deleted' => array(
+      'title' => t('Search into trash', array(), array('context' => 'gofast:gofast_search')),
+      'value' => 0,
+    )
+  );
+}
+
+/**
+ * Filter search options array depending on each required permission.
+ */
+function gofast_search_options_access_filter(array &$options, $account = NULL) {
+  foreach ($options as $name => $option)
+    if (isset($option['permissions']))
+      foreach ($option['permissions'] as $permission)
+        if (!user_access($permission, $account))
+          unset($options[$name]);
+
+  return $options;
+}
+
+/**
+ * Returns Gofast Search fields that are to be indexed in both their respective
+ * solr fields and in exact_match field, along with a flag for multivalues.
+ */
+function gofast_search_text_input_fields($fm_flag = FALSE) {
+  $fields = array(
+    'label' => FALSE,
+    'summary' => FALSE,
+    'content' => FALSE,
+    'tm_comments' => TRUE
+  );
+
+  return $fm_flag ? $fields : array_keys($fields);
+}
+
+
+function gofast_search_qf_alter_boost(array $qf, $multiplier) {
+  foreach ($qf as $key => &$field) {
+    list ($fieldname, $boost) = array_pad(explode('^', $field), 2, NULL);
+    if (!isset($boost))
+      $boost = 1;
+    $field = implode('^', array($fieldname, (int)($boost * $multiplier) . '.0'));
+  }
+  return $qf;
+}
+
+/**
+ * Implements hook_form_formID_alter()
+ *  Administration - Prepend submit handler to Gofast visibility form.
+ */
+function gofast_search_form_gofast_admin_visibility_settings_form_alter(&$form, &$form_state) {
+  array_unshift($form['#submit'], 'gofast_search_form_gofast_admin_visibility_settings_submit');
+}
+
+/**
+ * Gofast visibility form submit handler.
+ *
+ *  Checks user/space partitioning and triggers reindexing for the affected
+ *  entity when necessary.
+ */
+function gofast_search_form_gofast_admin_visibility_settings_submit($form, $form_state) {
+  // User visibility.
+  $current = (int) variable_get('gofast_user_partitioning', GOFAST_USER_PARTITIONING_DEFAULT);
+  $setting = (int) $form_state['values']['user_partitioning'];
+  if ($setting !== $current) {
+    // User profiles need reindexing.
+    watchdog('Gofast Search', 'Reindexing users');
+    apachesolr_user_solr_reindex(GOFAST_SEARCH_ENV_ID);
+  }
+
+  // Space visibility
+  // No need to reindex, only query alter is needed.
+}
+
+/**
+ * Implements hook_entity_delete()
+ */
+function gofast_search_entity_delete($entity, $entity_type) {
+  list($entity_id,,) = entity_extract_ids($entity_type, $entity);
+  $hash = _gofast_search_entity_hash($entity_type, $entity_id);
+
+  // Mark this entity as being deleted so we can react accordingly.
+  _gofast_search_static_deleted($hash);
+
+  // If this entity is a space, we have to maintain the hierchical facetting for
+  // the node descendants that are not removed because multifilled elsewhere.
+  if (gofast_og_is_space($entity)) {
+    $nodes = $spaces = gofast_og_get_children($entity_id, TRUE, TRUE, TRUE);
+    foreach ($spaces as $gid => $space) {
+      $nodes += gofast_og_get_content($gid, TRUE);
+    }
+    apachesolr_index_nodeapi_mass_update($nodes);
+  }
+}
+
+/**
+ * Generates a hash for entity lookups.
+ */
+function _gofast_search_entity_hash($entity_type, $entity_id) {
+  return $entity_type . ':' . $entity_id;
+}
+
+/**
+ * Maintains a static hash table so we can lookup deleted entities.
+ */
+function _gofast_search_static_deleted($hash = NULL) {
+  $deleted = &drupal_static(__FUNCTION__, array());
+  if ($hash) {
+    $deleted[$hash] = 1;
+  }
+  return $deleted;
+}
+
+/**
+ * Helper that returns whether or not an en entity is (being) deleted or not.
+ * Unpublished nodes are not deleted and can be loaded, so this function will
+ * return TRUE for such nodes.
+ *
+ * @returns boolean
+ *  TRUE if the entity is deleted or being deleted, FALSE otherwise.
+ */
+function _gofast_search_is_deleted($entity_type, $entity_id) {
+  $hash = _gofast_search_entity_hash($entity_type, $entity_id);
+  $deleted = _gofast_search_static_deleted();
+  return array_key_exists($hash, $deleted) || !entity_load($entity_type, array($entity_id));
+}
+
+/*
+ * return the node's indexation status
+ * "never" if the node has never been indexed
+ * true if node is well indexed
+ * "not_yet" if node has been changed but not yet indexed
+ * "excluded_index" if node is excluded from indexation
+ * "excluded_extract" if node is excluded from content extraction
+ * false if the nid doesn't exists
+ */
+
+function gofast_search_get_node_indexation_status($nid) {
+  $node = node_load($nid);
+
+  if (!isset($node->nid)) {
+    return false;
+  }
+
+  $last_modified = db_query("SELECT changed FROM {apachesolr_index_entities_node} WHERE entity_id = '" . $nid . "'")->fetchObject()->changed;
+  $last_index_position = apachesolr_get_last_index_position(GOFAST_SEARCH_ENV_ID, "node");
+  $timestamp_last_index = $last_index_position["last_changed"];
+
+  $excluded = variable_get('gofast_search_index_node_exclude', array());
+  if (isset($excluded[$nid])) {
+    return 'excluded_index';
+  }
+
+  if (in_array($node->nid, array_keys(variable_get('gofast_search_tika_node_exclude', array())))) {
+    return 'excluded_extract';
+  }
+
+  if ($node->created > $timestamp_last_index) {
+    return 'never';
+  }
+
+  if ($last_modified > $timestamp_last_index) {
+    return "not_yet";
+  }
+
+  if ($last_modified < $timestamp_last_index) {
+    return true;
+  }
+}
+
+/*
+ * Implements gofast_api_RESSOURCE_ACTION
+ * Ressource : search
+ * Action : search
+ */
+
+function gofast_api_search_search($params) {
+  //Check method
+  if ($params['method'] !== "POST") {
+    return gofast_api_not_implemented("This method");
+  }
+
+  //Check content type
+  if (strpos($params['Content-Type'], "application/json") === FALSE) {
+    return gofast_api_not_implemented("This Content-Type");
+  }
+
+  //Check authentication
+  global $user;
+  if ($user->uid == 0) {
+    gofast_api_not_authorized("Unavailable ressource for anonymous user");
+  }
+
+  //Check if we have a query param
+  if (isset($params['query'])) {
+    $query = $params['query'];
+  }
+
+  //Retrieve search filters
+  if (isset($params['filters'])) {
+    $filters = $params['filters'];
+  }
+
+  $conditions = apachesolr_search_conditions();
+
+  foreach ($filters as $filter_name => $filter) {
+    $conditions['fq'][] = $filter_name . ":" . $filter;
+  }
+
+  $results = apachesolr_search_search_execute($query, $conditions);
+
+  //Format results
+  foreach ($results as &$result) {
+    unset($result['snippets']);
+    unset($result['snippet']);
+    unset($result['extra']);
+    unset($result['keywords']);
+
+    $result['popularity'] = $result['score'];
+    unset($result['score']);
+  }
+
+  $results['results'] = count($results);
+
+  gofast_api_success($results);
+}
+
+function gofast_search_form_alter(&$form, &$form_state) {
+
+  if ($form['#form_id'] === 'user_profile_form') {
+    $form["field_saved_searches"]["#access"] = 0;
+  }
+  elseif ($form['#form_id'] === 'search_block_form') {
+    // print_r("<pre>");print_r($form);exit;
+  }
+}
+
+function gofast_search_block_view($delta = '') {
+  $detect = new Mobile_Detect;
+
+  if ($detect->isMobile() || $detect->isTablet()) {
+
+  }
+  else {
+    $block = array();
+    $subject = $content = '';
+
+    switch ($delta) {
+      case 'gofast_saved_searches':
+        $content = gofast_search_get_block_saved_searches();
+        break;
+      case 'gofast_saved_searches_fastaccess':
+        $content = gofast_search_get_block_fastaccess_saved_searches();
+        break;
+    }
+
+    $block['subject'] = $subject;
+    $block['content'] = $content;
+
+    return $block;
+  }
+}
+
+function gofast_search_block_info() {
+  $blocks['gofast_saved_searches'] = array(
+    'info' => t('Saved searches', array(), array('context' => 'gofast')),
+    'cache' => DRUPAL_CACHE_PER_PAGE,
+    'weight' => -40,
+    'status' => 1,
+    'region' => 'sidebar_second',
+    'visibility' => BLOCK_VISIBILITY_PHP,
+    'pages' => '<?php return false; ?>', // @todo
+  );
+
+  $blocks['gofast_saved_searches_fastaccess'] = array(
+    'info' => t('Fast access to saved searches', array(), array('context' => 'gofast')),
+    'cache' => DRUPAL_CACHE_PER_PAGE,
+    'weight' => -40,
+    'status' => 1,
+    'region' => 'navigation',
+    'visibility' => BLOCK_VISIBILITY_PHP,
+    'pages' => '<?php return false; ?>', // @todo
+  );
+
+  return $blocks;
+}
+
+function gofast_search_get_block_fastaccess_saved_searches() {
+  global $user;
+
+  $content = '<span id="dropdown-menu-page-search" style="display: none;">
+                <button class="btn-default btn" style="border-left:none;border-bottom-left-radius: 0;border-top-left-radius: 0;margin-left: -1px;"><i class="icon glyphicon glyphicon-search">&nbsp;<span class="caret"></span></i></button>
+                <span class="dropdown-menu dropdown-content" style="margin: 0px !important; display: none;max-height:350px;">';
+
+  $account = user_load($user->uid);
+  $saved_searches = $account->field_saved_searches[LANGUAGE_NONE];
+  if (count($saved_searches) == 0) {
+    $content .= "<li><h2 class='dropdown-item searchs-saved'>" . t("No saved searches", array(), array('context' => 'gofast:search')) . "</h2></li>";
+  }
+  else {
+    $content .= "<li><h2 class='dropdown-item searchs-saved' >" . t("My saved searches", array(), array('context' => 'gofast:search')) . "</h2></li>";
+    foreach ($saved_searches as $saved_search) {
+      $search_object = json_decode($saved_search["value"]);
+      $link = "<a href='#' style='cursor:pointer;' class='dropdown-item gofast-non-ajax' onClick='Gofast.search.executeSavedSearch( \"" . rawurlencode($search_object->url) . "\", \"" . $search_object->search_params . "\", \"" . $search_object->strict_search . "\");'>" . $search_object->title . "</a>";
+      $content .= '<li style="width:100%;">' . $link . '</li>';
+    }
+  }
+
+  $content .= '</span>
+                </span>';
+  return $content;
+}
+
+function gofast_search_get_block_saved_searches($account = null) {
+  if ($account == null) {
+    global $user;
+    $account = $user;
+  }
+  $account = user_load($account->uid);
+
+  //get saved searches into account object if any
+  $return = "<span id='search_block_saved_searches'>";
+  if (is_array($account->field_saved_searches[LANGUAGE_NONE])) {
+    $saved_searches = $account->field_saved_searches[LANGUAGE_NONE];
+  }
+  else {
+    $return = "<h5>" . t("No saved searches", array(), array('context' => 'gofast:gofast_search')) . "</h5>";
+  }
+
+  $return .= "<ul style='max-height: 150px;overflow-y: scroll;'>";
+  foreach ($saved_searches as $saved_search) {
+    $return .= "<li>";
+    $search_object = json_decode($saved_search["value"]);
+    $button_edit_search = '   <a type="button" style="color:#2980b9;padding:4px 4px 4px 4px;" class="btn btn-default ctools-use-modal fa fa-save" title="' . t("Replace this saved search by the current search", array(), array('context' => 'gofast:search')) . '" href="/modal/nojs/search/save?title_search=' . rawurlencode($search_object->title) . '"></a>';
+    $button_delete_search = ' <a type="button" style="color:#2980b9;padding:4px 4px 4px 4px;" class="btn btn-default ctools-use-modal fa fa-trash-o" title="' . t("Delete this saved search", array(), array('context' => 'gofast:search')) . '" href="/modal/nojs/search/delete?title_search=' . rawurlencode($search_object->title) . '"></a>';
+
+    $return .= "<span>" . $button_edit_search . "  " . $button_delete_search . "</span>  <span style='cursor:pointer;' onClick='Gofast.search.executeSavedSearch(\"" . rawurlencode($search_object->url) . "\", \"" . $search_object->search_params . "\", \"" . $search_object->strict_search . "\");'>" . $search_object->title . "</span>";
+
+    $return .= "</li>";
+  }
+  $return .= "</ul>";
+  $return .= "</span>";
+  return $return;
+}
+
+function gofast_search_save_search_form($form, &$form_state) {
+  $url = $form_state['build_info']['args'][1];
+  if (isset($form_state['build_info']['args'][2])) {
+    $existing_title = $form_state['build_info']['args'][2];
+    $edit_search = 'true';
+  }
+  else {
+    $edit_search = 'false';
+  }
+  $form['title'] = array(
+    '#type' => 'textfield',
+    "#title" => t("Title", array(), array('context' => 'gofast')),
+  );
+  if ($edit_search == 'true') {
+    $form['title']['#type'] = 'hidden';
+    $form['title']["#value"] = $existing_title;
+    $form['title']["#default_value"] = $existing_title;
+    $form['title']['#attributes'] = array('readonly' => 'readonly');
+    $form['title']["#prefix"] = "<h3>" . $existing_title . "</h3>";
+    $form['title']["#description"] = t("This saved search will be replaced by the current search", array(), array('context' => 'gofast:search'));
+    $form['title']["#suffix"] = "<div>" . $form['title']["#description"] . "</div><br />";
+  }
+
+  $form['url'] = array(
+    '#type' => 'hidden',
+    '#value' => $url,
+  );
+  $form['edit_search'] = array(
+    '#type' => 'hidden',
+    '#value' => $edit_search,
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#default_value' => t("Save", array(), array('context' => 'gofast')),
+    '#attributes' => array('class' => array('btn-success')),
+  );
+  return $form;
+}
+
+function gofast_search_save_search_form_validate($form, &$form_state) {
+  //check if a saved search already exists with same title
+  global $user;
+  $account = user_load($user->uid);
+  $title = $form_state["values"]["title"];
+  $edit_search = $form_state["values"]["edit_search"];
+
+  if (trim($title) == "") {
+    form_set_error('title', t('You can\'t set an empty title', array(), array('context' => 'gofast:gofast_search')));
+    return false;
+  }
+
+  if (is_array($account->field_saved_searches[LANGUAGE_NONE]) && $edit_search == 'false') {
+    $saved_searches = $account->field_saved_searches[LANGUAGE_NONE];
+    foreach ($saved_searches as $saved_search) {
+      $search_object = json_decode($saved_search["value"]);
+      if ($search_object->title == $title) {
+        form_set_error('title', t('A previous saved search with same title already exists', array(), array('context' => 'gofast:gofast_search')));
+        return false;
+      }
+    }
+  }
+  else {
+    return true;
+  }
+
+  return true;
+}
+
+function gofast_search_save_search_form_submit($form, &$form_state) {
+  $url = $form_state["values"]["url"];
+  $title = $form_state["values"]["title"];
+  $search_params = rawurlencode($_COOKIE['search_params']);
+  $strict_search = $_COOKIE['strict_search'];
+  $edit_search = $form_state["values"]["edit_search"];
+  global $user;
+  $account = user_load($user->uid);
+
+  if ($edit_search == 'true') {
+    //we don't create a new search, juste update it
+    //find the saved search corresponding to this title if any
+    $saved_searches = $account->field_saved_searches[LANGUAGE_NONE];
+    $already_saved_search_index = null;
+    foreach ($saved_searches as $key => $saved_search) {
+      $search_object = json_decode($saved_search["value"]);
+      if ($search_object->title == $title) {
+        $already_saved_search_index = $key;
+      }
+    }
+    if ($already_saved_search_index !== null) {
+      $search_object = array("title" => $title, "url" => $url, "search_params" => $search_params, "strict_search" => $strict_search);
+      $search = array("value" => json_encode($search_object));
+      $account->field_saved_searches["und"][$already_saved_search_index] = $search;
+      user_save($account);
+    }
+    else {
+      $search_object = array("title" => $title, "url" => $url, "search_params" => $search_params, "strict_search" => $strict_search);
+      $search = array("value" => json_encode($search_object));
+      $account->field_saved_searches["und"][] = $search;
+      user_save($account);
+    }
+  }
+  else {
+    $search_object = array("title" => $title, "url" => $url, "search_params" => $search_params, "strict_search" => $strict_search);
+    $search = array("value" => json_encode($search_object));
+    $account->field_saved_searches["und"][] = $search;
+    user_save($account);
+  }
+}
+
+/**
+ * Ask for confirmation of node deletion (unpublish)
+ */
+function gofast_search_delete_search_form($form, $form_state) {
+  $title = $form_state['build_info']['args'][1];
+
+  $form['title'] = array(
+    '#type' => 'value',
+    '#value' => $title,
+  );
+
+  $form['#submit'] = array('gofast_search_delete_search_form_submit');
+
+  $confirm_form = confirm_form($form, t('Delete', array(), array('context' => 'gofast')) . ' ' . $title, isset($_GET['destination']) ? $_GET['destination'] : $title, t('Are you sure you want to delete ?', array('%title' => $title), array('context' => 'gofast')), t('Delete', array(), array('context' => 'gofast')), t('Cancel', array(), array('context' => 'gofast'))
+  );
+
+  //hide useless 'Cancel' button
+  unset($confirm_form['actions']['cancel']);
+
+  return $confirm_form;
+}
+
+function gofast_search_delete_search_form_submit($form, $form_state) {
+  $title = $form_state["values"]["title"];
+  global $user;
+  $account = user_load($user->uid);
+  if (is_array($account->field_saved_searches[LANGUAGE_NONE])) {
+    $saved_searches = $account->field_saved_searches[LANGUAGE_NONE];
+    foreach ($saved_searches as $key => $saved_search) {
+      $search_object = json_decode($saved_search["value"]);
+      if ($search_object->title == $title) {
+        unset($account->field_saved_searches[LANGUAGE_NONE][$key]);
+      }
+    }
+  }
+
+  user_save($account);
+}
+
+/**
+ * Static helper that returns the list of Solr text fields having a language
+ * specific analysis chain for indexing.
+ *
+ * Should be set according to `langid.fl` parameter in the language detection
+ * processor definition (solrconfig.xml).
+ *
+ * * @return array
+ */
+function _gofast_search_language_specific_text_fields() {
+  return [
+    'content',
+    'summary',
+    'label',
+    'taxonomy_names',
+    'tm_comments'
+  ];
+}
+
+/**
+ * Static helper that returns the list of languages having a specific fieldType
+ * analysis chain defined AND for which are mapped text_[lang] fields.
+ *
+ * Should be set according to `langid.whitelist` parameter in the language
+ * detection processor definition (solrconfig.xml).
+ *
+ * @param boolean $include_und
+ *  If true, include 'und' (undetermined) in the list of languages.
+ *
+ * @return array
+ */
+function _gofast_search_language_list($include_und = FALSE) {
+  $lang = [ 'en', 'fr', 'de', 'nl', 'pt', 'es', 'it', 'ar' ];
+  if ($include_und) {
+    $lang[] = 'und';
+  }
+  return $lang;
+}
+
+/**
+ * Static helper that returns the list of all language-mapped fields, keyed by
+ * the base field (non-language-specific) name.
+ *
+ * @return array
+ */
+function _gofast_search_language_mapped_fields() {
+  $list = &drupal_static(__FUNCTION__, []);
+
+  if (empty($list)) {
+    $text_fields = _gofast_search_language_specific_text_fields();
+    $languages = _gofast_search_language_list(TRUE);
+
+    foreach ($text_fields as $fieldname) {
+      $list[$fieldname] = array_map(function($lang) use ($fieldname) {
+        return $fieldname . '_' . $lang;
+      }, $languages);
+    }
+  }
+
+  return $list;
+}
+
+/**
+ * Helper for reindexing an arbitrary set of entities. Useful when having a big
+ * set that should be handled via the usual indexing cron job (queued) vs being
+ * processed immediately (ie. apachesolr_index_nodeapi_mass_update() for nodes).
+ *
+ * @param array $etids An array of entity ids.
+ * @param string $entity_type The entity type.
+ * @param integer $time [optional] Defaults to REQUEST_TIME.
+ * @return boolean TRUE if the operation succeeds, FALSE otherwise.
+ */
+function gofast_search_reindex_entities($etids, $entity_type, $time = REQUEST_TIME) {
+  ctools_include('apachesolr.index', 'apachesolr', '');
+
+  try {
+    apachesolr_set_last_index_updated(GOFAST_SEARCH_ENV_ID, $time);
+
+    $table = apachesolr_get_indexer_table($entity_type);
+    $num = db_update($table)
+      ->fields(array('changed' => $time))
+      ->condition('entity_id', $etids, 'IN')
+      ->execute();
+
+    watchdog('Gofast Search', 'Mark @num entities (@type) for reindexing.', ['@num' => $num, '@type' => $entity_type]);
+    return TRUE;
+  }
+  catch (Exception $e) {
+    watchdog('Gofast Search', nl2br(check_plain($e->getMessage())), NULL, WATCHDOG_ERROR);
+    return FALSE;
+  }
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter()
+ */
+function gofast_search_form_apachesolr_settings_alter(&$form, &$form_alter) {
+  // Add our default cron limit if not already in the predefined options.
+  $form['advanced']['apachesolr_cron_limit']['#options'] += [
+    GOFAST_SEARCH_CRON_LIMIT_DEFAULT => GOFAST_SEARCH_CRON_LIMIT_DEFAULT
+  ];
+}
+
+/**
+ * Page callback to get more snippets given the passed-in keywords from query
+ * string (`hl.q` parameter).
+ *
+ * @return array
+ */
+function gofast_search_get_more_snippets() {
+  $q_params = drupal_get_query_parameters();
+  
+  $keywords = $q_params['hl_q'];
+  $start = $q_params['start'];
+  $rows = $q_params['rows'];
+
+  $name = 'apachesolr';
+  $params = ['q' => $keywords, 'start' => $start, 'rows' => $rows];
+  $solrsort = '';
+  $base_path = '';
+  $page = 0;
+  $solr = apachesolr_get_solr(GOFAST_SEARCH_ENV_ID);
+  $context = [];
+
+  $query = apachesolr_drupal_query($name, $params, $solrsort, $base_path, $solr, $context);
+  $searcher = $query->getSearcher();
+
+  drupal_alter('apachesolr_query', $query);
+  
+  // Prevent re-showing messages from alter hook (the request is an xhr replay
+  // of the original query with some parameters removed).
+  drupal_get_messages(NULL, TRUE);
+  
+  // Remove facet and spellcheck parameters.
+  $qparams = $query->getParams();
+  foreach ($qparams as $param => $value) {
+    if (preg_match('/^(?:facet|f\..+\.facet)|spellcheck\.?/', $param)) {
+      $query->removeParam($param);
+    }
+  }
+    
+  // This is why we are replaying the query asynchronoulsy, we can set a huge
+  // value here without slowing down the main query.
+  $query->replaceParam('hl.maxAnalyzedChars', 99999999);
+
+  $keys = $query->getParam('q');
+  $keys = htmlspecialchars($keys, ENT_NOQUOTES, 'UTF-8');
+  
+  try {
+    $response = $query->search($keys);
+  }
+  catch (Exception $e) {
+    // status code != 200
+    $exception = $e->getMessage();
+    $message = 'Error while requesting more snippets to Solr - "' . $exception . '"';
+    watchdog('Gofast Search', $message, [], WATCHDOG_ERROR);
+    return [ 'error' => $message ];
+  }
+
+  $results = gofast_search_process_response($response, $query);
+  $snippets = [];
+
+  foreach ($results as $result) {
+    $entity_type = $result['fields']['entity_type'];
+    $etid = $result['fields']['entity_id'];
+    $key = $entity_type . ':' . $etid;
+
+    // $vars is passed by reference.
+    $vars = ['result' => $result];
+    gofast_search_preprocess_search_result($vars);
+
+    $snippets[$key] = $vars['snippet'];
+  }
+
+  return ['snippets' => $snippets];
+}
+
+/**
+ * Internal function used to keep track of indexed nodes during full-reindex.
+ */
+function _gofast_search_full_reindex_tracking($items, $entity_type) {
+  $full_reindex_timestamp = variable_get('gofast_full_reindex', FALSE);
+
+  if (!$full_reindex_timestamp || $entity_type !== 'node') {
+    // nothing to do (users not affected by full reindex).
+    return;
+  }
+  
+  $table = apachesolr_get_indexer_table($entity_type);
+  
+  if ($items === FALSE) {
+    // Check that the queue is actually empty, adjust index position otherwise. 
+    // In case the last batch included published + unpublished nodes, and since 
+    // the first unpuplished node id follows the last published one, the last 
+    // index position could be wrong. 
+    $entity_id = db_query('SELECT MAX(entity_id) FROM {'.$table.'} WHERE changed = '.$full_reindex_timestamp)->fetchField();
+    if (isset($entity_id)) {
+      apachesolr_set_last_index_position(GOFAST_SEARCH_ENV_ID, $entity_type, $full_reindex_timestamp, $entity_id + 1);
+      $limit = variable_get('apachesolr_cron_limit', GOFAST_SEARCH_CRON_LIMIT_DEFAULT);
+      $items = apachesolr_index_get_entities_to_index(GOFAST_SEARCH_ENV_ID, $entity_type, $limit);
+    }
+    return $items;
+  }
+
+  if (empty($items)) {
+    // This should not happen
+    return;
+  }
+
+  // Prevent re-processing documents as newer are added into indexer table.
+  // To achieve this, since the order of processing is reversed during reindex,
+  // we update the indexer table so that all processed nodes get their `changed`
+  // value set to `$full_reindex_timestamp - 1`.
+  $processed = [];
+  $last_item = NULL;
+  $empty_queue = FALSE;
+
+  foreach ($items as $item) {
+    $processed[] = $item->entity_id;
+    if (!$item->changed > $full_reindex_timestamp) {
+      // Keep track of the last queued item in case we need it below.
+      $last_queued_item = $item;
+    }
+  }
+
+  if (!empty($processed)) {
+    db_update($table)
+      ->fields(array('changed' => $full_reindex_timestamp -1))
+      ->condition('entity_id', $processed, 'IN')
+      ->execute();
+  }
+
+  $last = end($items);
+  if ($last->changed > $full_reindex_timestamp) {
+    // The last item processed wasn't in queue but was modified since the start
+    // of the reindexing, so knowing that apachesolr bases its tracking on this
+    // last item, we need to fix the last index position, taking into account
+    // the last item processed that was in the queue instead.
+    if (!empty($last_queued_item)) {
+      $last = $last_queued_item;
+    }
+    else {
+      // Case when the whole batch of nodes are not from indexer queue but are
+      // nodes modified recently.
+      $entity_id = db_query('SELECT MAX(entity_id) FROM {'.$table.'} WHERE changed = '.$full_reindex_timestamp)->fetchField();
+      if (!isset($entity_id)) {
+        // There is no more node in queue.
+        $empty_queue = TRUE;
+        // We still need a value here, so we take the highest to ensure indexer
+        // tracking keeps going properly (@see patch in apacheolsolr.index.inc).
+        $entity_id = db_query('SELECT MAX(entity_id) FROM {'.$table.'}')->fetchField();
+      }
+      $last = (object) [
+        // $entity_id refers to the next entity to be processed, we need to set 
+        // the last index position so that it is included in the next batch.
+        'entity_id' => $entity_id + 1,
+        'changed' => $full_reindex_timestamp
+      ];
+    }
+    // Fix the last index position
+    apachesolr_set_last_index_position(GOFAST_SEARCH_ENV_ID, $entity_type, $last->changed, $last->entity_id);
+  }
+  else {
+    // Check how many nodes are left in queue.
+    $count = (int) db_query('SELECT COUNT(*) FROM {'.$table.'} WHERE changed = '.$full_reindex_timestamp)->fetchField();
+    if ($count === 0) {
+      $empty_queue = TRUE;
+    }
+  }
+
+  if ($empty_queue) {
+    // There is no more node in queue. Since the last modified nodes are
+    // processed first during full reindex, and old unpuplished nodes last,
+    // we can assume the full reindex is finished.
+    module_load_include('inc', 'gofast_search', 'gofast_search.admin');
+    gofast_search_finish_full_reindex();
+  }
+}
+
+/**
+ * Internal function used during the beginning of apachesolr cron job to adjust
+ * the cron limit for the next batch of nodes to be indexed depending on how
+ * many of them need their content to be retrieved from alfresco and extracted
+ * vs how many of them can have their content be grabbed directly from Solr or
+ * have already their content attached.
+ */
+function _gofast_search_adjust_cron_limit(&$limit) {
+  if ($limit <= GOFAST_SEARCH_CRON_LIMIT_LOW) {
+    // nothing to do.
+    return;
+  }
+
+  module_load_include('inc', 'apachesolr', 'apachesolr.index');
+
+  // Get the next batch of nodes to be indexed.
+  $rows = apachesolr_index_get_entities_to_index(GOFAST_SEARCH_ENV_ID, 'node', $limit);
+  if (empty($rows)) {
+    return;
+  }
+
+  // Focus on Alfresco items since it is the document's content extraction that
+  // takes the most time to process during indexing.
+  $docs = array_filter($rows, function($row) {
+    return $row->bundle === 'alfresco_item';
+  });
+
+  if (empty($docs)) {
+    return;
+  }
+
+  $nids = array_keys($docs);
+  $nodes = node_load_multiple($nids);
+  $indexed_versions = gofast_search_content_get_versions_indexed($nids);
+
+  $queue_t = 0.0;
+  $max_t = 60.0;
+  $avg_t_def = $max_t / GOFAST_SEARCH_CRON_LIMIT_DEFAULT;
+  $avg_t_low = $max_t / GOFAST_SEARCH_CRON_LIMIT_LOW;
+
+  $queue = [];
+  foreach ($rows as $nid => $row) {
+    if ($queue_t >= $max_t) {
+      break;
+    }
+
+    $queue[$nid] = $nid;
+
+    if ($row->bundle !== 'alfresco_item') {
+      $queue_t += $avg_t_def;
+      continue;
+    }
+
+    // Compare document's current version and indexed version.
+    $item_id = gofast_cmis_node_get_item_id($nodes[$nid]);
+    $versions = gofast_cmis_webservice_item_get_versions($item_id, TRUE);
+
+    if (!isset($versions[0]->label)) {
+      // No version means there is an issue with this document. As its content
+      // is certainly empty, even if an extraction attempt is going to occur we
+      // won't count it as such because it will take no time.
+      $queue_t += $avg_t_def;
+      continue;
+    }
+
+    $indexed_version = $indexed_versions[$nid];
+    if ($indexed_version === FALSE) {
+      // Assume document is not indexed yet, needs extraction.
+      $queue_t += $avg_t_low;
+      continue;
+    }
+
+    $current_version = (float) $versions[0]->label;
+
+    if ($current_version !== $indexed_version) {
+      // Needs an aextraction.
+      $queue_t += $avg_t_low;
+    }
+  }
+
+  if ($queue_t >= $max_t) {
+    $estimated = count($queue) - 1;
+    if ($limit > $estimated) {
+      $limit = max([$estimated, GOFAST_SEARCH_CRON_LIMIT_LOW]);
+      variable_set('apachesolr_cron_limit', $limit);
+      watchdog('Gofast Search', '-> Lowering cron limit to ' . $limit . ' documents for the current job.');
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter()
+ *  Alter admin form - index reset.
+ */
+function gofast_search_form_apachesolr_index_action_form_reset_confirm_alter(&$form, &$form_alter)  {
+  $form['#submit'][] = 'gofast_search_index_action_form_reset_submit';
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter()
+ *  Alter admin form - index deletion.
+ */
+function gofast_search_form_apachesolr_index_action_form_delete_confirm_alter(&$form, &$form_alter)  {
+  $form['#submit'][] = 'gofast_search_index_action_form_delete_submit';
+}
+
+/**
+ * Submit handler for admin form action: reset index.
+ */
+function gofast_search_index_action_form_reset_submit() {
+  // Enable full reindexing mode.
+  variable_set('gofast_full_reindex', REQUEST_TIME);
+  watchdog('Gofast Search', 'Starting Full Reindex');
+}
+
+/**
+ * Submit handler for admin form action: delete index.
+ */
+function gofast_search_index_action_form_delete_submit() {
+  watchdog('Gofast Search', 'deleting solr index');
+  
+  // Clear the list of excluded node from index/tika.
+  variable_del('gofast_mail_report_scheduled');
+  variable_del('gofast_search_tika_is_working');
+  variable_del('gofast_search_tika_node_exclude');
+  variable_del('gofast_search_index_node_exclude');
+  
+  // Then the same process as if we just reset the index (apachesolr handler 
+  // performs the index deletion).
+  gofast_search_index_action_form_reset_submit();
+}
+
+
+/*
+ * Add search results to cart
+ * @param $nids : nids of the documents selected in the search results
+ */
+function gofast_modal_add_search_results_to_cart()
+{
+
+  $commands = array();
+  $render = "";
+  $nids = $_POST['nids'];
+
+  drupal_add_js(array('gofast_search_nids' => $nids), 'setting');
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $render .= theme("gofast_modal_add_search_results_to_cart", array('nids' => $nids));
+  $commands[] = ctools_modal_command_display(t("Add search results to cart"), $render);
+
+  print ajax_render($commands);
+  exit;
+}
+
+
+/*
+ * Add search results to cart submit
+ */
+function gofast_add_search_results_to_cart_submit()
+{
+  $nids = $_POST['nids'];
+  $nids = explode(",", $nids);
+  global $user;
+  foreach ($nids as $nid) {
+    if (!empty($nid)) {
+      $flag = flag_get_flag('cart');
+      $flag->flag('flag', $nid, $user, TRUE);
+    }
+  }
+}
+
+
+
+function gofast_search_boost_query_light(DrupalSolrQueryInterface $query){
+    
+  $bq = [];
+  $q = trim($query->getParam('q'));
+  $qf = $query->getParam('qf');
+
+  $keywords = array_filter(explode(' ', str_replace('+', '', $q)), function ($str) {
+    return $str && trim($str) !== '"'; // -> need to filter char range using regex
+  });  
+
+  // Filter out keywords that are explicitly excluded.
+  $f_keywords = array_filter($keywords, function ($str) {
+    return strpos($str, '-') !== 0;
+  });
+ 
+  $key_len = count($f_keywords);
+
+  // Don't alter the query if $f_keywords is empty.
+  if ($key_len === 0) {
+    return;
+  }
+
+  if ($key_len > 1) {
+   
+   $qf_string = "";
+    foreach($qf as $qf_field){
+        $qf_string .= $qf_field." ";
+    }  
+   
+   $bq[] = '_val_:"{!dismax qf=\''.$qf_string.'label^10000\'  mm=\'100%\' v=$q bq=}"^10000000000000.0';
+  }
+  $query->replaceParam('bq', $bq);
+}
+
+
+
+
+  
+
+function _gofast_search_special_chars() {
+  return 'ÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝßàáâãäåçèéêëìíîïñòóôõöùúûüýÿĀāĂăĄąĆćĈĉĊċČč'
+  . 'ĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœ'
+  . 'ŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽžſ';
+}
+
+
+/**
+ * @SymfonyPolyfill fallback if environment runs PHP < 7.4.0
+ */
+if (!function_exists('mb_str_split')) {
+  function mb_str_split($string, $split_length = 1, $encoding = null) {
+    if (null !== $string && !\is_scalar($string) && !(\is_object($string) && \method_exists($string, '__toString'))) {
+      trigger_error('mb_str_split(): expects parameter 1 to be string, ' . \gettype($string) . ' given', E_USER_WARNING);
+      return null;
+    }
+
+    if (null !== $split_length && !\is_bool($split_length) && !\is_numeric($split_length)) {
+      trigger_error('mb_str_split(): expects parameter 2 to be int, ' . \gettype($split_length) . ' given', E_USER_WARNING);
+      return null;
+    }
+
+    $split_length = (int) $split_length;
+
+    if (1 > $split_length) {
+      trigger_error('mb_str_split(): The length of each segment must be greater than zero', E_USER_WARNING);
+      return false;
+    }
+    if (null === $encoding) {
+      $encoding = mb_internal_encoding();
+    }
+    else {
+      $encoding = (string) $encoding;
+    }
+
+    if (!in_array($encoding, mb_list_encodings(), true)) {
+      static $aliases;
+
+      if ($aliases === null) {
+        $aliases = [];
+        foreach (mb_list_encodings() as $encoding) {
+          $encoding_aliases = mb_encoding_aliases($encoding);
+          if ($encoding_aliases) {
+            foreach ($encoding_aliases as $alias) {
+              $aliases[] = $alias;
+            }
+          }
+        }
+      }
+
+      if (!in_array($encoding, $aliases, true)) {
+        trigger_error('mb_str_split(): Unknown encoding "' . $encoding . '"', E_USER_WARNING);
+        return null;
+      }
+    }
+
+    $result = [];
+    $length = mb_strlen($string, $encoding);
+
+    for ($i = 0; $i < $length; $i += $split_length) {
+      $result[] = mb_substr($string, $i, $split_length, $encoding);
+    }
+
+    return $result;
+  }  
+}
+
+function gofast_search_get_index_modification_date($node, $document){
+    $changed_date = $document->ds_changed;
+    if($node->type == "alfresco_item"){
+        //get last comment date
+        $last_comment_timestamp = $node->last_comment_timestamp;
+        //get file modification date
+        $cmis_infos = gofast_cmis_webservice_item_get_versions($node->reference);
+        $last_modification_timestamp = strtotime($cmis_infos[0]->createdDate);
+        
+        if($last_comment_timestamp > $last_modification_timestamp){
+            return apachesolr_date_iso($last_comment_timestamp);
+        }else{
+            return apachesolr_date_iso($last_modification_timestamp);
+        }
+        
+    }else{
+         //get last comment date
+        $last_comment_timestamp = $node->last_comment_timestamp;
+        //get node modification date
+        $last_modification_timestamp = $node->changed;
+        
+       if($last_comment_timestamp > $last_modification_timestamp){
+            return apachesolr_date_iso($last_comment_timestamp);
+        }else{
+            return apachesolr_date_iso($last_modification_timestamp);
+        }
+    }
+}

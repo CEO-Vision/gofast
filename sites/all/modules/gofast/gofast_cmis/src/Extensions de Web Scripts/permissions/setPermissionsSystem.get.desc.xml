@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Modifie permissions systemes</shortname>
+    <description>modifie les permissions de certains dossiers systemes using javascript API</description>
+    <url>/set/permissions/system/</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

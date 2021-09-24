@@ -1,0 +1,3929 @@
+<?php
+
+/**
+ * Implements hook_enable().
+ */
+function gofast_views_enable()
+{
+  $gofast_weight = db_select('system')
+    ->fields('system', array('weight'))
+    ->condition('name', 'gofast', '=')
+    ->execute()
+    ->fetchField();
+
+  db_update('system')
+    ->fields(array('weight' => $gofast_weight))
+    ->condition('name', 'gofast_views')
+    ->execute();
+}
+
+
+/**
+ * Implements hook_menu().
+ */
+function gofast_views_menu()
+{
+
+  $items = array();
+
+  $items['_test_'] = array(
+    'title' => 'Test Page',
+    'page callback' => '_test_',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_CALLBACK,
+    'file' => 'gofast_views.utils.inc',
+  );
+
+  $items['gofast/bookmarks/favorites_folders'] = array(
+    'page callback' => 'gofast_get_favorites_folders',
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+
+  $items['gofast/bookmarks/favorites_contents'] = array(
+    'page callback' => 'gofast_get_favorites_contents',
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+
+  $items['gofast_books_submit'] = array(
+    'title' => 'submit book',
+    'page callback' => 'gofast_books_submit',
+    'access callback' => 'user_access',
+    'access arguments' => array('create new books'),
+    'type' => MENU_CALLBACK,
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+
+  $items['del_privatemsg'] = array(
+    'title' => 'submit confirm delete',
+    'page callback' => 'gofast_privatemsg_confirm_delete',
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+
+  // Inbox popup ajax callback
+  $items['pm_popup'] = array(
+    'title' => 'submit confirm delete',
+    'page callback' => 'gofast_inbox_popup',
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+
+  $items['modal/%ctools_js/relationship/%/request'] = array(
+    'title' => 'Relationship',
+    'description' => 'Relationship',
+    'type' => MENU_NORMAL_ITEM,
+    'page callback' => 'gofast_views_add_relationship_modal',
+    'page arguments' => array(1, 3),
+    'options' => array(
+      'attributes' => array(
+        'class' => 'ctools-use-modal'
+      ),
+    ),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['modal/%ctools_js/user/%/delete'] = array(
+    'title' => t('Delete a user'),
+    'page callback' => 'gofast_views_modal_user_delete',
+    'page arguments' => array(1, 3),
+    'options' => array(
+      'attributes' => array(
+        'class' => 'ctools-use-modal'
+      ),
+    ),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+
+  $items['modal/%ctools_js/user/%/relationships/%/remove'] = array(
+    'title' => 'Relationship',
+    'description' => 'Relationship',
+    'type' => MENU_NORMAL_ITEM,
+    'page callback' => 'gofast_views_remove_relationship_modal',
+    'page arguments' => array(1, 3, 5),
+    'options' => array(
+      'attributes' => array(
+        'class' => 'ctools-use-modal'
+      ),
+    ),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['modal/%ctools_js/user/%/relationships/requested/%/%'] = array(
+    'title' => 'Relationship',
+    'description' => 'Relationship',
+    'type' => MENU_NORMAL_ITEM,
+    'page callback' => 'gofast_views_requested_relationship_modal',
+    'page arguments' => array(1, 3, 6, 7),
+    'options' => array(
+      'attributes' => array(
+        'class' => 'ctools-use-modal'
+      ),
+    ),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['modal/%ctools_js/user/%/block'] = array(
+    'title' => t('Block a user', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_user_blocked',
+    'page arguments' => array(1, 3),
+    'options' => array(
+      'attributes' => array(
+        'class' => 'ctools-use-modal'
+      ),
+    ),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['modal/%ctools_js/user/%/unblock'] = array(
+    'title' => t('Unblock a user', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_user_unblocked',
+    'page arguments' => array(1, 3),
+    'options' => array(
+      'attributes' => array(
+        'class' => 'ctools-use-modal'
+      ),
+    ),
+
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['modal/%ctools_js/user/%/leave'] = array(
+    'title' => t('Disable a user', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_user_leave',
+    'page arguments' => array(1, 3),
+    'options' => array(
+      'attributes' => array(
+        'class' => 'ctools-use-modal'
+      ),
+    ),
+
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['modal/%ctools_js/user/%/unleave'] = array(
+    'title' => t('Re-enable a user', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_user_unleave',
+    'page arguments' => array(1, 3),
+    'options' => array(
+      'attributes' => array(
+        'class' => 'ctools-use-modal'
+      ),
+    ),
+
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['modal/%ctools_js/og/%node/archive'] = array(
+    'title' => 'Archive',
+    'description' => 'Archive',
+    'type' => MENU_NORMAL_ITEM,
+    'page callback' => 'gofast_modal_archive_group_modal',
+    'page arguments' => array(1, 3),
+    'options' => array(
+      'attributes' => array(
+        'class' => 'ctools-use-modal'
+      ),
+    ),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  $items['modal/%ctools_js/og/%node/unarchive'] = array(
+    'title' => 'Unarchive',
+    'description' => 'Unarchive',
+    'type' => MENU_NORMAL_ITEM,
+    'page callback' => 'gofast_modal_unarchive_group_modal',
+    'page arguments' => array(1, 3),
+    'options' => array(
+      'attributes' => array(
+        'class' => 'ctools-use-modal'
+      ),
+    ),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  // Autocomplete path to find users members of a group
+  $items['activity_feed'] = array(
+    'page callback' => 'gofast_activity_feed',
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'type' => MENU_CALLBACK,
+  );
+
+
+  return $items;
+}
+//
+//function gofast_ajax_delivery_pm($output = NULL) {
+//  /** @todo: check library + print added js/css */
+//  $output = $output ? $output : '';
+//  $path = drupal_get_path('module', 'gofast_views'). '/js/gofast_inbox_popup.js';
+//  $html = '<html><head><title></title>' . drupal_get_css() . drupal_get_js() . '<script src="' . $path . '"></script></head><body class="jquery-ajax-load">' . $output . '</body></html>';
+//    print $html;
+//  // Perform end-of-request tasks.
+//  drupal_page_footer();
+//}
+
+
+function gofast_views_menu_alter(&$items)
+{
+  $items['admin/content/book/%node'] = array(
+    'title' => 'Re-order book pages and change titles',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('book_admin_edit', 3),
+    'access callback' => '_book_edit_access',
+    'access arguments' => array(3),
+    'type' => MENU_CALLBACK,
+    'file' => 'book.admin.inc',
+    'file path' => drupal_get_path('module', 'book')
+  );
+}
+
+
+/**
+ * Access callback: Determines if the outline tab is accessible.
+ *
+ * @param $node
+ *   The node whose outline tab is to be viewed.
+ */
+function _book_edit_access($node)
+{
+  return user_access('add content to books')/* && node_access('view', $node)*/;
+}
+
+
+
+/**
+ * Implements hook_views_api().
+ */
+function gofast_views_views_api()
+{
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'gofast_views') . '/views',
+  );
+}
+
+
+function gofast_views_views_pre_view(&$view, &$display_id, &$args)
+{
+  if ($view->name == 'gofast_activity_feed' && $display_id == 'block') {
+    $view->display[$view->current_display]->display_options["title"] =
+      $view->display[$view->current_display]->handler->options['title'] = "";
+  }
+}
+
+
+function gofast_views_pre_render(&$view)
+{
+  global $user;
+  if ($view->name == "gofast_flag_bookmarks") {
+    $view->attachment_after = "
+          <script type='text/javascript'>
+                if(typeof Gofast.processBookmarksBlock !== undefined && typeof Gofast.processBookmarksBlock !== 'undefined' && !jQuery('.view-gofast-flag-bookmarks.view-display-id-page_1').hasClass('processed2')){
+                  Gofast.processBookmarksBlock('view-display-id-page_1');
+                  jQuery('.view-gofast-flag-bookmarks.view-display-id-page_1').addClass('processed2');
+                }
+
+                if(jQuery('.view-gofast-flag-bookmarks.view-display-id-gofast_flag_bookmarks').length){
+                    if(typeof Gofast.processBookmarksBlock !== undefined && typeof Gofast.processBookmarksBlock !== 'undefined' &&!jQuery('.view-gofast-flag-bookmarks.view-display-id-gofast_flag_bookmarks').hasClass('processed2')){
+                      Gofast.processBookmarksBlock('view-display-id-gofast_flag_bookmarks');
+                      jQuery('.view-gofast-flag-bookmarks.view-display-id-gofast_flag_bookmarks').addClass('processed2');
+                    }
+                }
+                if(jQuery('.view-gofast-flag-bookmarks.view-display-id-gofast_bookmarks_folders').length){
+                    if(typeof Gofast.processBookmarksBlock !== undefined && typeof Gofast.processBookmarksBlock !== 'undefined' && !jQuery('.view-gofast-flag-bookmarks.view-display-id-gofast_bookmarks_folders').hasClass('processed2')){
+                      Gofast.processBookmarksBlock('view-display-id-gofast_bookmarks_folders');
+                      jQuery('.view-gofast-flag-bookmarks.view-display-id-gofast_bookmarks_folders').addClass('processed2');
+                    }
+                }
+
+               if(jQuery('.view-gofast-flag-bookmarks.page-dashboard-spaces').length){
+                    if(typeof Gofast.processBookmarksBlock !== undefined && typeof Gofast.processBookmarksBlock !== 'undefined' && !jQuery('.view-gofast-flag-bookmarks.page-dashboard-spaces').hasClass('processed2')){
+                      Gofast.processBookmarksBlock('page-dashboard-spaces');
+                      jQuery('.view-gofast-flag-bookmarks.page-dashboard-spaces').addClass('processed2');
+                    }
+               }
+           </script>";
+  } elseif ($view->name == 'gofast_user_directory') {
+    if (count($view->result) > 0) {
+      foreach ($view->result as $key => $result) {
+          if (user_view_access($result)){
+          $view->result[$key]->can_access_user = true;
+        } else {
+          $view->result[$key]->can_access_user = false;
+        }
+      }
+    }
+  }
+}
+
+function gofast_get_json_books()
+{
+  // This break the send by email functionnality
+  return;
+  $tree = book_get_books();
+  $subtree = array();
+  foreach ($tree as $value) {
+    $node = node_load($value['nid']);
+    $subtree += book_menu_subtree_data($node->book);
+  }
+  global $lnk;
+  global $j;
+  $lnk = array();
+  $j = 0;
+  /*function test_print($item, $key) {
+    $jf = $GLOBALS['j'];
+    if ($key == "menu_name") {
+      $jf ++;
+      $GLOBALS['lnk'][$jf]=array();
+    }
+    if ($key == "link_path") array_push($GLOBALS['lnk'][$jf] , $item);
+    if ($key == "link_title") array_push($GLOBALS['lnk'][$jf] , $item);
+    if ($key == "nid") array_push($GLOBALS['lnk'][$jf] , $item);
+    if ($key == "has_children" && $item == 1) array_push($GLOBALS['lnk'][$jf] , $item);
+    if ($key == "has_children" && $item == 0) array_push($GLOBALS['lnk'][$jf] , $item);
+    if ($key == "p1" && $item == 0) array_push($GLOBALS['lnk'][$jf] , $item);
+    for ($i=1; $i <= 10; $i++ ) {
+      if ($key == "p$i" && $item <> 0) array_push($GLOBALS['lnk'][$jf] , $item);
+    }
+    $GLOBALS['j'] = $jf;
+  }
+  array_walk_recursive($subtree, 'test_print');*/
+  $data = array();
+  $val = array();
+
+  foreach ($lnk as $key => $value) {
+    if (sizeof($value) == 5) array_push($data, array('nId' => intval(end($value)), 'id' => prev($value), 'pId' => 0, 'name' => $value[1], 'url' => $value[0], 'drag' => false, 'childOuter' => false, 'dropInner' => false));
+    else array_push($data, array('nId' => intval(end($value)), 'id' => prev($value), 'pId' => prev($value), 'name' => $value[1], 'url' => $value[0], 'drag' => true, 'dropRoot' => false, 'childOuter' => false));
+  }
+
+  return json_encode($data);
+}
+
+//function bootstrap_gofast_block_view_alter(&$data, $block) {
+//  if ($block->delta == '1' && $block->region == 'navigation') {
+////    debug($data['content']);
+////    $data['content']['#markup'] .= '<div class="test"><a href="#">Test</a></div>';
+//
+//    libraries_load('ztree');
+//    $json_books = gofast_get_json_books();
+//    $path = drupal_get_path('module', 'gofast_views');
+//    drupal_add_js($path . '/js/gofast_book_block.js');
+//    $settings = array('data_tree' => $json_books, "is_document" => "true");
+//    drupal_add_js(array('gofast_book_tree' => $settings), 'setting');
+//
+//    $html = $data['content']['#markup'];
+//    $html = str_replace(array('<li id="menu-1405-1" class="firstandlast odd sf-item-1 sf-depth-2 sf-no-children"><a href="/" title="" class="sf-depth-2">book_content</a></li></ul></li>', '<li id="menu-1405-1" class="firstandlast odd sf-item-1 sf-depth-2 sf-no-children"><a href="/" title="" class="sf-depth-2 active">book_content</a></li>'), '<div class="ztree">ztree</div>', $html);
+////    debug($doc);
+//    $data['content']['#markup'] = $html;
+////    debug($html);
+////    $dom = new DOMDocument;
+//////    $dom->preserveWhiteSpace = false;
+////    $dom->loadHTML($html);
+////    $dom->documentElement->lastChild->setAttribute('class', 'man');
+////    $dom->formatOutput = true;
+////    echo $dom->saveXml($dom->documentElement);
+////    debug($dom->documentElement->lastChild->textContent);
+//  }
+//}
+
+
+function gofast_views_views_query_alter(&$view, &$query)
+{
+  if ($view->name == 'gofast_user_directory') {
+    $all_uids = gofast_og_get_all_uids_user_can_access(null);
+    if ($all_uids !== false) {
+      $query->add_where(0, 'users.uid', $all_uids, "IN");
+    }
+  } elseif ($view->name == 'gofast_userlist_directory') {
+    $all_ulids = $userlists = gofast_userlist_get_all_visible_userlists(null, true);
+    if ($all_ulids !== false) {
+      $query->add_where(0, 'node.nid', $all_ulids, "IN");
+    }
+  }
+}
+
+
+/**
+ * Implements hook_form_FORM_ID_alter()
+ */
+//function gofast_views_form_views_exposed_form_alter(&$form, &$form_state) {
+//
+//}
+
+
+
+/**
+ * Implements hook_theme().
+ */
+function gofast_views_theme()
+{
+  $themes = array(
+    'gofast_link_generic' => array(
+      'template' => 'theme/gofast-link-generic', // template file called theme/gofast-link-generic.tpl.php
+      'arguments' => array(
+        'link_class' => NULL,
+        'link_id' => NULL,
+        'href' => NULL,
+        'disabled' => NULL,
+        'onClick' => NULL,
+        'alt' => NULL,
+        'target' => '_self',
+        'title' => NULL,
+        'icon_class' => NULL,
+        'text' => NULL,
+      ),
+    ),
+    'gofast_mobile_activity_feed' => array(
+      'template' => 'theme/gofast-mobile-activity-feed', // template file called theme/gofast-link-generic.tpl.php
+      'arguments' => array(
+        'user_picture' => NULL,
+        'node' => NULL,
+        'icon_format' => NULL,
+        'last_updated' => NULL,
+        'spaces'  => NULL,
+        'state'   => NULL,
+        'download_action' => NULL
+      )
+    ),
+    'gofast_download_link' => array(
+      'template' => 'theme/gofast-download-link', // template file called theme/gofast-download-link.tpl.php
+      'arguments' => array('node' => NULL),
+    ),
+    'gofast_link_edit_mode' => array(
+      'template' => 'theme/gofast-link-edit-mode', // template file called theme/gofast-link-edit-mode.tpl.php
+      'arguments' => array('node' => NULL, 'disabled' => ''),
+    ),
+    'gofast_link_delete_modal' => array(
+      'template' => 'theme/gofast-link-delete-modal', // template file called theme/gofast-link-delete-modal.tpl.php
+      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
+    ),
+    'gofast_link_delete_blog_modal' => array(
+      'template' => 'theme/gofast-link-delete-blog-modal', // template file called theme/gofast-link-delete-modal.tpl.php
+      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
+    ),
+    'gofast_link_move_space' => array(
+      'template' => 'theme/gofast-link-move-space', // template file called theme/gofast-link-move-space.tpl.php
+      'arguments' => array('node' => NULL, 'nid' => NULL),
+    ),
+    'gofast_link_archive' => array(
+      'template' => 'theme/gofast-link-archive', // template file called theme/gofast-link-delete-modal.tpl.php
+      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
+    ),
+    'gofast_link_unarchive' => array(
+      'template' => 'theme/gofast-link-archive', // template file called theme/gofast-link-delete-modal.tpl.php
+      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
+    ),
+    'gofast_link_new_version' => array(
+      'template' => 'theme/gofast-link-new-version', // template file called theme/gofast-link-new-version.tpl.php
+      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
+    ),
+    'gofast_link_manage_keywords' => array(
+      'template' => 'theme/gofast-link-manage-keywords', // template file called theme/gofast-link-manage-keywords.tpl.php
+      'arguments' => array('node' => NULL, 'nid' => NULL),
+    ),
+    'gofast_link_manage_translations' => array(
+      'template' => 'theme/gofast-link-manage-translations', // template file called theme/gofast-link-manage-translations.tpl.php
+      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
+    ),
+    'gofast_link_manage_taxonomy' => array(
+      'template' => 'theme/gofast-link-manage-taxonomy', // template file called theme/gofast-link-manage-translations.tpl.php
+      'arguments' => array('node' => NULL, 'nid' => NULL),
+    ),
+    'gofast_block_file_management' => array(
+      'template' => 'theme/gofast-block-file-management', // template file called theme/gofast-block-file-management.tpl.php
+      'arguments' => array('node' => NULL, 'text' => NULL, 'class' => NULL),
+    ),
+    'gofast_block_microblogging_management' => array(
+      'template' => 'theme/gofast-block-microblogging-management', // template file called theme/gofast-block-file-management.tpl.php
+      'arguments' => array('blog_id' => NULL),
+    ),
+    'gofast_link_add_relationship' => array(
+      'template' => 'theme/gofast-link-add-relationship', // template file called theme/gofast-link-add-relationship.tpl.php
+      'arguments' => array('uid' => NULL),
+    ),
+    'gofast_link_delete_user' => array(
+      'template' => 'theme/gofast-user-delete', // template file called theme/gofast-user-delete.tpl.php
+      'arguments' => array('href' => null, 'text' => NULL, 'class' => NULL),
+    ),
+    'gofast_link_add_comment' => array(
+      'template' => 'theme/gofast-link-add-comment', // template file called theme/gofast-link-add-comment.tpl.php
+      'arguments' => array('node' => NULL, 'href' => null, 'text' => NULL),
+    ),
+    'gofast_user_relationships_remove_link' => array(
+      'template' => 'theme/gofast-user-relationships-remove-link', // template gofast-user-relationships-remove-link.tpl.php
+      'arguments' => array('uid' => NULL, 'rid' => NULL),
+    ),
+    'gofast_space_join_conversation' => array(
+      'template' => 'theme/gofast-space-join-conversation', // template file called theme/gofast-space-join-conversation.tpl.php
+    ),
+    'gofast_user_relationships_pending_request_approve_link' => array(
+      'template' => 'theme/gofast-user-relationships-pending-request-approve-link', // template gofast-user-relationships-pending-request-approve-link.tpl.php
+      'arguments' => array('uid' => NULL, 'rid' => NULL),
+    ),
+    'gofast_user_relationships_pending_request_disapprove_link' => array(
+      'template' => 'theme/gofast-user-relationships-pending-request-disapprove-link', // template gofast-user-relationships-pending-request-disapprove-link.tpl.php
+      'arguments' => array('uid' => NULL, 'rid' => NULL),
+    ),
+    'gofast_user_relationships_pending_request_cancel_link' => array(
+      'template' => 'theme/gofast-user-relationships-pending-request-cancel-link', // template gofast-user-relationships-pending-request-cancel-link.tpl.php
+      'arguments' => array('uid' => NULL, 'rid' => NULL),
+    ),
+    'gofast_user_mobilephone' => array(
+      'template' => 'theme/gofast-user-mobilephone', // template gofast-user-mobilephone.tpl.php
+      'arguments' => array('user' => NULL, 'only_icon' => NULL),
+    ),
+    'gofast_user_new_message' => array(
+      'template' => 'theme/gofast-user-new-message', // template gofast-user-new-message.tpl.php
+      'arguments' => array('user' => NULL, 'only_icon' => NULL),
+    ),
+    'gofast_subscribe_user' => array(
+      'template' => 'theme/gofast-subscribe-user', // template gofast-subscribe-user.tpl.php
+      'arguments' => array('user' => NULL),
+    ),
+    'gofast_block_user' => array(
+      'template' => 'theme/gofast-block-user', // template gofast-unblock-user.tpl.php
+      'arguments' => array('uid' => NULL, 'only_icon' => NULL),
+    ),
+    'gofast_unblock_user' => array(
+      'template' => 'theme/gofast-unblock-user', // template gofast-unblock-user.tpl.php
+      'arguments' => array('uid' => NULL, 'only_icon' => NULL),
+    ),
+    'gofast_leave_user' => array(
+      'template' => 'theme/gofast-leave-user', // template gofast-unblock-user.tpl.php
+      'arguments' => array('uid' => NULL, 'only_icon' => NULL),
+    ),
+    'gofast_unleave_user' => array(
+      'template' => 'theme/gofast-unleave-user', // template gofast-unblock-user.tpl.php
+      'arguments' => array('uid' => NULL, 'only_icon' => NULL),
+    ),
+    'gofast_block_user_quick_actions' => array(
+      'template' => 'theme/gofast-block-user-quick-actions', // template file called theme/gofast-block-user-quick-actions.tpl.php
+      'arguments' => array('user' => NULL),
+    ),
+    'gofast_link_edit' => array(
+      'template' => 'theme/gofast-link-edit', // template file called theme/gofast-link-edit.tpl.php
+      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => true),
+    ),
+    'gofast_link_add_article_page' => array(
+      'template' => 'theme/gofast-link-add-article-page', // template file called theme/gofast-link-edit-mode.tpl.php
+      'arguments' => array('bid' => NULL, 'disabled' => true),
+    ),
+    'gofast_link_edit_userlist' => array(
+      'template' => 'theme/gofast-link-edit-userlist', // template file called theme/gofast-link-edit-userlist.tpl.php
+      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => NULL),
+    ),
+    'gofast_link_sync_userlist' => array(
+      'template' => 'theme/gofast-link-sync-userlist', // template file called theme/gofast-link-edit-userlist.tpl.php
+      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => NULL),
+    ),
+    'gofast_link_delete_userlist' => array(
+      'template' => 'theme/gofast-link-delete-userlist', // template file called theme/gofast-link-delete-userlist.tpl.php
+      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => NULL),
+    ),
+    'gofast_link_manage_userlist_members' => array(
+      'template' => 'theme/gofast_link_manage_userlist_members', // template file called theme/gofast_link_manage_userlist_members.tpl.php
+      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => NULL),
+    ),
+    'gofast_link_manage_permissions_access_userlist' => array(
+      'template' => 'theme/gofast_link_manage_permissions_access_userlist', // template file called theme/gofast_link_manage_permissions_access_userlist.tpl.php
+      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => NULL),
+    ),
+    'gofast_link_edit_onlyoffice' => array(
+      'template' => 'theme/gofast-link-edit-onlyoffice', // template file called theme/gofast-link-edit-onlyoffice.tpl.php
+      'arguments' => array('node' => NULL, 'disabled' => ''),
+    ),
+    'gofast_link_edit_microblogging' => array(
+      'template' => 'theme/gofast-link-edit-microblogging', // template file called theme/gofast-link-edit-onlyoffice.tpl.php
+      'arguments' => array('blog_id' => NULL),
+    ),
+    'gofast_link_publication' => array(
+      'template'  => 'theme/gofast-link-publication',
+      'arguments' => array('node' => NULL, 'disabled' => '')
+    ),
+    'gofast_link_share_email' => array(
+      'template'  => 'theme/gofast-link-share-email',
+      'arguments' => array('node' => NULL)
+    ),
+    'gofast_node_format' => array(
+      'template' => 'theme/gofast-node-format', // template file called theme/gofast-node-format.tpl.php
+      'arguments' => array('node' => NULL),
+    ),
+    'gofast_node_icon_format' => array(
+      'template' => 'theme/gofast-node-icon-format', // template file called theme/gofast-node-icon-format.tpl.php
+      'arguments' => array('node' => NULL),
+    ),
+    'gofast_node_info_field' => array(
+      'template' => 'theme/gofast-node-info-field', // template file called theme/gofast-node-info-field.tpl.php
+      'arguments' => array('title' => NULL, 'values' => NULL, 'multiline', FALSE)
+    ),
+    'gofast_tooltip_emplacements' => array(
+      'template' => 'theme/gofast-tooltip-emplacements', // template file called theme/gofast-node-icon-format.tpl.php
+      'arguments' => array('locations' => NULL),
+    ),
+    'gofast_space_add_members' => array(
+      'template' => 'theme/gofast-space-add-members', // template file called theme/gofast-space-add-members.tpl.php
+      'arguments' => array('nid' => NULL)
+    ),
+    'gofast_space_preadd_members' => array(
+      'template' => 'theme/gofast-space-preadd-members', // template file called theme/gofast-space-add-members.tpl.php
+      'arguments' => array('nid' => NULL)
+    ),
+    'gofast_space_add_riot_room' => array(
+      'template' => 'theme/gofast-space-add-riot-room', // template file called theme/gofast-space-add-riot-room.tpl.php
+      'arguments' => array('nid' => NULL, 'disabled' => '')
+    ),
+    'gofast_space_delete_riot_room' => array(
+      'template' => 'theme/gofast-space-delete-riot-room', // template file called theme/gofast-space-add-riot-room.tpl.php
+      'arguments' => array('nid' => NULL, 'disabled' => '')
+    ),
+    'gofast_space_delete_space' => array(
+      'template' => 'theme/gofast-space-delete-space', // template file called theme/gofast-space-add-members.tpl.php
+      'arguments' => array('nid' => NULL)
+    ),
+    'gofast_space_archive' => array(
+      'template' => 'theme/gofast-space-archive',
+      'arguments' => array('nid' => NULL)
+    ),
+    'gofast_space_unarchive' => array(
+      'template' => 'theme/gofast-space-unarchive',
+      'arguments' => array('nid' => NULL)
+    ),
+    'gofast_space_manage_members' => array(
+      'template' => 'theme/gofast-space-manage-members', // template file called theme/gofast-space-manage-members.tpl.php
+      'arguments' => array('nid' => NULL),
+    ),
+    'gofast_link_edit_webform_form_builder' => array(
+      'template'  => 'theme/gofast-link-edit-webform-form-builder',
+      'arguments' => array('node' => NULL)
+    ),
+    'gofast_link_webform_results' => array(
+      'template'  => 'theme/gofast-link-webform-results',
+      'arguments' => array('node' => NULL)
+    ),
+    'gofast_bookmarks_favorites_folders' => array(
+      'template' => 'theme/gofast-bookmarks-favorites-folders'
+    ),
+    'gofast_user_display_user_gofast_role' => array(
+      'template' => 'theme/gofast-user-display-user-gofast-role'
+    ),
+    'gofast_userlist_display_number_members' => array(
+      'template' => 'theme/gofast-user-display-number-roles'
+    )
+  );
+  return $themes;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function gofast_views_block_info()
+{
+  $blocks['activity_stream_filters'] = array(
+    'info' => t('Activity stream filters', array(), array('context' => 'gofast:gofast_views')),
+    'cache' => DRUPAL_CACHE_PER_USER,
+    'weight' => -36,
+    'status' => 1,
+    'region' => 'sidebar_second',
+    'visibility' => BLOCK_VISIBILITY_LISTED,
+    'pages' => '<front>',
+  );
+
+  $blocks['activity_listing_filters'] = array(
+    'info' => t('Activity listing filters', array(), array('context' => 'gofast:gofast_views')),
+    'cache' => DRUPAL_CACHE_PER_USER,
+    'weight' => -37,
+    'status' => 1,
+    'region' => 'sidebar_second',
+    'visibility' => BLOCK_VISIBILITY_LISTED,
+    'pages' => '<front>',
+  );
+
+  $blocks['activity_stream_link'] = array(
+    'info' => t('Activity stream link', array(), array('context' => 'gofast:gofast_views')),
+    'cache' => DRUPAL_CACHE_PER_USER,
+    'weight' => -36,
+    'status' => 1,
+    'region' => 'sidebar_second',
+    'visibility' => BLOCK_VISIBILITY_LISTED,
+    'pages' => '<front>',
+  );
+
+  $blocks['gofast_og_filters'] = array(
+    'info' => t('Spaces filters', array(), array('context' => 'gofast:gofast_views')),
+    'cache' => DRUPAL_CACHE_PER_USER,
+    'weight' => -36,
+    'status' => 1,
+    'region' => 'sidebar_second',
+    'visibility' => BLOCK_VISIBILITY_LISTED,
+    'pages' => 'og/list_grid*',
+  );
+
+  $blocks['gofast_book_blocks'] = array(
+    'info' => t('Gofast Book Block', array(), array('context' => 'gofast:gofast_views')),
+    'cache' => DRUPAL_CACHE_PER_USER,
+    'weight' => -36,
+    'status' => 1,
+    'region' => 'sidebar_second',
+    'visibility' => BLOCK_VISIBILITY_LISTED,
+    'pages' => '_test_',
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_user_logout().
+ */
+function gofast_views_user_logout($account)
+{
+  global $user;
+  $cookie1 = 'activity_filters' . $user->uid;
+  if (isset($_COOKIE[$cookie1])) setcookie($cookie1, '', 1, '/');
+  $cookie2 = 'users_filters' . $user->uid;
+  if (isset($_COOKIE[$cookie2])) setcookie($cookie2, '', 1, '/');
+}
+
+
+/**
+ * Implements hook_block_view().
+ */
+function gofast_views_block_view($delta = '')
+{
+  $block = array();
+  switch ($delta) {
+
+    case 'activity_stream_filters':
+      $block['subject'] = t('Activity stream filters', array(), array('context' => 'gofast:gofast_views'));
+
+      global $user;
+      $account = user_load($user->uid);
+      $path = drupal_get_path('module', 'gofast_views');
+      drupal_add_js($path . '/js/gofast_content_filters.js');
+      drupal_add_library('system', 'ui.accordion');
+      //      drupal_add_js('jQuery(document).ready(function () {  });', 'inline');
+      drupal_add_css(/*.users_contents_filter, */'.organisation_contents_filter, .public_contents_filter, .extranet_contents_filter, .group_contents_filter, .state_contents_filter { color:#636363; } .panel-group{margin-bottom:5px;} .panel-title>a.selected{font-weight:bold; color:#428bca;} .selected {font-weight:bold; color:#428bca;}', array('group' => CSS_THEME, 'type' => 'inline', 'weight' => 999));
+
+      // Persistance des filtres de la vue principale
+      $cookie_name = 'activity_filters' . $account->uid;
+      $jq = '';
+      if (isset($_COOKIE[$cookie_name])) {
+        $filters = $_COOKIE[$cookie_name];
+        parse_str($filters, $get_array);
+        //          debug($get_array);
+        if (isset($get_array['gofast_filter_group_title_op'])) {
+          if ($get_array['gofast_filter_group_title_op'] == 'or') {
+            if (isset($get_array['gofast_filter_group_title'])) {
+              foreach ($get_array['gofast_filter_group_title'] as $value) {
+                $jq .= ' jQuery("#' . $value . '").addClass("selected");';
+              }
+              $jq .= ' jQuery("#collapseOne, #collapseTwo").has("a.selected").addClass("in");';
+              $jq .= ' jQuery("#collapseOne, #collapseTwo").has("a.selected").prev().find("a.show-hide").removeClass("collapsed");';
+              $jq .= ' jQuery("#collapseOne, #collapseTwo").has("a.selected").prev().find("i").removeClass("fa-chevron-right").addClass("fa-chevron-down");';
+            }
+          }
+          //else if($get_array['gofast_filter_group_title_op'] == 'empty') $jq .= ' jQuery(".public_contents_filter").addClass("selected");';
+        }
+        if (isset($get_array['field_state_tid'])) {
+          foreach ($get_array['field_state_tid'] as $value) {
+            $jq .= ' jQuery(".state_contents_filter[ids=' . $value . ']").addClass("selected");';
+          }
+          $jq .= ' jQuery("#collapseThree").addClass("in");';
+          $jq .= ' jQuery("#collapseThree").has("a.selected").prev().find("a.show-hide").removeClass("collapsed");';
+          $jq .= ' jQuery("#collapseThree").has("a.selected").prev().find("i").removeClass("fa-chevron-right").addClass("fa-chevron-down");';
+        }
+        if (!isset($get_array['field_state_tid']) and !isset($get_array['gofast_filter_group_title']) and $get_array['gofast_filter_group_title_op'] == 'or') $jq .= ' jQuery(".no_filter").addClass("selected");';
+        //          drupal_add_js('jQuery(document).ready(function () { jQuery(".og_contents_filter").addClass("selected"); });', 'inline');
+      }
+      //      else $jq .= ' jQuery(".no_filter").addClass("selected");';
+      $jq .= 'jQuery("a.show-hide").bind("click dblclick", function(e) {'
+        . 'if (jQuery(this).hasClass("collapsed") == true && jQuery(this).children().hasClass("fa-chevron-right") == true) jQuery(this).children().removeClass("fa-chevron-right").addClass("fa-chevron-down");'
+        . 'else if (jQuery(this).hasClass("collapsed") == false && jQuery(this).children().hasClass("fa-chevron-down") == true) jQuery(this).children().removeClass("fa-chevron-down").addClass("fa-chevron-right");'
+        . ' });';
+      drupal_add_js('jQuery(document).ready(function () { ' . $jq . ' });', 'inline');
+      //      drupal_add_js('jQuery("div.panel-collapse").bind("show", function () {jQuery(this).parent("div").find(".fa-chevron-right").removeClass("fa-chevron-right").addClass("fa-chevron-down");});'
+      //                  . 'jQuery("div.panel-collapse").bind("hide", function () {jQuery(this).parent("div").find(".fa-chevron-down").removeClass("fa-chevron-down").addClass("fa-chevron-right");});',  array('group' => JS_THEME, 'type' => 'inline', 'weight' => 999));
+
+
+      //recuperer la liste des id des groupes et organisation
+      $user_og = array();
+      $orgs = NULL;
+      $groups = NULL;
+      $public = NULL;
+      $extranet = NULL;
+      if (isset($account->og_user_node[LANGUAGE_NONE])) {
+        $user_og = $account->og_user_node[LANGUAGE_NONE];
+        foreach ($user_og as $key => &$value) {
+          $value = $value['target_id'];
+        }
+      }
+
+      //get membership from user's userlists
+      $groups_by_user = gofast_userlist_og_get_groups_by_user($account, 'node');
+      foreach ($groups_by_user as $group_id) {
+        $user_og[] = $group_id;
+      }
+
+      $og = gofast_og_get_spaces_by_bundle();
+      foreach ($og['organisation'] as $id => $org) {
+        if (in_array($id, $user_og)) {
+          $orgs[$id] = $org->title;
+        }
+      }
+      foreach ($og['group'] as $id => $grp) {
+        if (in_array($id, $user_og)) {
+          $groups[$id] = $grp->title;
+        }
+      }
+
+      foreach ($og['public'] as $id => $grp) {
+        $public[$id] = $grp->title;
+      }
+
+      foreach ($og['extranet'] as $id => $grp) {
+        if (in_array($id, $user_og)) {
+          $extranet[$id] = $grp->title;
+        }
+      }
+      //        debug($groups);
+
+      //recuperer l'espace privé de l'utilisateur courant
+      $user_pog = array();
+      if (isset($account->{GOFAST_OG_USER_PRIVATE_SPACE}[LANGUAGE_NONE])) {
+        $user_pog = $account->{GOFAST_OG_USER_PRIVATE_SPACE}[LANGUAGE_NONE];
+        foreach ($user_pog as $key => &$value) {
+          $value = $value['target_id'];
+        }
+      }
+
+
+
+      //        $selected = '<li class="active">';
+
+      //générer le bouton No filters
+      $content1 = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title">';
+      $content1 .= '<a class="og_contents_filter no_filter" href="#"  title="' . t('Display all contents', array(), array('context' => 'gofast')) . '">' . t('No filters', array(), array('context' => 'gofast')) . '</a>';
+      $content1 .= '</h4></div><div class="panel-collapse collapse"><div class="panel-body">';
+      $content1 .= '</div></div></div></div>';
+
+      //générer le bouton Display blog
+      $content15 = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title">';
+      if ($_COOKIE['display_blog'] == 1 || !isset($_COOKIE['display_blog'])) {
+        $content15 .= '<a class="check-display-blog selected" href="#"  title="' . t('Display blog', array(), array('context' => 'gofast')) . '">' . t('Display blog messages', array(), array('context' => 'gofast')) . '</a>';
+      } else {
+        $content15 .= '<a class="check-display-blog" href="#"  title="' . t('Display blog', array(), array('context' => 'gofast')) . '">' . t('Display blog messages', array(), array('context' => 'gofast')) . '</a>';
+      }
+      $content15 .= '</h4></div><div class="panel-collapse collapse"><div class="panel-body">';
+      $content15 .= '</div></div></div></div>';
+
+      //générer le bouton des private contents
+      if ($user_pog) {
+        $content2 = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title">';
+        foreach ($og['private_space'] as $id => $orga) {
+          if (in_array($id, $user_pog)) {
+            $content2 .= '<a class="og_contents_filter private_contents_filter" id="' . $id . '" href="#"  title="' . t('Display contents you have created, modified or commented', array(), array('context' => 'gofast')) . '">' . t('Private Contents', array(), array('context' => 'gofast')) . '</a>';
+          }
+        }
+        $content2 .= '</h4></div><div class="panel-collapse collapse"><div class="panel-body">';
+        $content2 .= '</div></div></div></div>';
+      }
+
+      //générer le bouton des forums
+      $content3 = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title">';
+      $content3 .= '<a class="og_contents_filter type_contents_filter" id="forum" href="#"  title="' . t('Display your forums') . '">' . t('Forums') . '</a>';
+      $content3 .= '</h4></div><div class="panel-collapse collapse"><div class="panel-body">';
+      $content3 .= '</div></div></div></div>';
+
+      //générer le bouton des réunions
+      $content35 = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title">';
+      $content35 .= '<a class="og_contents_filter type_contents_filter" id="conference" href="#"  title="' . t('Display your meetings') . '">' . t('Meetings') . '</a>';
+      $content35 .= '</h4></div><div class="panel-collapse collapse"><div class="panel-body">';
+      $content35 .= '</div></div></div></div>';
+
+      //générer l'accordion des organisation
+      if ($orgs) {
+        $content4 = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title"><a data-toggle="collapse" data-parent="#accordion" href="#collapseOne" class="show-hide collapsed"><i class="fa fa-chevron-right  pull-left"></i>';
+        $content4 .= t('Organisations', array(), array('context' => 'gofast'));
+        $content4 .= '</a></h4></div><div id="collapseOne" class="panel-collapse collapse"><div class="panel-body">';
+        foreach ($orgs as $id => $rg) {
+          $content4 .= '<a class="og_contents_filter organisation_contents_filter" style="cursor:pointer;float:left;" id="' . $id . '" title="' . t('Contents in ', array(), array('context' => 'gofast'))  . $rg . '">' . $rg . '&nbsp;</a>';
+          //$content4 .= '<a class="og_contents_filter organisation_contents_filter" id="' . $id .'" href="#"  title="' . t('Contents in ', array(), array('context' => 'gofast'))  . $rg . '">' . $rg . '</a></br>';
+        }
+        $og_json = gofast_og_view_get_ztree_json("organisation", $account, true);
+        libraries_load('ztree');
+        $settings = array('data_tree' => $og_json, "is_document" => "true");
+        drupal_add_js(array('gofast_og_tree_af_filter_orga' => $settings), 'setting');
+        $content4 .= "<span style='clear:both;'><br /></span><div id='ztree_og_grid_af_filter_orga' class='ztree'></div>";
+        $content4 .= '</div></div></div></div>';
+      }
+
+
+      //générer l'accordion des groupes
+      if ($groups) {
+        $content5 = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title"><a data-toggle="collapse" data-parent="#accordion" href="#collapseTwo" class="show-hide collapsed"><i class="fa fa-chevron-right  pull-left"></i>';
+        $content5 .= t('Groups', array(), array('context' => 'gofast'));
+        $content5 .= '</a></h4></div><div id="collapseTwo" class="panel-collapse collapse"><div class="panel-body">';
+        foreach ($groups as $id => $group) {
+          $content5 .= '<a class="og_contents_filter group_contents_filter" style="cursor:pointer;float:left;" id="' . $id . '" title="' . t('Contents in ', array(), array('context' => 'gofast'))  . $group . '">' . $group . '&nbsp;</a>';
+        }
+
+        $og_json = gofast_og_view_get_ztree_json("group", $account, true);
+        libraries_load('ztree');
+        $settings = array('data_tree' => $og_json, "is_document" => "true");
+        drupal_add_js(array('gofast_og_tree_af_filter' => $settings), 'setting');
+        $content5 .= "<span style='clear:both;'><br /></span><div id='ztree_og_grid_af_filter' class='ztree'></div>";
+        $content5 .= '</div></div></div></div>';
+      }
+
+
+      //générer l'accordion des public
+      if ($public) {
+        $content_public = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title"><a data-toggle="collapse" data-parent="#accordion" href="#collapse_public" class="show-hide collapsed"><i class="fa fa-chevron-right  pull-left"></i>';
+        $content_public .= t('Public', array(), array('context' => 'gofast'));
+        $content_public .= '</a></h4></div><div id="collapse_public" class="panel-collapse collapse"><div class="panel-body">';
+        foreach ($public as $id => $public_space) {
+          $content_public .= '<a class="og_contents_filter public_contents_filter" style="cursor:pointer;float:left;" id="' . $id . '" title="' . t('Contents in ', array(), array('context' => 'gofast'))  . $public_space . '">' . $public_space . '&nbsp;</a>';
+          //$content_public .= '<a class="og_contents_filter public_contents_filter" id="' . $id .'" href="#"  title="' . t('Contents in ', array(), array('context' => 'gofast'))  . $public_space . '">' . $public_space . '</a></br>';
+        }
+        $og_json = gofast_og_view_get_ztree_json("public", $account, true);
+        libraries_load('ztree');
+        $settings = array('data_tree' => $og_json, "is_document" => "true");
+        drupal_add_js(array('gofast_og_tree_af_filter_public' => $settings), 'setting');
+        $content_public .= "<span style='clear:both;'><br /></span><div id='ztree_og_grid_af_filter_public' class='ztree'></div>";
+        $content_public .= '</div></div></div></div>';
+      }
+
+
+      //générer l'accordion des extranet
+      if ($extranet) {
+        $content_extranet = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title"><a data-toggle="collapse" data-parent="#accordion" href="#collapse_extranet" class="show-hide collapsed"><i class="fa fa-chevron-right  pull-left"></i>';
+        $content_extranet .= t('Extranet', array(), array('context' => 'gofast'));
+        $content_extranet .= '</a></h4></div><div id="collapse_extranet" class="panel-collapse collapse"><div class="panel-body">';
+        foreach ($extranet as $id => $extranet_space) {
+          $content_extranet .= '<a class="og_contents_filter extranet_contents_filter" style="cursor:pointer;float:left;" id="' . $id . '" title="' . t('Contents in ', array(), array('context' => 'gofast'))  . $extranet_space . '">' . $extranet_space . '&nbsp;</a>';
+          //$content_extranet .= '<a class="og_contents_filter extranet_contents_filter" id="' . $id .'" href="#"  title="' . t('Contents in ', array(), array('context' => 'gofast'))  . $extranet_space . '">' . $extranet_space . '</a></br>';
+        }
+        $og_json = gofast_og_view_get_ztree_json("extranet", $account, true);
+        libraries_load('ztree');
+        $settings = array('data_tree' => $og_json, "is_document" => "true");
+        drupal_add_js(array('gofast_og_tree_af_filter_extranet' => $settings), 'setting');
+        $content_extranet .= "<span style='clear:both;'><br /></span><div id='ztree_og_grid_af_filter_extranet' class='ztree'></div>";
+        $content_extranet .= '</div></div></div></div>';
+      }
+
+
+      //générer l'accordion des State
+      $content6 = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title"><a data-toggle="collapse" data-parent="#accordion" href="#collapseThree" class="show-hide collapsed"><i class="fa fa-chevron-right  pull-left"></i>';
+      $content6 .= t('State', array(), array('context' => 'gofast'));
+      $content6 .= '</a></h4></div><div id="collapseThree" class="panel-collapse collapse"><div class="panel-body">';
+      $results6 = taxonomy_get_tree(GOFAST_VID_STATE);
+      foreach ($results6 as $result) {
+        $content6 .= '<a class="og_contents_filter state_contents_filter" ids="' . $result->tid . '" href="#"  title="' . t('Filtering by status : ', array(), array('context' => 'gofast'))  . $result->name . '">' . i18n_taxonomy_localize_terms($result)->name . '</a></br>';
+      }
+      $content6 .= '</div></div></div></div>';
+
+      //générer l'accordion des auteurs
+      //      if ($orgs) {
+      //      $content7 = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title"><a data-toggle="collapse" data-parent="#accordion" href="#collapseUsers" class="show-hide collapsed"><i class="fa fa-chevron-right  pull-left"></i>';
+      //      $content7 .= t('Creators', array(), array('context' => 'gofast'));
+      //      $content7 .= '</a></h4></div><div id="collapseUsers" class="panel-collapse collapse"><div class="panel-body">';
+      //      $active_users = gofast_get_active_user();
+      //      foreach ($active_users as $key => $active_user) {
+      ////      print '<pre>'; print_r($active_user->name);
+      //        $content7 .= '<a class="og_contents_filter users_contents_filter" ids="' . $active_user->uid . '" href="#"  title="' . t('Filtering by creator : ', array(), array('context' => 'gofast'))  . $active_user->name . '">' . $active_user->name . '&nbsp;</a></br>';
+      //      }
+      //      }
+      //    }
+
+      //        $content = '' ;
+      $content = $content1;
+      $content .= isset($content15) ? $content15 : "";
+      $content .= isset($content2) ? $content2 : "";
+      $content .= isset($content3) ? $content3 : "";
+      $content .= isset($content35) ? $content35 : "";
+      $content .= isset($content4) ? $content4 : "";
+      $content .= isset($content5) ? $content5 : "";
+      $content .= isset($content_public) ? $content_public : "";
+      $content .= isset($content_extranet) ? $content_extranet : "";
+      $content .= $content6;
+      //      $content .= $content7 ;
+      //      $content .= '</div>' ;
+      $block['content'] = $content;
+      break;
+    case 'activity_listing_filters':
+      $tmp = array();
+      $block['subject'] = t('Listing activity filters');
+      $block['content'] = '<div id="activity_filters"></div>';
+      break;
+    case 'activity_stream_link':
+      $block['subject'] = t('Activity Feed', array(), array('context' => 'gofast'));
+      $block['content'] = l(t('Activity Feed'), 'activity_feed');
+      break;
+    case 'gofast_og_filters':
+      $block['subject'] = t('Spaces filters', array(), array('context' => 'gofast'));
+
+      drupal_add_css('.panel-title>a.selected{font-weight:bold; color:#428bca;}', $option['type'] = 'inline');
+
+      if (basename(request_path()) == "organisation") drupal_add_js('jQuery(document).ready(function () { jQuery(".gofast_orga_filter").addClass("selected");});', 'inline');
+      else if (basename(request_path()) == "group") drupal_add_js('jQuery(document).ready(function () { jQuery(".gofast_group_filter").addClass("selected");});', 'inline');
+      else if (basename(request_path()) == "public") drupal_add_js('jQuery(document).ready(function () { jQuery(".gofast_public_filter").addClass("selected");});', 'inline');
+      else if (basename(request_path()) == "extranet") drupal_add_js('jQuery(document).ready(function () { jQuery(".gofast_extranet_filter").addClass("selected");});', 'inline');
+      else drupal_add_js('jQuery(document).ready(function () { jQuery(".gofast_all_filter").addClass("selected");});', 'inline');
+
+      $path = drupal_get_path('module', 'gofast_views');
+      drupal_add_js($path . '/js/gofast_space_filters.js', 'file');
+
+      //        $form['notification_email']['#attached']['js'][] = array(
+      //          'data' => 'file.js',
+      //          'type' => 'file',
+      //          'group' => JS_THEME,
+      //          'weight' => 0,
+      //          'scope' => 'footer'
+      //        );
+
+      $form['notification_email']['#attached']['js'][] = array(
+        'data' => '$fdmobvf',
+        'type' => 'inline'
+      );
+
+
+      // générer le bouton du filtre all
+      $content1 = '<div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title">';
+      $content1 .= '<a class="gofast_space_filters gofast_all_filter" href="/og/list_grid"  title="' . t('Display both Organisations and Groups', array(), array('context' => 'gofast')) . '">' . t('All', array(), array('context' => 'gofast')) . '</a>';
+      $content1 .= '</h4></div><div class="panel-collapse collapse"><div class="panel-body">';
+      $content1 .= '</div></div></div>';
+
+      // générer l'accordion des organisations
+      $content2 = '<div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title">';
+      $content2 .= '<a class="gofast_space_filters gofast_orga_filter" href="/og/list_grid/organisation"  title="' . t('Display Organisations', array(), array('context' => 'gofast')) . '">' . t('Organisations', array(), array('context' => 'gofast')) . '</a>';
+      $content2 .= '</h4></div><div class="panel-collapse collapse"><div class="panel-body">';
+      $content2 .= '</div></div></div>';
+
+      // générer l'accordion des groupes
+      $content3 = '<div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title">';
+      $content3 .= '<a class="gofast_space_filters gofast_group_filter" href="/og/list_grid/group"  title="' . t('Display Groups', array(), array('context' => 'gofast')) . '">' . t('Groups', array(), array('context' => 'gofast')) . '</a>';
+      $content3 .= '</h4></div><div class="panel-collapse collapse"><div class="panel-body">';
+      $content3 .= '</div></div></div>';
+
+      // générer l'accordion des public
+      $content_public = '<div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title">';
+      $content_public .= '<a class="gofast_space_filters gofast_public_filter" href="/og/list_grid/public"  title="' . t('Display Public', array(), array('context' => 'gofast')) . '">' . t('Public', array(), array('context' => 'gofast')) . '</a>';
+      $content_public .= '</h4></div><div class="panel-collapse collapse"><div class="panel-body">';
+      $content_public .= '</div></div></div>';
+
+      // générer l'accordion des extranet
+      $content_extranet = '<div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title">';
+      $content_extranet .= '<a class="gofast_space_filters gofast_extranet_filter" href="/og/list_grid/extranet"  title="' . t('Display Extranet', array(), array('context' => 'gofast')) . '">' . t('Extranet', array(), array('context' => 'gofast')) . '</a>';
+      $content_extranet .= '</h4></div><div class="panel-collapse collapse"><div class="panel-body">';
+      $content_extranet .= '</div></div></div>';
+
+      //      // générer l'element du search
+      //      $content4 = '<div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title">';
+      //      $content4 .= '<div class="input-group"><input id="gofast_search_input" type="text" class="form-control"><span class="input-group-btn"><a class="gofast_space_filters gofast_search_submit btn btn-default" href="#" type="button">' . t('Search', array(), array('context' => 'gofast')) . '</a></span></div>';
+      //      $content4 .= '</h4></div><div class="panel-collapse collapse"><div class="panel-body">';
+      //      $content4 .= '</div></div></div>';
+
+      $content = '<div class="panel-group" id="accordion">';
+      $content .= $content1 . $content2 . $content3 . $content_public . $content_extranet . $content4;
+      $content .= '</div>';
+
+      $block['content'] = $content;
+
+      break;
+
+      //     case 'gofast_user_filters':
+      //       $block['subject'] = t('User Directory filters', array(), array('context' => 'gofast'));
+
+      //       $path = drupal_get_path('module', 'gofast_views');
+      //       drupal_add_js($path . '/js/gofast_users_filters.js', 'file');
+      //       drupal_add_css(' .gofast_names_filter, .gofast_orga_filter, gofast_public_filter, gofast_extranet_filter, .gofast_groupes_filter, .gofast_skills_filter { color:#636363; } .panel-group{margin-bottom:5px;} .panel-title>a.selected{font-weight:bold; color:#428bca;} .selected{font-weight:bold; color:#428bca;}', array('group' => CSS_THEME, 'type' => 'inline', 'weight' => 999));
+
+      //       global $user;
+      //       $account = user_load($user->uid);
+      //       //recuperer la liste des id des groupes et organisation
+      //       $user_og = array();
+      //       $orgs = NULL;
+      //       $groups = NULL;
+      //       $public = NULL;
+      //       $extranet = NULL;
+      //       if (isset($account->og_user_node[LANGUAGE_NONE])) {
+      //         $user_og = $account->og_user_node[LANGUAGE_NONE];
+      //         foreach ($user_og as $key => &$value) {
+      //           $value = $value['target_id'];
+      //         }
+      //       }
+
+      //       //get membership from user's userlists
+      //       $groups_by_user = gofast_userlist_og_get_groups_by_user($account,'node');
+      //       foreach($groups_by_user as $group_id){
+      //          $user_og[] = $group_id;
+      //       }
+
+      //       $og = gofast_og_get_spaces_by_bundle();
+      //       foreach ($og['organisation'] as $id => $org) {
+      //         if (in_array($id, $user_og)) {
+      //           $orgs[$id] = $org->title;
+      //         }
+      //       }
+      // //        debug($orgs);
+      //       foreach ($og['group'] as $id => $grp) {
+      //         if (in_array($id, $user_og)) {
+      //           $groups[$id] = $grp->title;
+      //         }
+      //       }
+
+      //       foreach ($og['public'] as $id => $grp) {
+      //         if (in_array($id, $user_og)) {
+      //           $public[$id] = $grp->title;
+      //         }
+      //       }
+
+      //       foreach ($og['extranet'] as $id => $grp) {
+      //         if (in_array($id, $user_og)) {
+      //           $extranet[$id] = $grp->title;
+      //         }
+      //       }
+      // //        debug($groups);
+
+      //       // Persistance des filtres de la vue des utilisateurs
+      //       $cookie_name = 'users_filters' . $account->uid;
+      //        $jqr = '';
+      //       if (isset($_COOKIE[$cookie_name])) {
+      //         $filters = $_COOKIE[$cookie_name];
+      //         parse_str($filters, $get_array);
+      //         if (isset($get_array['gofast_filter_group_title'])){
+      //           foreach ($get_array['gofast_filter_group_title'] as $value) {
+      //             $jqr .= ' jQuery("#' . $value . '").addClass("selected");';
+      //             $jqr .= ' jQuery("#collapseTwo, #collapseThree").has("a.selected").addClass("in");';
+      //             $jqr .= ' jQuery("#collapseTwo, #collapseThree").has("a.selected").prev().find("a.show-hide").removeClass("collapsed");';
+      //             $jqr .= ' jQuery("#collapseTwo, #collapseThree").has("a.selected").prev().find("i").removeClass("fa-chevron-right").addClass("fa-chevron-down");';
+      //           }
+      //         }
+      //         if (isset($get_array['field_skills_tid'])) {
+      //           foreach ($get_array['field_skills_tid'] as $value) {
+      //             $jqr .= ' jQuery(".gofast_skills_filter[ids=' . $value . ']").addClass("selected");';
+      //             $jqr .= ' jQuery("#collapseFour").has("a.selected").addClass("in");';
+      //             $jqr .= ' jQuery("#collapseFour").has("a.selected").prev().find("a.show-hide").removeClass("collapsed");';
+      //             $jqr .= ' jQuery("#collapseFour").has("a.selected").prev().find("i").removeClass("fa-chevron-right").addClass("fa-chevron-down");';
+      //           }
+      //         }
+      //         if (isset($get_array['gofast_user_relationships'])) {
+      //           if ($get_array['gofast_user_relationships'] == 1 ) $jqr .= ' jQuery(".gofast_my_relation").addClass("selected");';
+      //           else if ($get_array['gofast_user_relationships'] == 0 && empty($get_array['ldap_user_sn_value']) && empty($get_array['ldap_user_sn_value_1']) && !isset ($get_array['field_skills_tid']) && !isset($get_array['gofast_filter_group_title']) ) $jqr .= ' jQuery(".gofast_all_filter").addClass("selected");';
+      //         }
+      //         if (isset($get_array['ldap_user_sn_value']) && isset($get_array['ldap_user_sn_value_1'])) {
+      //           if (!empty($get_array['ldap_user_sn_value']) && !empty($get_array['ldap_user_sn_value_1'])) {
+      //             $jqr .= ' jQuery(".gofast_names_filter[val1=' . $get_array['ldap_user_sn_value'] . '][val2=' . $get_array['ldap_user_sn_value_1'] . ']").addClass("selected");';
+      //             $jqr .= ' jQuery("#collapseOne").has("a.selected").addClass("in");';
+      //             $jqr .= ' jQuery("#collapseOne").has("a.selected").prev().find("a.show-hide").removeClass("collapsed");';
+      //             $jqr .= ' jQuery("#collapseOne").has("a.selected").prev().find("i").removeClass("fa-chevron-right").addClass("fa-chevron-down");';
+      //           }
+      //         }
+      //         $jqr .= 'jQuery("a.show-hide").bind("click dblclick", function(e) {'
+      //         . 'if (jQuery(this).hasClass("collapsed") == true && jQuery(this).children().hasClass("fa-chevron-right") == true) jQuery(this).children().removeClass("fa-chevron-right").addClass("fa-chevron-down");'
+      //         . 'else if (jQuery(this).hasClass("collapsed") == false && jQuery(this).children().hasClass("fa-chevron-down") == true) jQuery(this).children().removeClass("fa-chevron-down").addClass("fa-chevron-right");'
+      //         . ' });';
+      // //          if (empty($get_array['ldap_user_sn_value']) && empty($get_array['ldap_user_sn_value_1']) && !isset($get_array['gofast_filter_group_title']) && !isset($get_array['field_skills_tid'])) $jqr .= ' jQuery("#collapseOne, #collapseTwo, #collapseThree, #collapseFour").addClass("in");';
+      //       } else{
+      //         $jqr .= 'jQuery(".gofast_all_filter").addClass("selected");';
+      //       }
+      //       drupal_add_js('jQuery(document).ready(function () { ' . $jqr . ' });', 'inline');
+
+      //       //recuperer la liste des skills
+      //       $skills = taxonomy_get_tree(GOFAST_VID_SKILLS);
+
+
+      //       // générer le bouton du filtre all profiles
+      //       $content1 = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title">';
+      //       $content1 .= '<a class="gofast_user_filters gofast_all_filter" href="#"  title="' . t('Display all profiles', array(), array('context' => 'gofast')) . '">' . t('All Profiles', array(), array('context' => 'gofast')) . '</a>';
+      //       $content1 .= '</h4></div><div class="panel-collapse collapse"><div class="panel-body">';
+      //       $content1 .= '</div></div></div></div>';
+
+      //       // générer le bouton du filtre all profiles
+      //       $content2 = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title">';
+      //       $content2 .= '<a class="gofast_user_filters gofast_my_relation" href="#"  title="' . t('Show your contacts', array(), array('context' => 'gofast')) . '">' . t('My relations', array(), array('context' => 'gofast')) . '</a>';
+      //       $content2 .= '</h4></div><div class="panel-collapse collapse"><div class="panel-body">';
+      //       $content2 .= '</div></div></div></div>';
+
+      //       //générer l'accordion des organisation
+      //       if ($orgs) {
+      //         $content4 = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title"><a data-toggle="collapse" data-parent="#accordion" href="user_listing_grid#collapseTwo" class="show-hide collapsed gofast_user_filters"><i class="fa fa-chevron-right  pull-left"></i>';
+      //         $content4 .= t('Organisations', array(), array('context' => 'gofast'));
+      //         $content4 .= '</a></h4></div><div id="collapseTwo" class="panel-collapse collapse"><div class="panel-body">';
+      //         foreach ($orgs as $id => $rg) {
+      //           $content4 .= '<a class="gofast_user_filters gofast_orga_filter" id="' . $id .'" href="#"  title="' . t('Users in ', array(), array('context' => 'gofast'))  . $rg . '">' . $rg . '</a></br>';
+      //         }
+      //         $content4 .= '</div></div></div></div>';
+      //       }
+
+      //       //générer l'accordion des groupes
+      //       if ($groups) {
+      //         $content5 = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title"><a data-toggle="collapse" data-parent="#accordion" href="user_listing_grid#collapseThree" class="show-hide collapsed gofast_user_filters"><i class="fa fa-chevron-right  pull-left"></i>';
+      //         $content5 .= t('Groups', array(), array('context' => 'gofast'));
+      //         $content5 .= '</a></h4></div><div id="collapseThree" class="panel-collapse collapse"><div class="panel-body">';
+      //         foreach ($groups as $id => $group) {
+      //           $content5 .= '<a class="gofast_user_filters gofast_groupes_filter" id="' . $id .'" href="#"  title="' . t('Users in ', array(), array('context' => 'gofast'))  . $group . '">' . $group . '</a></br>';
+      //         }
+      //         $content5 .= '</div></div></div></div>';
+      //       }
+
+      //       //générer l'accordion des public
+      //       if ($public) {
+      //         $content_public = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title"><a data-toggle="collapse" data-parent="#accordion" href="user_listing_grid#collapse_public" class="show-hide collapsed gofast_user_filters"><i class="fa fa-chevron-right  pull-left"></i>';
+      //         $content_public .= t('Public', array(), array('context' => 'gofast'));
+      //         $content_public .= '</a></h4></div><div id="collapse_public" class="panel-collapse collapse"><div class="panel-body">';
+      //         foreach ($public as $id => $public_space) {
+      //           $content_public .= '<a class="gofast_user_filters gofast_public_filter" id="' . $id .'" href="#"  title="' . t('Users in ', array(), array('context' => 'gofast'))  . $public_space . '">' . $public_space . '</a></br>';
+      //         }
+      //         $content_public .= '</div></div></div></div>';
+      //       }
+
+      //       //générer l'accordion des extranet
+      //       if ($extranet) {
+      //         $content_extranet = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title"><a data-toggle="collapse" data-parent="#accordion" href="user_listing_grid#collapse_extranet" class="show-hide collapsed gofast_user_filters"><i class="fa fa-chevron-right  pull-left"></i>';
+      //         $content_extranet .= t('Extranet', array(), array('context' => 'gofast'));
+      //         $content_extranet .= '</a></h4></div><div id="collapse_extranet" class="panel-collapse collapse"><div class="panel-body">';
+      //         foreach ($extranet as $id => $extranet_space) {
+      //           $content_extranet .= '<a class="gofast_user_filters gofast_extranet_filter" id="' . $id .'" href="#"  title="' . t('Users in ', array(), array('context' => 'gofast'))  . $extranet_space . '">' . $extranet_space . '</a></br>';
+      //         }
+      //         $content_extranet .= '</div></div></div></div>';
+      //       }
+
+      //       // générer l'accordion du filtre Names
+      //       foreach (range('A', 'Z') as $char) {
+      //         $al[]=$char;
+      //       }
+      //       foreach(array_chunk($al, 2) as $values) {
+      //         $alph[]=$values;
+      //       }
+      //       $content3 = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title"><a data-toggle="collapse" data-parent="#accordion" href="user_listing_grid#collapseOne" class="show-hide collapsed gofast_user_filters"><i class="fa fa-chevron-right  pull-left"></i>';
+      //       $content3 .= t('Names', array(), array('context' => 'gofast'));
+      //       $content3 .= '</a></h4></div><div id="collapseOne" class="panel-collapse collapse"><div class="panel-body">';
+      //       foreach($alph as $value) {
+      //         $content3 .= '<a class="gofast_user_filters gofast_names_filter" val1="' . $value[0] .'" val2="' . $value[1] .'" href="#">' . $value[0] . ' - ' . $value[1] . '</a></br>';
+      //       }
+      //       $content3 .= '</div></div></div></div>';
+
+      //       //générer l'accordion des skills
+      //       $content6 = '<div class="panel-group" id="accordion"><div class="panel panel-default"><div class="panel-heading"><h4 class="panel-title"><a data-toggle="collapse" data-parent="#accordion" href="user_listing_grid#collapseFour" class="show-hide collapsed gofast_user_filters"><i class="fa fa-chevron-right  pull-left"></i>';
+      //       $content6 .= t('Skills', array(), array('context' => 'gofast'));
+      //       $content6 .= '</a></h4></div><div id="collapseFour" class="panel-collapse collapse"><div class="panel-body">';
+      //       foreach ($skills as $skill) {
+      //         $content6 .= '<a class="gofast_user_filters gofast_skills_filter" ids="' . $skill->tid .'" href="#"  title="' . t('Users have ', array(), array('context' => 'gofast'))  . $skill->name . '">' . $skill->name . '</a></br>';
+      //       }
+      //       $content6 .= '</div></div></div></div>';
+
+
+      //       $content = $content1 . $content2 . $content3 ;
+      //       $content .= isset($content4) ? $content4 : "" ;
+      //       $content .= isset($content5) ? $content5 : "" ;
+      //       $content .= isset($content_public) ? $content_public : "" ;
+      //       $content .= isset($content_extranet) ? $content_extranet : "" ;
+      //       $content .= $content6 ;
+      // //      $content .= '</div>' ;
+
+      //       $block['content'] = $content;
+
+      //       break;
+
+  }
+  return $block;
+}
+
+function template_preprocess_gofast_link_archive(&$variables)
+{
+  $nid = FALSE;
+  global $base_url;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  } elseif (!empty($variables['node'])) {
+    $nid = $variables['node']->nid;
+  }
+
+  $class = 'ctools-use-modal';
+  if (isset($variables['class'])) {
+    $class .= ' ' . implode(' ', $variables['class']);
+  }
+
+
+  $variables['href'] = "/modal/nojs/node/{$nid}/archive";
+  $variables['link_class'] = $class;
+  $variables['text'] = t('Archive content');
+}
+
+function template_preprocess_gofast_link_unarchive(&$variables)
+{
+  $nid = FALSE;
+  global $base_url;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  } elseif (!empty($variables['node'])) {
+    $nid = $variables['node']->nid;
+  }
+  $variables['href'] = "/modal/nojs/node/{$nid}/unarchive";
+  $variables['link_class'] = 'ctools-use-modal';
+  $variables['text'] = t('Unarchive content');
+}
+
+function template_preprocess_gofast_download_link(&$variables)
+{
+  $node = $variables['node'];
+  if ($node->type == "alfresco_item") {
+    if (module_exists('gofast_cmis')) {
+        $variables['ref'] = !empty($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']) ? $node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value'] : '';
+        $variables['onclick'] = 'Gofast.auditAction.download(\'' . $node->nid . '\')';
+      }
+    $variables['text'] = t('Download', array(), array('context' => 'gofast'));
+  }
+}
+
+function template_preprocess_gofast_space_add_riot_room(&$variables)
+{
+  $nid = FALSE;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  }
+  $variables['href'] = "/modal/nojs/riot/{$nid}/add/room";
+  $variables['link_class'] = 'ctools-use-modal';
+  $variables['text'] = t('Create Chat room', array(), array('context' => 'gofast:gofast_riot'));
+  $variables['title'] = t('Create Chat room linked to this space');
+}
+
+function template_preprocess_gofast_space_delete_riot_room(&$variables)
+{
+  $nid = FALSE;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  }
+  $variables['href'] = "/modal/nojs/riot/{$nid}/delete/room";
+  $variables['link_class'] = 'ctools-use-modal';
+  $variables['text'] = t('Delete Chat room', array(), array('context' => 'gofast:gofast_riot'));
+  $variables['title'] = t('Delete Chat room linked from this space');
+}
+
+function template_preprocess_gofast_space_add_members(&$variables)
+{
+  $nid = FALSE;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  }
+  $variables['href'] = "/modal/nojs/og/{$nid}/add/members";
+  $variables['link_class'] = 'ctools-use-modal';
+  $variables['text'] = t('Add members/Userlists', array(), array('context' => 'gofast:gofast_userlist'));
+  $variables['title'] = t('Add existing Users/Userslists to this space');
+}
+
+function template_preprocess_gofast_space_preadd_members(&$variables)
+{
+  $nid = FALSE;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  }
+  $variables['href'] = "/modal/nojs/og/{$nid}/preadd/members";
+  $variables['link_class'] = 'ctools-use-modal';
+  $variables['text'] = t('Pre-Add members/Userlists', array(), array('context' => 'gofast:gofast_userlist'));
+  $variables['title'] = t('Pre Add existing Users/Userslists to this space');
+}
+
+function template_preprocess_gofast_space_delete_space(&$variables)
+{
+  $nid = FALSE;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  }
+  $variables['href'] = "/modal/nojs/gofast_og/delete_space/{$nid}";
+  $variables['link_class'] = 'ctools-use-modal';
+  $variables['text'] = t('Delete this space');
+}
+
+function template_preprocess_gofast_space_archive(&$variables)
+{
+  $nid = FALSE;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  }
+  $node = node_load($nid);
+  if ($node->type == 'group' || $node->type == 'extranet') {
+    $variables['href'] = "/modal/nojs/og/{$nid}/archive";
+    $variables['link_class'] = 'ctools-use-modal';
+    $variables['text'] = t('Archive this space', array(), array('context' => 'gofast'));
+  }
+}
+function template_preprocess_gofast_space_unarchive(&$variables)
+{
+  $nid = FALSE;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  }
+  $variables['href'] = "/modal/nojs/og/{$nid}/unarchive";
+  $variables['link_class'] = 'ctools-use-modal';
+  $variables['text'] = t('Unarchive this space', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_space_manage_members(&$variables)
+{
+  $variables['href'] = "/spaces/nojs/node/{$variables['nid']}/admin/people";
+  $variables['link_class'] = ''; //'ctools-use-modal';
+  $variables['text'] = t('Manage members', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_link_edit_mode(&$variables)
+{
+  $node = $variables['node'];
+  // Ensure user has access to update this node.
+
+  if (isset($variables['class'])) {
+    $class .= ' ' . implode(' ', $variables['class']);
+  }
+
+  if (module_exists('gofast_cmis')) {
+    $path = alfresco_url_download_modify($node);
+    if (!empty($path)) {
+      $variables['isoffice'] = false;
+      $variables['href'] = $path;
+      $variables['link_class'] = 'alfresco_download_edit_url' . $class;
+      $variables['alf_id'] = !empty($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']) ? $node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value'] : FALSE;
+      $variables['text'] = t('Edit from my PC', array(), array('context' => 'gofast'));
+      $variables['nid'] = $node->nid;
+      $variables['title'] = t('Edit this document from your local editor');
+    }
+  }
+}
+
+function template_preprocess_gofast_link_delete_modal(&$variables)
+{
+  $nid = FALSE;
+  global $base_url;
+
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+    $variables['node'] = (!empty($variables['node'])) ? $variables['node'] : node_load($variables['nid']); //Sometimes nid is set but node isn't, so we fill manually the variables array
+  } elseif (!empty($variables['node'])) {
+    $nid = $variables['node']->nid; //$variables['node']
+  }
+  if (isset($variables['class'])) {
+    $class .= ' ' . implode(' ', $variables['class']);
+  }
+
+  $destination = drupal_get_destination();
+
+  $variables['href'] = $base_url . "/modal/nojs/node/{$nid}/manage";
+  $variables['link_class'] = 'ctools-use-modal' . $class;
+  if ($variables['node']->type != "contact") {
+    //check the node status
+    if ($variables['node']->status == 0) {
+      $variables['text'] = t('Restore', array(), array('context' => 'gofast'));
+    } else {
+      $variables['text'] = t('Delete', array(), array('context' => 'gofast'));
+    }
+  }
+}
+
+function template_preprocess_gofast_link_delete_blog_modal(&$variables)
+{
+  $nid = FALSE;
+  global $base_url;
+
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  } elseif (!empty($variables['node'])) {
+    $nid = $variables['node']->nid; //$variables['node']
+  }
+  if (isset($variables['class'])) {
+    $class .= ' ' . implode(' ', $variables['class']);
+  }
+
+  $destination = drupal_get_destination();
+
+  $variables['href'] = $base_url . "/modal/nojs/node/{$nid}/manage-blog";
+  $variables['link_class'] = 'ctools-use-modal' . $class;
+  //check the node status
+  if ($variables['node']->status == 0) {
+    $variables['text'] = t('Restore', array(), array('context' => 'gofast'));
+  } else {
+    $variables['text'] = t('Delete', array(), array('context' => 'gofast'));
+  }
+}
+
+function template_preprocess_gofast_link_move_space(&$variables)
+{
+  $nid = FALSE;
+  global $base_url;
+
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  } elseif (!empty($variables['node'])) {
+    $nid = $variables['node']->nid; //$variables['node']
+  }
+  if (isset($variables['class'])) {
+    $class .= ' ' . implode(' ', $variables['class']);
+  }
+
+  $variables['href'] = $base_url . "/modal/nojs/space/{$nid}/move";
+  $variables['link_class'] = 'ctools-use-modal' . $class;
+  $variables['text'] = t('Move this space', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_link_new_version(&$variables)
+{
+  $nid = FALSE;
+  global $base_url;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  } elseif (!empty($variables['node'])) {
+    $nid = $variables['node']->nid; //$variables['node']
+  }
+
+  if (isset($variables['class'])) {
+    $class .= ' ' . implode(' ', $variables['class']);
+  }
+
+  $variables['href'] = $base_url . "/modal/nojs/get/alfresco/file/form/{$nid}";
+  $variables['link_class'] = 'ctools-use-modal ' . $class;
+  $variables['text'] = t('Upload new version', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_link_manage_translations(&$variables)
+{
+  $nid = FALSE;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  } elseif (!empty($variables['node'])) {
+    $nid = $variables['node']->nid;
+  }
+
+  $class = 'ctools-use-modal';
+  if (isset($variables['class'])) {
+    $class .= ' ' . implode(' ', $variables['class']);
+  }
+
+  $variables['href'] = "/modal/nojs/node/{$nid}/manage-translations";
+  $variables['link_class'] = $class;
+  $variables['text'] = t('Manage translations', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_link_manage_taxonomy(&$variables)
+{
+  $variables['href'] = "/modal/nojs/manage-taxonomy";
+  $variables['link_class'] = 'ctools-use-modal';
+  $variables['text'] = t('Manage taxonomy', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_link_manage_publications(&$variables)
+{
+  $variables['href'] = "/modal/nojs/manage-publications";
+  $variables['link_class'] = 'ctools-use-modal';
+  $variables['text'] = t('Create publications', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_link_manage_mail_sharing(&$variables)
+{
+  $variables['href'] = "/modal/nojs/manage-mail-sharing";
+  $variables['link_class'] = 'ctools-use-modal';
+  $variables['text'] = t('Share by email', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_link_manage_keywords(&$variables)
+{
+  $nid = FALSE;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  } elseif (!empty($variables['node'])) {
+    $nid = $variables['node']->nid; //$variables['node']
+  }
+  $variables['href'] = "/modal/nojs/edit/taxo/{$nid}";
+  $variables['link_class'] = 'ctools-use-modal';
+  $variables['text'] = t('Manage keywords', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_block_file_management(&$variables)
+{
+  $node = $variables['node'];
+  $divider = true;
+
+  if (!is_object($node) || !isset($node->nid)) return;
+
+  if (isset($variables['text']) && empty($variables['text'])) {
+    unset($variables['text']);
+  }
+
+  $variables['class'] = isset($variables['class']) && is_array($variables['class']) ? $variables['class'] : array();
+
+  $output = '<ul class="dropdown-menu gofast-dropdown-menu" role="menu" aria-labelledby="dropdownMenu1">';
+  foreach (gofast_views_get_node_available_actions($node) as $action) {
+    if (is_array($action)) {
+      $children = array();
+
+      $node_actions[] = array(
+        'themed' => $action['action'],
+        'children' => $children
+      );
+      $output .= '<li class="collapsed dropdown-submenu">' . $action['action'];
+      $output .= '<ul class="dropdown-menu dropdown-menu-right gofast-dropdown-menu" aria-labelledby="dropdownMenu1">';
+      foreach ($action['children'] as $child) {
+        //Do not display "rename" menu on activityfeed view
+        // AND Do not display "edit-resume" menu on activityfeed view
+        if (FALSE === strpos($child, "id=\"rename\"") && FALSE === strpos($child, 'id="edit-resume"')) {
+          if ($divider == true) {
+            $output .= '<li>' . $child . '</li>';
+          } else {
+            $divider = true;
+          }
+        } else {
+          $divider = false;
+        }
+      }
+      $output . '</ul></li>';
+    } else if (strpos($action, "header:") !== FALSE) {
+      $header = explode("header:", $action)[1];
+      $output .= '<li class="dropdown-header">' . $header . '</li>';
+    } else if (strpos($action, "divider:") !== FALSE) {
+      $output .= '<li role="separator" class="divider"></li>';
+    } else {
+      //Do not display "rename" menu on activityfeed view
+      // AND Do not display "edit-resume" menu on activityfeed view
+      if (FALSE === strpos($action, "id=\"rename\"") && FALSE === strpos($action, 'id="edit-resume"')) {
+        $output .= '<li>' . $action . '</li>';
+      }
+    }
+  }
+
+  $output .= '</ul>';
+
+  $variables['output'] = $output;
+}
+
+function template_preprocess_gofast_block_microblogging_management(&$variables)
+{
+  $id = $variables['blog_id'];
+  $divider = true;
+
+  if (!isset($id)) return;
+
+  if (isset($variables['text']) && empty($variables['text'])) {
+    unset($variables['text']);
+  }
+
+  $variables['class'] = isset($variables['class']) && is_array($variables['class']) ? $variables['class'] : array();
+
+  $output = '<ul class="dropdown-menu gofast-dropdown-menu" role="menu" aria-labelledby="dropdownMenu1">';
+  //    print_r('toto');exit;
+
+  foreach (gofast_views_get_microblogging_available_actions($id) as $action) {
+    if (is_array($action)) {
+      $children = array();
+
+      $node_actions[] = array(
+        'themed' => $action['action'],
+        'children' => $children
+      );
+      $output .= '<li class="collapsed dropdown-submenu">' . $action['action'];
+      $output .= '<ul class="dropdown-menu dropdown-menu-right gofast-dropdown-menu" aria-labelledby="dropdownMenu1">';
+      foreach ($action['children'] as $child) {
+        //Do not display "rename" menu on activityfeed view
+        // AND Do not display "edit-resume" menu on activityfeed view
+        if (FALSE === strpos($child, "id=\"rename\"") && FALSE === strpos($child, 'id="edit-resume"')) {
+          if ($divider == true) {
+            $output .= '<li>' . $child . '</li>';
+          } else {
+            $divider = true;
+          }
+        } else {
+          $divider = false;
+        }
+      }
+      $output . '</ul></li>';
+    } else {
+      //Do not display "rename" menu on activityfeed view
+      // AND Do not display "edit-resume" menu on activityfeed view
+      if (FALSE === strpos($action, "id=\"rename\"") && FALSE === strpos($action, 'id="edit-resume"')) {
+        $output .= '<li>' . $action . '</li>';
+      }
+    }
+  }
+
+  $output .= '</ul>';
+
+  $variables['output'] = $output;
+}
+
+function gofast_views_get_node_available_actions($node, $browser_path = NULL, $from_tree = FALSE)
+{
+  $actions = array();
+  $fields = array();
+  $more = array();
+  global $user;
+
+  $archived_node = gofast_get_content_state_archived($node);
+
+  $actions_locked = array('gofast_link_new_version', 'gofast_link_edit_mode', 'gofast_link_publication', 'gofast_link_delete_modal');
+  if (gofast_cmis_node_is_locked($node) == false && gofast_onlyoffice_document_get_soft_lock($node->nid) == "0") {
+    $is_locked = false;
+  } else {
+    $is_locked = true;
+  }
+  $class_locked = "";
+  if ($is_locked) {
+    $class_locked .= " disabled";
+  }
+  $retention_node = false;
+  if (module_exists('gofast_retention')) {
+    if (gofast_retention_get_retention_date($node) !== NULL) {
+      $retention_node = true;
+    }
+  }
+
+  $is_confidential_or_internal = isset($node->field_criticity['und'][0]['tid']) && (taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Confidential Data" || taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Internal Distribution");
+
+  $detect = new Mobile_Detect;
+  $mobile_tablet_version = FALSE;
+  $simple_version = FALSE;
+
+  if (gofast_mobile_is_mobile_domain() && ($detect->isMobile() || $detect->isTablet())) {
+    $mobile_tablet_version = TRUE;
+  } elseif (gofast_mobile_is_mobile_domain() && !$detect->isMobile() && !$detect->isTablet()) {
+    $simple_version = TRUE;
+  }
+
+
+  //if we are into the mobile theme, the actions are lighter
+  if ($mobile_tablet_version) {
+    switch ($node->type) {
+      case 'alfresco_item':
+        $main_location = gofast_cmis_get_first_available_location($node);
+        if (!$browser_path) {
+          $more[] = theme('gofast_link_generic', array(
+            'text' => t('Open file\'s location', array(), array('context' => 'gofast')),
+            'link_id' => "browse",
+            'link_class' => 'btn btn-sm',
+            'href' => '/gofast/browser?path=' . rawurlencode($main_location),
+            'icon_class' => "fa fa-external-link",
+            'target' => '_blank',
+          ));
+        }
+
+        if ($node->status === strval(NODE_PUBLISHED)) {
+          $actions[] = theme('gofast_download_link', array('node' => $node, 'is_confidential' => $is_confidential_or_internal));
+          $actions[] = theme('gofast_link_add_comment', array('node' => $node));
+          $actions[] = theme('gofast_link_share_email', array('node' => $node, 'is_confidential' => $is_confidential_or_internal));
+        }
+        if (node_access("update", $node) && !$archived_node && !$retention_node) {
+          $actions[] = theme('gofast_link_generic', array(
+            'text' => t('Share/Edit locations', array(), array('context' => 'gofast:gofast_views')),
+            'link_id' => "manage-locations",
+            'link_class' => 'btn btn-sm ctools-use-modal ctools-use-moal-processed',
+            'href' => '/modal/nojs/node/' . $node->nid . '/manage-locations',
+            'onclick' => 'Gofast.ITHit.bulkSelected(event)',
+            'icon_class' => "fa fa-share-alt",
+            'title' => t('Manage locations of this document')
+          ));
+          if (in_array(strtolower(gofast_cmis_node_get_extension($node)), gofast_onlyoffice_editable_document_extensions()) && $detect->isTablet()) {
+            $actions[] = theme('gofast_link_edit_onlyoffice', array('node' => $node));
+            if ($simple_version == FALSE) {
+              $actions[] = theme('gofast_link_new_version', array('node' => $node));
+            }
+          }
+        }
+        break;
+      case 'conference':
+        if (node_access("update", $node) && !$archived_node) {
+          $actions[] = theme('gofast_link_edit', array('node' => $node));
+        } else {
+          $actions[] = theme('gofast_link_edit', array('node' => $node, 'disabled' => true));
+        }
+        $actions[] = 'divider:';
+        if ($node->status === strval(NODE_PUBLISHED)) {
+          $permalink_link = theme('gofast_link_generic', array(
+            'text' => t('Permalink', array(), array('context' => 'gofast:gofast_views')),
+            'link_id' => "permalink",
+            'link_class' => 'btn btn-sm permalink',
+            'href' => '/node/' . $node->nid,
+            'icon_class' => "fa fa-external-link"
+          ));
+          $actions[] = $permalink_link;
+        }
+        break;
+      case 'article':
+        if ($node->status === strval(NODE_PUBLISHED)) {
+          $permalink_link = theme('gofast_link_generic', array(
+            'text' => t('Permalink', array(), array('context' => 'gofast:gofast_views')),
+            'link_id' => "permalink",
+            'link_class' => 'btn btn-sm permalink',
+            'href' => '/node/' . $node->nid,
+            'icon_class' => "fa fa-external-link"
+          ));
+          $actions[] = 'divider:';
+          $actions[] = theme('gofast_link_add_comment', array('node' => $node));
+          if (node_access("update", $node) && !$archived_node) {
+            $actions[] = 'divider:';
+            $actions[] = theme('gofast_link_edit', array('node' => $node));
+            $actions[] = 'divider:';
+            $actions[] = $permalink_link;
+          } else {
+            $actions[] = 'divider:';
+            $actions[] = theme('gofast_link_edit', array('node' => $node, 'disabled' => true));
+            $actions[] = 'divider:';
+            $actions[] = $permalink_link;
+          }
+        }
+        break;
+      case 'forum':
+        if ($node->status === strval(NODE_PUBLISHED)) {
+          $permalink_link = theme('gofast_link_generic', array(
+            'text' => t('Permalink', array(), array('context' => 'gofast:gofast_views')),
+            'link_id' => "permalink",
+            'link_class' => 'btn btn-sm permalink',
+            'href' => '/node/' . $node->nid,
+            'icon_class' => "fa fa-external-link"
+          ));
+          $actions[] = theme('gofast_link_add_comment', array('node' => $node));
+          $actions[] = 'divider:';
+          $actions[] = $permalink_link;
+        }
+        break;
+      case 'webform':
+        if ($node->status === strval(NODE_PUBLISHED)) {
+          $actions[] = theme('gofast_link_add_comment', array('node' => $node));
+          $actions[] = 'divider:';
+          if (node_access("update", $node) && !$archived_node && !$retention_node) {
+            $actions[] = theme('gofast_link_edit', array('node' => $node));
+          } else {
+            $actions[] = theme('gofast_link_edit', array('node' => $node, 'disabled' => true));
+          }
+          $actions[] = "<li role='separator' class='divider'></li>";
+          $permalink_link = theme('gofast_link_generic', array(
+            'text' => t('Permalink', array(), array('context' => 'gofast:gofast_views')),
+            'link_id' => "permalink",
+            'link_class' => 'btn btn-sm permalink',
+            'href' => '/node/' . $node->nid,
+            'icon_class' => "fa fa-external-link"
+          ));
+          $actions[] = $permalink_link;
+        }
+        break;
+      case 'group':
+      case 'organisation':
+      case 'extranet':
+      case 'public':
+        if (in_array('group contributor', gofast_og_get_user_final_roles_for_space('node', $node->nid, $user->uid), true) || in_array('administrator member', gofast_og_get_user_final_roles_for_space('node', $node->nid, $user->uid), true) || $user->uid == 1) {
+          if ($browser_path) {
+            $attr = array(
+              'onClick' => 'Gofast.ITHit.bulkSelected(event, \'' . $browser_path . '\')'
+            );
+            //$actions[] = gofast_dropdown_link(t('Manage taxonomy', array(), array('context' => 'gofast')), '/modal/nojs/manage-taxonomy', 'taxonomy_open_span', 'ctools-use-modal manage-taxonomy', 'fa fa-tags', $attr);
+            //$actions[] =  gofast_dropdown_link(t('Manage locations', array(), array('context' => 'gofast')), '/modal/nojs/manage-locations', 'locations_open_span', 'ctools-use-modal manage-locations', 'fa fa-list', $attr);
+            //$actions[] =  gofast_dropdown_link(t('Manage publications', array(), array('context' => 'gofast')), '/modal/nojs/manage-publications', 'locations_open_span', 'ctools-use-modal manage-publications', 'fa fa-arrow-up', $attr);
+            //$actions[] =  gofast_dropdown_link(t('Manage shares by mail', array(), array('context' => 'gofast')), '/modal/nojs/manage-sharing-mail', 'locations_open_span', 'ctools-use-modal manage-mail-sharing', 'fa fa-envelope', $attr);
+          }
+        }
+
+        //We retrieve the membership and the role in the space of the user
+        $isMember = (og_get_membership('node', $node->nid, 'user', $user->uid) != FALSE);
+        $isMemberFromUserlist = gofast_userlist_og_is_user_member_of_space($node->nid, $user);
+        if ($isMember || $isMemberFromUserlist) {
+          $roles = gofast_og_get_user_final_roles_for_space('node', $node->nid, $user->uid);
+        }
+        $isPending = (!isset($roles) || empty($roles)) && ($isMember || $isMemberFromUserlist);
+
+        if (($isMember || $isMemberFromUserlist) && !$isPending) {
+          if (module_exists('gofast_subscription_ui')) {
+            $actions[] = flag_create_link('subscribe_og', $node->nid);
+          }
+          //$actions[] = theme('gofast_space_join_conversation');
+          $actions[] = gofast_flag_create_link('bookmarks', $node->nid);
+        }
+
+
+        if (node_access('update', $node, $user)) {
+          //Disabled till /node/add  isn't rebuilt
+          //$actions[] = gofast_dropdown_link(t("Add content..."), "/node/add/", '', '', 'fa fa-plus');
+        }
+        break;
+      default:
+        break;
+    }
+
+
+    foreach ($fields as $field) {
+      if (strpos($field, "header:") !== FALSE || strpos($field, "divider:") !== FALSE) {
+        $actions[] = $field;
+      } else {
+        $actions[] = theme("{$field}", array('node' => $node));
+      }
+    }
+
+    return $actions;
+  }
+
+  if ($browser_path) { //Check if we selected a space
+    if (substr($browser_path, -1) == "/") { //Remove slash at the end
+      $bpath = substr($browser_path, 0, -1);
+    }
+
+    $bpath = explode('/', $browser_path);
+    $bpath = array_pop($bpath);
+
+    if (substr($bpath, 0, 1) == "_") {
+      $contains_space = true;
+    }
+  }
+
+  if ($browser_path && !empty($node)) { //When an item with an associated node is selected (doc, spaces)
+    $actions[] = theme('gofast_link_generic', array(
+      'text' => t('Open in a new tab', array(), array('context' => 'gofast')),
+      'link_id' => "open_new_tab",
+      'link_class' => 'btn btn-sm',
+      'href' => '',
+      'icon_class' => "fa fa-arrow-right",
+      'target' => '_blank',
+      'onClick' => 'window.open(\'/node/' . $node->nid . '\', \'_blank\')',
+      'title' => t('Open in a new tab of your browser'),
+    ));
+    $actions[] = theme('gofast_link_generic', array(
+      'text' => t('Open in the current tab', array(), array('context' => 'gofast')),
+      'link_id' => "open_current_tab",
+      'link_class' => 'btn btn-sm',
+      'href' => '/node/' . $node->nid,
+      'icon_class' => "fa fa-arrow-right",
+      'title' => t('Open in current tab of your browser'),
+    ));
+    if (in_array($node->type, array('group', 'organisation', 'extranet', 'public'), TRUE)) {
+      $actions[] = theme('gofast_link_generic', array(
+        'text' => t('Link to this folder', array(), array('context' => 'gofast')),
+        'link_id' => "link_to_folder",
+        'link_class' => 'btn btn-sm',
+        'onClick' => 'Gofast.ITHit.linkToFolder(\'/node/' . $node->nid . '#ogdocuments\')',
+        'icon_class' => "fa fa-arrow-right",
+        'title' => t('Copy the link from this location to the clipboard'),
+      ));
+    }
+  }
+
+
+  if ($browser_path && empty($node)) { //When no associated node was found (folders)
+    if (!$contains_space) {
+
+      ## can't delete FOLDERS TEMPLATES
+      if (urldecode($browser_path) !== "/alfresco/webdav/Sites/FOLDERS TEMPLATES/" && urldecode($browser_path) !== "/alfresco/webdav/Sites/FOLDERS TEMPLATES") {
+        $onClick = 'Gofast.ITHit.deleteSelected(event, \'' . $browser_path . '\')';
+        $actions[] = theme('gofast_link_generic', array(
+          'text' => t('Delete', array(), array('context' => 'gofast')),
+          'link_id' => "delete",
+          'link_class' => 'btn btn-sm on-node-lock-disable ' . $class_locked,
+          'href' => '',
+          'icon_class' => "fa fa-trash",
+          'target' => '_blank',
+          'onClick' => $onClick,
+        ));
+      }
+
+      if ($from_tree) {
+        $onClick = 'Gofast.ITHit.renameTree(\'' . $browser_path . '\')';
+      } else {
+        $onClick = 'Gofast.ITHit.rename(\'' . $browser_path . '\')';
+      }
+      $actions[] = theme('gofast_link_generic', array(
+        'text' => t('Rename', array(), array('context' => 'gofast')),
+        'link_id' => "rename",
+        'link_class' => 'btn btn-sm on-lock-disable ' . $class_locked,
+        'href' => '',
+        'icon_class' => "fa fa-pencil",
+        'target' => '_blank',
+        'onClick' => $onClick,
+      ));
+      $actions[] = theme('gofast_link_generic', array(
+        'text' => t('Link to this folder', array(), array('context' => 'gofast')),
+        'link_id' => "link_to_folder",
+        'link_class' => 'btn btn-sm',
+        'onClick' => 'Gofast.ITHit.linkToFolder(\'' . str_replace("'", '%27', $browser_path) . '\')',
+        'icon_class' => "fa fa-arrow-right",
+        'title' => t('Copy the link of this folder to the clipboard'),
+
+      ));
+      if ($simple_version == FALSE) {
+        $folder_reference = gofast_ajax_file_browser_get_reference_from_href(str_replace('/alfresco/webdav', '', $browser_path));
+        $folder_isbookmark = gofast_ajax_file_browser_folder_is_bookmark($folder_reference);
+        if ($folder_isbookmark) {
+          $actions[] = theme('gofast_link_generic', array(
+            'text' => t('Unbookmark this'),
+            'link_id' => "unbookmark_folder",
+            'link_class' => 'btn btn-sm',
+            'onClick' => 'Gofast.ITHit.unbookmarkFolder(\'' . str_replace("'", '%27', $browser_path) . '\')',
+            'icon_class' => "fa fa-bookmark",
+            'title' => t('Remove this folder from your bookmarks'),
+          ));
+        } else {
+          $actions[] = theme('gofast_link_generic', array(
+            'text' => t('Bookmark this'),
+            'link_id' => "bookmark_folder",
+            'link_class' => 'btn btn-sm',
+            'onClick' => 'Gofast.ITHit.bookmarkFolder(\'' . str_replace("'", '%27', $browser_path) . '\')',
+            'icon_class' => "fa fa-bookmark",
+            'title' => t('Add this folder to your bookmarks'),
+          ));
+        }
+      }
+    }
+    //allow modules to add available actions on browser path ( only folders, not spaces or documents)
+     foreach (module_implements("browser_path_available_actions") as $module) {
+          $actions = call_user_func($module . "_browser_path_available_actions", $actions, $browser_path);
+     }
+
+    $attr = array(
+      'onClick' => 'Gofast.ITHit.bulkSelected(event, \'' . $browser_path . '\')'
+    );
+    //$actions[] = gofast_dropdown_link(t('Manage taxonomy', array(), array('context' => 'gofast')), '/modal/nojs/manage-taxonomy', 'taxonomy_open_span', 'ctools-use-modal manage-taxonomy', 'fa fa-tags', $attr);
+    //$actions[] =  gofast_dropdown_link(t('Manage locations', array(), array('context' => 'gofast')), '/modal/nojs/manage-locations', 'locations_open_span', 'ctools-use-modal manage-locations', 'fa fa-list', $attr);
+    //$actions[] =  gofast_dropdown_link(t('Manage publications', array(), array('context' => 'gofast')), '/modal/nojs/manage-publications', 'locations_open_span', 'ctools-use-modal manage-publications', 'fa fa-arrow-up', $attr);
+    //$actions[] =  gofast_dropdown_link(t('Manage shares by mail', array(), array('context' => 'gofast')), '/modal/nojs/manage-sharing-mail', 'locations_open_span', 'ctools-use-modal manage-mail-sharing', 'fa fa-envelope', $attr);
+  }
+  $type_spaces = array('group', 'organisation', 'extranet', 'public');
+
+  if ($node->status === strval(NODE_PUBLISHED) && !gofast_og_is_root_space($node) && !$retention_node) {
+    if ((in_array($node->type, $type_spaces) && og_user_access('node', $node->nid, 'administer group'))) {
+      if ($browser_path && !$contains_space) {
+        if ($from_tree) {
+          $onClick = 'Gofast.ITHit.renameTree(\'' . $browser_path . '\')';
+        } else {
+          $onClick = 'Gofast.ITHit.rename(\'' . $browser_path . '\')';
+        }
+        /*$actions[] = theme('gofast_link_generic', array(
+          'text' => t('Rename this space', array(), array('context' => 'gofast')),
+          'link_id' => "rename",
+          'link_class' => 'btn btn-sm ' . $class_locked,
+          'href' => '',
+          'icon_class' => "fa fa-pencil",
+          'target' => '_blank',
+          'onClick' => $onClick,
+        ));*/
+      } else if (!$browser_path && $node->type != 'userlist' && in_array('administrator member', gofast_og_get_user_final_roles_for_space('node', $node->nid, $user->uid), true)) {
+        $onClick = 'jQuery(\'span.xeditable_field_wrapper.field-title > a\').trigger(\'click\');';
+        $actions[] = theme('gofast_link_generic', array(
+          'text' => t('Rename this space', array(), array('context' => 'gofast')),
+          'link_id' => "rename",
+          'link_class' => 'btn btn-sm ' . $class_locked,
+          'href' => '',
+          'icon_class' => "fa fa-pencil",
+          'onClick' => $onClick,
+        ));
+      }
+    }
+  }
+
+
+
+  switch ($node->type) {
+    case 'alfresco_item':
+
+      if (!$browser_path) {
+        $main_location = gofast_cmis_get_first_available_location($node);
+        $actions[] = theme('gofast_link_generic', array(
+          'text' => t('Open file\'s location', array(), array('context' => 'gofast')),
+          'link_id' => "browse",
+          'link_class' => 'btn btn-sm',
+          'href' => '/gofast/browser?path=' . rawurlencode($main_location),
+          'icon_class' => "fa fa-external-link",
+          'target' => '_blank',
+        ));
+      }
+
+      if (strpos(current_path(), 'node/') === FALSE  && strpos(current_path(), 'node-breadcrumb/') === FALSE && strpos(current_path(), 'node-actions/') === FALSE || $browser_path) {
+        reset($format_picture);
+        $first_key = key($format_picture);
+        $actions[] = theme('gofast_link_generic', array(
+          'text' => t('Preview', array(), array('context' => 'gofast')),
+          'link_id' => "Preview",
+          'link_class' => 'btn btn-sm',
+          'href' => '',
+          'icon_class' => "fa fa-image",
+          'onClick' => 'Drupal.gofast_cmis.showPreviewModal(event,\'' . $node->nid . '\', \'#preview_modal_global\');',
+          'title' => t('Show preview in modal'),
+        ));
+      }
+      $actions[] = 'divider:';
+      if ($node->status === strval(NODE_PUBLISHED)) {
+        if (node_access("update", $node) && !$archived_node && !$retention_node) {
+          $actions[] = theme("gofast_link_edit_mode", array('node' => $node, 'class' => array($class_locked)));
+          if (in_array(strtolower(gofast_cmis_node_get_extension($node)), gofast_onlyoffice_editable_document_extensions())) {
+            if (gofast_cmis_node_is_locked($node) != false && !$node->field_onlyoffice_lock['und']['0']['value']) {
+              $actions[] = theme('gofast_link_edit_onlyoffice', array('node' => $node, 'disabled' => true));
+            } else {
+              $actions[] = theme('gofast_link_edit_onlyoffice', array('node' => $node));
+            }
+          } else {
+            $actions[] = theme('gofast_link_edit_onlyoffice', array('node' => $node, 'disabled' => true));
+          }
+          $actions[] = 'divider:';
+        } else {
+          $actions[] = theme("gofast_link_edit_mode", array('node' => $node, 'class' => array($class_locked), 'disabled' => true));
+          $actions[] = theme('gofast_link_edit_onlyoffice', array('node' => $node, 'disabled' => true));
+          $actions[] = 'divider:';
+        }
+
+        if (!$browser_path) {
+          $actions[] = theme('gofast_link_add_comment', array('node' => $node));
+          $actions[] = 'divider:';
+        } else {
+          $actions[] = theme('gofast_link_add_comment', array('node' => $node, 'disabled' => true));
+          $actions[] = 'divider:';
+        }
+        if (node_access("update", $node) && !$archived_node && !$retention_node && !gofast_cmis_node_is_locked($node)) {
+          $actions[] = theme('gofast_link_generic', array(
+            'text' => t('Share/Edit locations', array(), array('context' => 'gofast:gofast_views')),
+            'link_id' => "manage-locations",
+            'link_class' => 'btn btn-sm ctools-use-modal ctools-use-moal-processed',
+            'href' => '/modal/nojs/node/' . $node->nid . '/manage-locations',
+            'onclick' => 'Gofast.ITHit.bulkSelected(event)',
+            'icon_class' => "fa fa-share-alt",
+            'title' => t('Manage locations of this document')
+          ));
+        } else {
+          $actions[] = theme('gofast_link_generic', array(
+            'text' => t('Share/Edit locations', array(), array('context' => 'gofast:gofast_views')),
+            'link_id' => "manage-locations",
+            'link_class' => 'btn btn-sm',
+            'icon_class' => "fa fa-share-alt",
+            'disabled' => true
+          ));
+        }
+        $actions[] = theme('gofast_link_share_email', array('node' => $node, 'is_confidential' => $is_confidential_or_internal));
+
+        $actions[] = theme('gofast_download_link', array('node' => $node, 'is_confidential' => $is_confidential_or_internal));
+
+        if ($simple_version == FALSE) {
+          $permalink_link = theme('gofast_link_generic', array(
+            'text' => t('Permalink', array(), array('context' => 'gofast:gofast_views')),
+            'link_id' => "permalink",
+            'link_class' => 'btn btn-sm permalink',
+            'href' => '/node/' . $node->nid,
+            'icon_class' => "fa fa-external-link"
+          ));
+          $actions[] = $permalink_link;
+        }
+
+
+        $actions[] = 'divider:';
+        if (!gofast_og_is_root_space($node) && !$retention_node) {
+          if (((!in_array($node->type, $type_spaces) && node_access('update', $node)))) {
+            if ($browser_path && !$contains_space) {
+              if ($from_tree) {
+                $onClick = 'Gofast.ITHit.renameTree(\'' . $browser_path . '\')';
+              } else {
+                $onClick = 'Gofast.ITHit.rename(\'' . $browser_path . '\')';
+              }
+              $actions[] = theme('gofast_link_generic', array(
+                'text' => t('Rename', array(), array('context' => 'gofast')),
+                'link_id' => "rename",
+                'link_class' => 'btn btn-sm ' . $class_locked,
+                'href' => '',
+                'icon_class' => "fa fa-pencil",
+                'target' => '_blank',
+                'onClick' => $onClick,
+              ));
+              $actions[] = 'divider:';
+            } else if ($node->type != 'userlist' && node_access("update", $node)) {
+
+              if (gofast_mobile_is_mobile_domain() && $detect->isMobile()) {
+                $onClick = 'Gofast.gofastOpenRenameInputOnMobile()';
+              } else {
+                $onClick = 'jQuery(\'span.xeditable_field_wrapper.field-title > a\').trigger(\'click\');';
+              }
+
+              $more[] = theme('gofast_link_generic', array(
+                'text' => t('Rename', array(), array('context' => 'gofast')),
+                'link_id' => "rename",
+                'link_class' => 'btn btn-sm ' . $class_locked,
+                'href' => '',
+                'icon_class' => "fa fa-pencil",
+                'onClick' => $onClick,
+              ));
+            }
+          } else if ($node->type != 'userlist' && !node_access("update", $node)) {
+            $onClick = 'jQuery(\'span.xeditable_field_wrapper.field-title > a\').trigger(\'click\');';
+            $more[] = theme('gofast_link_generic', array(
+              'text' => t('Rename', array(), array('context' => 'gofast')),
+              'link_id' => "rename",
+              'link_class' => 'btn btn-sm ' . $class_locked,
+              'icon_class' => "fa fa-pencil",
+              'disabled' => true,
+            ));
+          }
+        }
+        $tags = taxonomy_get_term_by_name('Template', 'tags');
+        $tid_template = array_keys($tags);
+
+
+        $node_tags = array();
+        foreach ($node->field_tags[LANGUAGE_NONE] as $tag) {
+          $node_tags[] = $tag['tid'];
+        }
+
+        if (count(array_intersect($tid_template, $node_tags)) > 0) {
+          $actions[] = gofast_dropdown_link(t('Create from template'), '/node/add/alfresco-item?template=' . $node->nid, 'create from_template_open_span', '', 'fa fa-file-o', array('class' => array($class_locked)));
+        } else {
+          $actions[] = gofast_dropdown_link(t('Create from template'), '/node/add/alfresco-item?template=' . $node->nid, 'create from_template_open_span', '', 'fa fa-file-o', array('class' => array($class_locked), 'disabled' => true));
+        }
+
+        if ($simple_version == FALSE) {
+          if (node_access("update", $node) && !$archived_node && !$retention_node) {
+            if (gofast_cmis_user_can_publish($node)) {
+              $actions[] = theme('gofast_link_publication', array('node' => $node, 'class' => array($class_locked)));
+            } else {
+              $actions[] = theme('gofast_link_publication', array('node' => $node, 'disabled' => true));
+            }
+          } else {
+            $actions[] = theme('gofast_link_publication', array('node' => $node, 'disabled' => true));
+          }
+
+          if (node_access("update", $node) && !$archived_node && !$retention_node) {
+            if (!$browser_path) {
+              $more[] = theme('gofast_link_generic', array(
+                'text' => t('Edit Resume', array(), array('context' => 'gofast')),
+                'link_id' => "edit-resume",
+                'link_class' => 'btn btn-sm',
+                'href' => '',
+                'icon_class' => "fa fa-pencil",
+                'onClick' => 'jQuery(\'span.xeditable_field_wrapper.field-body > a\').trigger(\'click\');',
+                'title' => t('Edit resume for this content'),
+              ));
+              $more[] = "<li role='separator' class='divider'></li>";
+            }
+          } else {
+            if (!$browser_path) {
+              $more[] = theme('gofast_link_generic', array(
+                'text' => t('Edit Resume', array(), array('context' => 'gofast')),
+                'link_id' => "edit-resume",
+                'link_class' => 'btn btn-sm',
+                'icon_class' => "fa fa-pencil",
+                'disabled' => true,
+              ));
+              $more[] = "<li role='separator' class='divider'></li>";
+            }
+          }
+        }
+
+        if (
+          node_access('update', $node)
+          && node_access("delete", $node)
+        )
+        // && og_user_access("node", $node->nid, 'archive space', NULL , FALSE , TRUE))
+        {
+          //$more[] = $archived_node ? theme('gofast_link_unarchive', array('node' => $node)) : theme('gofast_link_archive', array('node' => $node, 'class' => array($class_locked)));
+        } else {
+          //$more[] = $archived_node ? theme('gofast_link_unarchive', array('node' => $node , 'disabled' => true)) : theme('gofast_link_archive', array('node' => $node, 'disabled' => true));
+        }
+        $node_is_publication = (gofast_cmis_get_publication_source($node)) != FALSE;
+        if (node_access('delete', $node) && !$archived_node && !$node_is_publication && !$retention_node) {
+          if ($browser_path) {
+            $onClick = 'Gofast.ITHit.deleteSelected(event, \'' . $browser_path . '\')';
+            $more[] = theme('gofast_link_generic', array(
+              'text' => t('Delete', array(), array('context' => 'gofast')),
+              'link_id' => "delete",
+              'link_class' => 'btn btn-sm on-node-lock-disable' . $class_locked,
+              'href' => '',
+              'icon_class' => "fa fa-trash",
+              'target' => '_blank',
+              'onClick' => $onClick,
+            ));
+          } else {
+            $more[] = theme('gofast_link_delete_modal', array('node' => $node, 'class' => array($class_locked)));
+          }
+        } elseif (isset($node->field_archive_final_action['und']['0']['value']) && $node->field_archive_final_action['und']['0']['value'] == 'Destroy') {
+          $more[] = theme('gofast_link_delete_modal', array('node' => $node, 'class' => array($class_locked)));
+        } else {
+
+          $more[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
+        }
+        if (node_access("update", $node) && !$archived_node && !$retention_node) {
+          $more[] = theme('gofast_link_new_version', array('node' => $node, 'class' => array($class_locked)));
+          if ($simple_version == FALSE) {
+            $more[] = theme('gofast_link_manage_translations', array('node' => $node, 'class' => array($class_locked)));
+          }
+          } else {
+          if ($simple_version == FALSE) {
+            $more[] = theme('gofast_link_manage_translations', array('node' => $node, 'disabled' => true));
+          }
+          $more[] = theme('gofast_link_new_version', array('node' => $node, 'disabled' => true));
+          }
+          $more[] = "<li role='separator' class='divider'></li>";
+      } else {
+        if (node_access('delete', $node) && !$archived_node && !$retention_node) {
+          if ($browser_path) {
+            $onClick = 'Gofast.ITHit.deleteSelected(event, \'' . $browser_path . '\')';
+            $more[] = theme('gofast_link_generic', array(
+              'text' => t('Delete', array(), array('context' => 'gofast')),
+              'link_id' => "delete",
+              'link_class' => 'btn btn-sm on-node-lock-disable' . $class_locked,
+              'href' => '',
+              'icon_class' => "fa fa-trash",
+              'target' => '_blank',
+              'onClick' => $onClick,
+            ));
+          } else {
+            $actions[] = theme('gofast_link_delete_modal', array('node' => $node, 'class' => array($class_locked)));
+          }
+        } else {
+          $actions[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
+        }
+      }
+      if(module_exists("gofast_mail") && !drupal_is_front_page() && strpos(current_path(), "activity") === FALSE){
+          if( gofast_mail_node_is_mail($node)){
+               $actions[] = gofast_dropdown_link(t("Reply"), "/node/add/alfresco-item?field_target_link=".$node->nid, '', '', 'fa fa-plus');
+          }
+      }
+      break;
+    case 'conference':
+      if (node_access("update", $node) && !$archived_node) {
+        $actions[] = theme('gofast_link_edit', array('node' => $node));
+      } else {
+        $actions[] = theme('gofast_link_edit', array('node' => $node, 'disabled' => true));
+      }
+      $actions[] = 'divider:';
+      if ($node->status === strval(NODE_PUBLISHED)) {
+        $permalink_link = theme('gofast_link_generic', array(
+          'text' => t('Permalink', array(), array('context' => 'gofast:gofast_views')),
+          'link_id' => "permalink",
+          'link_class' => 'btn btn-sm permalink',
+          'href' => '/node/' . $node->nid,
+          'icon_class' => "fa fa-external-link"
+        ));
+        $actions[] = $permalink_link;
+      }
+      if (node_access('delete', $node) && !$archived_node && !$retention_node) {
+        $more[] = theme('gofast_link_delete_modal', array('node' => $node));
+      } else {
+        $more[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
+      }
+      break;
+    case 'article':
+      if ($node->status === strval(NODE_PUBLISHED)) {
+        if (node_access("update", $node) && !$archived_node) {
+          $actions[] = theme('gofast_link_add_article_page', array('node' => $node));
+        } else {
+          $actions[] = theme('gofast_link_add_article_page', array('node' => $node, 'disabled' => true));
+        }
+        $permalink_link = theme('gofast_link_generic', array(
+          'text' => t('Permalink', array(), array('context' => 'gofast:gofast_views')),
+          'link_id' => "permalink",
+          'link_class' => 'btn btn-sm permalink',
+          'href' => '/node/' . $node->nid,
+          'icon_class' => "fa fa-external-link"
+        ));
+        $actions[] = 'divider:';
+        $actions[] = theme('gofast_link_add_comment', array('node' => $node));
+        if (node_access("update", $node) && !$archived_node) {
+          $actions[] = 'divider:';
+          $actions[] = theme('gofast_link_edit', array('node' => $node));
+          $actions[] = 'divider:';
+          $actions[] = $permalink_link;
+        } else {
+          $actions[] = 'divider:';
+          $actions[] = theme('gofast_link_edit', array('node' => $node, 'disabled' => true));
+          $actions[] = 'divider:';
+          $actions[] = $permalink_link;
+        }
+        if (node_access('delete', $node) && !$archived_node && !$retention_node) {
+          $more[] = theme('gofast_link_delete_modal', array('node' => $node));
+          $more[] = "<li role='separator' class='divider'></li>";
+        } else {
+          $more[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
+          $more[] = "<li role='separator' class='divider'></li>";
+        }
+      } else {
+        if (node_access('delete', $node) && !$archived_node && !$retention_node) {
+          $actions[] = theme('gofast_link_delete_modal', array('node' => $node));
+        } else {
+          $actions[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
+        }
+      }
+      break;
+    case 'forum':
+      if ($node->status === strval(NODE_PUBLISHED)) {
+        $permalink_link = theme('gofast_link_generic', array(
+          'text' => t('Permalink', array(), array('context' => 'gofast:gofast_views')),
+          'link_id' => "permalink",
+          'link_class' => 'btn btn-sm permalink',
+          'href' => '/node/' . $node->nid,
+          'icon_class' => "fa fa-external-link"
+        ));
+        $actions[] = theme('gofast_link_add_comment', array('node' => $node));
+        $actions[] = 'divider:';
+        $actions[] = $permalink_link;
+        if (node_access('delete', $node) && !$archived_node && !$retention_node) {
+          $more[] = theme('gofast_link_delete_modal', array('node' => $node));
+          $more[] = "<li role='separator' class='divider'></li>";
+        } else {
+          $more[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
+          $more[] = "<li role='separator' class='divider'></li>";
+        }
+      } else {
+        if (node_access('delete', $node) && !$archived_node && !$retention_node) {
+          $actions[] = theme('gofast_link_delete_modal', array('node' => $node));
+        } else {
+          $actions[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
+        }
+      }
+      break;
+    case 'webform':
+      if ($node->status === strval(NODE_PUBLISHED)) {
+        $actions[] = theme('gofast_link_add_comment', array('node' => $node));
+        $actions[] = 'divider:';
+        if (node_access("update", $node) && !$archived_node && !$retention_node) {
+          $actions[] = theme('gofast_link_edit', array('node' => $node));
+          if (node_access('delete', $node)) {
+            $more[] = theme('gofast_link_delete_modal', array('node' => $node));
+            $more[] = "<li role='separator' class='divider'></li>";
+          } else {
+            $more[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
+            $more[] = "<li role='separator' class='divider'></li>";
+          }
+        } else {
+          $actions[] = theme('gofast_link_edit', array('node' => $node, 'disabled' => true));
+          if (node_access('delete', $node) && !$retention_node) {
+            $more[] = theme('gofast_link_delete_modal', array('node' => $node));
+            $more[] = "<li role='separator' class='divider'></li>";
+          } else {
+            $more[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
+            $more[] = "<li role='separator' class='divider'></li>";
+          }
+        }
+        $actions[] = "<li role='separator' class='divider'></li>";
+        $permalink_link = theme('gofast_link_generic', array(
+          'text' => t('Permalink', array(), array('context' => 'gofast:gofast_views')),
+          'link_id' => "permalink",
+          'link_class' => 'btn btn-sm permalink',
+          'href' => '/node/' . $node->nid,
+          'icon_class' => "fa fa-external-link"
+        ));
+        $actions[] = $permalink_link;
+      } else {
+        if (node_access('delete', $node) && !$retention_node) {
+          $actions[] = theme('gofast_link_delete_modal', array('node' => $node));
+        } else {
+          $actions[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
+        }
+      }
+      break;
+    case 'group':
+    case 'organisation':
+    case 'extranet':
+    case 'public':
+      //Action that space administrators can do or anyone if the proper config is enabled and if this is a 1st level space
+      $spaces_defaults = gofast_admin_get_space_defaults();
+      if ($spaces_defaults['create_sub_space']) {
+        $first_level_spaces = array_merge(
+          gofast_og_get_children(4, FALSE, FALSE, TRUE),
+          gofast_og_get_children(6, FALSE, FALSE, TRUE)
+        );
+      }
+
+      if (in_array('administrator member', gofast_og_get_user_final_roles_for_space('node', $node->nid, $user->uid), true) || $user->uid == 1 || $spaces_defaults['create_sub_space'] && in_array($node->type, array('group', 'extranet'), TRUE) && in_array($node->nid, $first_level_spaces)) {
+        $actions[] = gofast_dropdown_link(t("Add " . gofast_og_node_types()[$node->type] . " Sub-space"), "/node/add/" . $node->type . '?parent=' . $node->nid, '', '', 'fa fa-plus');
+      }
+
+      //Actions that space administrators can do
+      if (in_array('administrator member', gofast_og_get_user_final_roles_for_space('node', $node->nid, $user->uid), true) || $user->uid == 1) {
+
+        $actions[] = gofast_dropdown_link(t("Create user in this group"), "/admin/people/create?gids[]=" . $node->nid, '', '', 'fa fa-user-plus');
+
+        //Actions that cannot be done in root spaces by space admins
+        if (!gofast_og_is_root_space($node)) {
+          $actions[] = theme('gofast_space_add_members', array('nid' => $node->nid));
+          $actions[] = theme('gofast_space_preadd_members', array('nid' => $node->nid));
+          if (count($actions) > 0) {
+            $actions[] = 'divider:';
+          }
+
+          if (gofast_riot_can_add_room($node)) {
+            $actions[] = theme('gofast_space_add_riot_room', array('nid' => $node->nid, 'disabled' => gofast_group_is_archive($node)));
+          }
+
+          if (gofast_riot_can_remove_room($node)) {
+            $actions[] = theme('gofast_space_delete_riot_room', array('nid' => $node->nid, 'disabled' => gofast_group_is_archive($node)));
+          }
+
+          //Move rename option here
+          if (strpos($actions[0], 'rename') !== FALSE) {
+            $actions[] = $actions[0];
+            array_shift($actions);
+          }
+
+          //          $actions[] = theme("gofast_link_edit", array('node' => $node));
+          if (!$browser_path) {
+            $actions[] = theme('gofast_link_generic', array(
+              'text' => t('Edit home page', array(), array('context' => 'gofast')),
+              'link_id' => "edit-resume",
+              'link_class' => 'btn btn-sm',
+              'href' => '',
+              'icon_class' => "fa fa-pencil",
+              'onClick' => ' jQuery(\'#ogtab_home\').click();jQuery(\'span.xeditable_field_wrapper.field-body > a\').trigger(\'click\');',
+              'title' => t('Customize the Home tab of this Space')
+            ));
+          }
+
+          $actions[] = theme("gofast_link_move_space", array('node' => $node));
+
+
+          if ($node->type != 'organisation') {
+            if (gofast_group_is_archive($node)) {
+              $actions[] = theme('gofast_space_unarchive', array('nid' => $node->nid));
+            } else {
+              $actions[] = theme('gofast_space_archive', array('nid' => $node->nid));
+            }
+          }
+          if (gofast_og_can_delete_space($user, $node) && !gofast_group_is_archive($node)) {
+            $actions[] = theme('gofast_space_delete_space', array('nid' => $node->nid));
+          }
+        }
+      }
+
+      if (in_array('group contributor', gofast_og_get_user_final_roles_for_space('node', $node->nid, $user->uid), true) || in_array('administrator member', gofast_og_get_user_final_roles_for_space('node', $node->nid, $user->uid), true) || $user->uid == 1) {
+        if ($browser_path) {
+          $attr = array(
+            'onClick' => 'Gofast.ITHit.bulkSelected(event, \'' . $browser_path . '\')'
+          );
+          //$actions[] = gofast_dropdown_link(t('Manage taxonomy', array(), array('context' => 'gofast')), '/modal/nojs/manage-taxonomy', 'taxonomy_open_span', 'ctools-use-modal manage-taxonomy', 'fa fa-tags', $attr);
+          //$actions[] =  gofast_dropdown_link(t('Manage locations', array(), array('context' => 'gofast')), '/modal/nojs/manage-locations', 'locations_open_span', 'ctools-use-modal manage-locations', 'fa fa-list', $attr);
+          //$actions[] =  gofast_dropdown_link(t('Manage publications', array(), array('context' => 'gofast')), '/modal/nojs/manage-publications', 'locations_open_span', 'ctools-use-modal manage-publications', 'fa fa-arrow-up', $attr);
+          //$actions[] =  gofast_dropdown_link(t('Manage shares by mail', array(), array('context' => 'gofast')), '/modal/nojs/manage-sharing-mail', 'locations_open_span', 'ctools-use-modal manage-mail-sharing', 'fa fa-envelope', $attr);
+        }
+      }
+
+      //We retrieve the membership and the role in the space of the user
+      $isMember = (og_get_membership('node', $node->nid, 'user', $user->uid) != FALSE);
+      $isMemberFromUserlist = gofast_userlist_og_is_user_member_of_space($node->nid, $user);
+      if ($isMember || $isMemberFromUserlist) {
+        $roles = gofast_og_get_user_final_roles_for_space('node', $node->nid, $user->uid);
+      }
+      $isPending = (!isset($roles) || empty($roles)) && ($isMember || $isMemberFromUserlist);
+
+      if (($isMember || $isMemberFromUserlist) && !$isPending) {
+        if (count($actions) > 0) {
+          $actions[] = 'divider:';
+        }
+        if (module_exists('gofast_subscription_ui')) {
+          $actions[] = flag_create_link('subscribe_og', $node->nid);
+        }
+        //$actions[] = theme('gofast_space_join_conversation');
+      }
+
+      $actions[] = gofast_flag_create_link('bookmarks', $node->nid);
+
+      if (node_access('update', $node, $user)) {
+        //Disabled till /node/add  isn't rebuilt
+        //$actions[] = gofast_dropdown_link(t("Add content..."), "/node/add/", '', '', 'fa fa-plus');
+      }
+      break;
+    case 'private_space':
+      break;
+    case 'userlist':
+      if (node_access('update', $node, $user)) {
+        $actions[] = theme("gofast_link_edit_userlist", array('node' => $node));
+
+        //Prevent deleting "Public" userlist
+        if (variable_get("public_userlist") !== $node->nid) {
+          $actions[] = theme("gofast_link_delete_userlist", array('node' => $node));
+        }
+        if ($node->field_is_ldap_sync[LANGUAGE_NONE][0]['value']) {
+          $actions[] = theme("gofast_link_sync_userlist", array('node' => $node));
+        }
+      }
+      break;
+    default:
+      break;
+  }
+
+  foreach ($fields as $field) {
+    if (strpos($field, "header:") !== FALSE || strpos($field, "divider:") !== FALSE) {
+      $actions[] = $field;
+    } else {
+      if (in_array($field, $actions_locked)) {
+        $actions[] = theme("{$field}", array('node' => $node, 'class' => array($class_locked)));
+      } else {
+        $actions[] = theme("{$field}", array('node' => $node));
+      }
+    }
+  }
+
+  if (in_array($node->type, gofast_og_content_bundles()) && $node->status === strval(NODE_PUBLISHED)) {
+    if (count($actions) > 0) {
+      $actions[] = 'divider:';
+    }
+    if ($simple_version == FALSE) {
+      if (node_access("update", $node) && !$retention_node && $node->type !== "conference" && $node->type !== "webform" && $node->type !== "article" && $node->type !== "forum") {
+        $more[] = gofast_dropdown_link(t('Tag this version as major'), '/modal/nojs/node/' . $node->nid . '/tag-major-version', 'major_version_open_span', 'ctools-use-modal', 'fa fa-files-o', array('class' => array('on-node-lock-disable', $class_locked, 'major_version_contextual_button'), 'title' => t('Tag this version of content as major')));
+        $more[] = gofast_dropdown_link(t('Delete all minor versions'), '/modal/nojs/node/' . $node->nid . '/delete-minor-versions', 'minor_versions_delete_open_span', 'ctools-use-modal', 'fa fa-trash-o', array('class' => array('on-node-lock-disable', $class_locked, 'delete_minor_versions_contextual_button')));
+      } else if ($node->type !== "article" && $node->type !== "forum" && $node->type !== "conference" && $node->type !== "webform") {
+        $more[] = gofast_dropdown_link(t('Tag this version as major'), '', '', '', 'fa fa-files-o', array('disabled' => true));
+        $more[] = gofast_dropdown_link(t('Delete all minor versions'), '', '', '', 'fa fa-trash-o', array('disabled' => true));
+      }
+
+      if ($node->type == 'alfresco_item') {
+        $more[] = gofast_dropdown_link(t('Compare versions', array(), array('context' => "gofast:gofast_pdf_compare")), '/modal/nojs/node/' . $node->nid . '/compare_versions', 'compare_versions_open_span', 'ctools-use-modal compare-versions', 'fa fa-exchange');
+        $more[] = "<li role='separator' class='divider'></li>";
+      }
+    }
+
+    if ($simple_version == FALSE) {
+      $more[] = gofast_flag_create_link('bookmarks', $node->nid);
+      $more[] = flag_create_link('flag_public', $node->nid);
+    }
+
+    if ($node->type == 'alfresco_item') {
+      $more[] = "<li role='separator' class='divider'></li>";
+      $more[] = gofast_flag_create_link('cart', $node->nid);
+    }
+    if ($simple_version == FALSE) {
+      if (node_access("delete", $node)) {
+        $more[] = "<li role='separator' class='divider'></li>";
+        if ($node->sticky) {
+          $more[] = gofast_dropdown_link(t('Unpin this content'), '/modal/nojs/node/' . $node->nid . '/pin-content', 'unpin_content_open_span', 'ctools-use-modal pin-content', 'fa fa-thumb-tack', array('title' => t('This content will be unpinned and won\'t appear anymore at the top of the activity feed')));
+        } else {
+          $more[] = gofast_dropdown_link(t('Pin this content'), '/modal/nojs/node/' . $node->nid . '/pin-content', 'pin_content_open_span', 'ctools-use-modal pin-content', 'fa fa-thumb-tack', array('title' => t('This content will be pinned to the top of the activity feed')));
+        }
+      } else {
+        $more[] = "<li role='separator' class='divider'></li>";
+        if ($node->sticky) {
+          $more[] = gofast_dropdown_link(t('Unpin this content'), '', '', '', 'fa fa-thumb-tack', array('disabled' => true));
+        } else {
+          $more[] = gofast_dropdown_link(t('Pin this content'), '', '', '', 'fa fa-thumb-tack', array('disabled' => true));
+        }
+      }
+    }
+
+    if (module_exists('gofast_subscription_ui')) { //Subscription system link for content
+      $more[] = "<li role='separator' class='divider'></li>";
+      $more[] = flag_create_link('subscribe_node', $node->nid);
+    }
+    $more_link = array(
+      'children' => $more,
+      'action' => '<a class="dropdown-toogle">' . t('More...', array(), array('context' => 'gofast:gofast_views')) . '</a>'
+    );
+
+    /**
+     * Hook to alter the available actions before rendering
+     */
+    foreach (module_implements("node_available_actions") as $module) {
+      $actions = call_user_func($module . "_node_available_actions", $actions, $node);
+    }
+    $actions[] = $more_link;
+  }
+
+  return $actions;
+}
+
+function gofast_views_get_microblogging_available_actions($id)
+{
+  $actions = array();
+  $fields = array();
+  $more = array();
+  global $user;
+
+  $fields[] = 'gofast_link_edit_microblogging';
+  foreach ($fields as $field) {
+    if (strpos($field, "header:") !== FALSE || strpos($field, "divider:") !== FALSE) {
+      $actions[] = $field;
+    } else {
+      $actions[] = theme("{$field}", array('blog_id' => $id));
+    }
+  }
+  $actions[] = theme('gofast_link_delete_blog_modal', array('node' => node_load($id)));
+  if (node_load($id)->sticky == 0) {
+    $actions[] = gofast_dropdown_link(t('Pin this content'), '/modal/nojs/node/' . $id . '/pin-blog', 'pin_content_open_span', 'ctools-use-modal pin-content', 'fa fa-thumb-tack');
+  } else {
+    $actions[] = gofast_dropdown_link(t('Unpin this content'), '/modal/nojs/node/' . $id . '/pin-blog', 'unpin_content_open_span', 'ctools-use-modal pin-content', 'fa fa-thumb-tack');
+  }
+
+  return $actions;
+}
+
+/**
+ * Override module flag flag_create_link to be able to expand templates
+ * @param type $flag_name
+ * @param type $entity_id
+ * @param type $variables
+ * @return type
+ */
+function gofast_flag_create_link($flag_name, $entity_id, $variables = array())
+{
+
+  $flag = flag_get_flag($flag_name);
+  if (!$flag) {
+    // Flag does not exist.
+    return;
+  }
+  if (!$flag->access($entity_id) && (!$flag->is_flagged($entity_id) || !$flag->access($entity_id, 'flag'))) {
+    // User has no permission to use this flag.
+    return;
+  }
+
+  $theme_suggestion = array();
+  $theme_suggestion[] = 'flag__' . $flag->name . '__ctx';
+  $theme_suggestion[] = 'flag__' . $flag->link_type . '__ctx';
+  $theme_suggestion[] = 'flag';
+
+  $action = $flag->is_flagged($entity_id) ? 'unflag' : 'flag';
+
+  return theme($theme_suggestion, array(
+    'flag' => $flag,
+    'action' => $action,
+    'entity_id' => $entity_id,
+  ) + $variables);
+
+  // return gofast_views_flag_theme($flag, , $entity_id, $variables);
+}
+
+/**
+ * Creates a link to be used in a dropdown (or elsewhere but there is another function for that @gofast_button)
+ */
+function gofast_dropdown_link($label, $href = '', $link_id = '', $link_class = '', $icon_class = '', $attr = array())
+{
+  $btn_cls = array_merge(array('btn'), $link_class ? explode(' ', $link_class) : array());
+  $label = trim($label);
+
+  $theme_settings = gofast_get_theme_settings();
+  if (isset($theme_settings['bootstrap_button_size'])) {
+    $btn_cls[] = $theme_settings['bootstrap_button_size'];
+  }
+
+  $attr['class'] = isset($attr['class']) ? $attr['class'] : array();
+  $attr['class'] = array_merge($btn_cls, $attr['class']);
+  $title = $attr['title'];
+
+  $link_identifier = trim($link_id);
+
+  $link_id = empty($link_identifier) ? $link_identifier : $label;
+
+  if (isset($attr['disabled'])) {
+    $link = theme('gofast_link_generic', array(
+      'text' => $label,
+      'link_id' => $link_id,
+      'link_class' => implode(' ', $attr['class']),
+      'icon_class' => $icon_class,
+      'disabled' => true,
+    ));
+  } else {
+    $link = theme('gofast_link_generic', array(
+      'text' => $label,
+      'title' => $title,
+      'link_id' => $link_id,
+      'link_class' => implode(' ', $attr['class']),
+      'href' => $href,
+      'icon_class' => $icon_class,
+      'onClick' => $attr['onClick']
+    ));
+  }
+
+  return $link;
+}
+
+function gofast_views_form_user_relationships_ui_pending_requested_alter(&$form, &$form_state)
+{
+  // Pick the correct question message: approve and disapprove are requests to
+  // current user, cancel is a request from current user.
+  $relationship = $form_state['build_info']['args']['2'];
+  $viewed_id = $form['viewed_id']['#value'];
+  $action = $form['action']['#value'];
+  switch ($action) {
+    case 'approve':
+      $confirmation_message = t('Are you sure you want to approve the relationship request from !name?', array(
+        '@action'             => $action,
+        '!name'               => theme('username', array('account' => user_load(($viewed_id == $relationship->requester_id ? $relationship->requestee_id : $relationship->requester_id)), 'popup' => FALSE))
+      ) + user_relationships_type_translations($relationship));
+      $form['description']['#markup'] = $confirmation_message;
+      break;
+    case 'disapprove':
+      $confirmation_message = t('Are you sure you want to decline the relationship request from !name?', array(
+        '@action'             => $action,
+        '!name'               => theme('username', array('account' => user_load(($viewed_id == $relationship->requester_id ? $relationship->requestee_id : $relationship->requester_id)), 'popup' => FALSE))
+      ) + user_relationships_type_translations($relationship));
+      $form['description']['#markup'] = $confirmation_message;
+      break;
+    default:
+      $confirmation_message = t('Are you sure you want to cancel your relationship request to !name?', array(
+        '@action'             => $action,
+        '!name'               => theme('username', array('account' => user_load(($viewed_id == $relationship->requester_id ? $relationship->requestee_id : $relationship->requester_id)), 'popup' => FALSE))
+      ) + user_relationships_type_translations($relationship));
+      $form['description']['#markup'] = $confirmation_message;
+  }
+}
+
+/**
+ * Callback for block a user
+ */
+function gofast_modal_user_blocked($js, $uid)
+{
+  $form_id = 'gofast_blocked_user_form';
+
+  if (!$js) {
+    return drupal_get_form($form_id, $uid);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array($uid)
+    ),
+    'title' => t('Block this user', array(), array('context' => 'gofast'))
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  $commands[] = ajax_command_html(
+    '#ctools-add-js',
+    "<script type='text/javascript'>
+          var delayInMilliseconds = 200;
+          setTimeout(function() {
+          modalContentResize();
+          }, delayInMilliseconds);
+          </script>"
+  );
+
+  if ($form_state['executed']) {
+    $commands[] = gofast_command_processAjax($_SERVER['HTTP_REFERER']);
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_toast_message(t("The user has been blocked", array(), array('context' => 'gofast:gofast_views')));
+  }
+
+  print ajax_render($commands);
+}
+
+/**
+ * Callback for unblock a user
+ */
+function gofast_modal_user_unblocked($js, $uid)
+{
+  $form_id = 'gofast_unblocked_user_form';
+  if (!$js) {
+    return drupal_get_form($form_id, $uid);
+  }
+  //
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array($uid)
+    ),
+    'title' => t('Unblock this user', array(), array('context' => 'gofast'))
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  $commands[] = ajax_command_html(
+    '#ctools-add-js',
+    "<script type='text/javascript'>
+          var delayInMilliseconds = 200;
+          setTimeout(function() {
+          modalContentResize();
+          }, delayInMilliseconds);
+          </script>"
+  );
+
+  if ($form_state['executed']) {
+    $commands[] = gofast_command_processAjax($_SERVER['HTTP_REFERER']);
+    $commands[] = gofast_command_toast_message(t("The user has been unblocked", array(), array('context' => 'gofast:gofast_views')));
+    $commands[] = ctools_modal_command_dismiss();
+  }
+
+  print ajax_render($commands);
+}
+
+/**
+ * Callback for unblock a user
+ */
+function gofast_modal_user_leave($js, $uid)
+{
+  $form_id = 'gofast_leave_user_form';
+  if (!$js) {
+    return drupal_get_form($form_id, $uid);
+  }
+  //
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array($uid)
+    ),
+    'title' => t('Disable this user', array(), array('context' => 'gofast'))
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  $commands[] = ajax_command_html(
+    '#ctools-add-js',
+    "<script type='text/javascript'>
+          var delayInMilliseconds = 200;
+          setTimeout(function() {
+          modalContentResize();
+          }, delayInMilliseconds);
+          </script>"
+  );
+
+  if ($form_state['executed']) {
+    $commands[] = gofast_command_processAjax($_SERVER['HTTP_REFERER']);
+    $commands[] = gofast_command_toast_message(t("The user has been disabled", array(), array('context' => 'gofast:gofast_views')));
+    $commands[] = ctools_modal_command_dismiss();
+  }
+
+  print ajax_render($commands);
+}
+
+/**
+ * Callback for unblock a user
+ */
+function gofast_modal_user_unleave($js, $uid)
+{
+  $form_id = 'gofast_unleave_user_form';
+  if (!$js) {
+    return drupal_get_form($form_id, $uid);
+  }
+  //
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array($uid)
+    ),
+    'title' => t('Re-enable this user', array(), array('context' => 'gofast'))
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  $commands[] = ajax_command_html(
+    '#ctools-add-js',
+    "<script type='text/javascript'>
+          var delayInMilliseconds = 200;
+          setTimeout(function() {
+          modalContentResize();
+          }, delayInMilliseconds);
+          </script>"
+  );
+
+  if ($form_state['executed']) {
+    $commands[] = gofast_command_processAjax($_SERVER['HTTP_REFERER']);
+    $commands[] = gofast_command_toast_message(t("The user has been re-enabled", array(), array('context' => 'gofast:gofast_views')));
+    $commands[] = ctools_modal_command_dismiss();
+  }
+
+  print ajax_render($commands);
+}
+
+/**
+ * Implements hook_form_FORM_alter()
+ */
+function gofast_views_form_user_relationships_ui_request_alter(&$form, &$form_state)
+{
+
+  unset($form['actions']['cancel']);
+  $form['actions']['submit']["#attributes"] = array('class' => array('btn-success'));
+}
+
+/**
+ * Callback for relationship modal when a user is removing a relationship
+ */
+function gofast_views_remove_relationship_modal($js, $uid, $rid)
+{
+  ctools_include('ajax');
+  ctools_include('modal');
+  include_once drupal_get_path('module', 'user_relationships_ui') . '/user_relationships_ui.forms.inc';
+
+  if (!$js) {
+    return drupal_goto('/user/' . $uid . '/relationships/' . $rid . '/remove');
+  }
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'title' => t('Remove a relationship', array(), array('context' => 'gofast:gofast_views')),
+    'build_info' => array(
+      'args' => array(user_load($uid), user_relationships_load($rid))
+    )
+  );
+
+  //Hide No button
+  $modal = ctools_modal_form_wrapper('user_relationships_ui_remove', $form_state);
+  $modal[0]['output'] = str_replace('<a href="/relationships" id="edit-cancel">' . t('No') . '</a>', '', $modal[0]['output']);
+  $new_user_menu = "";
+  if ($form_state['submitted']) {
+    $new_user_menu .= '<ul class="dropdown-menu dropdown-menu-right gofast-dropdown-menu" aria-labelledby="dropdown-account-dropdown">';
+    foreach (gofast_user_get_request_actions(user_load(user_load($uid))) as $action) {
+      $new_user_menu .= "<li>" . $action . "</li>";
+    }
+    $new_user_menu .= '</ul>';
+
+    $modal = array(
+      drupal_get_messages(),
+      ctools_modal_command_dismiss(),
+      gofast_command_toast_message(t("The relationship was removed.", array(), array('context' => 'gofast:gofast_views'))),
+      ajax_command_insert(".dropdown-menu-right", $new_user_menu)
+    );
+  }
+
+  print ajax_render($modal);
+  return;
+}
+
+/**
+ * Callback for relationship modal when a user is managing a pending relationship request
+ */
+
+function gofast_views_requested_relationship_modal($js, $uid, $rid, $action)
+{
+  ctools_include('ajax');
+  ctools_include('modal');
+  include_once drupal_get_path('module', 'user_relationships_ui') . '/user_relationships_ui.forms.inc';
+  if (!$js) {
+    $destination = drupal_get_destination();
+    return drupal_goto('/user/' . $uid . '/relationships/requested/' . $rid . '/' . $action);
+  }
+  $form_state = array(
+    'ajax' => TRUE,
+    'title' => t('Manage a relationship', array(), array('context' => 'gofast:gofast_views')),
+    'build_info' => array(
+      'args' => array($action, user_load($uid), user_relationships_load($rid))
+    )
+  );
+
+  //Hide No button
+  $modal = ctools_modal_form_wrapper('user_relationships_ui_pending_requested', $form_state);
+  $modal[0]['output'] = str_replace('<a href="/user/' . $uid . '/relationships/sent" id="edit-cancel">' . t('No') . '</a>', '', $modal[0]['output']);
+  $modal[0]['output'] = str_replace('<a href="/user/' . $uid . '/relationships/received" id="edit-cancel">' . t('No') . '</a>', '', $modal[0]['output']);
+  $modal[] = ajax_command_html(
+    '#ctools-add-js',
+    "<script type='text/javascript'>
+              jQuery('#modalBackdrop').remove();
+              var delayInMilliseconds = 500;
+              setTimeout(function() {
+              modalContentResize();
+              }, delayInMilliseconds);
+              </script>"
+  );
+  $new_user_menu = "";
+  if ($form_state['submitted']) {
+    $new_user_menu .= '<ul class="dropdown-menu dropdown-menu-right gofast-dropdown-menu" aria-labelledby="dropdown-account-dropdown">';
+    foreach (gofast_user_get_request_actions(user_load(user_load($uid))) as $action) {
+      $new_user_menu .= "<li>" . $action . "</li>";
+    }
+    $new_user_menu .= '</ul>';
+    $modal = array(
+      drupal_get_messages(),
+      ctools_modal_command_dismiss(),
+      gofast_command_processAjax($_SERVER['HTTP_REFERER']),
+      gofast_command_toast_message(t("The relationship request has beeen processed.", array(), array('context' => 'gofast:gofast_views'))),
+      ajax_command_insert(".dropdown-menu-right", $new_user_menu)
+    );
+  }
+  print ajax_render($modal);
+  return;
+}
+
+function gofast_views_add_relationship_modal($js, $uid)
+{
+  ctools_include('ajax');
+  ctools_include('modal');
+  include_once drupal_get_path('module', 'user_relationships_ui') . '/user_relationships_ui.forms.inc';
+
+  if (!$js) {
+    return drupal_goto('relationship/' . $uid . '/request');
+  }
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'title' => t('Add a relationship', array(), array('context' => 'gofast:gofast_views')),
+    'build_info' => array(
+      'args' => array(user_load($uid))
+    )
+  );
+
+  //Hide cancel button
+  $modal = ctools_modal_form_wrapper('user_relationships_ui_request', $form_state);
+
+  $new_user_menu = "";
+  if ($form_state['submitted']) {
+    $new_user_menu .= '<ul class="dropdown-menu dropdown-menu-right gofast-dropdown-menu" aria-labelledby="dropdown-account-dropdown">';
+    foreach (gofast_user_get_request_actions(user_load(user_load($uid))) as $action) {
+      $new_user_menu .= "<li>" . $action . "</li>";
+    }
+    $new_user_menu  = '</ul>';
+
+    $modal = array(
+      drupal_get_messages(),
+      ctools_modal_command_dismiss(),
+      gofast_command_processAjax($_SERVER['HTTP_REFERER']),
+      gofast_command_toast_message(t("The relationship request has been sent.", array(), array('context' => 'gofast:gofast_views'))),
+      ajax_command_insert(".dropdown-menu-right", $new_user_menu)
+    );
+  }
+
+  print ajax_render($modal);
+  return;
+}
+
+/**
+ * Callback for delete a user
+ */
+function gofast_views_modal_user_delete($js, $uid)
+{
+  $form_id = 'gofast_delete_user_form';
+  if (!$js) {
+    return drupal_get_form($form_id, $uid);
+  }
+  //
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'build_info' => array(
+      'args' => array($uid)
+    ),
+    'title' => t('Delete this user', array(), array('context' => 'gofast'))
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+          var delayInMilliseconds = 200;
+          setTimeout(function() {
+          modalContentResize();
+          }, delayInMilliseconds);
+          </script>");
+
+  if ($form_state['executed']) {
+    $commands[] = gofast_command_processAjax('user_listing_tab');
+    $commands[] = gofast_command_toast_message(t("The user has been deleted", array(), array('context' => 'gofast:gofast_views')));
+    $commands[] = ctools_modal_command_dismiss();
+  }
+
+  print ajax_render($commands);
+}
+
+function template_preprocess_gofast_link_add_comment(&$variables)
+{
+  global $base_url;
+  $variables['href'] = $base_url . "/gofast/nojs/comment/reply/{$variables['node']->nid}";
+  $variables['text'] = t('New comment', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_link_add_relationship(&$variables)
+{
+  $variables['href'] = "/modal/nojs/relationship/{$variables['uid']}/request";
+  $variables['class'] = 'ctools-use-modal';
+  $variables['text'] = t('New relationship', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_link_delete_user(&$variables)
+{
+  $user = $variables['uid'];
+  $variables['href'] = "/modal/nojs/user/{$user}/delete";
+  $variables['class'] = 'ctools-use-modal';
+  $variables['text'] = t('Delete user', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_user_relationships_remove_link(&$variables)
+{
+  $variables['href'] = "/modal/nojs/user/{$variables['uid']}/relationships/{$variables['rid']}/remove";
+  $variables['class'] = 'ctools-use-modal';
+  $variables['text'] = t('Remove relationship', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_user_relationships_pending_request_approve_link(&$variables)
+{
+  $variables['href'] = "/modal/nojs/user/{$variables['uid']}/relationships/requested/{$variables['rid']}/approve";
+  $variables['class'] = 'ctools-use-modal';
+  $variables['text'] = t('Approve relationship', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_user_relationships_pending_request_disapprove_link(&$variables)
+{
+  $variables['href'] = "/modal/nojs/user/{$variables['uid']}/relationships/requested/{$variables['rid']}/disapprove";
+  $variables['class'] = 'ctools-use-modal';
+  $variables['text'] = t('Decline relationship', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_user_relationships_pending_request_cancel_link(&$variables)
+{
+  $variables['href'] = "/modal/nojs/user/{$variables['uid']}/relationships/requested/{$variables['rid']}/cancel";
+  $variables['class'] = 'ctools-use-modal';
+  $variables['text'] = t('Cancel relationship', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_user_mobilephone(&$variables)
+{
+  $user = $variables['user'];
+  if (isset($user->ldap_user_mobile['und'][0]['value'])) {
+    $variables['tel'] = $user->ldap_user_mobile['und'][0]['value'];
+  } else if (isset($user->ldap_user_telephonenumber['und'][0]['value'])) {
+    $variables['tel'] = $user->ldap_user_telephonenumber['und'][0]['value'];
+  }
+  if ($variables['only_icon'] == NULL) {
+    $variables['text'] = t('Call', array(), array('context' => 'gofast'));
+  } else {
+    $variables['class'] = ' user-mobile-icon';
+  }
+}
+
+function template_preprocess_gofast_user_new_message(&$variables)
+{
+  $user = $variables['user'];
+  $variables['href'] = "/gofast/nojs/messages/new/{$user->uid}";
+  if ($variables['only_icon'] == NULL) {
+    $variables['class'] = ' ctools-use-modal';
+    $variables['text'] = t('Write new internal message', array(), array('context' => 'gofast'));
+  } else {
+    $variables['class'] = ' ctools-use-modal new-mess-icon';
+  }
+}
+
+function template_preprocess_gofast_unblock_user(&$variables)
+{
+  $user = $variables['uid'];
+  $variables['href'] = "/modal/nojs/user/{$user}/unblock";
+  if ($variables['only_icon'] == NULL) {
+    $variables['class'] = ' ctools-use-modal';
+    $variables['text'] = t('Unblock this user', array(), array('context' => 'gofast'));
+  } else {
+    $variables['class'] = ' ctools-use-modal unblock-user-icon';
+  }
+}
+
+function template_preprocess_gofast_leave_user(&$variables)
+{
+  $user = $variables['uid'];
+  $variables['href'] = "/modal/nojs/user/{$user}/leave";
+  if ($variables['only_icon'] == NULL) {
+    $variables['class'] = ' ctools-use-modal';
+    $variables['text'] = t('Disable this user', array(), array('context' => 'gofast'));
+  } else {
+    $variables['class'] = ' ctools-use-modal leave-user-icon';
+  }
+}
+
+function template_preprocess_gofast_unleave_user(&$variables)
+{
+  $user = $variables['uid'];
+  $variables['href'] = "/modal/nojs/user/{$user}/unleave";
+  if ($variables['only_icon'] == NULL) {
+    $variables['class'] = ' ctools-use-modal';
+    $variables['text'] = t('Re-enable this user', array(), array('context' => 'gofast'));
+  } else {
+    $variables['class'] = ' ctools-use-modal unleave-user-icon';
+  }
+}
+
+
+function template_preprocess_gofast_block_user(&$variables)
+{
+  $user = $variables['uid'];
+  $variables['href'] = "/modal/nojs/user/{$user}/block";
+  if ($variables['only_icon'] == NULL) {
+    $variables['class'] = 'ctools-use-modal';
+    $variables['text'] = t('Block this user', array(), array('context' => 'gofast'));
+  } else {
+    $variables['class'] = 'ctools-use-modal bloc-user-icon';
+  }
+}
+
+function template_preprocess_gofast_block_user_quick_actions(&$variables)
+{
+  global $user;
+  $full_user = $variables['user'];
+  $fields = array(
+    'gofast_user_new_message'
+  );
+
+  $output = '<ul class="list-unstyled">';
+  if (gofast_user_is_adm($user)) {
+    if (gofast_user_is_left($full_user)) { // The isuer isn't blocked
+      $output .= '<li>' . theme('gofast_unleave_user', array('uid' => $full_user->uid, 'only_icon' => TRUE)) . '</li>';
+    } else {
+      if ($full_user->status == 0) { //The isuer is blocked due to a technical action
+        $output .= '<li>' . theme('gofast_unblock_user', array('uid' => $full_user->uid, 'only_icon' => TRUE)) . '</li>';
+      }
+      $output .= '<li>' . theme('gofast_leave_user', array('uid' => $full_user->uid, 'only_icon' => TRUE)) . '</li>';
+    }
+  }
+  foreach ($fields as $field) {
+    $output .= '<li>' . theme("{$field}", array('user' => $full_user, 'only_icon' => TRUE)) . '</li>';
+  }
+  $output .= '</ul>';
+  $variables['div_class'] = 'gofast_block_user_quick_actions';
+  $variables['output'] = $output;
+}
+
+
+function template_preprocess_gofast_link_edit(&$variables)
+{
+  $nid = FALSE;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+    $variables['node'] = (!empty($variables['node'])) ? $variables['node'] : node_load($variables['nid']); //Sometimes nid is set but node isn't, so we fill manually the variables array
+  } elseif (!empty($variables['node'])) {
+    $nid = $variables['node']->nid; //$variables['node']
+  }
+  if ($variables['node']->type == 'webform') {
+    $variables['href'] = "/node/{$nid}/edit";
+    $variables['text'] = t('Edit this webform', array(), array('context' => 'gofast'));
+  } else if ($variables['node']->type == "conference") {
+    $variables['href'] = "/node/{$nid}/edit";
+    $variables['text'] = t('Edit this conference', array(), array('context' => 'gofast'));
+  } else if ($variables['node']->type == "article") {
+    $variables['href'] = "/node/{$nid}/edit";
+    $variables['text'] = t('Edit this article', array(), array('context' => 'gofast'));
+  } else if ($variables['node']->type == "contact") {
+    $variables['href'] = "/node/{$nid}/edit";
+    //$variables['text'] = t('Edit this contact', array(), array('context' => 'gofast'));
+  } else {
+    $variables['href'] = "/node/{$nid}/edit";
+    $variables['text'] = t('Edit this content', array(), array('context' => 'gofast'));
+  }
+}
+
+function template_preprocess_gofast_link_edit_microblogging(&$variables)
+{
+  $id = FALSE;
+  if (!empty($variables['blog_id'])) {
+    $id = $variables['blog_id'];
+  }
+  $variables['text'] = t('Edit', array(), array('context' => 'gofast'));
+  $variables['onclick'] = 'Gofast.microBlogging.edit(\'' . $id . '\')';
+}
+
+function template_preprocess_gofast_link_add_article_page(&$variables)
+{
+  $nid = $variables['node']->nid;
+  $variables['href'] = "/node/add/article?nid={$nid}";
+  $variables['text'] = t('Add new article', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_link_edit_userlist(&$variables)
+{
+  $nid = FALSE;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  } elseif (!empty($variables['node'])) {
+    $nid = $variables['node']->nid;
+  }
+  $variables['href'] = "/userlist/{$nid}/edit";
+  $variables['text'] = t('Edit Userlist', array(), array('context' => 'gofast:gofast_userlist'));
+}
+
+function template_preprocess_gofast_link_manage_userlist_members(&$variables)
+{
+  $nid = FALSE;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  } elseif (!empty($variables['node'])) {
+    $nid = $variables['node']->nid;
+  }
+  $variables['href'] = "/userlist/{$nid}/manage_members";
+  $variables['text'] = t('Manage Members', array(), array('context' => 'gofast:gofast_userlist'));
+}
+
+function template_preprocess_gofast_link_manage_permissions_access_userlist(&$variables)
+{
+  $nid = FALSE;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  } elseif (!empty($variables['node'])) {
+    $nid = $variables['node']->nid;
+  }
+  $variables['href'] = "/userlist/{$nid}/manage_permissions_access";
+  $variables['text'] = t('Manage permissions/access', array(), array('context' => 'gofast:gofast_userlist'));
+}
+
+function template_preprocess_gofast_link_sync_userlist(&$variables)
+{
+  $nid = FALSE;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  } elseif (!empty($variables['node'])) {
+    $nid = $variables['node']->nid;
+  }
+  $variables['href'] = "/userlist/{$nid}/sync";
+  $variables['text'] = t('Synchronize Userlist with Directory', array(), array('context' => 'gofast:gofast_userlist'));
+}
+
+function template_preprocess_gofast_link_delete_userlist(&$variables)
+{
+  $nid = FALSE;
+  if (!empty($variables['nid'])) {
+    $nid = $variables['nid'];
+  } elseif (!empty($variables['node'])) {
+    $nid = $variables['node']->nid;
+  }
+
+  //Check if userlist can be deleted (not link to any spaces)
+  $ulid  = $variables['node']->field_userlist_ulid['und'][0]['value'];
+  $entity = entity_load_single('userlist', $ulid);
+
+  if (count(gofast_userlist_og_get_groups_by_userlist($entity, NULL, TRUE)) > 0) {
+    $variables['disabled'] = TRUE;
+  }
+
+  $variables['class'] .=  'ctools-use-modal';
+  $variables['href'] = "/modal/nojs/node/{$nid}/manage"; //"/userlist/{$nid}/delete";
+  $variables['text'] = t('Delete Userlist', array(), array('context' => 'gofast:gofast_userlist'));
+}
+
+function template_preprocess_gofast_link_share_email(&$variables)
+{
+  $variables['href'] = '/modal/nojs/linksharing/' . $variables['node']->nid;
+  $variables['class'] = 'ctools-use-modal';
+  $variables['text'] = t('Share by email', array(), array('context' => 'gofast'));
+}
+
+function template_preprocess_gofast_link_publication(&$variables)
+{
+  $node = $variables['node'];
+  //CAS 1, le champs field_publication est vide et aucun champs CCK field_publication_doc d'autre noeud ne pointe vers notre noeud
+  //on est donc dans le cas ou ce noeud n'a aucun rapport avec une publication (ni origine, ni destination)
+  if (gofast_cmis_node_is_published($node) === FALSE && !gofast_cmis_get_publication_source($node)) {
+    $href = "/modal/nojs/node/$node->nid/publication";
+    $icon = 'fa-arrow-up';
+    $title = t("Create publication", array(), array('context' => 'gofast'));
+  }
+  //CAS 2, le champs field_publication_doc n'est pas vide, ce noeud est donc le noeud d'origine d'une publication existante
+  //on affiche le boutton qui permet de publier a nouveau ce document
+  elseif (gofast_cmis_node_is_published($node) !== FALSE) {
+    $href = "/modal/nojs/node/$node->nid/publication";
+    $icon = 'fa-arrow-up';
+    $title = t("Publish again this document", array(), array('context' => 'gofast'));
+  }
+  //CAS 3, un champs CCK field_publication_doc d'un autre noeud pointe vers notre noeud
+  //on est donc dans le cas ou ce noeud est la publication d'un autre, donc on affiche un lien vers le noeud d'origine
+  elseif (($nid = gofast_cmis_get_publication_source($node)) !== FALSE) {
+    //si le user est l'auteur de la publication, j'affiche le bouton de suppression de la publication
+    global $user;
+    //if (gofast_user_is_adm() || $user->uid == $node->uid || $user->uid == 1) {
+    if (node_access('delete', $node)) {
+      $href = "/modal/nojs/node/$node->nid/publication/delete";
+      $icon = 'fa-trash-o';
+      $title = t("Delete this publication", array(), array('context' => 'gofast'));
+    } else {
+      $href = "/node/" . $nid;
+      $title = t("This document is the publication of an other document", array(), array('context' => 'gofast'));
+      $icon = 'fa-repeat';
+      $remove_modal = true;
+    }
+  }
+
+  if (isset($variables['class'])) {
+    $class .= ' ' . implode(' ', $variables['class']);
+  }
+
+  $variables['href'] = $href;
+  $variables['icon'] = $icon;
+  $variables['class'] = !isset($remove_modal) ? 'ctools-use-modal ' . $class : $class;
+  $variables['class'] .= ' create_publication_contextual_button';
+  $variables['text'] = $title;
+  $variables['title'] = t('Create publication to share in other spaces');
+}
+
+function template_preprocess_gofast_link_edit_onlyoffice(&$variables)
+{
+  $variables['text'] = t('Co-edit with onlyoffice', array(), array('context' => 'gofast'));
+  $variables['path'] = '/onlyoffice/editor/' . $variables['node']->nid;
+
+  //check if we must display warning or not when clicking on link
+  $messages_params = variable_get(GOFAST_CONTEXTUAL_MESSAGES_VARIABLE_NAME, array());
+  $variables['warning'] = true;
+  global $user;
+  $cmis_object = gofast_cmis_node_edit_item_get($variables['node']);
+  $current_mimetype = $cmis_object->properties["cmis:contentStreamMimeType"];
+  if (!gofast_onlyoffice_is_mimetype_must_convert($current_mimetype)) {
+    //if(isset($messages_params[$user->uid]["onlyoffice_warning"])){
+    //if($messages_params[$user->uid]["onlyoffice_warning"] == 'false'){
+    $variables['warning'] = false;
+    //}
+  }
+}
+
+function template_preprocess_gofast_link_edit_webform_form_builder(&$variables)
+{
+  $variables['text'] = t('Edit Webform Components', array(), array('context' => 'gofast'));
+  $variables['path'] = '/node/' . $variables['node']->nid . '/webform/form-builder';
+}
+
+function template_preprocess_gofast_link_webform_results(&$variables)
+{
+  $variables['text'] = t('Results', array(), array('context' => 'gofast'));
+  $variables['path'] = '/node/' . $variables['node']->nid . '/webform-results';
+}
+
+function template_preprocess_gofast_node_icon_format(&$variables)
+{
+  $node = $variables['node'];
+  $src = 'fa ';
+  if (isset($node->field_format['und'][0]['tid'])) {
+    $term_id = $node->field_format['und'][0]['tid'];
+    $icons = gofast_taxonomy_load_icons();
+    $icon = isset($icons[$term_id]) ? $icons[$term_id] : '';
+    $src .= empty($icon) ? 'file-o' : $icon;
+    // Sometimes we use a processed node with formatted title.
+    $variables['title'] = strip_tags($node->title);
+  } else {
+    $src .= 'file-o';
+    $variables['title'] = 'Unknown format';
+  }
+  $variables['src'] = 'fa ' . $src;
+  $variables['width'] = '24';
+  $variables['height'] = '24';
+}
+
+function gofast_views_preprocess_page(&$variables)
+{
+
+  $path = drupal_get_path('module', 'gofast_views');
+
+
+  /*$name = 'flag_bookmarks_tab';
+  $display_id = 'mybookmarks';
+  $view = views_get_view($name);
+  drupal_add_js($path . '/js/gofast_mybookmarks_popup.js');
+
+  if ($view && $view->access($display_id)) {
+    $title = $view->display[$display_id]->display_options['title'];
+    $output = '<h2 class="gofast_popup_title">' . $title . '</h2>';
+    $output .= trim($view->preview($display_id));
+    $stngs = array('data_tree' => $output);
+    drupal_add_js(array('gofast_mybookmarks_tree' => $stngs), 'setting');
+  }
+
+  $name = 'gofast_aggregator';
+  $display_id = 'block_1';
+  $view = views_get_view($name);
+  drupal_add_js($path . '/js/gofast_headlines_popup.js');
+
+  if ($view && $view->access($display_id)) {
+//    $title = $view->display[$display_id]->display_options['title'];
+//    $output = '<h2 class="gofast_popup_title">' . $title . '</h2>';
+    $output = '<h2 class="gofast_popup_title"></h2>';
+    $output .= trim($view->preview($display_id));
+    $stngs = array('data_tree' => $output);
+    drupal_add_js(array('gofast_headlines_popup' => $stngs), 'setting');
+  }
+
+  $name = 'gofast_privatemsg';
+  $display_id = 'gofast_notifications';
+  $view = views_get_view($name);
+  drupal_add_js($path . '/js/gofast_notifications_popup.js');
+
+  if ($view && $view->access($display_id)) {
+    $title = $view->display[$display_id]->display_options['title'];
+    $output = '<h2 class="gofast_popup_title">' . $title . '</h2>';
+    $output .= trim($view->preview($display_id));
+    $output = delete_all_between("<thead>", "</thead>", $output);
+//    $output = preg_replace( array("/\r|\n/", "~>\s+<~m"), array("", "><"), $output);
+//    $output = set_all_between_in_end('<div class="view-filters"><form', '</form></div>', $output);
+    $stngs = array('data_tree' => $output);
+    drupal_add_js(array('gofast_notifications_tree' => $stngs), 'setting');
+  }
+
+  $name = 'gofast_privatemsg';
+  $display_id = 'gofast_inbox';
+  $view = views_get_view($name);
+  drupal_add_js($path . '/js/gofast_inbox_popup.js');
+
+  if ($view && $view->access($display_id)) {
+    $title = $view->display[$display_id]->display_options['title'];
+    $output = '<h2 class="gofast_popup_title">' . $title . '<a href="/gofast/nojs/messages/new" class="btn btn-xs btn-info ctools-use-modal" style="float: right;" title="' . t('Compose') . '"><span class="glyphicon glyphicon-send" style="margin: 1px 8px 0 0;"></span>' . t('Compose') . '</a>' . '</h2>';
+    $output .= trim($view->preview($display_id));
+    $output = delete_all_between("<thead>", "</thead>", $output);
+//    $output = preg_replace( array("/\r|\n/", "~>\s+<~m"), array("", "><"), $output);
+//    $output = set_all_between_in_end('<div class="view-filters"><form', '</form></div>', $output);
+    $sttngs = array('data_tree' => $output);
+    drupal_add_js(array('gofast_pm_tree' => $sttngs), 'setting');
+  }*/
+
+  /*drupal_add_js($path . '/js/gofast_book_block.js');
+
+  libraries_load('ztree');
+
+  $json_books = gofast_get_json_books();
+  $permisssion=false;
+  if (user_access('create new books')) $permisssion=true;
+
+  $settings = array('data_tree' => $json_books, 'user_permisssion' => $permisssion);
+  drupal_add_js(array('gofast_book_tree' => $settings), 'setting');
+  drupal_add_css('#gofast_book_content { width: 24%; position: absolute; display: none; padding: 10px 10px 10px 10px; z-index: 500; }', array('group' => CSS_THEME, 'type' => 'inline', 'weight' => 999));
+//  drupal_add_css('.gofast_book_content { position: absolute; background: black; color: white; margin-left: 407px; z-index: 500; display: none; }', array('group' => CSS_THEME, 'type' => 'inline', 'weight' => 999));*/
+  //  $arr = module_invoke('gofast_views', 'block_view', 'gofast_book_blocks');
+  //  $variables['gofast_book_blocks'] = drupal_render($arr['content']);
+  //  $variables['gofast_book_blocks'] = render($arr['content']);
+
+  //  $block->subject = $arr['subject'];
+  //  $block->content = $arr['content'];
+  //  $block->delta = 'gofast_book_blocks';
+  //  $block->module = 'gofast_views';
+  //  $block->region = 'sidebar_second';
+  //
+  //debug($block, '', true);
+  // $variables['gofast_book_blocks'] = theme('block', array('block' => $block));
+  //  drupal_add_js
+}
+
+//function gofast_views_form_privatemsg_delete_alter(&$form, &$form_state, $form_id) {
+////  debug(array($form, $form_state, $form_id), 'test form', true);
+//  array_unshift($form['#submit'], 'gofast_privatemsg_delete_submit');
+//  variable_set('debug_ilyas', $form_state);
+////  debug($form_state['input'], 'before', true);
+//}
+//
+//function gofast_privatemsg_delete_submit(&$form, &$form_state, $form_id) {
+//  variable_set('debug_ilyas', $form_state);
+//  debug($form_state);
+//}
+
+//function gofast_views_form_book_admin_edit_alter(&$form, &$form_state, $form_id) {
+////  debug(array($form, $form_state, $form_id), 'test form', true);
+//  array_unshift($form['#submit'], 'gofast_book_admin_edit_submit');
+//
+////  debug($form_state['input'], 'before', true);
+////  debug($form_state, 'before', true);
+//}
+//
+//function gofast_book_admin_edit_submit($form, &$form_state) {
+////  $form_state['input']['table'] = Array(
+////                                        'book-admin-111' => Array(
+////                                                'title' => 'test',
+////                                                'weight' => 0,
+////                                                'plid' => 1361,
+////                                                'mlid' => 1362
+////                                            )
+////                                        ,'book-admin-89' => Array(
+////                                                'title' => 'Test accès article',
+////                                                'weight' => -15,
+////                                                'plid' => 1362,
+////                                                'mlid' => 1369
+////                                            )
+////                                        ,'book-admin-61' => Array(
+////                                                'title' => 'myTest',
+////                                                'weight' => -14,
+////                                                'plid' => 1362,
+////                                                'mlid' => 1367
+////                                            )
+////                                        ,'book-admin-14' => Array(
+////                                                'title' => 'test article 2',
+////                                                'weight' => -13,
+////                                                'plid' => 1362,
+////                                                'mlid' => 1368
+////                                            )
+////                                      );
+////  $form_state['values']['table']['book-admin-14']['plid'] = 1362;
+//   watchdog("TEST SUBMIT", "FORM");
+//  debug($form_state, 'after', true);
+////  debug($form_state['values'], 'after', true);
+//}
+
+
+
+function template_preprocess_gofast_bookmarks_favorites_folders(&$variables)
+{
+  global $user;
+  //Check folder bookmarked
+  $folder_bookmarks = db_query("SELECT fbid,folder_reference FROM gofast_bookmark_folder WHERE uid=" . $user->uid)->fetchAll();
+  foreach ($folder_bookmarks as $folder_bookmark) {
+
+    $display_reference = $folder_bookmark->folder_reference;
+    $item = gofast_cmis_item_get($display_reference);
+    $display_path = $item->properties['cmis:path'];
+    $path = $item->properties['cmis:path'];
+    if (substr($display_path, -1, 1) == "/") {
+      $display_path = substr($display_path, 0, -1);
+    }
+    $folder_name = array_pop(explode("/", $display_path));
+
+    $final_path = array();
+    if (gofast_mobile_is_mobile_domain() !== TRUE) {
+      $path = rawurlencode($path);
+    }
+    $final_path["link"] = l($folder_name, "/gofast/browser", array('attributes' => array('title' => str_replace("/alfresco/webdav", "", $path)), 'query' => array('path' => $path)));
+    $final_path["icon"] = '<span class="fa fa file-o fa-folder"></span>';
+    $final_path["path"] = $display_path;
+    $array_folders[] = $final_path;
+  }
+
+  $variables['favorite_folders'] = $array_folders;
+}
+
+/**
+ * Form submit callback for book edit
+ */
+function gofast_books_submit()
+{
+  $json = $_POST;
+  //  drupal_add_js('console.log('.$_POST['gofast_tree_submit'].');', 'inline');
+  //  $output = array();
+
+  ctools_include('book.admin', 'book', '');
+  $form_id = 'book_admin_edit';
+  foreach ($json as $value) {
+    if (!empty($value['children'])) {
+      $node = node_load($value['bId']);
+      $elem = array();
+      foreach ($value['children'] as $value1) {
+        $elem['book-admin-' . $value1['nId']] = array('plid' => $value1['pId'], 'weight' => $value1['weight']);
+      }
+      //      variable_set('debug_ilyas', $elem);
+      $form_state = array('values' => array('table' => $elem));
+      drupal_form_submit($form_id, $form_state, $node);
+      $errors[$node->nid] = form_get_errors();
+      //      variable_set('debug_ilyas', array('errors' => $errors));
+    }
+  }
+  //  $form_state = array('values' => array('table' => array('book-admin-14' => array('plid' => 1367), 'book-admin-89' => array('plid' => 1362) )));
+
+
+
+  //  if (!empty($errors)) {
+  //    $message = '';
+  //    foreach ($errors as $key => $value) $message .= "$key : $value <br />";
+  //    $messages = drupal_set_message($message, 'error');
+  //    $arr = $messages['error'];
+  //
+  //  }
+
+  return ($errors);
+  //  $output = drupal_json_encode($_POST);
+  ////  return $output;
+  //  echo $output;
+}
+
+
+
+function gofast_views_views_post_execute(&$view)
+{
+  if ($view->name === "gofast_flag_bookmarks" && $view->current_display === "gofast_bookmarks_folders") {
+    global $user;
+
+    $view->result = array();
+    //Check folder bookmarked
+    $folder_bookmarks = db_query("SELECT fbid,folder_reference FROM gofast_bookmark_folder WHERE uid=" . $user->uid)->fetchAll();
+    foreach ($folder_bookmarks as $folder_bookmark) {
+      $display_reference = $folder_bookmark->folder_reference;
+      $item = gofast_cmis_item_get($display_reference);
+      $display_path = $item->properties['cmis:path'];
+      $path = $item->properties['cmis:path'];
+      if (substr($display_path, -1, 1) == "/") {
+        $display_path = substr($display_path, 0, -1);
+      }
+      $folder_name = array_pop(explode("/", $display_path));
+
+      $result = new stdClass();
+      $result->users_node_id = $user->uid;
+      $result->nid = "gofast/browser?path=" . rawurlencode($path);
+      $result->node_title = $folder_name . "[GFOLDER]";
+
+      $path = str_replace("/alfresco/webdav", "", $path);
+      $result->field_field_emplacement = array(
+        0 => array(
+          "rendered" => array(
+            "#markup" => $path,
+            "#access" => 1,
+          ),
+          "raw" => array(
+            "#value" => $path,
+          )
+        )
+      );
+      $view->result[] = $result;
+    }
+  }
+}
+
+function gofast_get_favorites_folders()
+{
+
+  $name = 'gofast_flag_bookmarks';
+  $display_id = 'gofast_bookmarks_folders';
+  $bookmarks_view = views_embed_view($name, $display_id);
+  $navigation = '<nav class="text-center" style="margin-top:15px;">
+        <ul class="pagination" style="margin-top:25px;margin-bottom:5px;" id="path_pager_bookmarks_folders"></ul>
+    </nav>';
+  $render_data = $bookmarks_view . $navigation;
+  print $render_data;
+  exit;
+}
+
+function gofast_get_favorites_contents()
+{
+
+  $name = 'gofast_flag_bookmarks';
+  $display_id = 'gofast_flag_bookmarks';
+  $bookmarks_view = views_embed_view($name, $display_id);
+  $render_data = $bookmarks_view;
+  print $render_data;
+  exit;
+}
+
+/**
+ * Form submit callback for privatemsg delete
+ */
+function gofast_privatemsg_confirm_delete()
+{
+  if (gofast_request_is_ajax() && isset($_POST['thread_id'])) {
+    global $user;
+    privatemsg_thread_change_delete(intval($_POST['thread_id']), 1, $user);
+    gofast_ajaxification_get_toast_messages(); // Workaround to remove the message "Deleted 1 message" generated by privatemsg module
+    drupal_static_reset('gofast_privatemsg_unread_count'); //To rebuild the static cache
+    return json_encode(array('message' => t('This private message has been deleted', array(), array('context' => 'gofast')), 'success' => 1, 'unread_count' => gofast_privatemsg_unread_count($user)));
+  }
+}
+
+function delete_all_between($beginning, $end, $string)
+{
+  $beginningPos = strpos($string, $beginning);
+  $endPos = strpos($string, $end);
+  if ($beginningPos === false || $endPos === false) {
+    return $string;
+  }
+  $textToDelete = substr($string, $beginningPos, ($endPos + strlen($end)) - $beginningPos);
+  return str_replace($textToDelete, '', $string);
+}
+
+function set_all_between_in_end($beginning, $end, $string)
+{
+  $beginningPos = strpos($string, $beginning);
+  $endPos = strpos($string, $end);
+  if ($beginningPos === false || $endPos === false) {
+    return $string;
+  }
+  return delete_all_between($beginning, $end, $string) . substr($string, $beginningPos, ($endPos + strlen($end)) - $beginningPos);
+}
+
+
+/**
+ * Form submit callback to show inbox view
+ */
+function gofast_inbox_popup()
+{
+
+  $name = 'gofast_private_msg';
+  $display_id = 'gofast_inbox';
+  $view = views_get_view($name);
+  if ($view) {
+    $output = trim($view->preview($display_id));
+    return delete_all_between("<thead>", "</thead>", $output);
+  } else  return '';
+}
+
+
+function gofast_views_form_privatemsg_form_reply_alter(&$form, &$form_state)
+{
+
+  $form['body']['#attributes']['class'][] = 'no-ckeditor';
+  //$form['#after_build'][] = 'gofast_private_msg_reply_after_build';
+
+}
+
+function gofast_privatemsg_reply_after_build($form, &$form_state)
+{
+
+  $path = drupal_get_path('module', 'gofast_views');
+  drupal_add_js("$path/js/mytest.js", array("weight" => 0));
+  return $form;
+}
+
+function gofast_activity_feed()
+{
+  return "";
+}
+
+function template_preprocess_gofast_user_display_user_gofast_role(&$variables)
+{
+  $user = $variables['user'];
+  if (isset($user->roles[3])) {
+    $variables['text'] = t('Super-Admin');
+  } else {
+    $variables['text'] = t('Standard');
+  }
+}

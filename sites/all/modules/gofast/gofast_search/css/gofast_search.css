@@ -1,0 +1,239 @@
+/****************************/
+/*   Theming Solr Results   */
+/****************************/
+.odd{
+    background-color:#FFFFFF;
+}
+
+.even{
+    background-color:#F9F9F9;
+}
+
+.search-results .title em.solr-highlight {
+  color:inherit;
+}
+
+.search-results em.solr-highlight {
+  font-weight: bold;
+  font-style: normal;  
+  color: #555;
+}
+
+.search-results .snippets em.solr-highlight:hover {
+  text-decoration: underline;
+}
+
+.search-results dt .title {
+  font-weight: normal;
+  font-size: 1.2em;
+  color: #333;
+}
+
+table.snippets {
+  table-layout: fixed;
+}
+
+.search-results .snippets {
+  color: #666;
+  font-size: 0.9em;
+  overflow: hidden;
+  text-overflow: ellipsis;  
+}
+
+.search-info span, .search-info .user-picture {
+  display: inline-block;
+  /*vertical-align: text-bottom;*/
+}
+
+.search-info, .snippet-pager-wrapper {
+  color: #999;
+  font-size: 0.8em;
+}
+
+.search-result {
+  border-bottom:solid 1px #ccc;
+  padding-bottom: 0.5em;
+  padding-top: 0.5em;
+}
+
+.search-result span.title, .search-result span.fast-actions {
+  display: inline-block;
+}
+
+.search-result a.gofast-title:hover {
+  text-decoration: underline;
+}
+
+.search-results>.search-result:first-child {
+  margin-top: 6px; /* additional margin for the first result */
+}
+
+.search-results .snippet-pager {
+  float: right;
+  margin-right: 1px;
+  display: table;
+}
+
+.search-results .gofast-button, .search-results .pager-info {
+  font-size:80%;
+  display: table-cell;
+  padding: 3px 5px;
+  border: none;
+  background-color: transparent;
+}
+
+a.go-search-snippet.gofast-button {
+  display: inline-block;
+  background-color: inherit;
+  border: 0 none;
+  border-left: 1px solid #ddd;
+}
+
+.search-options .btn {
+  border-color: #ccc;
+}
+
+.snippet-wrapper {
+  padding:5px;
+  height:5.9em;
+}
+.Firefox .snippet-wrapper {
+  height:6.4em;
+}
+.Edge .snippet-wrapper {
+  height:6.3em;
+}
+
+/* Taxonomy terms match Higlighting */
+.hl-tags {
+  margin-bottom: 5px;
+}
+.hl-tags div {
+  display: inline-block;
+}
+.hl-tags .hl-tag {
+  color: #fff;
+  padding:1px 2px;
+}
+.hl-tags .category .hl-tag{
+  background: #027ac6;
+}
+.hl-tags .criticity .hl-tag{
+  background: #da292f; /* red/blood */
+}
+.hl-tags .hobbies .hl-tag{
+  background: purple;
+}
+.hl-tags .format .hl-tag{
+  background: #2B2B2B;
+}
+.hl-tags .tags .hl-tag{
+  background: #ff9900; /* orange */
+}
+.hl-tags .skills .hl-tag{
+  background: darkgreen;
+}
+.hl-tags .interests .hl-tag{
+  background: #ffcc33; /* yellow */
+}
+.hl-tags .state .hl-tag{
+  background: darkgoldenrod;
+}
+
+.hl-document-reference{
+    background: #80377f;
+    color: #fff;
+    padding: 1px 2px;
+}
+
+.block-facetapi {
+    border: 1px solid #ddd !important;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+    margin-bottom: 5px !important;
+    border-radius: 4px;
+    color:#333 !important;
+    padding:0px !important;
+}
+
+.block-facetapi .block-title {
+    background-color: #f5f5f5 !important;
+    margin-bottom: 0px !important;
+}
+
+.block-facetapi h2 {
+  padding:10px 15px 10px 15px !important;
+  font-size: 12px !important;
+  margin-bottom: 0px;
+  border-bottom: 0px !important;
+  font-weight: 300;
+  color: inherit !important;
+}
+
+.facet-collapsible-wrapper
+{
+    padding:15px !important;
+}
+.facetapi-gofast-facetapi-links {
+  margin-top: 10px;
+}
+
+
+.container-number-results .block-title{
+    width:85%;
+}
+
+.current-search-item-gofast-active{
+    height:85px;
+    overflow-x:hidden;
+}
+
+.current-search-item-gofast-active .mCSB_container{
+    width:85%;
+    margin-left:20px;
+}
+
+.current-search-item-gofast-active .mCSB_scrollTools_vertical{
+    right:auto !important;
+}
+
+.gofast-search-facet-active{
+    padding-left: 0px;
+}
+
+#facetapi_search_filters .bootstrap-switch{
+    margin-top: 0px;
+}
+
+.search-result {
+  position: relative;
+}
+
+.loader-more-snippets {
+    display: none;
+    position: absolute;  
+    top: 0;
+    right: 0;
+    margin: 10px;
+    border: 2px solid #f3f3f3;
+    border-radius: 50%;
+    border-top: 2px solid #3498db;
+    border-bottom: 2px solid #3498db;
+    width: 20px;
+    height: 20px;
+    -webkit-animation: spin 2s linear infinite;
+    animation: spin-loader 2s linear infinite;
+    vertical-align: middle;    
+}
+
+.spelling-suggestions dd {
+  padding-left: 5px;
+}
+
+.spelling-suggestions dd::before {
+  content: "\2192\000A0\000A0";
+}
+
+.selected_for_basket{
+    vertical-align: top;
+    margin-top: 7px!important;
+}

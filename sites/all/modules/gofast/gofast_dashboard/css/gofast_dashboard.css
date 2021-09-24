@@ -1,0 +1,179 @@
+/*
+ * CSS specific to CDEL modules
+ * Use to tune Dashboard display ! 
+ */
+
+.panel-dashboard{
+    min-height:300px;
+}
+
+.panel-dashboard-big{
+    min-height:465px;
+}
+
+.view-id-gofast_flag_bookmarks.view-display-id-page_2 > div > table > tbody > tr > .views-field-node-actions, .view-id-gofast_flag_bookmarks.view-display-id-page_1 > div > table > tbody > tr > .views-field-node-actions{
+    width: 50px;
+    padding: 6px;
+}
+
+.dashboard .view-gofast-flag-bookmarks .views-field-field-emplacement{
+   max-width:100px;
+   display:none;  
+}
+
+.view-gofast-flag-bookmarks .views-field-field-emplacement{
+   max-width:500px;
+   overflow : hidden; 
+}
+
+.task-overdue {
+  color : red;
+}
+
+div.row.dashboard .row {
+  margin-left : 0px;
+  margin-right : 0px;
+}
+
+div.row.dashboard > div.col-md-4{
+  margin-left: -6px;
+}
+
+.dashboard-block{
+  min-height: 510px;
+}
+
+.dashboard-block-bottom{
+  min-height: 272px;
+}
+
+.dashboard-block-ellipses{
+  display: inline-block;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.ellipses-short{
+    width : 150px;
+}
+
+.ellipses-medium{
+    width : 260px;
+}
+
+.ellipses-large{
+    width : 240px;
+}
+
+.dashboard-conference-details, 
+.dashboard-mail-details,
+.dashboard-comment-details{
+  display: none;
+  position: relative; 
+  z-index: 100; 
+  margin-top: 2px; 
+}
+
+.dashboard-conference-details > div, 
+.dashboard-mail-details > div,
+.dashboard-comment-details > div {
+  top: -5px; 
+  left:0; 
+  background-color: #F8F8F8; 
+  position: absolute; 
+  width: 500px;
+  margin-left: -470px;
+}
+
+.dashboard-mail-details,
+.dashboard-comment-details{
+  /*left: -250px;*/
+}
+
+.dashboard-mail-details > div,
+.dashboard-comment-details > div {
+  min-width: 300px;
+}
+
+.dashboard-conference-details ul{
+  padding-left : 0px;
+}
+
+ul.dashboard.cdel.list-group  {
+  padding-bottom: 0px;
+  margin-bottom: 0px;
+}
+
+.dashboard.cdel.list-group > .list-group-item {
+  padding: 0px;
+  border: none;
+  overflow: hidden;
+}
+
+.dashboard.cdel.list-group > .list-group-item > a {
+  padding: 0px 10px;
+}
+
+.dashboard.cdel.list-group > .list-group-item > a > span.fa {
+  padding-right: 3px;
+}
+
+.dashboard.cdel .gofast-node-actions > a.btn-default,
+.dashboard-block-right .gofast-node-actions > a.btn-default{
+  border: none;
+  background-color: transparent;
+  padding: 0px;
+  color: #337ab7;
+}
+
+.view-gofast-flag-dashboard-shortcut td.views-field.views-field-nid{
+  text-align: right;
+}
+
+.view-gofast-flag-dashboard-shortcut .pagination{
+  margin-bottom : 0px;
+  margin-top : 0px;
+}
+
+.mail_actions .gofast-dropdown-menu,
+.comment_actions .gofast-dropdown-menu{
+  left: -180px !important;
+}
+
+.dashboard-little-block{
+  min-height:225px;
+}
+
+.dashboard-little-block td{
+  padding:4px !important;
+}
+
+.dashboard-block td{
+  padding:6px !important;
+}
+
+.dashboard-top{
+  height: 141px;
+}
+
+.dashboard .panel-heading{
+  font-weight: bold;
+}
+
+.dashboard-comment-details .panel-body{
+  white-space: normal;
+}
+
+.dashboard-folders-placeholder{
+    overflow: hidden;
+}
+
+.view-gofast-flag-bookmarks.view-display-id-page_2 > div > table > thead, .view-gofast-flag-bookmarks.view-display-id-page_1 > div > table > thead{
+    display: none;
+}
+
+#dashboard-favorite-contents > div > div > table > tbody > tr > td > .gofast-node-actions > ul{
+    margin-left: -235px;
+    z-index: 9999;
+}

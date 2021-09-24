@@ -1,0 +1,8 @@
+name        = Gofast Webform
+description = "Gofast Webform ovveride."
+core        = 7.x
+package     = Gofast
+version = "7.x-3.10.0_r2"
+
+dependencies[] = gofast
+dependencies[] = webform

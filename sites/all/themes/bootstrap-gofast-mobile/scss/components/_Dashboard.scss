@@ -1,0 +1,18 @@
+.Dashboard {
+    margin-bottom: 0;
+    border: 0;
+    box-shadow: none;
+    padding-bottom: 0;
+
+    & > .row {
+        display: flex;
+        flex-wrap: wrap;
+        & > div {
+            min-height: 350px;
+            margin-bottom: 2rem;
+            & > .panel {
+                height: 100%;
+            }
+        }
+    }
+}

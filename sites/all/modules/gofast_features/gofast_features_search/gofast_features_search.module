@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the GoFast Search Config feature.
+ */
+
+include_once 'gofast_features_search.features.inc';

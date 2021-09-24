@@ -1,0 +1,31 @@
+<?php
+
+/**
+ * Implements hook_install()
+ */
+function gofast_subscription_ui_install() {
+  //get parent menu_link 'Directories'
+  $parent_title = 'My profile dropdown';
+  $query = db_query("SELECT * FROM {menu_links} WHERE link_title='".$parent_title."'");
+  $plid = $query->fetch()->mlid;
+  
+  $links = array(
+    'link_title' => t('Subscriptions', array(), array('context' => 'gofast:subscription_ui')),
+    'link_path' => 'modal/nojs/subscriptions',
+    'router_path' => 'modal/nojs/subscriptions',
+    'menu_name' => 'user-menu',
+    'plid' => $plid,
+    'weight' => 0,
+    'expanded' => 0,
+    'cutomized' => 1,
+    'uuid' => 'f0bf3dcb-210c-4f37-a609-babbbf058388',
+     'options' => array(
+       'attributes' => array(
+        'class' => 'ctools-use-modal'
+      ),
+    ), 
+  );
+    menu_link_save($links);
+
+}
+

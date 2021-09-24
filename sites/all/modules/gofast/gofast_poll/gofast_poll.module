@@ -1,0 +1,267 @@
+<?php
+
+/**
+ * @file
+ *  Gofast long poll system.
+ */
+
+/**
+ * Defines the long poll request time in second.
+ */
+define('GOFAST_POLL_REQUEST_TIMEOUT', 30);
+
+/**
+ * Defines the default interval time between server side poll check.
+ */
+define('GOFAST_POLL_INTERVAL', 0);
+
+/**
+ * Identifier of the DOM element triggering and responding to polling events.
+ */
+define('GOFAST_POLL_ELEMENT_ID', 'gofast-poll');
+
+/**
+ * Defines poll requests path.
+ */
+define('GOFAST_POLL_PATH', 'gofast/poll');
+
+/**
+ * Returned poll informations defined by modules.
+ *
+ * @param string $pollID [optional]
+ *  A pollID (e.g. [module_name]:[poll_name]). If set and valid, return only the
+ *  corresponding poll definition, return FALSE if not valid.
+ *
+ * @return array
+ *  An array of poll definitions. Each definition is an array keyed by the name
+ *  name of the poll.
+ */
+function gofast_poll_get_info($pollID = NULL) {
+  $poll_info = &drupal_static(__FUNCTION__, NULL);
+
+  if (!isset($poll_info)) {
+    $poll_info = array();
+
+    // Invoke module implementations.
+    foreach (module_implements('poll_info') as $module) {
+      $poll_info[$module] = array();
+      $polls = call_user_func($module . '_poll_info');
+
+      if (!$polls || !is_array($polls)) {
+        $polls = array();
+      }
+
+      foreach ($polls as $poll_name => $info) {
+        // Always reassign identifier components to avoid naming conflicts.
+        $info['name'] = $poll_name;
+        $info['module'] = $module;
+        $info['pollID'] = $module . ':' . $poll_name;
+
+        // Merges defaults
+        $info += array(
+          'label' => $poll_name,
+          'description' => '',
+          'interval' => GOFAST_POLL_INTERVAL,
+          'context' => TRUE, // always trigger polling, or require to match a given context.
+          'selector' => NULL // if set & context matches, it will be restricted to DOM element(s) matching this selector.
+        );
+
+        $poll_info[$module][$poll_name] = $info;
+      }
+    }
+  }
+
+  if ($pollID) {
+    list ($module, $poll_name) = explode(':', $pollID, 2);
+    return isset($poll_info[$module][$poll_name]) ? $poll_info[$module][$poll_name] : FALSE;
+  }
+
+  return $poll_info;
+}
+
+/**
+ * Implements hook_menu()
+ */
+function gofast_poll_menu() {
+  $items = array();
+
+  $items[GOFAST_POLL_PATH] = array(
+    'page callback' => 'gofast_polling',
+    'page arguments' => array(2),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'delivery callback' => 'ajax_deliver'
+  );
+
+  return $items;
+}
+
+/**
+ * Polls page callback.
+ */
+function gofast_polling() {
+  if (extension_loaded('newrelic')) {
+    newrelic_ignore_transaction ()  ;
+    newrelic_ignore_apdex () ;
+  }
+
+  $poll_info = gofast_poll_get_info();
+  $commands = array();
+
+  $request_time = time();
+  $context = filter_input(INPUT_POST, 'context', FILTER_DEFAULT, FILTER_FORCE_ARRAY);
+  $time = (int) filter_input(INPUT_POST, 'time', FILTER_DEFAULT, FILTER_REQUIRE_SCALAR);
+
+  $modules = module_implements('poll');
+
+  while (empty($commands) && (time() - $request_time) < GOFAST_POLL_REQUEST_TIMEOUT && sleep(1) === 0 && ++$time) {
+    foreach ($modules as $module) {
+      foreach ($poll_info[$module] as $poll_name => $poll) {
+        if (array_key_exists($poll['pollID'], $context) && $time % $poll['interval'] === 0
+          && ($_commands = call_user_func($module . '_poll', $poll_name, $poll, $context['__context'])) ) {
+          $commands = array_merge($commands, $_commands);
+            array_unshift($commands , ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+            if (jQuery('.popover-content').children().hasClass('ztree-widget')){
+                var popup_id = $('#fullscreen-node').children().attr('id').split('-').pop();
+                jQuery('#popup_block_' + popup_id).children().first().popover('hide');
+            };
+            </script>"
+              )
+      );
+        }
+      }
+    }
+  }
+
+  if ($_commands = module_invoke('gofast_poll', 'poll', 'default', $poll_info['gofast_poll']['default'], $context['__context'])) {
+    $commands = array_merge($commands, $_commands);
+  }
+
+  $data = array('time' => $time % GOFAST_POLL_REQUEST_TIMEOUT);
+  $commands[] = gofast_command_trigger_event('#' . GOFAST_POLL_ELEMENT_ID, 'pollEnd', array($data));
+
+  return array(
+    '#type' => 'ajax',
+    '#header' => TRUE,
+    '#commands' => $commands,
+    '#error' => FALSE,
+  );
+}
+
+/**
+ * Implements hook_poll_info()
+ *
+ * @return array
+ */
+function gofast_poll_poll_info() {
+  return array(
+    // Will holds defaults settings for other modules.
+    'default' => array(
+      'context' => NULL
+    ),
+
+    /* 'example' => array(
+      'label' => 'Poll Example',
+      'description' => 'A simple poll implementation',
+      'interval' => 15,
+      'context' => 'node'
+      ) */
+  );
+}
+
+/**
+ * Implements hook_poll()
+ */
+function gofast_poll_poll($poll_name, $poll_info, $context) {
+  static $example = array();
+  $commands = array();
+
+  switch ($poll_name) {
+    case 'example':
+      if (isset($example[$poll_name])) { // wait one poll interval before update.
+        $commands[] = gofast_command_toast_message(array_to_html($context, TRUE));
+      }
+      $example[$poll_name] = TRUE;
+      break;
+
+    case 'default':
+      if (isset($context['entity']) && isset($context['entity_id']) && isset($context['entity_type'])) {
+        $entity = reset((entity_load($context['entity_type'], array($context['entity_id']), array(), TRUE)));
+        $_entity = (object) $context['entity'];
+        if ($entity->changed > $_entity->changed) {
+          $context['entity'] = $entity;
+          gofast_set_context($context);
+        }
+      }
+      break;
+  }
+
+  return $commands;
+}
+
+/**
+ * Helper function, merges defaults in $poll_info array so that modules are not
+ * required to implement hook_poll_info.
+ */
+function _poll_info_set_defaults($modules, &$poll_info, $_module = NULL, $_poll_name = NULL) {
+  foreach ($modules as $module) {
+    if (!isset($poll_info[$module])) {
+      // No polling info, fallback with poll module defaults.
+      $poll_info[$module] = array('default' => $poll_info['gofast_poll']['default']);
+      $poll_info[$module]['default']['module'] = $module;
+    }
+  }
+  if (isset($poll_info[$_module][$_poll_name])) {
+    $poll_info = array($_module => array($_poll_name => $poll_info[$_module][$_poll_name]));
+    return;
+  }
+}
+
+/**
+ * Implements hook_preprocess_page()
+ */
+function gofast_poll_preprocess_page(&$variables) {
+  if (!user_is_logged_in()) {
+    return;
+  }
+
+  if(strpos($_SERVER['REQUEST_URI'], "/kanban/") !== FALSE){
+    return;
+  }
+
+  $polls = array();
+  foreach (gofast_poll_get_info() as $module => $_polls) {
+    foreach ($_polls as $name => $info) {
+      $polls[$info['pollID']] = $info;
+    }
+  }
+
+  $settings = array(
+    'polls' => $polls,
+    'pollUrl' => $GLOBALS['base_url'] . '/' . GOFAST_POLL_PATH,
+    'pollElementId' => GOFAST_POLL_ELEMENT_ID,
+    'pollInterval' => GOFAST_POLL_INTERVAL,
+    'pollRequestTimeout' => GOFAST_POLL_REQUEST_TIMEOUT,
+  );
+
+  $variables['page']['footer']['gofast_poll'] = array(
+    '#type' => 'container',
+    '#attributes' => array(
+      'id' => GOFAST_POLL_ELEMENT_ID,
+      'style' => array('display:none')
+    ),
+    '#attached' => array(
+      'js' => array(
+        array(
+          'data' => drupal_get_path('module', 'gofast_poll') . '/gofast_poll.js',
+          'type' => 'file'
+        ),
+        array(
+          'data' => array('gofast_poll' => $settings),
+          'type' => 'setting'
+        )
+      )
+    )
+  );
+}

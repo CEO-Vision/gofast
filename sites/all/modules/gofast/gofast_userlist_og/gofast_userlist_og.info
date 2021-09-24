@@ -1,0 +1,26 @@
+name = Gofast UserList OG
+description = "Managment module for permission/action of userlist over other entities"
+package = Gofast
+core = 7.x
+dependencies[] = gofast_userlist
+dependencies[] = og
+version = "7.x-3.10.0_r2"
+
+
+; Entity API controllers
+ files[] = views/gofast_userlist_og.views.inc
+ files[] = views/gofast_userlist_og_view_og_members_page.views.inc
+
+; Views filters
+ files[] = views/handlers/gofast_userlist_og_handler_filter_userlist_roles.inc
+
+; Views fields
+files[] = views/handlers/gofast_userlist_og_handler_field_userlist_roles.inc
+files[] = views/handlers/gofast_userlist_og_handler_field_userlist_roles.inc
+files[] = views/handlers/gofast_userlist_og_handler_field_userlist_og_roles.inc
+files[] = views/handlers/gofast_userlist_og_handler_field_member_picture.inc
+files[] = views/handlers/gofast_userlist_og_handler_field_userlist_directories_userlist_number_members.inc
+files[] = views/handlers/gofast_userlist_og_handler_field_userlist_directories_userlist_number_admins.inc
+
+; Views relationships
+files[] = views/handlers/gofast_userlist_og_handler_relationship_membership_roles.inc

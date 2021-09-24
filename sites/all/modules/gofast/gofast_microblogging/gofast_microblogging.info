@@ -1,0 +1,9 @@
+name=Gofast Microblogging
+description="Micro blogging implemented over message module"
+core=7.x
+package=Gofast
+version = "7.x-3.10.0_r2"
+core="7.x"
+project="gofast_microblogging"
+dependencies[]=gofast
+dependencies[]=message

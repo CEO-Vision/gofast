@@ -1,0 +1,11 @@
+name        = Gofast Forum
+description = "Advanced Forum Overrides"
+core        = 7.x
+package     = Gofast
+
+
+version = "7.x-3.10.0_r2"
+core = "7.x"
+project = "gofast_forum"
+datestamp = "1393593253"
+

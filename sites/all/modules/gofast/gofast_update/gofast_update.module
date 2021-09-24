@@ -1,0 +1,417 @@
+<?php
+
+/*
+ * GoFAST Repository server
+ */
+define('GOFAST_REPOSITORY_SERVER', variable_get('gofast_repository_server', 'http://repo-gofast.ceo-vision.com/'));
+
+/*
+ * Path to the release manifest file in the repository server
+ */
+define('GOFAST_RELEASE_MANIFEST_PATH', '');
+
+/*
+ * Release manifest file name
+ */
+define('GOFAST_RELEASE_MANIFEST_FILE', 'releasemanifest.gofast');
+
+/*
+ * Implements hook_menu
+ */
+function gofast_update_menu(){
+  $items = array();
+  $items['admin/config/gofast/update'] = array(
+    'title' => 'GoFast',
+    'description' => 'GoFast Update',
+    'page callback' => 'gofast_update_display',
+    'access callback' => 'gofast_user_is_adm',
+  );
+  $items['admin/config/gofast/update/perform'] = array(
+    'title' => 'GoFast',
+    'description' => 'GoFast Update',
+    'page callback' => 'gofast_update_perform_update',
+    'access callback' => 'gofast_user_is_adm',
+  );
+  $items['admin/config/gofast/update/hperform'] = array(
+    'title' => 'GoFast',
+    'description' => 'GoFast Update',
+    'page callback' => 'gofast_update_perform_hotfix',
+    'access callback' => 'gofast_user_is_adm',
+  );
+  return $items;
+}
+
+/*
+ * Page callback to display the update panel
+ */
+function gofast_update_display(){
+  $page = '';
+  
+  $manifest = gofast_update_get_release_manifest();
+  if(empty($manifest)){
+    $page .= theme('gofast_update_main', array('error' => 1));
+    return $page;
+  }
+  $infos = gofast_update_get_infos($manifest);
+  
+  $page .= theme('gofast_update_main', $infos);
+  return $page;
+}
+
+/*
+ * Retrieve and return the platform informations and the remote CEO-VISION informations
+ * @param $manifest
+ *    Release manifest object
+ */
+function gofast_update_get_infos($manifest){
+  if(module_exists("gofast_community")){
+      $repository_path = $manifest->server->communityRepoPath;
+  }else{
+      $repository_path = $manifest->server->repoPath;
+  }
+  return array(
+    'gofast_version'              => gofast_update_get_gofast_version($manifest),
+    'available_version'           => gofast_update_get_available_version($manifest),
+    'gofast_hotfix_version'       => gofast_update_get_gofast_hotfix_version($manifest),
+    'available_hotfix_version'    => gofast_update_get_available_hotfix_version($manifest),
+    'repository_server'           => GOFAST_REPOSITORY_SERVER,
+    'repository_path'             => $repository_path,
+    'manifest_path'               => GOFAST_RELEASE_MANIFEST_PATH,
+    'manifest_file'               => GOFAST_RELEASE_MANIFEST_FILE,
+    'updating'                    => gofast_update_is_updating(),
+  );
+}
+
+/*
+ * Get the current platform version
+ * @param $manifest
+ *    Release manifest object
+ * @return
+ *    The current version array
+ */
+function gofast_update_get_gofast_version($manifest){
+  $gofast = system_get_info("module", "gofast");
+  $current_version = substr($gofast['version'], strlen($gofast[core])+1);
+  $current_version = str_replace('-', '_', $current_version);
+  $versions = $manifest->versions;
+  
+  //We transform the versions object to array using JSON API
+  $versions = json_encode($versions);
+  $versions = json_decode($versions, TRUE);
+  
+  foreach($versions as $version){
+    if($version['infos']['versionNumber'] == $current_version){ //We found the current version in the release manifest
+      return $version;
+    }
+  }
+}
+
+/*
+ * Get the current platform version
+ * @param $manifest
+ *    Release manifest object
+ * @return
+ *    The current version array
+ */
+function gofast_update_get_gofast_hotfix_version($manifest){
+  $gofast = system_get_info("module", "gofast");
+  $current_version = substr($gofast['version'], strlen($gofast[core])+1);
+  $current_version = str_replace('-', '_', $current_version);
+  $versions = $manifest->versions;
+  
+  //We transform the versions object to array using JSON API
+  $versions = json_encode($versions);
+  $versions = json_decode($versions, TRUE);
+  
+  foreach($versions as $version){
+    if($version['infos']['versionNumber'] == $current_version){ //We found the current version in the release manifest
+      //So now, we try to find the current hotfix version
+      $hotfix_version = variable_get('gofast_hotfix_' . $current_version, NULL);
+      if (!isset($hotfix_version)){
+        return NULL;
+      }
+      else{
+        $hotfixes = $version['hotfix'];
+        foreach($hotfixes as $hotfix){
+          if($hotfix['infos']['versionNumber'] == $hotfix_version){ //We found the wanted hotfix
+            return $hotfix;
+          }
+        }
+      }
+    }
+  }
+}
+
+/*
+ * Get the last available version
+ * @param $manifest
+ *    Release manifest object
+ * @return
+ *    The last available version array
+ */
+function gofast_update_get_available_version($manifest){
+  $current_version = gofast_update_get_gofast_version($manifest);
+  $versions = $manifest->versions;
+  
+  //We transform the versions object to array using JSON API
+  $versions = json_encode($versions);
+  $versions = json_decode($versions, TRUE);
+  
+  foreach($versions as $version){    
+    if($version['infos']['publicRelease'] == 0 && !variable_get('allow_private_release', 0)){ //Not a public release
+      if($version['infos']['versionNumber'] == $current_version['infos']['versionNumber']){ //We found the current version in the release manifest
+            //So, the next version available is the next version in the release manifest
+            $do_break = TRUE;
+      }
+      continue;
+    }
+    
+    if(module_exists("gofast_community") && $version['infos']['community'] == 0){
+        if($version['infos']['versionNumber'] == $current_version['infos']['versionNumber']){ //We found the current version in the release manifest
+            //So, the next version available is the next version in the release manifest
+            $do_break = TRUE;
+        }
+        continue;
+    }    
+    if($break){
+      return $version;
+    }
+    if($version['infos']['versionNumber'] == $current_version['infos']['versionNumber'] || $do_break){ //We found the current version in the release manifest
+      //So, the next version available is the next version in the release manifest
+      $break = TRUE;
+    }
+  }
+}
+
+/*
+ * Get the last available version
+ * @param $manifest
+ *    Release manifest object
+ * @return
+ *    The last available version array
+ */
+function gofast_update_get_available_hotfix_version($manifest){
+  $current_version = gofast_update_get_gofast_version($manifest);
+  $hotfix_version = gofast_update_get_gofast_hotfix_version($manifest);
+  $versions = $current_version['hotfix'];
+  
+  foreach($versions as $version){
+    if(module_exists("gofast_community") && $version['infos']['community'] == 0){
+        if($version['infos']['versionNumber'] == $hotfix_version['infos']['versionNumber']){ //We found the current version in the release manifest
+            //So, the next version available is the next version in the release manifest
+            $do_break = TRUE;
+        }
+        continue;
+    } 
+    //No hotfix installed so we takes the 1st one
+    if(!isset($hotfix_version)){
+      return $version;
+    }
+    if($break){
+      return $version;
+    }
+    if($version['infos']['versionNumber'] == $hotfix_version['infos']['versionNumber'] || $do_break){ //We found the current version in the release manifest
+      //So, the next version available is the next version in the release manifest
+      $break = TRUE;
+    }
+  }
+}
+
+/*
+ * Retrieve and return the release manifest object
+ */
+function gofast_update_get_release_manifest(){
+  $xml = drupal_http_request(GOFAST_REPOSITORY_SERVER . GOFAST_RELEASE_MANIFEST_PATH . GOFAST_RELEASE_MANIFEST_FILE)->data;
+  $manifest = simplexml_load_string($xml);
+  return $manifest;
+}
+
+
+/*
+ * Perform a pending update update.
+ */
+function gofast_update_perform_update(){
+  $manifest = gofast_update_get_release_manifest();
+  $infos = gofast_update_get_infos($manifest);
+  
+  //Build update script download path
+  $update_script_path = $infos['repository_server'] . $infos['repository_path'] . $infos['available_version']['files']['root'] . $infos['available_version']['files']['updateScript'];
+  $options = array();
+  
+  if(!module_exists("gofast_community")){
+    //Enterprise : Get user and password to authenticate against the repo
+    $crendentials = base64_encode(gofast_update_get_enterprise_user() . ":" . gofast_update_get_enterprise_password());
+    $options['headers']['Authorization'] = "Basic " . $crendentials;
+  }
+  
+  file_put_contents("/var/www/d7/sites/default/files/update_gofast.sh", drupal_http_request($update_script_path, $options)->data);
+  return theme('gofast_update_main', array('done' => 1));
+}
+
+/*
+ * Perform a pending update update.
+ */
+function gofast_update_perform_hotfix(){
+  $manifest = gofast_update_get_release_manifest();
+  $infos = gofast_update_get_infos($manifest);
+  $hotfix_version = variable_set('gofast_hotfix_' . $infos['gofast_version']['infos']['versionNumber'], $infos['available_hotfix_version']['infos']['versionNumber']);
+  
+  //Build update script download path
+  $update_script_path = $infos['repository_server'] . $infos['repository_path'] . $infos['available_hotfix_version']['files']['root'] . $infos['available_hotfix_version']['files']['updateScript'];
+  $options = array();
+  
+  if(!module_exists("gofast_community")){
+    //Enterprise : Get user and password to authenticate against the repo
+    $crendentials = base64_encode(gofast_update_get_enterprise_user() . ":" . gofast_update_get_enterprise_password());
+    $options['headers']['Authorization'] = "Basic " . $crendentials;
+  }
+  
+  file_put_contents("/var/www/d7/sites/default/files/update_gofast.sh", drupal_http_request($update_script_path, $options)->data);
+  return theme('gofast_update_main', array('done' => 1));
+}
+
+/*
+ * Implements hook_theme
+ */
+function gofast_update_theme() {
+  return array(
+    'gofast_update_main' => array(
+      'template' => 'tpl/gofast-update-main'
+    ),
+  );
+}
+
+/*
+ * Implements hook_cron
+ */
+function gofast_update_cron() {
+  if(variable_get('gofast_reporting_enable',true)){
+    $manifest = gofast_update_get_release_manifest();
+    
+    global $base_url;
+  
+    // get Total installed memory
+    $fh = fopen('/proc/meminfo','r');
+    $memory_count = 0;
+    while ($line = fgets($fh)) {
+      $pieces = array();
+      if (preg_match('/^MemTotal:\s+(\d+)\skB$/', $line, $pieces)) {
+        $memory_count = (int) $pieces[1];
+        break;
+      }
+    }
+    fclose($fh);
+    //get server CPU core count.
+    $core_count = (int) shell_exec('cat /proc/cpuinfo | grep processor | wc -l');
+  
+    $disk_space = disk_total_space('/');
+  
+    // get the period's max number of connection and set the number of max connection for next period to the current max number of connections.
+    $onlyoffice_simultaenous_users_max = variable_get('oo_doc_user_count_max_period');
+    variable_set('oo_doc_user_count_max_period',variable_get('oo_doc_user_count_max'));
+  
+    $server_key = variable_get('gofast-server-key');
+    $hostname = gethostname();
+    $version = gofast_update_get_gofast_version($manifest)['infos']['versionNumber']; if(empty($version)){$version = "none";}
+    $hotfix = gofast_update_get_gofast_hotfix_version($manifest)['infos']['versionNumber']; if(empty($hotfix)){$hotfix = "none";}
+    $attachement = gofast_modal_display_versions(FALSE);
+    
+    $count_replication = db_query("SELECT COUNT(aid) FROM alfresco_replication")->fetchAssoc()['COUNT(aid)'];
+    $count_mail_queue = db_query("SELECT COUNT(qid) FROM gofast_mail_queue")->fetchAssoc()['COUNT(qid)'];
+    
+    $count_docs = db_query("SELECT COUNT(nid) FROM node WHERE type='alfresco_item' AND status=1")->fetchAssoc()['COUNT(nid)'];
+    $count_nodes = db_query("SELECT COUNT(nid) FROM node WHERE type IN ('extranet','group','organisation','public')")->fetchAssoc()['COUNT(nid)'];
+    
+    include_once("/var/www/d7/sites/all/modules/apachesolr/apachesolr.index.inc");
+    $environment = apachesolr_environment_load(GOFAST_SEARCH_ENV_ID);
+    $status = apachesolr_index_status($environment["env_id"]);
+    $count_index = $status['remaining'];
+    
+    $timestamp = (time()-3600);
+    $timestamp_12h = (time()-43200);
+    $users_online_count = count(db_query("select distinct uid from sessions where uid>1 AND timestamp>".$timestamp)->fetchAllAssoc('uid'));
+    $users_online_12h_count = count(db_query("select distinct uid from sessions where uid>1 AND timestamp>".$timestamp_12h)->fetchAllAssoc('uid'));
+    $users_count = count(db_query("select distinct u.uid \"uid\" from users u left join field_data_is_extranet e on e.entity_id=u.uid where u.status > 0 and (e.is_extranet_value = 0 OR e.is_extranet_value IS NULL)")->fetchAllAssoc('uid'));
+    $users_count_extranet = count(db_query("select distinct u.uid \"uid\" from users u join field_data_is_extranet e on e.entity_id=u.uid where u.status > 0 and e.is_extranet_value = 1")->fetchAllAssoc('uid'));
+    
+    $sso_active = db_query("select COUNT(*) \"count\" from saml_sp_idps")->fetchAll()[0]->count;
+    $sasl_enabled = variable_get('gofast_sasl_auth',0);
+    
+    $auth_type = 'GoFAST';
+    if($sso_active) {
+      $auth_type = 'SSO';
+    }
+    elseif($sasl_enabled) {
+      $auth_type = 'SASL';
+    }
+
+    $url = "http://repo-gofast.ceo-vision.com/monitoring/register.php?hostname=$hostname";
+    $url .= "&gofast_server_key=$server_key";
+    $url .= "&base_url=$base_url";
+    $url .= "&version=$version";
+    $url .= "&hotfix=$hotfix";
+    $url .= "&count_replication=$count_replication";
+    $url .= "&count_mail_queue=$count_mail_queue";
+    $url .= "&count_index=$count_index";
+    $url .= "&users_onlyoffice_simul_count=$onlyoffice_simultaenous_users_max";
+    $url .= "&users_online_count=$users_online_count";
+    $url .= "&users_online_12h_count=$users_online_12h_count";
+    $url .= "&users_count_extranet=$users_count_extranet";
+    $url .= "&users_count=$users_count";
+    $url .= "&count_docs=$count_docs";
+    $url .= "&count_nodes=$count_nodes";
+    $url .= "&memory_count=$memory_count";
+    $url .= "&core_count=$core_count";
+    $url .= "&disk_space=$disk_space";
+    $url .= '&auth_type='. $auth_type;
+  
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, "attachement=$attachement");
+    
+    //Proxy configuration
+    global $conf;
+    if(!empty($conf['proxy_server'])){
+      $proxy = $conf['proxy_server'] . ":" . $conf['proxy_port'];
+      curl_setopt($ch, CURLOPT_PROXY, $proxy);
+      
+      if(!empty($conf['proxy_username'])){
+        $proxyauth = $conf['proxy_username'] . ":" . $conf['proxy_password'];
+        curl_setopt($ch, CURLOPT_PROXYUSERPWD, $proxyauth);
+      }
+    }
+  
+    curl_exec($ch);
+  }
+}
+
+/*
+ * Return either there is an update pending or processing or not on the server
+ * @return true/false
+ */
+function gofast_update_is_updating(){
+  if(file_exists("/var/www/d7/sites/default/files/update_gofast.sh") || file_exists("/var/www/d7/sites/default/files/update_gofast_process.sh")){
+    return TRUE;
+  }else{
+    return FALSE;
+  }
+}
+
+/*
+ * Get the user to download packages in enterprise repository
+ */
+function gofast_update_get_enterprise_user(){
+    return gethostname();
+}
+
+/*
+ * Get the password to download packages in enterprise repository
+ */
+function gofast_update_get_enterprise_password(){
+    global $conf;
+    return base64_encode(gethostname() . ":" . $conf['enterprise-key']);
+}

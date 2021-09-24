@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Manage Versions</shortname>
+    <description>Manage Versions using javascript API</description>
+    <url>/set/force_unlock/?reference={reference}</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>
