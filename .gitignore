@@ -1,0 +1,81 @@
+# Ignore configuration files that may contain sensitive information.
+sites/*/settings*.php
+
+# Ignore paths that contain user-generated content.
+sites/*/files
+sites/*/private
+
+# Ignore NetBeans files
+nbproject/*
+
+# Ignore old modules
+sites/all/modules/*--OLD/*
+sites/all/libraries/ajax_file_browser/ITHitAJAXFileBrowser.tar.gz
+*.gitattributes
+!/sites/default/files/
+/sites/default/files/logo gofast détouré_eng.png
+/sites/default/files/quadra Logo.jpg
+/sites/default/files/logo EPASE GoFAST_0.png
+/sites/default/files/languages/
+/sites/default/files/default_images/
+/sites/default/files/styles/
+/sites/default/files/field/
+/sites/default/files/accde.png
+/sites/default/files/icons/
+/sites/default/files/Logo GoFAST de CEO-Vision_blanc_fr.png
+/sites/default/files/default.settings.php
+/sites/default/files/logo EPASE GoFAST.png
+/sites/default/files/focal_point/
+/sites/default/files/tomcat/
+/sites/default/files/Logo Eure et Loir_détouré_0.png
+/sites/default/files/gofast-3.x-switchdomain.php
+/sites/default/files/Logo GoFAST de CEO-Vision_blanc_fr_0.png
+/sites/default/files/Logo Eure et Loir_détouré.png
+/sites/default/files/Courrier sortant_Cegedim pour CEO-Vision.docx
+/sites/default/files/invite_external.ics
+/sites/default/files/logo gofast détouré blanc_0.png
+/sites/default/files/_gofast_extraction_tmp
+/sites/default/files/testGoFast0001.pdf
+/sites/default/files/advagg_js/
+/sites/default/files/invite.ics
+/sites/default/files/ctools/
+/sites/default/files/tmp/
+/sites/default/files/ceo-vision.jar
+/sites/default/files/.htaccess
+/sites/default/files/Logo GoFAST_3_1.png
+/sites/default/files/update_report.txt
+/sites/default/files/webform/
+/sites/default/files/Logo__Eure_et_Loir.jpg
+/sites/default/files/bootstrap/
+/sites/default/files/js/
+/sites/default/files/swf/
+/sites/default/files/logo gofast détouré_eng_2.png
+/sites/default/files/Logo GoFAST_3_0.png
+/sites/default/files/css/
+/sites/default/files/invite_gofast.ics
+/sites/default/files/quadra Logo.png
+/sites/default/files/ceo-vision.amp
+/sites/default/files/logo gofast détouré_eng_0.png
+/sites/default/files/logs/
+/sites/default/files/CourrierCEOVision test.pdf
+/sites/default/files/soffice_status.txt
+/sites/default/files/picture-526-1469954780.jpg
+/sites/default/files/logo gofast détouré_eng_1.png
+/sites/default/files/logo-cegedim.png
+/sites/default/files/QUADRA2010_VECT_bleu-300x85.jpg
+/sites/default/files/Logo GoFAST_3.png
+/sites/default/files/Logo GoFAST_2.png
+/sites/default/files/logo EPASE GoFAST_1.png
+/sites/default/files/Logo GoFAST_2_0.png
+/sites/default/files/advagg_css/
+
+.vscode/sftp.json
+opt/*
+var/*
+etc/*
+
+.history/
+
+.kdev4/
+
+*.kdev4
