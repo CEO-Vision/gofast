@@ -1,5 +1,0 @@
-version = "7.x-3.10.0_r2"
-name        = Gofast graphical configuration
-description = "The last configuration for GoFAST"
-core        = 7.x
-package     = Gofast
