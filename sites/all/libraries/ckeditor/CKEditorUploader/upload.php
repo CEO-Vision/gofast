@@ -55,6 +55,12 @@ $url = '' ;
 // Optional message to show to the user (file renamed, invalid file, not authenticated...)
 $message = '';
 
+//GOFAST-8193 Prevent stored xss by detecting html tags
+if(imagecreatefromstring(file_get_contents($_FILES["upload"]["tmp_name"])) == false){
+    echo ("Invalid file");
+    die(0);
+}
+
 // in CKEditor the file is sent as 'upload'
 if (isset($_FILES['upload'])) {
     // Be careful about all the data that it's sent!!!

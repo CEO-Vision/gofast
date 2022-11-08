@@ -733,20 +733,19 @@ class Invite
 	    $content .= "DTSTAMP:{$now}\n";
 	    $content .= "ORGANIZER;CN={$this->getFromName()}:mailto:{$this->getFromEmail()}\n";
 
-	    foreach ($this->getAttendees() as $email => $name)
-	    {
-		$content .= "ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN={$name};X-NUM-GUESTS=0:mailto:{$email}\n";
+      foreach ($this->getAttendees() as $email => $name) {
+        $content .= $this->line_folding("ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN={$name};X-NUM-GUESTS=0:mailto:{$email}")."\n";
 	    }
             
-	    $content .= "DESCRIPTION:{$this->getDescription()}\n";
+      $content .= $this->line_folding("DESCRIPTION:" . $this->getDescription() ). "\n";
 	    $content .= "LAST-MODIFIED:{$now}\n";
 	    $content .= "LOCATION:{$this->getLocation()}\n";
-	    $content .= "SUMMARY:{$this->getName()}\n";
+      $content .= $this->line_folding("SUMMARY:{$this->getName()}")."\n";
 	    $content .= "SEQUENCE:{$this->getSequence()}\n";
             $content .= "X-MICROSOFT-CDO-APPT-SEQUENCE:{$this->getSequence()}\n";
 	    $content .= "STATUS:{$this->getStatus()}\n";
 	    $content .= "TRANSP:OPAQUE\n";
-            $content .= "URL:{$this->getUrl()}\n";
+      $content .= $this->line_folding("URL:{$this->getUrl()}")."\n";
 	    $content .= "END:VEVENT\n";
 	    $content .= "END:VCALENDAR";
 	    $this->_generated = $content;
@@ -755,5 +754,25 @@ class Invite
 
 	return false;
     }
+
+
+ private function line_folding($value) {
+/* "fold" any long content lines  See: http://www.ietf.org/rfc/rfc2445.txt, section 4.1 */
+
+  $value = trim($value);
+  $lines = array();
+  while (strlen($value)>(74)) {
+    $line = mb_substr($value, 0, 74);
+    $llength = mb_strlen($line);  //  must use mb_strlen with mb_substr otherwise will not work things like &nbsp;
+    $lines[] = $line.chr(13).chr(10).chr(32); /* CRLF and space*/
+    $value = mb_substr($value, $llength); /* set value to what's left of the string */
+  }
+
+  if (!empty($value)) {
+    $lines[] = $value; /* the last line does not need a white space */
+  }
+  return (implode($lines));
+}
+
 
 }

@@ -5,7 +5,7 @@ function CustomGofastPdfViewer($scope, $sce, $http, $timeout) {
             return false;
         }
         $(".loader-pdf").show();
-        return $http.get("../../../../../../../../api/node/preview_link?nid=" + $scope.properties.nid).then(function(r){
+        return $http.get("../../../../../../../../api/node/preview_link?nid=" + $scope.properties.nid + "&zoom=" + $scope.properties.zoom).then(function(r){
              $(".loader-pdf").hide();
              $scope.urlRetrieved = $sce.trustAsResourceUrl(r.data.link);
              return true;

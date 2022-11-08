@@ -43,8 +43,25 @@ function gofast_webform_menu(){
     'access callback' => 'node_access',
     'access arguments' => array('update', 3),
   );
-  
+
   return $items;
+}
+
+/**
+ * Implements hook_menu_alter.
+ */
+function gofast_webform_menu_alter(&$items) {
+  $items['node/add/webform']['page callback'] = 'gofast_webform_node_add_webform'; //GOFAST-7000
+}
+
+function gofast_webform_node_add_webform() { //GOFAST-7000
+    $node = new stdClass();
+    $node->type = "webform";
+    $webform_node_form = drupal_get_form('webform_node_form', $node);
+    $content = theme('page_webform_node_form', ['form' => $webform_node_form]);
+    $pageContent = gofast_create_page_content($content);
+
+    return $pageContent;
 }
 
 function gofast_webform_form_webform_node_form_alter(&$form, &$form_state) {
@@ -53,11 +70,64 @@ function gofast_webform_form_webform_node_form_alter(&$form, &$form_state) {
   $form['content_visibility']['#access'] = FALSE;
   $form['title']['#title'] = t('Title', array(), array('context' => 'gofast:gofast_webform'));
   $form['body']['und'][0]['#title'] = t('Description');
+  $form['#validate'][] = 'gofast_webform_form_webform_node_form_validate';
   $form['#submit'][] = 'gofast_webform_form_webform_node_form_submit';
+  $form['#attributes']['class'][] = 'GofastForm GofastForm__Webform';
+}
+
+function gofast_webform_form_webform_node_form_validate($form, &$form_state) {
+  $errors = form_get_errors();
+  if ($errors) {
+    // Clear errors.
+    form_clear_error();
+    
+    foreach ($errors as $name => $error_message) {
+      $commands[] = gofast_command_toast_message($error_message, "error");
+    }
+    print ajax_render($commands);exit;
+  }
 }
 
 function gofast_webform_form_webform_node_form_submit($form, &$form_state) {
   $form_state['values']['webform']['status'] = 0;
+}
+
+function gofast_webform_theme() {
+  return array(
+    // this theme is called from /sites/all/themes/bootstrap-keen/templates/node--webform--full
+    'gofast_webform_webform_container' => array(
+      'template' => 'tpl/webform-container'
+    ),
+    'gofast_webform_webform_tabs' => array(
+      'template' => 'tpl/components/webform-tabs'
+    ),
+    'gofast_webform_panels_filloutPanel' => array(
+      'template' => 'tpl/components/panels/webform-panels-filloutPanel'
+    ),
+    'gofast_webform_panels_managePanel' => array(
+      'template' => 'tpl/components/panels/webform-panels-managePanel'
+    ),
+    'gofast_webform_panels_resultsPanel' => array(
+      'template' => 'tpl/components/panels/webform-panels-resultsPanel'
+    ),
+    'gofast_webform_panels_submissionPanel' => array(
+      'template' => 'tpl/components/panels/webform-panels-submissionPanel'
+    ),
+    'page_webform_node_form' => array(
+      'template' => 'tpl/webform-page',
+      'variables' => array('form' => NULL)
+    ),
+    'webform_node_form' => array(
+      'render element' => 'form',
+      'path' => drupal_get_path('theme', 'bootstrap_keen') . '/templates',
+      'template' => 'simple_node_form'
+    ),
+  );
+}
+
+function template_preprocess_gofast_webform(&$variables) {
+  // here we simplify the variables array passed in the webform-container
+  $variables["node"] = $variables["elements"]["#node"];
 }
 
 /*
@@ -73,50 +143,46 @@ function gofast_webform_get_builder($node){
 }
 
 function gofast_webform_delivery_form($form){
-  //Get and format the forms in collapsable panels
-  $content = "<div class='panel panel-default'>";
-  $content .= "<div class='panel-heading' data-toggle='collapse' data-target='#gofast-webform-config' style='cursor: pointer;'>";
-  $content .= "<a href='#' class='panel-title'>" . t("Form configuration", array(), array('context' => 'gofast:gofast_webform')) . "</a>";
-  $content .= "</div><div id='gofast-webform-config' class='panel-body collapse'>";
-  $content .= drupal_render($form[0]);
-  $content .= "</div></div>";
-  $content .= "<div class='panel panel-default'>";
-  $content .= "<div class='panel-heading' data-toggle='collapse' data-target='#gofast-webform-edition' style='cursor: pointer;'>";
-  $content .= "<a href='#' class='panel-title'>" .t("Form edition", array(), array('context' => 'gofast:gofast_webform')) . "</a>";
-  $content .= "</div><div id='gofast-webform-edition' class='panel-body collapse in'>";
-  $content .= drupal_render($form[1]);
-  $content .= "</div></div>";
-  $commands[] = ajax_command_html("#webform-edit-content", $content);
+  $form[0]['actions']['submit']['#attributes']['class'][] = 'ajax-processed';
   
+  $commands[] = ajax_command_replace(".webformConfigurator", drupal_render($form[0]));
+  $commands[] = ajax_command_replace(".webformBuilder", drupal_render($form[1]));
   
   //Add commands to add some JS files needed to generate the builder properly
   $path = drupal_get_path('module', 'webform');
-  $commands[] = ajax_command_append("#webform-edit-content", "<script src='/".$path . "/js/webform.js?'></script>");
-  $commands[] = ajax_command_append("#webform-edit-content", "<script src='/".$path . "/js/webform-admin.js?'></script>");
-  $commands[] = ajax_command_append("#webform-edit-content", "<script src='/".$path . "/js/select-admin.js?'></script>");
+  $commands[] = ajax_command_append(".region-page-bottom", "<script src='/".$path . "/js/webform.js?'></script>");
+  $commands[] = ajax_command_append(".region-page-bottom", "<script src='/".$path . "/js/webform-admin.js?'></script>");
+  $commands[] = ajax_command_append(".region-page-bottom", "<script src='/".$path . "/js/select-admin.js?'></script>");
   $path = drupal_get_path('module', 'form_builder');
-  $commands[] = ajax_command_append("#webform-edit-content", "<script src='/".$path . "/form_builder.js?'></script>");
+  $commands[] = ajax_command_append(".region-page-bottom", "<script src='/".$path . "/form_builder.js?'></script>");
   
   //Add our JS to implement wanted behaviors to the builder
   $path = drupal_get_path('module', 'gofast_webform');
-  $commands[] = ajax_command_append("#webform-edit-content", "<script src='/".$path . "/js/gofast_webform_builder.js?'></script>");
+  $commands[] = ajax_command_append(".region-page-bottom", "<script src='/".$path . "/js/gofast_webform_builder.js?'></script>");
   
   //Retrieve and display Drupal messages in toasts
   $message_commands = gofast_messages_to_commands(TRUE);
   foreach($message_commands as $message_command){
     $commands[] = $message_command;
   }
+
   $output = json_decode(ajax_render($commands), TRUE);
-  
   //Remove a command as it trigger a JS error
   foreach($output as $k => $command){
     if($command['selector'] == "head" && $command['command'] == 'insert'){
       unset($output[$k]);
     }
+    if($command['command'] == 'settings'){
+      foreach($command['settings']['ajax'] as $k2 => $ajax_command){
+        if (strpos($k2, "edit-submit") != FALSE) {
+          unset($output[$k]['settings']['ajax'][$k2]);
+        }
+      }
+    }
   }
   
   print json_encode($output);
-  drupal_page_footer();
+  exit;
 }
 
 /*
@@ -124,8 +190,6 @@ function gofast_webform_delivery_form($form){
  * Alter webform builder to ajaxify action buttons
  */
 function gofast_webform_form_form_builder_webform_save_form_alter(&$form, &$form_state){
-  $form['actions']['save']['#attributes']['class'][] = 'ctools-use-modal';
-  $form['actions']['cancel']['#attributes']['class'][] = 'ctools-use-modal';
   $form['#submit'][] = 'gofast_webform_form_form_builder_webform_save_form_gofast_submit';
 }
 
@@ -159,10 +223,21 @@ function gofast_webform_form_webform_results_download_form_alter(&$form, &$form_
   $form["range"]['#type'] = 'hidden';
   $form["range"]['range_type']['#type'] = 'hidden';
   
-  
+  $form['actions']['#attributes']['class'][] = 'd-flex';
+  $form['actions']['#attributes']['class'][] = 'justify-content-center';
   $form['actions']['submit']['#attributes']['class'][] = 'ctools-use-modal';
+  $form['actions']['submit']['#attributes']['class'][] = 'mt-3';
   $form['actions']['submit']["#id"] = "download-webform-results";
   $form['#submit'][0] = 'gofast_webform_form_webform_results_download_form_gofast_submit';
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter
+ * Correct dead link from webform module
+ */
+function gofast_webform_form_webform_analysis_components_form_alter(&$form, &$form_state, $node) {
+  $help = t('No components have added that support analysis. <a href="!url">Add components to your form</a> to see calculated data.', array('!url' => url('node/' . $form['#node']->nid)));
+  $form['help']['#markup'] = "<p>" . $help. "</p>";
 }
 
 /*
@@ -261,7 +336,7 @@ function gofast_webform_form_webform_client_gofast_submit($form){
   $commands = array();
   
   //Reload the page, display a toast and get to "Your submissions" tab
-      $commands[] = gofast_command_processAjax("/node/" . $form['#node']->nid);
+  $commands[] = gofast_command_processAjax("/node/" . $form['#node']->nid);
   $commands[] = gofast_command_toast_message(t("The form has been successfully submitted", array(), array('context' => 'gofast:gofast_webform')), 'success');
   $commands[] = ajax_command_append("#webform-submissions-content", "<script>Drupal.CTools.Modal.dismiss();</script>");
   $message_commands = gofast_messages_to_commands(TRUE);
@@ -291,12 +366,7 @@ function gofast_webform_get_submissions($node){
   global $user;
   include_once drupal_get_path("module", "webform") . '/includes/webform.report.inc';
   
-  $content .= "<div class='panel panel-default'>";
-  $content .= "<div class='panel-heading' data-toggle='collapse' data-target='#gofast-webform-submissions-submissions' style='cursor: pointer;'>";
-  $content .= "<a href='#' class='panel-title'>" .t("Submissions", array(), array('context' => 'gofast:gofast_webform')) . "</a>";
-  $content .= "</div><div id='gofast-webform-submissions-submissions' class='panel-body collapse in'>";
-  $content .= webform_results_submissions($node, $user, 99999);
-  $content .= "</div></div>";
+  $content = webform_results_submissions($node, $user, 99999);
   
   //No result behavior
   if(strpos($content, t('There are no submissions for this form.', array(), array('context' => 'gofast:gofast_webform'))) !== FALSE){
@@ -304,16 +374,17 @@ function gofast_webform_get_submissions($node){
   }
   
   //Display the submissions
-  $commands[] = ajax_command_html("#webform-submissions-content", $content);
+  $commands[] = ajax_command_html(".webformSubmissions", $content);
   
   //Add our JS to implement some wanted behaviors
   $path = drupal_get_path('module', 'gofast_webform');
-  $commands[] = ajax_command_append("#webform-edit-content", "<script src='/".$path . "/js/gofast_webform_submissions.js?'></script>");
+  $commands[] = ajax_command_append(".region-page-bottom", "<script src='/".$path . "/js/gofast_webform_submissions.js?'></script>");
   
   $message_commands = gofast_messages_to_commands(TRUE);
   foreach($message_commands as $message_command){
     $commands[] = $message_command;
   }
+  
   $output = json_decode(ajax_render($commands), TRUE);
   
   //Remove a command as it trigger a JS error
@@ -324,33 +395,20 @@ function gofast_webform_get_submissions($node){
   }
   
   print json_encode($output);
-  drupal_page_footer();
+  exit;
 }
 
 function gofast_webform_get_results($node){
   include_once drupal_get_path("module", "webform") . '/includes/webform.report.inc';
   
-  //Get and format content in collapsable panels
-  $content = "<div class='panel panel-default'>";
-  $content .= "<div class='panel-heading' data-toggle='collapse' data-target='#gofast-webform-results-stats' style='cursor: pointer;'>";
-  $content .= "<a href='#' class='panel-title'>" . t("Statistics", array(), array('context' => 'gofast:gofast_webform')) . "</a>";
-  $content .= "</div><div id='gofast-webform-results-stats' class='panel-body collapse'>";
-  $content .= drupal_render(webform_results_analysis($node));
-  $content .= "</div></div>";
+  //Get stats, exports and submissions to seed our collapsible panels
+  $content = drupal_render(webform_results_analysis($node));
+  $commands[] = ajax_command_append(".webformResultsStats", $content);
   
-  $content .= "<div class='panel panel-default'>";
-  $content .= "<div class='panel-heading' data-toggle='collapse' data-target='#gofast-webform-results-export' style='cursor: pointer;'>";
-  $content .= "<a href='#' class='panel-title'>" . t("Export", array(), array('context' => 'gofast:gofast_webform')) . "</a>";
-  $content .= "</div><div id='gofast-webform-results-export' class='panel-body collapse'>";
-  $content .= drupal_render(drupal_get_form("webform_results_download_form", $node));
-  $content .= "</div></div>";
-  
-  $content .= "<div class='panel panel-default'>";
-  $content .= "<div class='panel-heading' data-toggle='collapse' data-target='#gofast-webform-results-submissions' style='cursor: pointer;'>";
-  $content .= "<a href='#' class='panel-title'>" .t("Submissions", array(), array('context' => 'gofast:gofast_webform')) . "</a>";
-  $content .= "</div><div id='gofast-webform-results-submissions' class='panel-body collapse in'>";
-  $content .= webform_results_submissions($node, FALSE, 99999);
-  $content .= "</div></div>";
+  $content = drupal_render(drupal_get_form("webform_results_download_form", $node));
+  $commands[] = ajax_command_append(".webformResultsExports", $content);
+
+  $content = webform_results_submissions($node, FALSE, 99999);
   
   //No result behavior
   if(strpos($content, t('There are no submissions for this form.', array(), array('context' => 'gofast:gofast_webform'))) !== FALSE){
@@ -358,16 +416,17 @@ function gofast_webform_get_results($node){
   }
   
   //Display the results
-  $commands[] = ajax_command_html("#webform-results-content", $content);
+  $commands[] = ajax_command_html(".webformSubmissions", $content);
   
   //Add our JS to implement some wanted behaviors
   $path = drupal_get_path('module', 'gofast_webform');
-  $commands[] = ajax_command_append("#webform-edit-content", "<script src='/".$path . "/js/gofast_webform_results.js?'></script>");
+  $commands[] = ajax_command_append(".region-page-bottom", "<script src='/".$path . "/js/gofast_webform_results.js?'></script>");
   
   $message_commands = gofast_messages_to_commands(TRUE);
   foreach($message_commands as $message_command){
     $commands[] = $message_command;
   }
+  
   $output = json_decode(ajax_render($commands), TRUE);
   
   //Remove a command as it trigger a JS error
@@ -378,7 +437,7 @@ function gofast_webform_get_results($node){
   }
   
   print json_encode($output);
-  drupal_page_footer();
+  exit;
 }
 
 /*
@@ -453,10 +512,10 @@ function gofast_webform_form_webform_configure_form_alter(&$form){
 function gofast_webform_form_webform_configure_gofast_submit(){
   $commands = array();
   
-  $commands[] = ajax_command_append("#webform-submissions-content", "<script>Drupal.CTools.Modal.dismiss();</script>");
+  $commands[] = ajax_command_append(".region-page-bottom", "<script>Drupal.CTools.Modal.dismiss();</script>");
   
   //Force reload of the view tab
-  $commands[] = ajax_command_append("#webform-edit-content", '<script>jQuery("#webform-view-tab").addClass("webform-reload");</script>');
+  $commands[] = ajax_command_append(".region-page-bottom", '<script>jQuery("#fillout-tab").addClass("webform-reload");</script>');
   
   $message_commands = gofast_messages_to_commands(TRUE);
   foreach($message_commands as $message_command){
@@ -556,4 +615,15 @@ function gofast_webform_webform_results_access($node, $account){
   }else {
     return false;
   }
+}
+
+function gofast_webform_ajax_node_delete($form = null, $form_state = null) {
+  $node = isset($form_state['build_info']['args'][0]->nid) ? $form_state['build_info']['args'][0] : node_load($_GET["nid"]);
+  if (node_access('delete', $node) === TRUE && $node->status != 0) {
+    webform_node_delete($node->nid);
+    $commands = "done";
+  }  else {
+    $commands = t("you don't have permission to do this");
+  }
+  if (isset($_GET["nid"])) print $commands;
 }

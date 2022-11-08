@@ -3,7 +3,7 @@ description = "GoFast Audit"
 core        = 7.x
 package     = Gofast
 
-version = "7.x-3.10.0_r2"
+version = "7.x-4.0.0_r3"
 core = "7.x"
 project = "gofast_audit"
 
@@ -11,6 +11,5 @@ dependencies[] = gofast
 dependencies[] = views_export_xls
 files[] = gofast_audit_handler_field_detail_audit.inc
 files[] = gofast_audit_handler_field_date_audit.inc
-files[] = gofast_audit_handler_filter_custom_in_operator.inc
 files[] = gofast_audit_handler_filter_in_operator.inc
 files[] = gofast_audit_views_default.inc

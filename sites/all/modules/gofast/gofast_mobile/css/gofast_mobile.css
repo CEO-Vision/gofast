@@ -36,9 +36,6 @@
   padding-top: 15px;
 }
 
-.navbar {
-  font-size: 12px;
-}
 
 /*.navbar-toggle {
   float: left;
@@ -164,9 +161,6 @@
   #breadcrumb-container{
     margin-bottom: 8px;
   }
-  #gofast_over_content .breadcrumb {
-      padding: 5px;
-  }
 }
 
 /* DASHBOARD */
@@ -186,22 +180,6 @@
 #gofast_mobile_panel .facetapi-gofast-facetapi-links{
     margin-top: 8px;
 }
-/*
-#gofast_mobile_panel .facetapi-facet{
-  max-height:25px;
-}
-
-#gofast_mobile_panel .facet-count{
-  right: 30px;
-  position: absolute;
-}
-
-#gofast_mobile_panel .facetapi-handle-leaf{
-  width: 10px;
-  display: inline-block;
-}
-
-*/
 
 /* SEARCH */
 
@@ -250,16 +228,6 @@ div.calendar{
   display:none;
 }
 
-#breadcrumb-container > .breadcrumb{
-  display: block !important;
-}
-
-.facet-collapsible-wrapper{
-    padding-top: 0px !important;
-}
-
-
-
 body.navbar-is-fixed-top {
     padding-top: 65px !important;
 }
@@ -282,10 +250,6 @@ body.navbar-is-fixed-top {
     overflow:hidden;
 }
 
-#activity-feed img{
-    max-height:500px;
-    max-width:500px;
-}
 
 .gofast_mobile_sidebar {
   height: 100%;
@@ -458,12 +422,38 @@ body.navbar-is-fixed-top {
 }
 
 .dashboard-calendar-table > tbody > tr > td.views-field-title {
-    max-width: 100px;
-    overflow: auto;
+  max-width: 220px;
+  overflow: hidden;
+  vertical-align: inherit;
 }
 
+@media (max-width: 425px) {
+  .dashboard-calendar-table > tbody > tr > td.views-field-title {
+    max-width: 135px;
+  }
+}
+
+.dashboard-calendar-table > tbody > tr > td.views-field-field-date {
+  width: 20%;
+  overflow: hidden;
+  min-width: 16ch !important;
+}
+
+@media (max-width: 425px) {
+  .dashboard-calendar-table > tbody > tr > td.views-field-field-date {
+    min-width: 10ch !important;
+  }
+}
+
+.dashboard-calendar-table > tbody > tr > td.dashboard-calendar-icons {
+    width: 20%;
+    overflow: hidden;
+}
+
+
+
 /* Media query */
-@media (max-width: 657px) {
+@media (max-width: 991px) {
 
   #block-user-login #user-login-form #edit-actions {
     text-align: center;
@@ -477,7 +467,7 @@ body.navbar-is-fixed-top {
 @media (max-width: 1024px) {
 
  .modal-body{
-    padding : 2px !important;
+    padding : 10px !important;
 }
 
 }
@@ -485,4 +475,10 @@ body.navbar-is-fixed-top {
     display:block;
     width:100%;
     overflow:auto;
+}
+
+@media screen and (max-width: 767px) {
+  #navDashboard .gofast-content {
+    display: block
+  }
 }

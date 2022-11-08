@@ -2,7 +2,7 @@
     
     Drupal.behaviors.remove_item_from_cart = {
       attach : function (context, settings) { 
-        $('.view-gofast-flag-cart table tr').each(function(){
+        $('.GofastCart__tBody tr').each(function(){
             var item = $(this);
             $(this).find('.unflag-action').click(function(){
                 var nid = $(this).attr('href').split('?')[0].split('/')[4];
@@ -14,14 +14,28 @@
                 $(item).remove();
             });
         });
-        if ($(".view-empty",context).length){
-            $("#file_browser_toolbar_manage").attr('disabled',true);
+        if (!$('.GofastCart__tBody').children().length){
+            $("#cart_toolbar_manage button").attr('disabled',true);
+            $("#cart_toolbar_process").attr('disabled',true);
             $("#remove_all_documents").attr('disabled',true);
             $("#remove_all_documents").removeAttr("onclick");
+            $('.GofastCart__emptyPlaceholder').html(
+                    '<div class="align-content-center d-flex justify-content-center p-5 pt-10"><span class="font-size-h3 font-weight-bolder text-muted text-uppercase" style="letter-spacing: 0.05rem;">'
+                    + Drupal.t("You have no content into your cart", {}, {context: "gofast:cart"})
+                    + '</span></div>'
+                );
         }
       }
     }; 
-  
+    
+    Drupal.behaviors.applyPopoverOnCart = {
+        attach: function (context, settings) {
+            if ($(".gofast__popover").length) {
+                $('.gofast__popover').popover();
+            }
+        }
+    };
+
     Gofast.Cart = {
         bulkSelectedCart: function(e, nid){
             var element = $(e.target);
@@ -62,25 +76,18 @@
               });
         },
         downloadSelectedCart: function(){
-            var tbody = $('tbody');
-            tbody.each(function() {
-                var span = this.getElementsByTagName('span');
-                if ($(span).hasClass('flag-wrapper flag-cart') === true) {
-                    tbody = this;
-                    return tbody;
-                }
-            });
-            var els = tbody.children;
-            
-            $.each(els, function(k, elem){
-                var fileName = elem.getElementsByTagName("a")[0].innerText;
-                var path = encodeURI(elem.getElementsByClassName('views-field views-field-field-emplacement')[0].innerText);
+            var tbody = $('.GofastCart__tBody');
 
+            var els = tbody.children();
+            $.each(els, function(k, elem){
+                var fileName = elem.getElementsByClassName("GofastCart__rowTitle")[0].innerText.trim();           
+                var path = $(elem).find(".GofastCart__rowLocation .breadcrumb-gofast .breadcrumb").attr("fullpath");
+                
                 // Prevent multifilled documents
-                var split = path.split(',');
+                var split = path.split("%0A");
                 var path = split[0];
 
-                path = path.replace("/Sites/", "/alfresco/webdav/Sites/");
+                path = "/alfresco/webdav/Sites/"+path;          
                 var fileNamePath = "/" + fileName;
                 path = path.padEnd(path.length + fileNamePath.length, fileNamePath);
                 Gofast.ITHit.queue.push({
@@ -96,9 +103,10 @@
             });
         },
         remove: function(){
-            $("#remove_all_documents").hide();
-          $("#remove_from_cart").after("<button disabled='true' id='validate_remove' class='btn btn-default btn-sm' style='float: right;right: 0;margin-bottom: 10px;margin-right: 60px;'><i style='color:#5CB85C' class='fa fa-check-circle'></i>  "+Drupal.t('Yes')+"  </button>");
-          $("#remove_from_cart").after("<button disabled='true' id='undo_remove' class='btn btn-default btn-sm' style='float: right;right: 0;margin-bottom: 10px;'><i style='color:#D9534F' class='fa fa-undo'></i>  " + Drupal.t('No') +"  </button>");
+          $("#remove_all_documents").hide();
+          $("#remove_all_documents").toggleClass("d-flex");
+          $("#remove_from_cart").after("<button disabled='true' id='undo_remove' class='btn btn-default btn-sm d-flex'><i class='fa fa-undo text-danger'></i>  " + Drupal.t('No') +"  </button>");
+          $("#remove_from_cart").after("<button disabled='true' id='validate_remove' class='btn btn-default btn-sm d-flex'><i class='fa fa-check-circle text-success'></i>  "+Drupal.t('Yes')+"  </button>");
             setTimeout(function() {
                 $('#validate_remove').prop('disabled', false);
                 $('#undo_remove').prop('disabled', false);
@@ -106,6 +114,7 @@
             $('#undo_remove').click(function(){
                 $("#validate_remove").remove();
                 $("#undo_remove").remove();
+                $("#remove_all_documents").toggleClass("d-flex");
                 $("#remove_all_documents").show();
             });
             $('#validate_remove').click(function(){

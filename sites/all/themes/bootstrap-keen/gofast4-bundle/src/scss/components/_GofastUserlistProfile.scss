@@ -1,0 +1,49 @@
+.GofastUserlistProfile {
+
+    display: grid;
+    grid-template-columns: 350px auto;
+    column-gap: 1rem;
+    height: 100% !important;
+
+    & #breadcrumb-alt-actions {
+        justify-content: right !important;
+    }
+
+    & > div {
+        height: 100%;
+        overflow-y: auto;
+    }
+
+    &__picture {
+        .symbol {
+
+            width: 100%;
+            height: fit-content;
+            height: -moz-fit-content;
+
+            & > img {
+                height: auto;
+                width: 100%;
+                max-width: 100% !important;
+            }
+        }
+    }
+
+    &__roleinfo {
+        ul {
+            padding-left: 1.2rem;
+            margin-bottom: 0px;
+        }
+    }
+
+    &__avatar--icon {
+        opacity: .75;
+        transition: opacity .3s ease-in-out !important;
+        &:hover {
+            opacity: 1;
+        }
+        & i {
+            color: white;
+        }
+    }
+}

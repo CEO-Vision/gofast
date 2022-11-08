@@ -66,7 +66,7 @@ function gofast_mail_queue_api_queue($message, $type){
     }
 
     $type_com = NULL; // Var to stock type message comment
-    
+
     switch($req){
       case 'NCON':
         $groups = explode(",", $message_data['groups']['value']);
@@ -169,65 +169,65 @@ function gofast_mail_queue_api_queue($message, $type){
         $subscribed_group[] = $subscriptions;
 
         break;
-        
+
       case ECOM:
-          
+
         $type_com='message_comment';
-          
+
         if(isset($message_data['uid']['value'])){
-          $subscribed_user = gofast_subscription_ui_api_subscribed_list('user', $message_data['uid']['value'], $nid);
+          $subscribed_user = gofast_subscription_ui_api_subscribed_list('user', $message_data['uid']['value'], $nid, TRUE);
         }
-        
+
         if(isset($message_data['nid']['value'])){
-          $subscribed_node = gofast_subscription_ui_api_subscribed_list('node', $message_data['nid']['value'], $nid);
+          $subscribed_node = gofast_subscription_ui_api_subscribed_list('node', $message_data['nid']['value'], $nid, TRUE);
           $node = node_load($message_data['nid']['value']);
           $node_split = gofast_message_ext_split_node($node);
           $groups_array = $node_split['groups'];
           $groups = explode(",", $groups_array);
-          
+
           if($groups['0'] == ""){ // If no registered groups
             $groups = NULL;
           }
 
           if(isset($groups)){
             foreach($groups as $group_item){ //Getting subscribed users for each referenced group
-              
-              $subscribed_group[] = gofast_subscription_ui_api_subscribed_list('group', $group_item, $nid);
+
+              $subscribed_group[] = gofast_subscription_ui_api_subscribed_list('group', $group_item, $nid, TRUE);
             }
           }
         }
-        
+
         break;
-        
+
        case NCOM:
-          
+
         $type_com='message_comment';
-          
+
         if(isset($message_data['uid']['value'])){
-          $subscribed_user = gofast_subscription_ui_api_subscribed_list('user', $message_data['uid']['value'], $nid);
+          $subscribed_user = gofast_subscription_ui_api_subscribed_list('user', $message_data['uid']['value'], $nid, TRUE);
         }
-        
+
         if(isset($message_data['nid']['value'])){
-          $subscribed_node = gofast_subscription_ui_api_subscribed_list('node', $message_data['nid']['value'], $nid);
+          $subscribed_node = gofast_subscription_ui_api_subscribed_list('node', $message_data['nid']['value'], $nid, TRUE);
           $node = node_load($message_data['nid']['value']);
           $node_split = gofast_message_ext_split_node($node);
           $groups_array = $node_split['groups'];
           $groups = explode(",", $groups_array);
-          
+
           if($groups['0'] == ""){ // If no registered groups
             $groups = NULL;
           }
 
           if(isset($groups)){
             foreach($groups as $group_item){ //Getting subscribed users for each referenced group
-              
-              $subscribed_group[] = gofast_subscription_ui_api_subscribed_list('group', $group_item, $nid);
+
+              $subscribed_group[] = gofast_subscription_ui_api_subscribed_list('group', $group_item, $nid, TRUE);
             }
           }
         }
-        
+
         break;
-        
+
        default: //TODO: Generate notification for groups
         if(isset($message_data['uid']['value'])){
           $subscribed_user = gofast_subscription_ui_api_subscribed_list('user', $message_data['uid']['value'], $nid);
@@ -255,91 +255,55 @@ function gofast_mail_queue_api_queue($message, $type){
     if($type == 'message_kanban'){
         $node = node_load($message_data['nid']['value']);
     }
-
-    if($subscribed_user != NULL){
-      foreach($subscribed_user as $subscribed_user_item){
-        if($subscribed_user_item['0'] != ""){ //Empty target (fix some empty arrays returned issue)
-           if($type == 'message_kanban' && $type_com != NULL){
-               if(gofast_kanban_is_user_concerned_node($node, $subscribed_user_item[0])){
-                    gofast_mail_queue_api_query($subscribed_user_item, $message_json, $type_com);
-               }                    
-           }elseif($type_com != NULL ){
-                gofast_mail_queue_api_query($subscribed_user_item, $message_json, $type_com);
-           }else{
-                gofast_mail_queue_api_query($subscribed_user_item, $message_json, $type);   
-                }
-             }
-         }
-     }
-    
-
-    if($subscribed_node != NULL){
-      foreach($subscribed_node as $subscribed_node_item){
-          if($subscribed_node_item['0'] != ""){ //Empty target (fix some empty arrays returned issue)
-          //gofast_mail_queue_api_query($subscribed_node_item, $message_json, $type);
-             if($type == 'message_kanban' && $type_com != NULL){
-                if(gofast_kanban_is_user_concerned_node($node, $subscribed_node_item[0])){
-                    gofast_mail_queue_api_query($subscribed_node_item, $message_json, $type_com);
-                }          
-             }elseif($type_com != NULL ){
-                gofast_mail_queue_api_query($subscribed_node_item, $message_json, $type_com);
-             }else{
-                gofast_mail_queue_api_query($subscribed_node_item, $message_json, $type);
-                      
-                }
-            }
-        }
-    }
-    
-
-    if($subscribed_group != NULL){
-      foreach($subscribed_group as $subscribed_group_array){ //iterating into all groups
-        if(isset($subscribed_group_array)){
-          foreach($subscribed_group_array as $subscribed_group_item){ //iterating into the group
-            if($subscribed_group_item['0'] != ""){ //Empty target (fix some empty arrays returned issue)
-              //gofast_mail_queue_api_query($subscribed_group_item, $message_json, $type);              
-                if($type == 'message_kanban' && $type_com != NULL){
-                   if(gofast_kanban_is_user_concerned_node($node, $subscribed_group_item[0])){
-                         gofast_mail_queue_api_query($subscribed_group_item, $message_json, $type_com);
-                   }                        
-                }elseif($type_com != NULL ){     
-                    gofast_mail_queue_api_query($subscribed_group_item, $message_json, $type_com);
-                }else{
-                    gofast_mail_queue_api_query($subscribed_group_item, $message_json, $type);
-                   
-                }
-            }
+    // remove empty targets
+    $subscribed_group = array_filter($subscribed_group, fn($group) => is_array($group));
+    $subscribed_term = array_filter($subscribed_term, fn($term) => is_array($term));
+    // destructure n-2 arrays as n-1 arrays
+    $subscribed_group = array_merge(...array_values($subscribed_group));
+    $subscribed_term = array_merge(...array_values($subscribed_term));
+    // merge all subscription arrays
+    $all_subscription_items = array_merge($subscribed_user ?: [], $subscribed_node ?: [], $subscribed_group ?: [], $subscribed_term ?: []);
+    if ($all_subscription_items != NULL) {
+      // accumulators intended to check for duplicates
+      $filtered_subscription_items = [];
+      $met_uids = [];
+      $highest_met_frequency = [];
+      // store unique uid values with highest frequencies
+      foreach($all_subscription_items as $subscription_item) {
+        if(in_array($subscription_item[0], $met_uids))  {
+          if($subscription_item[1] == 4) {
+            $highest_met_frequency[$subscription_item[0]] = $subscription_item[1];
+          } elseif ($subscription_item[1] < $highest_met_frequency[$subscription_item[0]]) {
+            $highest_met_frequency[$subscription_item[0]] = $subscription_item[1];
           }
+          continue;
         }
+        $met_uids[] = $subscription_item[0];
+        $highest_met_frequency[$subscription_item[0]] = $subscription_item[1];
       }
-    }
-
-    if($subscribed_term != NULL){
-      foreach($subscribed_term as $subscribed_term_array){ //Iterating into all tags
-        if(isset($subscribed_term_array)){
-          foreach($subscribed_term_array as $subscribed_term_item){ //Iterating into the tag
-            if($subscribed_term_item != ""){ //Empty target (fix some empty arrays returned issue)
-              //gofast_mail_queue_api_query($subscribed_term_item, $message_json, $type);
-              if($type == 'message_kanban' && $type_com != NULL){
-                    if(gofast_kanban_is_user_concerned_node($node, $subscribed_term_item[0])){
-                         gofast_mail_queue_api_query($subscribed_term_item, $message_json, $type_com);
-                    }                       
-              }elseif($type_com != NULL ){     
-                  gofast_mail_queue_api_query($subscribed_term_item, $message_json, $type_com);
-              }else{ 
-                  gofast_mail_queue_api_query($subscribed_term_item, $message_json, $type);
-
+      // recreate same-structured subscription array with unique stored values
+      foreach($highest_met_frequency as $uid => $frequency) {
+        $filtered_subscription_items[] = [$uid, $frequency];
+      }
+      // single loop for db insertion
+      foreach($filtered_subscription_items as $subscription_item){
+        if($subscription_item[0] != ""){ //Empty target (fix some empty arrays returned issue)
+          if($type == 'message_kanban' && $type_com != NULL){
+              if(gofast_kanban_is_user_concerned_node($node, $subscription_item[0])){
+                    gofast_mail_queue_api_query($subscription_item, $message_json, $type_com);
               }
-            }
+          }elseif($type_com != NULL ){
+                gofast_mail_queue_api_query($subscription_item, $message_json, $type_com);
+          }else{
+                gofast_mail_queue_api_query($subscription_item, $message_json, $type);
           }
         }
       }
     }
+
+    $timer_stop = microtime(true);
+    watchdog('gofast_mail_queue', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_INFO);
   }
-
-  $timer_stop = microtime(true);
-  watchdog('gofast_mail_queue', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_INFO);
-
 }
 
 /**
@@ -390,12 +354,12 @@ function gofast_mail_queue_api_queue_ext($mail, $recpts, $cron_timestamp, $trans
  *
  */
 function gofast_mail_queue_api_query($subscription, $log, $type = "message"){
-  
+
   $timer_start = microtime(true);
   watchdog('gofast_mail_queue', '%name() START ', array('%name' => __FUNCTION__), WATCHDOG_INFO);
 
   $uid = $subscription['0'];
-  
+
   $message_data = json_decode($log, TRUE);
   //Looking for modifier to avoid sending him a notification
   if(isset($message_data['ruid']['to'])){
@@ -498,6 +462,7 @@ function gofast_mail_queue_api_query($subscription, $log, $type = "message"){
         ))
         ->execute();
         break;
+      case '5':
       default:
         break;
     }
@@ -580,12 +545,12 @@ function gofast_mail_queue_api_get_user_notifications($uid){
  *  If an error was caught, return a formated string with an error message
  */
 
-function gofast_mail_queue_api_send_mail($subject, $title, $footer, $body, $recpt, $urlAttachmentFile = '', $urlAttachmentTitle = '', $attachement_method = 'REQUEST', $alt_body = "", $transmitter_id = ""){
+function gofast_mail_queue_api_send_mail(string $subject, string $title, string $footer, string $body, array $recpt, $urlAttachmentFile = '', $urlAttachmentTitle = '', $attachement_method = 'REQUEST', $alt_body = "", $transmitter_id = ""){
   if($_POST['inhibit_send_mail']){
       watchdog('gofast_mail_queue', "Send mail currently inhibited");
       return TRUE;
   }
-    
+
   $start_timer = time();
   watchdog('gofast_mail_queue', 'START: Send mail');
 
@@ -654,7 +619,13 @@ function gofast_mail_queue_api_send_mail($subject, $title, $footer, $body, $recp
   global $base_url;
   $format_mail = "";
   $format_mail .= theme('gofast-notifications-mailer-header', array('logo' => theme_get_setting('logo', 'bootstrap_gofast'), 'title' => $title)); //Include header
-  $format_mail .= theme('gofast-notifications-mailer-body', array('content' => $body)); //Body
+
+  // if the template has been generated by MJML and thus contains Outlook-specific tags, we don't want to use the legacy body wrapper
+  if (strpos((string) $body, "[if mso | IE]") !== false) {
+    $format_mail .= $body;
+  } else {
+    $format_mail .= theme('gofast-notifications-mailer-body', array('content' => $body)); //Body
+  }
   $format_mail .= theme('gofast-notifications-mailer-footer', array('footer' => $footer)); //Footer
   //$mail->Body = $format_mail;
   $mail->msgHTML($format_mail);
@@ -703,23 +674,23 @@ function gofast_mail_queue_api_send_mail($subject, $title, $footer, $body, $recp
 function gofast_mail_queue_cron(){
   //Clear notification queue to avoid errors or multiple occurences
   $start_timer = time();
-  
+
   watchdog('gofast_mail_queue', 'START: Clear subscriptions');
   gofast_mail_queue_api_clear_queue();
   $end_timer = time()-$start_timer;
   watchdog('gofast_mail_queue', 'END: Clear subscriptions. '.$end_timer.' sec was needed.');
- 
+
   //Push mails to mail queue mailing system
   $start_timer = time();
   watchdog('gofast_mail_queue', 'START: Push notifications');
   gofast_mail_queue_api_push();
   $end_timer = time()-$start_timer;
-  
+
   //watchdog('gofast_mail_queue', 'START: Push notifications KANBAN');
   //gofast_mail_queue_api_push("message_kanban");
   // $end_timer = time()-$start_timer;
   //watchdog('gofast_mail_queue', 'END: Push notifications. '.$end_timer.' sec was needed.');
-  
+
   watchdog('gofast_mail_queue', 'START: Push notifications Comment');
   gofast_mail_queue_api_push("message_comment");
   $end_timer = time()-$start_timer;
@@ -730,20 +701,20 @@ function gofast_mail_queue_cron(){
  * When called, push 20 mails from the queue to the users
  */
 function gofast_mail_queue_api_push($type = NULL){
-    
+
   watchdog('gofast_mail_queue', 'START: Sort matching notifications to push');
   $start_timer = time();
   $sorted_notifications = gofast_mail_queue_api_sort_match(TRUE, NULL, $type); //Sort notifications to send
-  
+
   $end_timer = time()-$start_timer;
   watchdog('gofast_mail_queue', 'END: Sort match. '.$end_timer.' sec was needed.');
   $i=0;
-  
+
   foreach($sorted_notifications as $uid => $array_notifications){
     $array_notification = array();
     $array_attachments_to_delete = array();
-    
-    
+
+
     foreach($array_notifications as $array_notification_item){
 
       if($array_notification_item->type != 'ext'){
@@ -779,7 +750,7 @@ function gofast_mail_queue_api_push($type = NULL){
         }
       }
     }
-    
+
     $user = user_load($uid);
     $l = array('langcode' => $user->language, 'context' => 'gofast:gofast_mail_queue');
     //__________________________________________________________FOOTER___________________________________________________
@@ -790,18 +761,19 @@ function gofast_mail_queue_api_push($type = NULL){
     $footer .= "<br />";
     $footer .= t('To manage your subscriptions, you can', array(), $l)." ".$link_sui;
     //Subject: 'Notification report date'
+    $short_format = system_date_format_locale($user->language, "short");
     if($type == NULL){
 
-        $subject = t('Notifications report (!date)', array('!date' => format_date(time(), 'custom', 'j-m-Y H:i')), $l);
-        $title = t("Your notifications from site_name", array('site_name' => variable_get('site_name')), $l);
-        $body = gofast_mail_queue_format_mail($array_notification);
-        if($body != NULL){
-          $uid_formated = array(array('recpt' => $uid, 'method' => 'to'));
-          gofast_mail_queue_api_send_mail($subject, $title, $footer, $body, $uid_formated);
-        }
+      $subject = t('Notifications report (!date)', array('!date' => format_date(time(), 'custom', $short_format, NULL, $l["langcode"])), $l);
+      $title = t("Your notifications from site_name", array('site_name' => variable_get('site_name')), $l);
+      $body = (string) gofast_mail_queue_format_mail($array_notification);
+      if($body != NULL){
+        $uid_formated = array(array('recpt' => $uid, 'method' => 'to'));
+        gofast_mail_queue_api_send_mail($subject, $title, $footer, $body, $uid_formated);
+      }
     /*}else if($type == "message_kanban"){
 
-        $subject = t('Notifications report for Tasks (!date)', array('!date' => format_date(time(), 'custom', 'j-m-Y H:i')), $l);
+        $subject = t('Notifications report for Tasks (!date)', array('!date' => format_date(time(), 'short')), $l);
         $title = t("Your Tasks notifications from site_name", array('site_name' => variable_get('site_name')), $l);
         $body = gofast_mail_queue_format_kanban_mail($array_notification);
         if($body != NULL){
@@ -809,23 +781,22 @@ function gofast_mail_queue_api_push($type = NULL){
           gofast_mail_queue_api_send_mail($subject, $title, $footer, $body, $uid_formated);
         }*/
     }else if($type == "message_comment"){
-        
-        $subject = t('Notifications report for comments (!date)', array('!date' => format_date(time(), 'custom', 'j-m-Y H:i')), $l);
+        $subject = t('Notifications report for comments (!date)', array('!date' => format_date(time(), 'custom', $short_format, NULL, $l["langcode"])), $l);
         $title = t("Your Comments notifications from site_name", array('site_name' => variable_get('site_name')), $l);
-        $body = gofast_mail_queue_format_mail_comment($array_notification);
+        $body = (string) gofast_mail_queue_format_mail($array_notification, "comment");
         if($body != NULL){
           $uid_formated = array(array('recpt' => $uid, 'method' => 'to'));
           gofast_mail_queue_api_send_mail($subject, $title, $footer, $body, $uid_formated);
         }
-        
+
     }else{
         //TODO make it works with other types, not just KANBAN
     }
 
     //Subject: 'Members Notification'
-    $subject = t('Membership notifications report (!date)', array('!date' => format_date(time(), 'custom', 'j-m-Y H:i')), $l);
+    $subject = t('Membership notifications report (!date)', array('!date' => format_date(time(), 'custom', $short_format, NULL, $l["langcode"])), $l);
     $title = t("Your notifications from site_name", array('site_name' => variable_get('site_name')), $l);
-    $body = gofast_mail_queue_format_membership_mail($array_notification);
+    $body = (string) gofast_mail_queue_format_membership_mail($array_notification);
     if($body != NULL){
       $uid_formated = array(array('recpt' => $uid, 'method' => 'to'));
       gofast_mail_queue_api_send_mail($subject, $title, $footer, $body, $uid_formated);
@@ -847,8 +818,105 @@ function gofast_mail_queue_api_push($type = NULL){
 
 }
 
-function gofast_mail_queue_format_mail($notifications){
-  //Clear notification (double enteries...)
+function gofast_mail_build_comments_events(&$body, &$commented, &$edit_commented, $message, $event_name, $group_index, $item_index, $event_index) {
+  if(strcmp($event_name['value'], "NCOM") == 0){ //New comment case
+    $commented++;
+
+    $body[$group_index]['items'][$item_index]['events'][$event_index]['type'] = "NCOM";
+    $body[$group_index]['items'][$item_index]['events'][$event_index]['comment_title'] = $message['title']['value'];
+    $body[$group_index]['items'][$item_index]['events'][$event_index]['body'] = $message['body']['value'];
+  }
+  else if(strcmp($event_name['value'], "ECOM") == 0){ //Edited comment case
+    $edit_commented ++;
+
+    $body[$group_index]['items'][$item_index]['events'][$event_index]['type'] = "ECOM";
+
+    if(isset($message['title']['to'])){
+      $body[$group_index]['items'][$item_index]['events'][$event_index]['comment_title'] = $message['title']['to'];
+    }
+    else{
+      $body[$group_index]['items'][$item_index]['events'][$event_index]['comment_title'] = $message['title']['value'];
+    }
+
+    if(isset($message['body']['to'])){
+      $body[$group_index]['items'][$item_index]['events'][$event_index]['body'] = $message['body']['to'];
+    }
+    else{
+      $body[$group_index]['items'][$item_index]['events'][$event_index]['body'] = $message['body']['value'];
+    }
+  }
+}
+
+function gofast_mail_build_regular_events(&$body, &$edited, &$count_updates, $message, $event_name, $group_index, $item_index, $event_index) {
+  if(strcmp($event_name['value'], "NCON") == 0){ //New content event
+    $body[$group_index]['items'][$item_index]['flag'] = "New";
+    $body[$group_index]['items'][$item_index]['events'][$event_index]['type'] = "NCON";
+    $body[$group_index]['items'][$item_index]['events'][$event_index]['operation'] = "isNew";
+    $body[$group_index]['items'][$item_index]['events'][$event_index]['body'] = $message['body']['value'];
+
+    if($message['summary']['value'] !== "" && $message['summary']['value'] !== NULL){
+      $body[$group_index]['items'][$item_index]['events'][$event_index]['body'] = $message['summary']['value'];;
+    }
+    if($message['body']['value'] !== "" && $message['body']['value'] !== NULL){
+      $body[$group_index]['items'][$item_index]['events'][$event_index]['body'] = $message['body']['value'];
+    }
+  }
+  else if(strcmp($event_name['value'], "ECON") == 0 || strcmp($event_name['value'], "NDEL") == 0){ //Edited content event
+    $edited++;
+    $body[$group_index]['items'][$item_index]['events'][$event_index]['type'] = $event_name['value'];
+
+    foreach($message as $message_k => $message_item){
+      if(count($message_item) == 2 && $message_k != "changed" && $message_k != "ruid"){ //Format for each event
+        $isTaxoTerm = $message_k == "criticity" || $message_k == "state" || $message_k == "criticity" || $message_k == "category" || $message_k == "tags";
+        $isNodeRef = $message_k == "targets" || $message_k == "groups";
+        if($isTaxoTerm){ //Translating ids in name
+          $from = gofast_message_ext_api_get_term($message_item['from']);
+          $to = gofast_message_ext_api_get_term($message_item['to']);
+        }
+        else if($isNodeRef){
+          $from = gofast_message_ext_api_get_node_name($message_item['from']);
+          $to = gofast_message_ext_api_get_node_name($message_item['to']);
+        }
+        else{
+          $from = $message_item['from'];
+          $to = $message_item['to'];
+        }
+        //Display only differences for non fulltext fields
+        if($message_k != 'body' && $message_k != 'summary'){
+          $array_from = explode(",", $from);
+          $array_to = explode(",", $to);
+          $array_from_diff = array_diff($array_from, $array_to);
+          $array_to_diff = array_diff($array_to, $array_from);
+          $from = implode(",", $array_from_diff);
+          $to = implode(",", $array_to_diff);
+        }
+        if($from != "" || $to != ""){
+          $body[$group_index]['items'][$item_index]['events'][$event_index]['update'] = [
+            'field' => $message_k,
+            'from' => $from,
+            'to' => $to,
+          ];
+        }
+      }
+    }
+  }
+  else if(strcmp($event_name['value'], "NREV") == 0){
+    $count_updates++;
+    $body[$group_index]['items'][$item_index]['events'][$event_index]['type'] = "NREV";
+    $body[$group_index]['items'][$item_index]['events'][$event_index]['revision'] = $message['version']['to'];
+  }
+}
+
+/**
+ * Build mail body for notifications
+ * @global type $base_url
+ * @param type $notifications
+ * @param type $notification_type : "regular" or "comment"
+ * @return type $mail body
+ *
+ */
+function gofast_mail_queue_format_mail($notifications, $notification_type = "regular"){
+  //Clear notification (double entries...)
   //Warning : Possible performances drop in cron
   $notifications = json_decode(json_encode($notifications), TRUE);
   foreach($notifications as $key_occur => $occur){
@@ -858,1028 +926,411 @@ function gofast_mail_queue_format_mail($notifications){
   $notifications = json_decode(json_encode($notifications));
   $start_timer = time();
   watchdog('gofast_mail_queue', 'START: Format mail');
-  //foreach($notifications as $occur){
-    global $base_url;
-    $item_uid = json_decode(reset($notifications)->uid, TRUE)[0]['recpt'];
-    $item_user = user_load($item_uid);
-    $events_body = "";
-    $user = user_load($item_uid);
-    $myformat= system_date_format_locale($user->language, "medium");
-    $l = array('langcode' => $user->language, 'context' => 'gofast');
-    $digest_content = t("Your latest notifications", array(), $l) . "<span style='float:right;'>" . "<a style='color:darkgrey;text-decoration:none;' href='".$base_url."/subscriptions'>".t('Manage your subscriptions', array(), $l)."</a></span>";
-    $digest_title = gofast_user_display_name($user);
-    $footer = "";
 
-    //________________________________________SUMMARY AND BODY_______________________________________
-    $summary =  "";
-    $items_sort = array();
-    $count_node = 0;
-    foreach($notifications as $item){ //Sort notifications for a user by node id
-      $message = json_decode($item->message, TRUE);
-      $nid = $message['nid']['value'];
-      $node = node_load($nid);//Load node item at it's actual state
-      if(isset($node->og_group_content_ref['und'])){
-        $match = FALSE;
-        foreach($node->og_group_content_ref['und'] as $k_group => $v_group){
-          $group_node = node_load($v_group['target_id']);
-          $user_gids = gofast_og_get_spaces_by_user($item_user, TRUE, FALSE);
-          if(in_array($group_node->nid, $user_gids, TRUE) && $match == FALSE){
-            $group = $group_node->title;
-            $match  = TRUE;
-          }
-        }
-        if(!$match){
-          $group = NULL;
-          continue;
+  $item_uid = json_decode(reset($notifications)->uid, TRUE)[0]['recpt'];
+  $item_user = user_load($item_uid);
+  $user = user_load($item_uid);
+  $extra_short_format = system_date_format_locale($user->language, "extra_short");
+  $short_without_hours_format = system_date_format_locale($user->language, "short_without_hours");
+  $short_format = system_date_format_locale($user->language, "short");
+  $l = array('langcode' => $user->language, 'context' => 'gofast');
+  if ($notification_type == "comment") {
+    $digest_content = t("Your latest notifications of comments for the !date", array("!date" => format_date(time(), 'custom', $short_without_hours_format, NULL, $l["langcode"])), $l);
+  } else {
+    $digest_content = t("Your latest notifications for the !date", array("!date" => format_date(time(), 'custom', $short_without_hours_format, NULL, $l["langcode"])), $l);
+  }
+  $digest_title = $user->ldap_user_givenname[LANGUAGE_NONE][0]['value'];
+
+  //________________________________________BUILD THE BODY_______________________________________
+  $body = [];
+  $items_sort = [];
+  foreach($notifications as $item){ //Sort notifications for a user by node id
+    $message = json_decode($item->message, TRUE);
+    $nid = $message['nid']['value'];
+    $node = node_load($nid);//Load node item at it's actual state
+    if(isset($node->og_group_content_ref['und'])){
+      $match = FALSE;
+      foreach($node->og_group_content_ref['und'] as $k_group => $v_group){
+        $group_node = node_load($v_group['target_id']);
+        $user_gids = gofast_og_get_spaces_by_user($item_user, TRUE, FALSE);
+        if(in_array($group_node->nid, $user_gids, TRUE) && $match == FALSE){
+          $group = $group_node->title;
+          $match  = TRUE;
         }
       }
-      else{
+      if(!$match){
         $group = NULL;
         continue;
       }
-      if(!isset($group)){
-        continue;
-      }
-      $items_sort[$group][$nid][] = $item; //Sorting... (By group + By nid)
     }
-    $first = TRUE;
-
-    //Avoid sendinf empty notification
-    if(count($items_sort) == 0){
-      return NULL;
+    else{
+      $group = NULL;
+      continue;
     }
+    if(!isset($group)){
+      continue;
+    }
+    $items_sort[$group][$nid][] = $item; //Sorting... (By group + By nid)
+  }
 
-    foreach($items_sort as $group => $items){ //Check groups
-      if(!$first){$summary .= "<br />";}
-      else{$first = FALSE;}
-      $summary .= "<strong>".$group."</strong><br />";
-      foreach($items as $nid => $item){ //Check nids
-        $pass = FALSE;
-        $node = node_load($nid);
-        $target = "";
-        if(isset($node->field_emplacement['und'])){
-          foreach($node->field_emplacement['und'] as $space){
-            $target .= $space['value']."<br />";
-          }
-        }
-        $title = $node->title;
-        $title = "<a style='text-decoration:none; color:#0074A6' href='".$base_url."/node/".$node->nid."'>".$title."</a>";
-        $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
-        $node_icon = gofast_mail_queue_fa_png($node_icon);
-        //Variables to increment or set TRUE according to the events:
-        $isNew = FALSE;
-        $updated = FALSE;
-        $edited = 0;
+  //Avoid sendinf empty notification
+  if(count($items_sort) == 0){
+    return NULL;
+  }
+
+  $group_index = 0;
+  foreach($items_sort as $group => $items){ //Check groups
+    $body[$group_index]['group'] = $group;
+
+    $item_index = 0;
+    foreach($items as $nid => $item){ //Check nids
+      $node = node_load($nid);
+
+      $body[$group_index]['items'][$item_index]['node'] = $node;
+
+      $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
+      $node_icon = gofast_mail_queue_fa_png($node_icon, "14");
+      // may be changed
+      $node_icon_primary = gofast_mail_queue_fa_png($node_icon, "14");
+      $node_icon_white = gofast_mail_queue_fa_png($node_icon, "18", "white");
+
+      $body[$group_index]['items'][$item_index]['icon'] = $node_icon;
+      $body[$group_index]['items'][$item_index]['icon_primary'] = $node_icon_primary;
+      $body[$group_index]['items'][$item_index]['icon_white'] = $node_icon_white;
+
+      if ($notification_type == "comment") {
         $commented = 0;
         $edit_commented = 0;
-        $pre_updates = array();
-        $updates = NULL;
-        $updates_body = NULL;
-        $updates_summary = NULL;
-        $updates_new = NULL;
-        $com_updates = NULL;
-        $versionning = NULL;
-        $version_loop = FALSE;
-        $versionning_theme = NULL;
-        $versionning_updates = NULL;
+      } else {
+        $edited = 0;
         $count_updates = 0;
-        $info = null;
-
-        foreach($item as $event){//Checking number of events and setting event field
-          $message = json_decode($event->message, TRUE);
-          $event_name = $message['event'];
-          $timestamp = $event->timestamp;
-
-          //Loading the most recent modifier
-          if(isset($message['ruid']['to'])){
-            $user = user_load($message['ruid']['to']);
-          }
-          else if(isset($message['ruid']['from'])){
-            $user = user_load($message['ruid']['from']);
-          }
-          else if(isset($message['ruid']['value'])){
-            $user = user_load($message['ruid']['value']);
-          }
-          else if(isset($message['uid']['to'])){
-            $user = user_load($message['uid']['to']);
-          }
-          else if(isset($message['uid']['from'])){
-            $user = user_load($message['uid']['from']);
-          }
-          else if(isset($message['uid']['value'])){
-            $user = user_load($message['uid']['value']);
-          }
-          //________________________________________________
-
-          if(strcmp($event_name['value'], "NCON") == 0){ //New content event
-            $isNew  = TRUE;
-            $body = NULL;
-            $node_target = $base_url."/node/".$nid;
-            if($message['summary']['value'] !== "" && $message['summary']['value'] !== NULL){
-              $body = $message['summary']['value'];
-            }
-            if($message['body']['value'] !== "" && $message['body']['value'] !== NULL){
-              $body = $message['body']['value'];
-            }
-            $updates_new .= theme('gofast-notifications-node-new', array('l' => $l, 'author_pic' => theme('user_picture', array('account' => $user)), 'author_name' => gofast_user_display_name($user) ,'body' => $body, 'node_link' => $node_target, 'title' => $title, 'is_digest' => FALSE, 'tokens' => NULL, "date" => format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])));
-
-          }
-          else if(strcmp($event_name['value'], "ECON") == 0 || strcmp($event_name['value'], "NDEL") == 0){ //Edited content event
-            $edited ++;
-            $pass = FALSE; //Check if a change was detected for this event
-            foreach($message as $message_k => $message_item){
-              if(count($message_item) == 2 && $message_k != "changed" && $message_k != "ruid"){ //Format for each event
-                $isTaxoTerm = $message_k == "criticity" || $message_k == "state" || $message_k == "criticity" || $message_k == "category" || $message_k == "tags";
-                $isNodeRef = $message_k == "targets" || $message_k == "groups";
-                if($isTaxoTerm){ //Translating ids in name
-                  $from = gofast_message_ext_api_get_term($message_item['from']);
-                  $to = gofast_message_ext_api_get_term($message_item['to']);
-                }
-                else if($isNodeRef){
-                  $from = gofast_message_ext_api_get_node_name($message_item['from']);
-                  $to = gofast_message_ext_api_get_node_name($message_item['to']);
-                }
-                else{
-                  $from = $message_item['from'];
-                  $to = $message_item['to'];
-                }
-                //Display only differences for non fulltext fields
-                if($message_k != 'body' && $message_k != 'summary'){
-                  $array_from = explode(",", $from);
-                  $array_to = explode(",", $to);
-                  $array_from_diff = array_diff($array_from, $array_to);
-                  $array_to_diff = array_diff($array_to, $array_from);
-                  $from = implode(",", $array_from_diff);
-                  $to = implode(",", $array_to_diff);
-                }
-                if($from != "" || $to != ""){
-                  $pre_updates[$user->uid][] = array('field' => $message_k, 'from' => $from, 'to' => $to, 'timestamp' => $timestamp);
-                  $pre_updates[$user->uid]['user'] = $user;
-                }
-                if($message_k == 'status' && $from == 1 && $to == 0) {
-                    $isDelete = TRUE;
-                } else {
-                    $isDelete = FALSE;
-                }
-                $pass = TRUE;
-              }
-            }
-          }
-         /* else if(strcmp($event_name['value'], "NCOM") == 0){ //New comment case
-            $commented ++;
-            $combody = $message['body']['value'];
-            $com_updates[$message['cid']['value']] = theme('gofast-notifications-node-comment', array('node_title' => $title, 'l' => $l, 'author_pic' => theme('user_picture', array('account' => $user)), 'author_name' => gofast_user_display_name($user),'comment_title' => $message['title']['value'], 'cid' => $message['cid']['value'], 'nid' => $message['nid']['value'], 'comment_body' => $combody, 'is_digest' => FALSE, 'tokens' => NULL, 'comment_reply' => t("Reply", array(), $l), "date" => format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])));
-          }
-          else if(strcmp($event_name['value'], "ECOM") == 0){ //Edited comment case
-            $edit_commented ++;
-            if(isset($message['title']['to'])){
-              $ctitle = $message['title']['to'];
-            }
-            else{
-              $ctitle = $message['title']['value'];
-            }
-
-            if(isset($message['body']['to'])){
-              $cbody = $message['body']['to'];
-            }
-            else{
-              $cbody = $message['body']['value'];
-            }
-            $com_updates[$message['cid']['value']] = theme('gofast-notifications-node-ecomment', array('node_title' => $title, 'l' => $l, 'author_pic' => theme('user_picture', array('account' => $user)), 'author_name' => gofast_user_display_name($user),'comment_title' => $ctitle, 'cid' => $message['cid']['value'], 'nid' => $message['nid']['value'], 'comment_body' => $cbody, 'is_digest' => FALSE, 'tokens' => NULL, 'comment_reply' => t("Reply", array(), $l), "date" => format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])));
-          }
-          */
-          else if(strcmp($event_name['value'], "NREV") == 0){
-            $versionning_uid = $user->uid;
-            $current_version = $message['version']['to'];
-            if($versionning == NULL){ //1st versionning message
-              $updated = TRUE;
-              $versionning_user = user_load($versionning_uid);
-              $versionning = $message['version']['to'];
-              if(substr($current_version, -2) == '.0'){ //Major version
-                $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;<span style='color:red;'>".t('Major version', array(), $l)."</span> ".$versionning."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                $version_loop = FALSE;
-              }
-              else{ //Minor version
-                  $version_loop = array('from' => $versionning, 'to' => NULL);
-              }
-            }
-            else{ //Others versionning messages
-              if(is_array($version_loop)){ //We are in a version loop
-                if(user_load($versionning_uid) == $versionning_user){ //User is the same than before
-                  if(substr($current_version, -2) == '.0'){ //Major version, we end the loop
-                    if($version_loop['to'] != NULL){ //Multiple minor versions pending
-                      $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;".t('Minor version', array(), $l)." ".t('from', array(), $l)." ".$version_loop['from']." ".t('to', array(), $l)." ".$version_loop['to']."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($versionning_user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                      $versionning = $message['version']['to'];
-                      $versionning_user = user_load($versionning_uid);
-                      $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;<span style='color:red;'>".t('Major version', array(), $l)."</span> ".$versionning."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                      $version_loop = FALSE;
-                    }
-                    else{ //One minor version pending
-                      $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;".t('Minor version', array(), $l)." ".$version_loop['from']."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($versionning_user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                      $versionning = $message['version']['to'];
-                      $versionning_user = user_load($versionning_uid);
-                      $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;<span style='color:red;'>".t('Major version', array(), $l)."</span> ".$versionning."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                      $version_loop = FALSE;
-                    }
-                  }
-                  else{ //Minor version
-                    $version_loop['to'] = $message['version']['to'];
-                  }
-                }
-                else{ //User have changed
-                  if(is_array($version_loop)){ //We are in a version loop, we end the loop
-                    if(substr($current_version, -2) == '.0'){ //Major version
-                      $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $versionning_user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;".t('Minor version', array(), $l)." ".t('from', array(), $l)." ".$version_loop['from']." ".t('to', array(), $l)." ".$version_loop['to']."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($versionning_user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                      $version_loop = array('from' => $versionning, 'to' => $message['version']['to']);
-                      $versionning_user = user_load($versionning_uid);
-                      $versionning = $message['version']['to'];
-                      $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;<span style='color:red;'>".t('Major version', array(), $l)."</span> ".$versionning."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                      $version_loop = FALSE;
-                    }
-                    else{//Minor version
-                      if($version_loop['to'] != NULL){ //Multiple minor versions pending
-                        $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $versionning_user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;".t('Minor version', array(), $l)." ".t('from', array(), $l)." ".$version_loop['from']." ".t('to', array(), $l)." ".$version_loop['to']."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($versionning_user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                        $versionning_user = user_load($versionning_uid);
-                        $versionning = $message['version']['to'];
-                        $version_loop = array('from' => $message['version']['to'], 'to' => NULL);
-                      }
-                      else{ //One minor version pending
-                        $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $versionning_user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;".t('Minor version', array(), $l)." ".$version_loop['from']."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($versionning_user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                        $versionning_user = user_load($versionning_uid);
-                        $versionning = $message['version']['to'];
-                        $version_loop = array('from' => $message['version']['to'], 'to' => NULL);
-                      }
-                    }
-                  }
-                  else{ //We are not in a version loop
-                    if(substr($current_version, -2) == '.0'){ //Major version
-                      $versionning_user = user_load($versionning_uid);
-                      $versionning = $message['version']['to'];
-                      $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;<span style='color:red;'>".t('Major version', array(), $l)."</span> ".$versionning."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                      $version_loop = FALSE;
-                    }
-                    else{ //Minor version
-                      $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;".t('Minor version', array(), $l)." ".t('from', array(), $l)." ".$version_loop['from']." ".t('to', array(), $l)." ".$version_loop['to']."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($versionning_user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                      $version_loop = array('from' => $versionning, 'to' => $message['version']['to']);
-                      $versionning_user = user_load($versionning_uid);
-                      $versionning = $message['version']['to'];
-                      $version_loop = array('from' => $message['version']['to'], 'to' => NULL);
-                    }
-                  }
-                }
-              }
-              else{ //We are not in a version loop
-                if(substr($current_version, -2) == '.0'){ //Major version
-                  $versionning = $message['version']['to'];
-                  $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;<span style='color:red;'>".t('Major version', array(), $l)."</span> ".$versionning."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                  $version_loop = FALSE;
-                }
-                else{ //Minor version, we loop
-                    $versionning = $message['version']['to'];
-                    $versionning_uid = $user->uid;
-                    $versionning_user = user_load($versionning_uid);
-                    $version_loop = array('from' => $versionning, 'to' => NULL);
-                }
-              }
-            }
-            $count_updates++;
-          }
-          else if ( strcmp($event_name['value'], "NMEM") == 0
-                  || strcmp($event_name['value'], "DMEM") == 0 ){
-            continue; // Event not included in this notification
-
-          }
-          else{ //It's not a standard notification
-            $mail = $event->message;
-            return $mail;
-          }
-        }
-        foreach($pre_updates as $k_updates => $v_updates){//Pass into all modifications made by a single user to sort them
-          $user = user_load($k_updates);
-          $modifications = "<table id='edits-metadatas' style='width:100%; border-left: 1px solid #dddddd; border-top: 1px solid #dddddd; border-radius:5px;'><tr>";
-          $modifications .= "<th style='border-right: 1px solid #dddddd; border-bottom: 1px solid #bbbbbb; border-bottom: 1px solid #dddddd; color: #444444;'>".t('Field', array(), $l)."</th>";
-          $modifications .= "<th style='border-right: 1px solid #dddddd; border-bottom: 1px solid #bbbbbb; border-bottom: 1px solid #dddddd; color: #444444;'>".t('Old/Removed', array(), $l)."</th>";
-          $modifications .= "<th style='border-right: 1px solid #dddddd; border-bottom: 1px solid #bbbbbb; border-bottom: 1px solid #dddddd; color: #444444;'>".t('New/Added', array(), $l)."</th>";
-          $modifications .= "<th style='border-right: 1px solid #dddddd; border-bottom: 1px solid #bbbbbb; border-bottom: 1px solid #dddddd; color: #444444;'>".t('Date', array(), $l)."</th>";
-          $modifications .= "</tr>";
-          $body_is_edited = FALSE;
-          $summary_is_edited = FALSE;
-          $meta_is_edited = FALSE;
-          foreach($v_updates as $item_updates){
-            if(is_array($item_updates)){
-              if(isset($item_updates['from']) && isset($item_updates['to'])){ //Edit found
-                if($item_updates['field'] == 'body'){
-                  $body_is_edited = TRUE;
-                  $ebody = $item_updates['to'];
-                }
-                else if($item_updates['field'] == 'summary'){
-                  $summary_is_edited = TRUE;
-                  $esummary = $item_updates['to'];
-                }
-                else if($item_updates['field'] == 'status'){
-                  $status = $item_updates['to'];
-                  $info .= theme('gofast-notifications-node-info', array('l' => $l, 'author_pic' => theme('user_picture', array('account' => $v_updates['user'])), 'author_name' => gofast_user_display_name($v_updates['user']), 'title' => $title, 'status' => $status, 'is_digest' => FALSE, 'tokens' => NULL, "date" => format_date($item_updates['timestamp'], 'custom', $myformat, NULL, $l["langcode"])));
-                }
-                else{
-                  $meta_is_edited = TRUE;
-                  $modifications .= "<tr style='border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd; font-size: 0.8em;'>";
-                    $modifications .= "<td style='width: 115px; font-size:1em;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;color:#666666; border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd;'><center>".t(ucfirst($item_updates['field']),array(), $l)."</center></td>";
-                    $array_from = explode(',', $item_updates['from']);
-                    $array_to = explode(',', $item_updates['to']);
-                      if($item_updates['from'] == ""){
-                        $modifications .= "<td style='border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd;'></td>";
-                      }
-                      else{
-                        $modifications .= "<td style='background-color: rgba(255, 77, 77, 0.25); border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd;'><center>";
-                        foreach($array_from as $item_from){
-                          $modifications .= "<span style='font-size:1em;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;color:#666666;'>".t($item_from, array(), $l)."</span><br />";
-                        }
-                        $modifications .= "</center></td>";
-                      }
-                      if($item_updates['to'] != ""){
-                        $modifications .= "<td style='background-color: rgba(91, 255, 77, 0.25); border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd;'><center>";
-                        foreach($array_to as $item_to){
-                          $modifications .= "<span style='font-size:1em;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;color:#666666;'>".t($item_to, array(), $l)."</span><br />";
-                        }
-                        $modifications .= "</center></td>";
-                      }
-                      else{
-                        $modifications .= "<td style='border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd;'></td>";
-                      }
-                    $modifications .= "";
-                    $modifications .= "<td style='width: 115px; border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd;'><span style='font-size:0.8em;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;color:#666666;'>".format_date($item_updates['timestamp'], 'custom', $myformat, NULL, $l["langcode"])."</span></td>";
-                    $modifications .= "</tr>";
-                }
-                if($body_is_edited){
-                    $updates_body = theme('gofast-notifications-node-edited', array('l' => $l, 'author_pic' => theme('user_picture', array('account' => $v_updates['user'])), 'author_name' => gofast_user_display_name($v_updates['user']) ,'body' => $ebody, 'title' => $title, 'is_digest' => FALSE, 'tokens' => NULL, "date" => format_date( $item_updates['timestamp'], 'custom', $myformat, NULL, $l["langcode"])));
-                 
-                }
-                if($summary_is_edited){
-                    $updates_summary = theme('gofast-notifications-node-edited', array('l' => $l, 'author_pic' => theme('user_picture', array('account' => $v_updates['user'])), 'author_name' => gofast_user_display_name($v_updates['user']) ,'body' => $esummary, 'title' => $title, 'is_digest' => FALSE, 'tokens' => NULL, "date" => format_date($item_updates['timestamp'], 'custom', $myformat, NULL, $l["langcode"])));
-                 
-                }
-              }
-              /*else{ //Edit not found
-                $modifications .= "<span>".t('This content has been edited', array(), $l)."</span>
-                <br /><span style='float:right;font-size: 12px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;color:#666666;'>".format_date($item_updates['timestamp'])."</span><br /><br />";
-              }*/
-            }
-          }
-          $modifications .= "</table>";
-          if($meta_is_edited){
-            $updates .= theme('gofast-notifications-node-event', array('node_title' => $title, 'l' => $l, 'author_pic' => theme('user_picture', array('account' => $v_updates['user'])), 'author_name' => gofast_user_display_name($v_updates['user']),'modifications' => $modifications, 'is_digest' => FALSE, 'tokens' => NULL, "date" => ""));
-          }
-        }
-        $info = $info.$updates_body.$updates_summary;
-
-        //________________________________________VERSIONNING___________________________________________________
-        if($updated){
-          if(is_array($version_loop)){ //We end version loop
-            if(isset($version_loop['to'])){ //Multiple pendings
-            $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;".t('Minor version', array(), $l)." ".t('from', array(), $l)." ".$version_loop['from']." ".t('to', array(), $l)." ".$version_loop['to']."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-            }
-            else{ //One pending
-            $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;".t('Minor version', array(), $l)." ".$version_loop['from']."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-            }
-            if(isset($message['version']['to'])){
-              $versionning = $message['version']['to'];
-            }
-            /*else if(isset($message['version']['value'])){
-              $versionning = $message['version']['value'];
-            }*/
-            $version_loop = FALSE;
-          }
-          $versionning_theme .= theme('gofast-notifications-node-version', array('l' => $l, 'is_digest' => FALSE, 'tokens' => NULL, 'version' => NULL, 'version' => $versionning, 'version_message' => $versionning_updates, 'count_version' => $count_updates));
-        }
-        //_______________________________________SUMMARY________________________________________________________
-        $summary .= "<div id='sum-item'><span>   <a style='color:blue;text-decoration:none;' href='".$base_url."/node/".$nid."' target='_blank'>&emsp;<span style='float:left;'>".$node_icon."</span>".$title."</a> </span>";
-        if($isNew){ //Seting "NEW" message
-          $summary .= "<span style='color:red;font-size:8px;'>".t("NEW ", array(), $l)."</span>";
-        }
-        if($isDelete){ //Seting "DELETE" message
-          $summary .= "<span style='color:red;font-size:8px;'>".t("DELETE ", array(), $l)."</span>";
-        }
-        if($updated){ //Seting "VERSION UPDATE" message
-          $summary .= "<span style='color:red;font-size:8px;'>".t("VERSION UPDATE ", array(), $l)."</span>";
-        }
-        $summary .= "<span style='float:right;color:grey;font-size:10;'>";
-        //Here we are setting strings according to the modifications
-        if($edited > 0 && $isDelete == FALSE){
-          $summary .= "<a style='color:grey;' href='#u-node".$count_node."'>".t("edited nb_editions times.", array('nb_editions' => $edited), $l)."</a> ";
-        }
-        /* if($commented > 0){
-          $summary .= "<a style='color:grey;' href='#c-node".$count_node."'>".t("nb_comment new comment(s).", array('nb_comment' => $commented), $l)."</a> ";
-        }
-        if($edit_commented > 0){
-          $summary .= "<a style='color:grey;' href='#c-node".$count_node."'>".t("nb_ecomments edited comment(s).", array('nb_ecomments' => $edit_commented), $l)."</a> ";
-        }*/
-        $summary .= "</span></div><div style='width:100%; height:1px;'></div>";
-        //____________________________________________________BODY_________________________________________________
-        $details = "";
-        $date = "";
-        $node_updates = "";
-
-        if($info || $updates_new){
-          $node_updates = '<p style="font-size:18px; border-right: 1px solid #dddddd;border-bottom: 1px solid #dddddd;background-color: #bce8f1; opacity: 0.9;padding: 2px; text-align: center;">'.t("Info", array(), array('context' => "gofast:mail_queue")).'</p>'.$updates_new.$info;
-        }
-        /*if($com_updates){
-          $node_updates .= "<p style='font-size:18px; background-color: #FFEFDF; border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd; padding: 2px; text-align: center;'>".t('Comments', array(), $l)."</p>";
-          foreach($com_updates as $com_update){
-            $node_updates .= $com_update;
-          }
-        }*/
-        if($updates || $updated){
-          $node_updates .= '<a href="#top" style="font-size: 10px; font-weight: bold; text-decoration: none;color:blue; float: right;">TOP</a><div style="width: 100%; height:15px;"></div>'."<p style='font-size:18px; background-color: #DEFFCF; padding: 2px;border-right: 1px solid #dddddd;border-bottom: 1px solid #dddddd;text-align: center;'>".t('Document\'s updates', array(), $l)."</p>".$versionning_theme.$updates;
-        }
-        /*if($com_updates != NULL){
-          $com_updates = "<p style='font-size:18px; background-color: #FFEFDF; border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd; padding: 2px; text-align: center;'>".t('Comments', array(), $l)."</p>".$com_updates; //Start of comments
-        }
-        if($updated && $updates){
-          $updates = $versionning_theme.'<a href="#top" style="font-size: 10px; font-weight: bold; text-decoration: none;color:blue; float: right;">TOP</a><div style="width: 100%; height:15px;"></div>'."<p style='font-size:18px; background-color: #DEFFCF; padding: 2px;border-right: 1px solid #dddddd;border-bottom: 1px solid #dddddd; text-align: center;'>".t('Document\'s editions', array(), $l)."</p>".$updates;
-        }
-        else if ($updated){
-          $updates = $versionning_theme.$updates;
-        }
-        else if($updates){
-         $updates = '<a href="#top" style="font-size: 10px; font-weight: bold; text-decoration: none;color:blue; float: right;">TOP</a><div style="width: 100%; height:15px;"></div>'."<p style='font-size:18px; background-color: #DEFFCF; padding: 2px;border-right: 1px solid #dddddd;border-bottom: 1px solid #dddddd;text-align: center;'>".t('Document\'s editions', array(), $l)."</p>".$updates;
-        }
-        if(isset($updates_new) || isset($info)){
-          $com_updates = '<p style="font-size:18px; border-right: 1px solid #dddddd;border-bottom: 1px solid #dddddd;background-color: #5bc0de; opacity: 0.9;padding: 2px; text-align: center;">'.t("Info", array(), array('context' => "gofast:mail_queue")).'</p>'.$info.$updates_new.$com_updates; //Adding New contents
-        }*/
-        $events_body .= theme('gofast-notifications-node-update', array('l' => $l, 'count_node' => $count_node, 'isNew' => $isNew, 'isRev' => $updated, 'group' => $group, 'node_icon' => $node_icon, 'node_title' => $title, 'com_updates' => NULL, 'updates' => $node_updates, 'spaces' => $target, 'details' => $details, 'date' => $date));
-        $count_node ++;
       }
+
+      $event_index = 0;
+      foreach($item as $event){//Checking number of events and setting event field
+        $message = json_decode($event->message, TRUE);
+        $event_name = $message['event'];
+
+        //Loading the most recent modifier
+        if(isset($message['ruid']['to'])){
+          $user = user_load($message['ruid']['to']);
+        }
+        else if(isset($message['ruid']['from'])){
+          $user = user_load($message['ruid']['from']);
+        }
+        else if(isset($message['ruid']['value'])){
+          $user = user_load($message['ruid']['value']);
+        }
+        else if(isset($message['uid']['to'])){
+          $user = user_load($message['uid']['to']);
+        }
+        else if(isset($message['uid']['from'])){
+          $user = user_load($message['uid']['from']);
+        }
+        else if(isset($message['uid']['value'])){
+          $user = user_load($message['uid']['value']);
+        }
+
+        $body[$group_index]['items'][$item_index]['events'][$event_index]['timestamp'] = $event->timestamp;
+
+        if ($notification_type == "comment") {
+          $body[$group_index]['items'][$item_index]['events'][$event_index]['user'] = $user;
+          $body[$group_index]['items'][$item_index]['events'][$event_index]['author_name'] = gofast_user_display_name($user);
+          $body[$group_index]['items'][$item_index]['events'][$event_index]['author_pic'] = '<img width="40" style="border-radius: 5px; vertical-align: middle;" typeof="foaf:Image" src="' . gofast_get_url_picture_by_id($user->picture->fid) . '" alt="' . t("@user's picture", array('@user' => format_username($user)), array('context' => 'gofast:gofast_user')) . '" title="' . t("@user's picture", array('@user' => format_username($user)), array('context' => 'gofast:gofast_user')) . '" />';
+          $body[$group_index]['items'][$item_index]['events'][$event_index]['vid'] = $message['cid']['value'];
+          $body[$group_index]['items'][$item_index]['events'][$event_index]['nid'] = $message['nid']['value'];
+          gofast_mail_build_comments_events($body, $commented, $edit_commented, $message, $event_name, $group_index, $item_index, $event_index);
+        } else {
+          gofast_mail_build_regular_events($body, $edited, $count_updates, $message, $event_name, $group_index, $item_index, $event_index);
+          // if it's a regular notif, we want to group events by user so we build a temporary user-grouped events array
+          $current_uid = $body[$group_index]['items'][$item_index]['events'][$event_index]['user']->uid;
+          if (!isset($body[$group_index]['items'][$item_index]['users'][$current_uid]['user'])) {
+            $body[$group_index]['items'][$item_index]['users'][$current_uid]['author_name'] = gofast_user_display_name($user);
+            $body[$group_index]['items'][$item_index]['users'][$current_uid]["author_pic"] = '<img width="40" style="border-radius: 5px; vertical-align: middle;" typeof="foaf:Image" src="' . gofast_get_url_picture_by_id($user->picture->fid) . '" alt="' . t("@user's picture", array('@user' => format_username($user)), array('context' => 'gofast:gofast_user')) . '" title="' . t("@user's picture", array('@user' => format_username($user)), array('context' => 'gofast:gofast_user')) . '" />';
+            $body[$group_index]['items'][$item_index]['users'][$current_uid]['user'] = $user;
+          }
+          $body[$group_index]['items'][$item_index]['users'][$current_uid]['actions'][] = $body[$group_index]['items'][$item_index]['events'][$event_index];
+          // sort actions in user event by timestamp
+          usort($body[$group_index]['items'][$item_index]['users'][$current_uid]["actions"], function($a, $b) {
+            return (int) $b['timestamp'] <=> (int) $a['timestamp'];
+          });
+        }
+
+        $event_index++;
+      }
+
+      if ($notification_type == "comment") {
+        $body[$group_index]['items'][$item_index]['comment_add_count'] = $commented;
+        $body[$group_index]['items'][$item_index]['comment_edit_count'] = $edit_commented;
+
+        $met_cids = array();
+        // sort item events by desc timestamp
+        usort($body[$group_index]['items'][$item_index]['events'], function($a, $b) {
+          return (int) $b['timestamp'] <=> (int) $a['timestamp'];
+        });
+        foreach($body[$group_index]['items'][$item_index]['events'] as $index => $event) {
+          // item events being sorted by desc timestamp, we can keep only the first one by cid and be confident that it's the latest operation the user did on that item
+          if (!in_array($event['vid'], $met_cids)) {
+            $met_cids[] = $event['vid'];
+          } else {
+            unset($body[$group_index]['items'][$item_index]['events'][$index]);
+          }
+        }
+      } else {
+        $body[$group_index]['items'][$item_index]['edit_count'] = $edited;
+        $body[$group_index]['items'][$item_index]['update_count'] = $count_updates;
+
+        // if it's a regular notif, we erase the events array with the new user-grouped one
+        $body[$group_index]['items'][$item_index]['events'] = $body[$group_index]['items'][$item_index]['users'];
+        unset($body[$group_index]['items'][$item_index]['users']);
+      }
+
+
+      $item_index++;
     }
-    $summary .= "<br />"; //End of summary
 
-    //_____________________________________________________BUILD THE EMAIL_______________________________________________
-    $body = "";//Build the body
-    $body .= theme('gofast-notifications-mailer-digest', array('l' => $l, 'title' => $digest_title, 'content' => $digest_content)); //Top
-    $body .= theme('gofast-notifications-mailer-digest', array('l' => $l, 'title' => "", "content" => $summary)); //Summary
-    $body .= $events_body; //Events
+    $group_index++;
+  }
 
-    $mail = "";//Build the mail structure
-    $mail .= theme('gofast-notifications-mailer-body', array('l' => $l, 'content' => $body)); //Include body
-  //}
-  $end_timer = time()-$start_timer;
-  watchdog('gofast_mail_queue', 'END: Format mail. '.$end_timer.' sec was needed.');
+  //_____________________________________________________BUILD THE EMAIL_______________________________________________
+  $mail = theme('gofast-notifications-node-subheader', array('l' => $l, 'digest_title' => $digest_title, 'digest_content' => $digest_content, 'content' => $body)); //Summary
+  $mail .= theme('gofast-notifications-node-body', array('l' => $l, 'short_format' => $short_format, 'short_without_hours_format' => $short_without_hours_format, 'extra_short_format' => $extra_short_format, "content" => $body)); //Events
+
+  $end_timer = time() - $start_timer;
+  watchdog('gofast_mail_queue', 'END: Format mail. ' . $end_timer . ' sec was needed.');
   return $mail;
 }
 
-
-
-/*function gofast_mail_queue_format_kanban_mail($notifications){
-  //Clear notification (double enteries...)
-  //Warning : Possible performances drop in cron
-  $notifications = json_decode(json_encode($notifications), TRUE);
-  foreach($notifications as $key_occur => $occur){
-    unset ($notifications[$key_occur]['qid']);
-  }
-  $notifications = array_intersect_key($notifications, array_unique(array_map('serialize', $notifications)));
-  $notifications = json_decode(json_encode($notifications));
-  $start_timer = time();
-  watchdog('gofast_mail_queue', 'START: Format mail Kanban');
-  //foreach($notifications as $occur){
-    global $base_url;
-    $item_uid = json_decode(reset($notifications)->uid, TRUE)[0]['recpt'];
-    $item_user = user_load($item_uid);
-    $events_body = "";
-    $user = user_load($item_uid);
-    $myformat= system_date_format_locale($user->language, "medium");
-    $l = array('langcode' => $user->language, 'context' => 'gofast');
-    $digest_content = t("Your latest notifications", array(), $l) . "<span style='float:right;'>" . "<a style='color:darkgrey;text-decoration:none;' href='".$base_url."/subscriptions'>".t('Manage your subscriptions', array(), $l)."</a></span>";
-    $digest_title = gofast_user_display_name($user);
-    $footer = "";
-
-    //________________________________________SUMMARY AND BODY_______________________________________
-    $summary =  "";
-    $items_sort = array();
-    $count_node = 0;
-    foreach($notifications as $item){ //Sort notifications for a user by node id
-      $message = json_decode($item->message, TRUE);
-      $nid = $message['nid']['value'];
-      $node = node_load($nid);//Load node item at it's actual state
-      if(isset($node->og_group_content_ref['und'])){
-        $match = FALSE;
-        foreach($node->og_group_content_ref['und'] as $k_group => $v_group){
-          $group_node = node_load($v_group['target_id']);
-          if(node_access('view', $group_node, $item_user) && $match == FALSE){
-            $group = $group_node->title;
-            $match  = TRUE;
+function gofast_mail_breadcrumb(stdClass $node): string {
+  /*global $base_url;
+  $main_path = "";
+  if(in_array($node->type, ['alfresco_item', 'article'])) {
+      $main_location = array($node->{GOFAST_CMIS_MAIN_LOCATION_FIELD}[LANGUAGE_NONE][0]['value']);
+      $other_locations = isset($node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE]) ? array_map(function ($element) {
+        return ($element['value']);
+      }, $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE]) : array();
+      $locations = array_unique(array_merge($main_location, $other_locations));
+      foreach ($locations as $location ){
+        if (og_user_access('node', $node->nid, 'view', $user)) {
+          $document_folders = explode("/", str_replace("/Sites/", "", $node->{GOFAST_CMIS_MAIN_LOCATION_FIELD}[LANGUAGE_NONE][0]['value']));
+          foreach($document_folders as $folder) {
+              if($folder[0] == "_") $folder = t(substr($folder, 1));
+              // get translated root spaces
+              if(in_array($folder, ["_Groups", "_Public", "_Organisations", "_Extranet"])) $folder = t($folder, array(), array("context" => "gofast"));
+              $main_path .= "<span style='color: #0074A6;'>" . $folder . "</span>&nbsp;/&nbsp;";
           }
+          break;
         }
-        if(!$match){
-          $group = NULL;
-          continue;
+      }
+  }
+  $title = $node->title;
+  $title = $main_path . "<a style='text-decoration:none; color:#0074A6' href='".$base_url."/node/".$node->nid."'>".$title."</a>";*/
+  
+  //GOFAST-7489 For now, remove full breadcrumb in notifications
+  global $base_url;
+  $title = $node->title;
+  $title = "<a style='text-decoration:none; color:#0074A6' href='".$base_url."/node/".$node->nid."'>".$title."</a>";
+  
+  return $title;
+}
+
+/**
+ * Private helper used by gofast_node_deadline_notify() to accumulate notification recipients
+ * and associated data while avoiding duplicating recipients
+ */
+function gofast_node_deadline_notify_accumulate_recipients(&$recpt, $subscribers, $node, $node_sub_type = NULL) {
+  
+  foreach ($subscribers as $subscriber) {    
+    $user = user_load($subscriber[0]);
+    // nodes are sorted by types relevant to the deadline notification, most relevant types having the lowest indexes
+    $node_index = 2;
+    if ($node->type == "kanban" || $node->type == "task"){
+      $node_index = 1;
+    }
+    if ($node->type == "conference")  {
+      $node_index = 0;
+    }
+    // we create a new recipient if it doesn't already exist
+    if (!isset($recpt[$user->mail])) {
+      $recpt[$user->mail] = array(
+        'recpt' => $user->mail,
+        'method' => 'to',
+        'firstname' => $user->ldap_user_givenname[LANGUAGE_NONE][0]['value'],
+        'user_language' => $user->language,
+      );
+      $recpt[$user->mail]['nodes'][$node_index][] = clone $node;
+    }else{
+      // if it already exists, we just add the new node to its registry
+      $recpt[$user->mail]['nodes'][$node_index][] = clone $node;
+    }
+  }
+}
+
+/**
+ *
+ * Once per day, retrieve all node with deadline = tomorrow, then send a email
+ * to related users.
+ */
+function gofast_node_deadline_notify(){
+  $tomorrow = new DateTime('tomorrow');
+  $tomorrow_str = $tomorrow->format('Y-m-d');
+
+  $query = new EntityFieldQuery();
+  // we also take the conferences and tasks node types
+  $query->entityCondition('entity_type', 'node')
+     ->entityCondition('bundle', array('webform'), 'NOT IN')
+     ->propertyCondition('status', 1)
+     ->fieldCondition('field_date', 'value', $tomorrow_str.'%', 'like');
+  $result = $query->execute();
+  
+  $recpt = array();
+  $nids = array();
+
+  if (isset($result['node'])) {
+    $nids = array_unique(array_keys($result['node']));
+    $nodes = node_load_multiple($nids);
+
+    foreach ($nodes as $node) {
+      $subscribers = array();
+      
+      if($node->type == "kanban" || $node->type == "task"){ // do not notify all space members
+        $i = 0;
+        if(isset($node->field_person_in_charge[LANGUAGE_NONE][0]['target_id']) && $node->field_person_in_charge[LANGUAGE_NONE][0]['target_id'] !== 0){
+           $subscribers[$i][0] = $node->field_person_in_charge[LANGUAGE_NONE][0]['target_id'];
+           $i++;
+        } 
+        foreach($node->field_members[LANGUAGE_NONE] as $member){
+          if ($subscribers[$i - 1][0] == $member['target_id']) {
+            continue; 
+          }
+          $subscribers[$i][0] =  $member['target_id'];
+          $i++;
         }
+        if (isset($subscribers)) {
+          gofast_node_deadline_notify_accumulate_recipients($recpt, $subscribers, $node);
+        }
+      }
+      //if node is conference, get conference participants
+      elseif ($node->type == "conference") {
+        $participants = $node->field_existing_participants[LANGUAGE_NONE];
+        $i = 0;
+        foreach($participants as $participant){
+          $subscribers[$i][0] = $participant['target_id']; 
+          $i++;
+        }
+        
+        if (isset($subscribers)) {
+          gofast_node_deadline_notify_accumulate_recipients($recpt, $subscribers, $node);
+        }  
       }
       else{
-        $group = NULL;
+        $og_groups = $node->og_group_content_ref['und'];
+
+        //get group subscriber
+        if (isset($og_groups)) {
+          $met_subscribers = [];
+          foreach ($og_groups as $og_group) {
+            //retrieve subscribers
+            $subscribers = gofast_subscription_ui_api_subscribed_list('og', $og_group['target_id']);
+            if (isset($subscribers)) {
+              // don't sent multiple times the same multifiled documents to the same user
+              $subscribers = array_diff($subscribers, $met_subscribers);
+              gofast_node_deadline_notify_accumulate_recipients($recpt, $subscribers, $node);
+              $met_subscribers = [...$met_subscribers, ...$subscribers];
+            }
+          }
+        }
+      }
+    }
+  }
+
+  //look for kanban todolist item deadline
+  $filters = array(
+    0 => array(
+      'name' => 'status',
+      'value' => '0', //uncompleted
+      'operator' => '='
+    ),
+    1 => array(
+      'name' => 'deadline',
+      'value' => strtotime("tomorrow noon"),
+      'operator' => '<'
+    ),
+    2 => array(
+      'name' => 'deadline',
+      'value' => time(),
+      'operator' => '>'
+    )
+  );
+
+  $items = gofast_kanban_get_user_checklistItems(false, TRUE, $filters);
+
+  if (count($items) > 0) {
+    foreach ($items as $item) {
+
+      $node = node_load($item->task_nid);
+      if ((array_search($node->nid, $nids) !== FALSE)) {
+        // if the item is already in the nids list treated above, then it's already in the recpt list
         continue;
       }
-      if(!isset($group)){
-        continue;
-      }
-      $items_sort[$group][$nid][] = $item; //Sorting... (By group + By nid)
+      //not send email when task is disable
+      if ($node->status == 0)continue;
+      //get item data :
+      $node->item_label = $item->label;
+      $responsible = $node->field_person_in_charge[LANGUAGE_NONE][0]["target_id"];
+      $subscribers = array();
+      $subscribers[] = array(0 => $responsible);
+      if( $item->uid != $responsible){
+        $subscribers[] = array(0 => $item->uid);
+      }      
+      gofast_node_deadline_notify_accumulate_recipients($recpt, $subscribers, $node, 'todolist');  
+      
     }
-    $first = TRUE;
+  }
 
-    //Avoid sendinf empty notification
-    if(count($items_sort) == 0){
-      return NULL;
-    }
+  if($recpt){
+    //Send notification mail
+    foreach ($recpt as $to) {
+      // at this stage, the indexes are in the order of their creations, but we want them in asc order
+      ksort($to['nodes']);
+      $mail_recpt = array();
+      $mail_recpt[] = $to;
 
-    foreach($items_sort as $group => $items){ //Check groups
-      if(!$first){$summary .= "<br />";}
-      else{$first = FALSE;}
-      $summary .= "<strong>".$group."</strong><br />";
-      foreach($items as $nid => $item){ //Check nids
-        $pass = FALSE;
-        $node = node_load($nid);
-        $target = "";
-        if(isset($node->field_emplacement['und'])){
-          foreach($node->field_emplacement['und'] as $space){
-            $target .= $space['value']."<br />";
-          }
-        }
-        $title = $node->title;
-        $title = "<a style='text-decoration:none; color:#0074A6' href='".$base_url."/node/".$node->nid."'>".$title."</a>";
-        $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
-        $node_icon = gofast_mail_queue_fa_png($node_icon);
-        //Variables to increment or set TRUE according to the events:
-        $isNew = FALSE;
-        $updated = FALSE;
-        $edited = 0;
-        $commented = 0;
-        $edit_commented = 0;
-        $pre_updates = array();
-        $updates = NULL;
-        $updates_body = NULL;
-        $updates_summary = NULL;
-        $updates_new = NULL;
-        $com_updates = NULL;
-        $versionning = NULL;
-        $version_loop = FALSE;
-        $versionning_theme = NULL;
-        $versionning_updates = NULL;
-        $count_updates = 0;
-        $info = null;
+      $userName = user_load_by_mail($mail_recpt[0]['recpt'])->ldap_user_givenname[LANGUAGE_NONE][0]['value'];
 
-        foreach($item as $event){//Checking number of events and setting event field
-          $message = json_decode($event->message, TRUE);
-          $event_name = $message['event'];
-          $timestamp = $event->timestamp;
+      $RecipUser = user_load_by_mail($mail_recpt[0]['recpt']);
+      $l = array('langcode' =>  $RecipUser->language, 'context' => 'gofast');
 
-          //Loading the most recent modifier
-          if(isset($message['ruid']['to'])){
-            $user = user_load($message['ruid']['to']);
-          }
-          else if(isset($message['ruid']['from'])){
-            $user = user_load($message['ruid']['from']);
-          }
-          else if(isset($message['ruid']['value'])){
-            $user = user_load($message['ruid']['value']);
-          }
-          else if(isset($message['uid']['to'])){
-            $user = user_load($message['uid']['to']);
-          }
-          else if(isset($message['uid']['from'])){
-            $user = user_load($message['uid']['from']);
-          }
-          else if(isset($message['uid']['value'])){
-            $user = user_load($message['uid']['value']);
-          }
-          //________________________________________________
+      $short_without_hours_format = system_date_format_locale($RecipUser->language, "short_without_hours");
+      $subject = '['.variable_get('site_name').'] '.t('Your deadline on @date', array('@date' => format_date($tomorrow->getTimestamp() , 'custom', $short_without_hours_format, NULL, $l["langcode"])), $l);
+      $title = t('Deadline notification', array(), $l);
+      $footer = t('Message sent from ', array(), $l) . " " . variable_get('site_name');
 
-          if(strcmp($event_name['value'], "NCON") == 0){ //New content event
-            $isNew  = TRUE;
-            $body = NULL;
-            $node_target = $base_url."/node/".$nid;
-            if($message['summary']['value'] !== "" && $message['summary']['value'] !== NULL){
-              $body = $message['summary']['value'];
-            }
-            if($message['body']['value'] !== "" && $message['body']['value'] !== NULL){
-              $body = $message['body']['value'];
-            }
-            $updates_new .= theme('gofast-notifications-node-new', array('l' => $l, 'author_pic' => theme('user_picture', array('account' => $user)), 'author_name' => gofast_user_display_name($user) ,'body' => $body, 'node_link' => $node_target, 'title' => $title, 'is_digest' => FALSE, 'tokens' => NULL, "date" => format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])));
+      $body = theme('gofast-notifications-node-deadline', array(
+        'user' => $RecipUser,
+        'user_name' => $userName,
+        'nodes' => $mail_recpt[0]['nodes'],
+        'deadline' => format_date($tomorrow->getTimestamp() , 'custom', $short_without_hours_format, NULL, $l["langcode"]),
+        'l' => $l,
+      ));
 
-          }
-          else if(strcmp($event_name['value'], "ECON") == 0 || strcmp($event_name['value'], "NDEL") == 0 || strcmp($event_name['value'], "ETDL") == 0){ //Edited content event
-            $edited ++;
-            $pass = FALSE; //Check if a change was detected for this event
-            foreach($message as $message_k => $message_item){
-              if(count($message_item) == 2 && $message_k != "changed" && $message_k != "ruid"){ //Format for each event
-                $isTaxoTerm = $message_k == "criticity" || $message_k == "state" || $message_k == "criticity" || $message_k == "category" || $message_k == "tags" || $message_k == "task_column";
-                $isNodeRef = $message_k == "targets" || $message_k == "groups";
-                $isUserTerm = $message_k == "members" || $message_k == "person_in_charge" || strpos($message_k, "assignee") !== false;
-                $isDateTerm = strpos($message_k, "deadline") !== false;
-                $isTDLStatusTerm = strpos($message_k, "status") !== false;
-                if($isTaxoTerm){ //Translating ids in name
-                  $from = gofast_message_ext_api_get_term($message_item['from']);
-                  $to = gofast_message_ext_api_get_term($message_item['to']);
-                }
-                else if($isNodeRef){
-                  $from = gofast_message_ext_api_get_node_name($message_item['from']);
-                  $to = gofast_message_ext_api_get_node_name($message_item['to']);
-                }else if($isUserTerm){
-                  if(isset($message_item['from']) && $message_item['from']!== null){
-                    $from = gofast_message_ext_api_get_user_name($message_item['from']);
-                  }else{
-                    $from ="";
-                  }
-                  if(isset($message_item['to']) && $message_item['to']!== null){
-                    $to = gofast_message_ext_api_get_user_name($message_item['to']);
-                  }else{
-                    $to = "";
-                  }
-                }else if($isDateTerm){
-                  $from = format_date($message_item['from'], 'custom', $myformat, NULL, $l["langcode"]);
-                  $to = format_date($message_item['to'], 'custom', $myformat, NULL, $l["langcode"]);
-                }else if($isTDLStatusTerm){
-                  if($message_item['from'] == 0){
-                     $from_themed_status = t("Todo", array(), $l);
-                  }else{
-                     $from_themed_status = t("Done", array(), $l);
-                  }
-                  if($message_item['to'] == 0){
-                     $to_themed_status = t("Todo", array(), $l);
-                  }else{
-                     $to_themed_status = t("Done", array(), $l);
-                  }
-                  $from =  $from_themed_status;
-                  $to = $to_themed_status;
-                }
-                else{
-                  $from = $message_item['from'];
-                  $to = $message_item['to'];
-                }
-                //Display only differences for non fulltext fields
-                if($message_k != 'body' && $message_k != 'summary'){
-                  $array_from = explode(",", $from);
-                  $array_to = explode(",", $to);
-                  $array_from_diff = array_diff($array_from, $array_to);
-                  $array_to_diff = array_diff($array_to, $array_from);
-                  $from = implode(",", $array_from_diff);
-                  $to = implode(",", $array_to_diff);
-                }
-                if($from != "" || $to != ""){
-                  $pre_updates[$user->uid][] = array('field' => $message_k, 'from' => $from, 'to' => $to, 'timestamp' => $timestamp);
-                  $pre_updates[$user->uid]['user'] = $user;
-                }
-                $pass = TRUE;
-              }else if($message_k == "ruid"){
-                $pre_updates[$user->uid]['user_ruid'] = user_load($message_item['value']);
-              }
-            }
-          }
-          else if(strcmp($event_name['value'], "NCOM") == 0){ //New comment case
-            $commented ++;
-            $combody = '<pre class="gf-kanban-comment">'.$message['body']['value'].'</pre>';
-            $com_updates[$message['cid']['value']] = theme('gofast-notifications-node-comment', array('node_title' => $title, 'l' => $l, 'author_pic' => theme('user_picture', array('account' => $user)), 'author_name' => gofast_user_display_name($user),'comment_title' => '', 'cid' => $message['cid']['value'], 'nid' => $message['nid']['value'], 'comment_body' => $combody, 'is_digest' => FALSE, 'tokens' => NULL, 'comment_reply_size' => "100",'comment_reply' => t("View task", array(), $l), "date" => format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])));
-          }
-          else if(strcmp($event_name['value'], "ECOM") == 0){ //Edited comment case
-            $edit_commented ++;
-            if(isset($message['title']['to'])){
-              $ctitle = $message['title']['to'];
-            }
-            else{
-              $ctitle = $message['title']['value'];
-            }
+      // we don't need the nodes reference anymore and we really don't want to insert them into db
+      unset($mail_recpt[0]['nodes']);
 
-            if(isset($message['body']['to'])){
-              $cbody =  '<pre class="gf-kanban-comment">'.$message['body']['to'].'</pre>';
-            }
-            else{
-              $cbody = '<pre class="gf-kanban-comment">'.$message['body']['value'].'</pre>';
-            }
-            $com_updates[$message['cid']['value']] = theme('gofast-notifications-node-ecomment', array('node_title' => $title, 'l' => $l, 'author_pic' => theme('user_picture', array('account' => $user)), 'author_name' => gofast_user_display_name($user),'comment_title' => $ctitle, 'cid' => $message['cid']['value'], 'nid' => $message['nid']['value'], 'comment_body' => $cbody, 'is_digest' => FALSE, 'tokens' => NULL, 'comment_reply_size' => "100", 'comment_reply' => t("View task", array(), $l), "date" => format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])));
-          } 
-          
-          else if(strcmp($event_name['value'], "NREV") == 0){
-            $versionning_uid = $user->uid;
-            $current_version = $message['version']['to'];
-            if($versionning == NULL){ //1st versionning message
-              $updated = TRUE;
-              $versionning_user = user_load($versionning_uid);
-              $versionning = $message['version']['to'];
-              if(substr($current_version, -2) == '.0'){ //Major version
-                $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;<span style='color:red;'>".t('Major version', array(), $l)."</span> ".$versionning."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                $version_loop = FALSE;
-              }
-              else{ //Minor version
-                  $version_loop = array('from' => $versionning, 'to' => NULL);
-              }
-            }
-            else{ //Others versionning messages
-              if(is_array($version_loop)){ //We are in a version loop
-                if(user_load($versionning_uid) == $versionning_user){ //User is the same than before
-                  if(substr($current_version, -2) == '.0'){ //Major version, we end the loop
-                    if($version_loop['to'] != NULL){ //Multiple minor versions pending
-                      $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;".t('Minor version', array(), $l)." ".t('from', array(), $l)." ".$version_loop['from']." ".t('to', array(), $l)." ".$version_loop['to']."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($versionning_user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                      $versionning = $message['version']['to'];
-                      $versionning_user = user_load($versionning_uid);
-                      $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;<span style='color:red;'>".t('Major version', array(), $l)."</span> ".$versionning."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                      $version_loop = FALSE;
-                    }
-                    else{ //One minor version pending
-                      $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;".t('Minor version', array(), $l)." ".$version_loop['from']."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($versionning_user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                      $versionning = $message['version']['to'];
-                      $versionning_user = user_load($versionning_uid);
-                      $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;<span style='color:red;'>".t('Major version', array(), $l)."</span> ".$versionning."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                      $version_loop = FALSE;
-                    }
-                  }
-                  else{ //Minor version
-                    $version_loop['to'] = $message['version']['to'];
-                  }
-                }
-                else{ //User have changed
-                  if(is_array($version_loop)){ //We are in a version loop, we end the loop
-                    if(substr($current_version, -2) == '.0'){ //Major version
-                      $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $versionning_user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;".t('Minor version', array(), $l)." ".t('from', array(), $l)." ".$version_loop['from']." ".t('to', array(), $l)." ".$version_loop['to']."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($versionning_user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                      $version_loop = array('from' => $versionning, 'to' => $message['version']['to']);
-                      $versionning_user = user_load($versionning_uid);
-                      $versionning = $message['version']['to'];
-                      $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;<span style='color:red;'>".t('Major version', array(), $l)."</span> ".$versionning."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                      $version_loop = FALSE;
-                    }
-                    else{//Minor version
-                      if($version_loop['to'] != NULL){ //Multiple minor versions pending
-                        $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $versionning_user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;".t('Minor version', array(), $l)." ".t('from', array(), $l)." ".$version_loop['from']." ".t('to', array(), $l)." ".$version_loop['to']."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($versionning_user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                        $versionning_user = user_load($versionning_uid);
-                        $versionning = $message['version']['to'];
-                        $version_loop = array('from' => $message['version']['to'], 'to' => NULL);
-                      }
-                      else{ //One minor version pending
-                        $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $versionning_user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;".t('Minor version', array(), $l)." ".$version_loop['from']."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($versionning_user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                        $versionning_user = user_load($versionning_uid);
-                        $versionning = $message['version']['to'];
-                        $version_loop = array('from' => $message['version']['to'], 'to' => NULL);
-                      }
-                    }
-                  }
-                  else{ //We are not in a version loop
-                    if(substr($current_version, -2) == '.0'){ //Major version
-                      $versionning_user = user_load($versionning_uid);
-                      $versionning = $message['version']['to'];
-                      $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;<span style='color:red;'>".t('Major version', array(), $l)."</span> ".$versionning."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                      $version_loop = FALSE;
-                    }
-                    else{ //Minor version
-                      $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;".t('Minor version', array(), $l)." ".t('from', array(), $l)." ".$version_loop['from']." ".t('to', array(), $l)." ".$version_loop['to']."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($versionning_user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                      $version_loop = array('from' => $versionning, 'to' => $message['version']['to']);
-                      $versionning_user = user_load($versionning_uid);
-                      $versionning = $message['version']['to'];
-                      $version_loop = array('from' => $message['version']['to'], 'to' => NULL);
-                    }
-                  }
-                }
-              }
-              else{ //We are not in a version loop
-                if(substr($current_version, -2) == '.0'){ //Major version
-                  $versionning = $message['version']['to'];
-                  $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;<span style='color:red;'>".t('Major version', array(), $l)."</span> ".$versionning."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-                  $version_loop = FALSE;
-                }
-                else{ //Minor version, we loop
-                    $versionning = $message['version']['to'];
-                    $versionning_uid = $user->uid;
-                    $versionning_user = user_load($versionning_uid);
-                    $version_loop = array('from' => $versionning, 'to' => NULL);
-                }
-              }
-            }
-            $count_updates++;
-          }
-          else if ( strcmp($event_name['value'], "NMEM") == 0
-                  || strcmp($event_name['value'], "DMEM") == 0 ){
-            continue; // Event not included in this notification
-
-          }
-          else{ //It's not a standard notification
-            $mail = $event->message;
-            return $mail;
-          }
-        }
-        variable_set("debugentitynotif", $pre_updates);
-        foreach($pre_updates as $k_updates => $v_updates){//Pass into all modifications made by a single user to sort them
-          $user = user_load($k_updates);
-          $l["context"] = "gofast:gofast_kanban";
-          $modifications = "";
-          $array_modifications_tdl = array();
-
-          $l["context"] = "gofast";
-          $body_is_edited = FALSE;
-          $summary_is_edited = FALSE;
-          $meta_is_edited = FALSE;
-          $todolist_is_edited = FALSE;
-          foreach($v_updates as $item_updates){
-            if(is_array($item_updates)){
-              if(isset($item_updates['from']) && isset($item_updates['to'])){ //Edit found
-                if($item_updates['field'] == 'body'){
-                  $body_is_edited = TRUE;
-                  $ebody = $item_updates['to'];
-                }
-                else if($item_updates['field'] == 'summary'){
-                  $summary_is_edited = TRUE;
-                  $esummary = $item_updates['to'];
-                }
-                else if($item_updates['field'] == 'status'){
-                  $status = $item_updates['to'];
-                  $info .= theme('gofast-notifications-node-info', array('l' => $l, 'author_pic' => theme('user_picture', array('account' => $v_updates['user'])), 'author_name' => gofast_user_display_name($v_updates['user']), 'title' => $title, 'status' => $status, 'is_digest' => FALSE, 'tokens' => NULL, "date" => format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])));
-                }elseif($item_updates['field'] == 'task_columntodo?'){
-                    $todolist_is_edited = TRUE;
-                }
-                else{
-                  //get more readable fields names
-                  $is_todolist_field = gofast_kanban_is_todolist_field($item_updates['field']);
-                  $readable_name = gofast_kanban_get_readable_name_specific_fields($item_updates['field']);
-
-                    $temp_modification = "<tr style='border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd; font-size: 0.8em;'>";
-                    $temp_modification .= "<td style='width: 115px; font-size:1em;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;color:#666666; border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd;'><center>".t(ucfirst($readable_name),array(), $l)."</center></td>";
-                    $array_from = explode(',', $item_updates['from']);
-                    $array_to = explode(',', $item_updates['to']);
-                      if($item_updates['from'] == ""){
-                        $temp_modification .= "<td style='border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd;'></td>";
-                      }
-                      else{
-                        $temp_modification .= "<td style='background-color: rgba(255, 77, 77, 0.25); border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd;'><center>";
-                        foreach($array_from as $item_from){
-                          $temp_modification .= "<span style='font-size:1em;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;color:#666666;'>".t($item_from, array(), $l)."</span><br />";
-                        }
-                        $temp_modification .= "</center></td>";
-                      }
-                      if($item_updates['to'] != ""){
-                        $temp_modification .= "<td style='background-color: rgba(91, 255, 77, 0.25); border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd;'><center>";
-                        foreach($array_to as $item_to){
-                          $temp_modification .= "<span style='font-size:1em;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;color:#666666;'>".t($item_to, array(), $l)."</span><br />";
-                        }
-                        $temp_modification .= "</center></td>";
-                      }
-                      else{
-                        $temp_modification .= "<td style='border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd;'></td>";
-                      }
-                    $temp_modification .= "";
-                    $temp_modification .= "<td style='width: 115px; border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd;'><span style='font-size:0.8em;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;color:#666666;'>".format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></td>";
-                    $temp_modification .= "</tr>";
-
-                    //we are in a todolist item, so store the theme into another variable
-                  if($is_todolist_field){
-                      //build an array containing themed modifications foreach todolist item (ciid)
-                      $ciid = explode("_", $item_updates['field'])[1];
-                      $tdl_label = explode("_", $item_updates['field'])[2];
-                      //specific case for global progression
-                      if($ciid == "Global Progression"){
-                        $array_modifications_tdl[$ciid."_".$tdl_label][0] = $item_updates['to'];
-                      }else{
-                        $array_modifications_tdl[$ciid."_".$tdl_label][] = $temp_modification;
-                      }
-                      $meta_is_edited = TRUE;
-                  }else{
-                      if($modifications == ""){
-                            $l["context"] = "gofast:gofast_kanban";
-                            $modifications = "<table id='edits-metadatas' style='width:100%; border-left: 1px solid #dddddd; border-top: 1px solid #dddddd; border-radius:5px;'><tr>";
-                            $modifications .= "<th style='border-right: 1px solid #dddddd; border-bottom: 1px solid #bbbbbb; border-bottom: 1px solid #dddddd; color: #444444;'>".t('Field', array(), $l)."</th>";
-                            $modifications .= "<th style='border-right: 1px solid #dddddd; border-bottom: 1px solid #bbbbbb; border-bottom: 1px solid #dddddd; color: #444444;'>".t('Remove', array(), $l)."</th>";
-                            $modifications .= "<th style='border-right: 1px solid #dddddd; border-bottom: 1px solid #bbbbbb; border-bottom: 1px solid #dddddd; color: #444444;'>".t('Added', array(), $l)."</th>";
-                            $modifications .= "<th style='border-right: 1px solid #dddddd; border-bottom: 1px solid #bbbbbb; border-bottom: 1px solid #dddddd; color: #444444;'>".t('Date', array(), $l)."</th>";
-                            $modifications .= "</tr>";
-                            $l["context"] = "gofast";
-                      }
-                       $modifications .= $temp_modification;
-                       $meta_is_edited = TRUE;
-                  }
-
-                }
-                if($body_is_edited){
-                  if(isset($updates_body_timestamp) && $updates_body_timestamp < $item_updates['timestamp']){
-                    $updates_body_timestamp = $item_updates['timestamp'];
-                    $updates_body = theme('gofast-notifications-node-edited', array('l' => $l, 'author_pic' => theme('user_picture', array('account' => $v_updates['user'])), 'author_name' => gofast_user_display_name($v_updates['user']) ,'body' => $ebody, 'title' => $title, 'is_digest' => FALSE, 'tokens' => NULL, "date" => format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])));
-                  }
-                  else{
-                    $updates_body_timestamp = $item_updates['timestamp'];
-                    $updates_body = theme('gofast-notifications-node-edited', array('l' => $l, 'author_pic' => theme('user_picture', array('account' => $v_updates['user'])), 'author_name' => gofast_user_display_name($v_updates['user']) ,'body' => $ebody, 'title' => $title, 'is_digest' => FALSE, 'tokens' => NULL, "date" => format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])));
-                  }
-                }
-                if($summary_is_edited){
-                  if(isset($updates_summary_timestamp) && $updates_summary_timestamp < $item_updates['timestamp']){
-                    $updates_summary_timestamp = $item_updates['timestamp'];
-                    $updates_summary = theme('gofast-notifications-node-edited', array('l' => $l, 'author_pic' => theme('user_picture', array('account' => $v_updates['user'])), 'author_name' => gofast_user_display_name($v_updates['user']) ,'body' => $esummary, 'title' => $title, 'is_digest' => FALSE, 'tokens' => NULL, "date" => format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])));
-                  }
-                  else{
-                    $updates_summary_timestamp = $item_updates['timestamp'];
-                    $updates_summary = theme('gofast-notifications-node-edited', array('l' => $l, 'author_pic' => theme('user_picture', array('account' => $v_updates['user'])), 'author_name' => gofast_user_display_name($v_updates['user']) ,'body' => $esummary, 'title' => $title, 'is_digest' => FALSE, 'tokens' => NULL, "date" => format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])));
-                  }
-                }
-              }
-              /*else{ //Edit not found
-                $modifications .= "<span>".t('This content has been edited', array(), $l)."</span>
-                <br /><span style='float:right;font-size: 12px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;color:#666666;'>".format_date($item_updates['timestamp'])."</span><br /><br />";
-              }*/
-        /*    }
-          }
-          $modifications .= "</table>";
-
-          if($meta_is_edited){
-            $updates .= theme('gofast-notifications-node-kanban-event', array('node_title' => $title, 'l' => $l, 'author_pic' => theme('user_picture', array('account' => $v_updates['user'])), 'author_name' => gofast_user_display_name($v_updates['user_ruid']),'modifications' => $modifications, 'modifications_todolist' => $array_modifications_tdl , 'is_digest' => FALSE, 'tokens' => NULL, "date" => ""));
-          }
-
-        }
-        $info = $info.$updates_body.$updates_summary;
-
-        //________________________________________VERSIONNING___________________________________________________
-        if($updated){
-          if(is_array($version_loop)){ //We end version loop
-            if(isset($version_loop['to'])){ //Multiple pendings
-            $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;".t('Minor version', array(), $l)." ".t('from', array(), $l)." ".$version_loop['from']." ".t('to', array(), $l)." ".$version_loop['to']."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-            }
-            else{ //One pending
-            $versionning_updates .= "<div style='float:left; margin-top: 5px;'>".theme('user_picture', array('account' => $user, 'dimensions' => array('width' => '30px', 'height' => '30px')))."</div>&emsp;".t('Minor version', array(), $l)." ".$version_loop['from']."<br /><span style='color: grey; font-size:11px;'>&emsp;&emsp;".t("Updated by", array(), $l)." ".gofast_user_display_name($user)." . ".  format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])."</span></span><br /><br />";
-            }
-            if(isset($message['version']['to'])){
-              $versionning = $message['version']['to'];
-            }
-            /*else if(isset($message['version']['value'])){
-              $versionning = $message['version']['value'];
-            }*/
-          /*  $version_loop = FALSE;
-          }
-          $versionning_theme .= theme('gofast-notifications-node-version', array('l' => $l, 'is_digest' => FALSE, 'tokens' => NULL, 'version' => NULL, 'version' => $versionning, 'version_message' => $versionning_updates, 'count_version' => $count_updates));
-        }
-        //_______________________________________SUMMARY________________________________________________________
-        $summary .= "<div id='sum-item'><span>   <a style='color:blue;text-decoration:none;' href='".$base_url."/node/".$nid."' target='_blank'>&emsp;<span style='float:left;'>".$node_icon."</span>".$title."</a> </span>";
-        if($isNew){ //Seting "NEW" message
-          $summary .= "<span style='color:red;font-size:8px;'>".t("NEW ", array(), $l)."</span>";
-        }
-        if($updated){ //Seting "VERSION UPDATE" message
-          $summary .= "<span style='color:red;font-size:8px;'>".t("VERSION UPDATE ", array(), $l)."</span>";
-        }
-        $summary .= "<span style='float:right;color:grey;font-size:10;'>";
-        //Here we are setting strings according to the modifications
-        if($edited > 0){
-          $summary .= "<a style='color:grey;' href='#u-node".$count_node."'>".t("edited nb_editions times.", array('nb_editions' => $edited), $l)."</a> ";
-        }
-         if($commented > 0){
-          $summary .= "<a style='color:grey;' href='#c-node".$count_node."'>".t("nb_comment new comment(s).", array('nb_comment' => $commented), $l)."</a> ";
-        }
-        if($edit_commented > 0){
-          $summary .= "<a style='color:grey;' href='#c-node".$count_node."'>".t("nb_ecomments edited comment(s).", array('nb_ecomments' => $edit_commented), $l)."</a> ";
-        } 
-        $summary .= "</span></div><div style='width:100%; height:1px;'></div>";
-        //____________________________________________________BODY_________________________________________________
-        $details = "";
-        $date = "";
-        $node_updates = "";
-
-        if($info || $updates_new){
-          $node_updates = '<p style="font-size:18px; border-right: 1px solid #dddddd;border-bottom: 1px solid #dddddd;background-color: #bce8f1; opacity: 0.9;padding: 2px; text-align: center;">'.t("Info", array(), array('context' => "gofast:mail_queue")).'</p>'.$updates_new.$info;
-        }
-        if($com_updates){
-          $node_updates .= "<p style='font-size:18px; background-color: #FFEFDF; border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd; padding: 2px; text-align: center;'>".t('Comments', array(), $l)."</p>";
-          foreach($com_updates as $com_update){
-            $node_updates .= $com_update;
-          }
-        } 
-        if($updates || $updated){
-          $node_updates .= '<a href="#top" style="font-size: 10px; font-weight: bold; text-decoration: none;color:blue; float: right;">TOP</a><div style="width: 100%; height:15px;"></div>'."<p style='font-size:18px; background-color: #DEFFCF; padding: 2px;border-right: 1px solid #dddddd;border-bottom: 1px solid #dddddd;text-align: center;'>".t('Kanban\'s updates', array(), $l)."</p>".$versionning_theme.$updates;
-        }
-        if($updates_kanban){
-          $node_updates .= '<a href="#top" style="font-size: 10px; font-weight: bold; text-decoration: none;color:blue; float: right;">TOP</a><div style="width: 100%; height:15px;"></div>'."<p style='font-size:18px; background-color: #DEFFCF; padding: 2px;border-right: 1px solid #dddddd;border-bottom: 1px solid #dddddd;text-align: center;'>".t('Todolist\'s updates', array(), $l)."</p>".$versionning_theme.$updates_kanban;
-        }
-        if($com_updates != NULL){
-          $com_updates = "<p style='font-size:18px; background-color: #FFEFDF; border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd; padding: 2px; text-align: center;'>".t('Comments', array(), $l)."</p>".$com_updates; //Start of comments
-        }
-        if($updated && $updates){
-          $updates = $versionning_theme.'<a href="#top" style="font-size: 10px; font-weight: bold; text-decoration: none;color:blue; float: right;">TOP</a><div style="width: 100%; height:15px;"></div>'."<p style='font-size:18px; background-color: #DEFFCF; padding: 2px;border-right: 1px solid #dddddd;border-bottom: 1px solid #dddddd; text-align: center;'>".t('Document\'s editions', array(), $l)."</p>".$updates;
-        }
-        else if ($updated){
-          $updates = $versionning_theme.$updates;
-        }
-        else if($updates){
-         $updates = '<a href="#top" style="font-size: 10px; font-weight: bold; text-decoration: none;color:blue; float: right;">TOP</a><div style="width: 100%; height:15px;"></div>'."<p style='font-size:18px; background-color: #DEFFCF; padding: 2px;border-right: 1px solid #dddddd;border-bottom: 1px solid #dddddd;text-align: center;'>".t('Document\'s editions', array(), $l)."</p>".$updates;
-        }
-        if(isset($updates_new) || isset($info)){
-          $com_updates = '<p style="font-size:18px; border-right: 1px solid #dddddd;border-bottom: 1px solid #dddddd;background-color: #5bc0de; opacity: 0.9;padding: 2px; text-align: center;">'.t("Info", array(), array('context' => "gofast:mail_queue")).'</p>'.$info.$updates_new.$com_updates; //Adding New contents
-        }
-        $events_body .= theme('gofast-notifications-node-update', array('l' => $l, 'count_node' => $count_node, 'isNew' => $isNew, 'isRev' => $updated, 'group' => $group, 'node_icon' => $node_icon, 'node_title' => $title, 'com_updates' => NULL, 'updates' => $node_updates, 'spaces' => $target, 'details' => $details, 'date' => $date));
-        $count_node ++;
+      $mail = array(
+        'body' => $body,
+        'title' => $title,
+        'subject' => $subject,
+        'footer' => $footer
+      );
+      $ret = gofast_mail_queue_api_queue_ext($mail, $mail_recpt, time());
+      if ($ret == TRUE) {
+        flood_register_event('print_mail');
+        $ok = TRUE;
       }
     }
-    $summary .= "<br />"; //End of summary
-
-    //_____________________________________________________BUILD THE EMAIL_______________________________________________
-    $body = "";//Build the body
-    $body .= theme('gofast-notifications-mailer-digest', array('l' => $l, 'title' => $digest_title, 'content' => $digest_content)); //Top
-    $body .= theme('gofast-notifications-mailer-digest', array('l' => $l, 'title' => "", "content" => $summary)); //Summary
-    $body .= $events_body; //Events
-
-    $mail = "";//Build the mail structure
-    $mail .= theme('gofast-notifications-mailer-body', array('l' => $l, 'content' => $body)); //Include body
-  //}
-  $end_timer = time()-$start_timer;
-  watchdog('gofast_mail_queue', 'END: Format mail KANBAN. '.$end_timer.' sec was needed.');
-  return $mail;
-}*/
+  }
+}
 
 /**
  * Return all kind of available event
@@ -1980,9 +1431,8 @@ function gofast_mail_queue_clean_notifications(&$notifications) {
 }
 
 /**
+ * @todo merge this with the centralized gofast_mail_queue_format function
  * Build notification mail for space administrator (membership activity)
- * @param array() $notifications
- * @return type
  */
 function gofast_mail_queue_format_membership_mail($notifications){
 
@@ -1998,7 +1448,7 @@ function gofast_mail_queue_format_membership_mail($notifications){
   $events_body = "";
   $myformat = system_date_format_locale($user->language, "medium");
   $l = array('langcode' => $user->language, 'context' => 'gofast');
-  $digest_content = t("Your latest space administrator notifications (membership)", array(), $l) . "<span style='float:right;'>" . "<a style='color:darkgrey;text-decoration:none;' href='" . $base_url . "/subscriptions'>" . t('Manage your subscriptions', array(), $l) . "</a></span>";
+  $digest_content = t("Your latest space administrator notifications (membership)", array(), $l) . "<span style='float:right;'>" . "<a style='color:#3F4254;text-decoration:none;' href='" . $base_url . "/subscriptions'>" . t('Manage your subscriptions', array(), $l) . "</a></span>";
   $digest_title = gofast_user_display_name($user);
   $footer = "";
 
@@ -2061,6 +1511,8 @@ function gofast_mail_queue_format_membership_mail($notifications){
         $body = NULL;
         $node_target = $base_url . "/node/" . $nid;
         $author = gofast_user_get_display_name_sql($message['ruid']['value']);
+        $path = rawurlencode($message['path']['value']);
+        $link_path = "<a href='" . $node_target . "?&path=" . $path . "#ogmembers'>" . $message['path']['value'] . "</a>";
 
         if (strcmp($event_name['value'], "NMEM") == 0) { // New Member in space
           $isNew = TRUE;
@@ -2074,11 +1526,11 @@ function gofast_mail_queue_format_membership_mail($notifications){
 
         if ('user' == $message['new_member_type']['value']) {
           $user_added = user_load($message['new_member_id']['value']);
-          $user_pict = theme('user_picture', array('account' => $user_added));
+          $user_pict = theme('user_picture', array('account' => $user_added, 'dimensions' => 40, 'attributes' => ['style' => "border-radius: 5px; width:40px;"]));
           $user_name = gofast_user_display_name($user_added);
         }else{
           $userlist_added = entity_load_single('userlist', $message['new_member_id']['value']);
-          $user_pict = theme('gofast_userlist_picture', array('member' => $userlist_added));
+          $user_pict = theme('gofast_userlist_picture', array('member' => $userlist_added, 'dimensions' => 40, 'attributes' => ['style' => "border-radius: 5px; width:40px;"]));
           $user_name = $userlist_added->name;
         }
 
@@ -2092,14 +1544,15 @@ function gofast_mail_queue_format_membership_mail($notifications){
                       'is_digest' => FALSE,
                       'tokens' => NULL,
                       'author' =>$author,
-                      "date" => format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])
+                      "date" => format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"]),
+                      "path" => $link_path
                     ));
 
       }
       $info = $info . $updates . $updates_summary;
 
       //_______________________________________SUMMARY________________________________________________________
-      $summary .= "<div id='sum-item'><span>   <a style='color:blue;text-decoration:none;' href='" . $base_url . "/node/" . $nid . "' target='_blank'>&emsp;<span style='float:left;'>" . $node_icon . "</span>" . $title . "</a> </span>";
+      $summary .= "<div id='sum-item'><span>   <a style='color:#007bff;text-decoration:none;' href='" . $base_url . "/node/" . $nid . "' target='_blank'>&emsp;<span>" . $node_icon . "</span>" . $title . "</a> </span>";
       if ($isNew) { //Seting "NEW" message
         $summary .= "<span style='color:green;font-size:8px;'>" . t("NEW MEMBERS (%nb) ", array('%nb' => $count_new_membership), $l) . "</span>";
       }
@@ -2127,240 +1580,54 @@ function gofast_mail_queue_format_membership_mail($notifications){
   return $mail;
 }
 
-/**
- * Build mail body for comments notfication
- * @global type $base_url
- * @param type $notifications
- * @return type $mail body
- * 
- */
-function gofast_mail_queue_format_mail_comment($notifications){
-  //Clear notification (double enteries...)
-  //Warning : Possible performances drop in cron
-  $notifications = json_decode(json_encode($notifications), TRUE);
-  foreach($notifications as $key_occur => $occur){
-    unset ($notifications[$key_occur]['qid']);
-  }
-  $notifications = array_intersect_key($notifications, array_unique(array_map('serialize', $notifications)));
-  $notifications = json_decode(json_encode($notifications));
-  $start_timer = time();
-  watchdog('gofast_mail_queue', 'START: Format mail');
-  //foreach($notifications as $occur){
-    global $base_url;
-    $item_uid = json_decode(reset($notifications)->uid, TRUE)[0]['recpt'];
-    $item_user = user_load($item_uid);
-    $events_body = "";
-    $user = user_load($item_uid);
-    $myformat= system_date_format_locale($user->language, "medium");
-    $l = array('langcode' => $user->language, 'context' => 'gofast');
-    $digest_content = t("Your latest notifications of comments", array(), $l) . "<span style='float:right;'>" . "<a style='color:darkgrey;text-decoration:none;' href='".$base_url."/subscriptions'>".t('Manage your subscriptions', array(), $l)."</a></span>";
-    $digest_title = gofast_user_display_name($user);
-    $footer = "";
-
-    //________________________________________SUMMARY AND BODY_______________________________________
-    $summary =  "";
-    $items_sort = array();
-    $count_node = 0;
-    foreach($notifications as $item){ //Sort notifications for a user by node id
-      $message = json_decode($item->message, TRUE);
-      $nid = $message['nid']['value'];
-      $node = node_load($nid);//Load node item at it's actual state
-      if(isset($node->og_group_content_ref['und'])){
-        $match = FALSE;
-        foreach($node->og_group_content_ref['und'] as $k_group => $v_group){
-          $group_node = node_load($v_group['target_id']);
-          $user_gids = gofast_og_get_spaces_by_user($item_user, TRUE, FALSE);
-          if(in_array($group_node->nid, $user_gids, TRUE) && $match == FALSE){
-            $group = $group_node->title;
-            $match  = TRUE;
-          }
-        }
-        if(!$match){
-          $group = NULL;
-          continue;
-        }
-      }
-      else{
-        $group = NULL;
-        continue;
-      }
-      if(!isset($group)){
-        continue;
-      }
-      $items_sort[$group][$nid][] = $item; //Sorting... (By group + By nid)
-    }
-    $first = TRUE;
-
-    //Avoid sendinf empty notification
-    if(count($items_sort) == 0){
-      return NULL;
-    }
-
-    foreach($items_sort as $group => $items){ //Check groups
-      if(!$first){$summary .= "<br />";}
-      else{$first = FALSE;}
-      $summary .= "<strong>".$group."</strong><br />";
-      foreach($items as $nid => $item){ //Check nids
-        $pass = FALSE;
-        $node = node_load($nid);
-        $target = "";
-        if(isset($node->field_emplacement['und'])){
-          foreach($node->field_emplacement['und'] as $space){
-            $target .= $space['value']."<br />";
-          }
-        }
-        $title = $node->title;
-        $title = "<a style='text-decoration:none; color:#0074A6' href='".$base_url."/node/".$node->nid."'>".$title."</a>";
-        $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
-        $node_icon = gofast_mail_queue_fa_png($node_icon);
-       
-        //Variables to increment or set TRUE according to the events:
-        $isNew = FALSE;
-        $updated = FALSE;
-        $commented = 0;
-        $edit_commented = 0;
-        $com_updates = NULL;      
-
-        foreach($item as $event){//Checking number of events and setting event field
-          $message = json_decode($event->message, TRUE);
-          $event_name = $message['event'];
-          $timestamp = $event->timestamp;
-
-          //Loading the most recent modifier
-          if(isset($message['ruid']['to'])){
-            $user = user_load($message['ruid']['to']);
-          }
-          else if(isset($message['ruid']['from'])){
-            $user = user_load($message['ruid']['from']);
-          }
-          else if(isset($message['ruid']['value'])){
-            $user = user_load($message['ruid']['value']);
-          }
-          else if(isset($message['uid']['to'])){
-            $user = user_load($message['uid']['to']);
-          }
-          else if(isset($message['uid']['from'])){
-            $user = user_load($message['uid']['from']);
-          }
-          else if(isset($message['uid']['value'])){
-            $user = user_load($message['uid']['value']);
-          }
-          //________________________________________________
-
-          if(strcmp($event_name['value'], "NCOM") == 0){ //New comment case
-            $commented ++;
-            $combody = $message['body']['value'];
-            $com_updates[$message['cid']['value']] = theme('gofast-notifications-node-comment', array('node_title' => $title, 'l' => $l, 'author_pic' => theme('user_picture', array('account' => $user)), 'author_name' => gofast_user_display_name($user),'comment_title' => $message['title']['value'], 'cid' => $message['cid']['value'], 'nid' => $message['nid']['value'], 'comment_body' => $combody, 'is_digest' => FALSE, 'tokens' => NULL, 'comment_reply' => t("Reply", array(), $l), "date" => format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])));
-          }
-          else if(strcmp($event_name['value'], "ECOM") == 0){ //Edited comment case
-            $edit_commented ++;
-            if(isset($message['title']['to'])){
-              $ctitle = $message['title']['to'];
-            }
-            else{
-              $ctitle = $message['title']['value'];
-            }
-
-            if(isset($message['body']['to'])){
-              $cbody = $message['body']['to'];
-            }
-            else{
-              $cbody = $message['body']['value'];
-            }
-            $com_updates[$message['cid']['value']] = theme('gofast-notifications-node-ecomment', array('node_title' => $title, 'l' => $l, 'author_pic' => theme('user_picture', array('account' => $user)), 'author_name' => gofast_user_display_name($user),'comment_title' => $ctitle, 'cid' => $message['cid']['value'], 'nid' => $message['nid']['value'], 'comment_body' => $cbody, 'is_digest' => FALSE, 'tokens' => NULL, 'comment_reply' => t("Reply", array(), $l), "date" => format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"])));
-          }
-        /* else{ //It's not a standard notification
-            $mail = $event->message;
-            return $mail;
-          }*/
-        }
-        
-        //_______________________________________SUMMARY________________________________________________________
-        $summary .= "<div id='sum-item'><span>   <a style='color:blue;text-decoration:none;' href='".$base_url."/node/".$nid."' target='_blank'>&emsp;<span style='float:left;'>".$node_icon."</span>".$title."</a> </span>";
-        
-        if($commented > 0){
-          $summary .= "<a style='color:grey;' href='#c-node".$count_node."'>".t("nb_comment new comment(s).", array('nb_comment' => $commented), $l)."</a> ";
-        }
-        if($edit_commented > 0){
-          $summary .= "<a style='color:grey;' href='#c-node".$count_node."'>".t("nb_ecomments edited comment(s).", array('nb_ecomments' => $edit_commented), $l)."</a> ";
-        }
-        $summary .= "</span></div><div style='width:100%; height:1px;'></div>";
-        //____________________________________________________BODY_________________________________________________
-        $details = "";
-        $date = "";
-        $node_updates = "";
-        $node_updates .= "<p style='font-size:18px; background-color: #FFEFDF; border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd; padding: 2px; text-align: center;'>".t('Comments detail', array(), $l)."</p>";
-
-        if($com_updates){
-          foreach($com_updates as $com_update){
-            $node_updates .= $com_update;
-          }
-        }
-       
-        $events_body .= theme('gofast-notifications-node-update', array('l' => $l, 'count_node' => $count_node, 'isNew' => $isNew, 'isRev' => $updated, 'group' => $group, 'node_icon' => $node_icon, 'node_title' => $title, 'com_updates' => NULL, 'updates' => $node_updates, 'spaces' => $target, 'details' => $details, 'date' => $date));
-        $count_node ++;
-      }
-    }
-    $summary .= "<br />"; //End of summary
-
-    //_____________________________________________________BUILD THE EMAIL_______________________________________________
-    $body = "";//Build the body
-    $body .= theme('gofast-notifications-mailer-digest', array('l' => $l, 'title' => $digest_title, 'content' => $digest_content)); //Top
-    $body .= theme('gofast-notifications-mailer-digest', array('l' => $l, 'title' => "", "content" => $summary)); //Summary
-    $body .= $events_body; //Events
-
-    $mail = "";//Build the mail structure
-    $mail .= theme('gofast-notifications-mailer-body', array('l' => $l, 'content' => $body)); //Include body
-  //}
-  $end_timer = time()-$start_timer;
-  watchdog('gofast_mail_queue', 'END: Format mail. '.$end_timer.' sec was needed.');
-  return $mail;
-
-}
 /*
  * Turn font awsome icons into png icons (stored in the img folder of the module)
  */
-function gofast_mail_queue_fa_png($input, $little = false){
-  if($little){
-    $size = "class='little'";
-  }
+function gofast_mail_queue_fa_png($input, $width = "", $color = ""){
   $matcher = array(
-    'fa-file-word-o' => 'word.png',
-    'fa-file-o file-other' => 'other.png',
-    'fa-file-powerpoint-o' => 'powerpoint.png',
-    'fa-home' => 'home.png',
-    'fa-globe' => 'globe.png',
-    'fa-file-text-o' => 'text.png',
-    'fa-comments-o' => 'comments.png',
-    'fa-file-code-o' => 'code.png',
-    'fa-file-image-o' => 'image.png',
-    'fa-sitemap' => 'sitemap.png',
-    'fa-newspaper' => 'newspaper.png',
-    'fa-file-pdf-o pdf-image' => 'pdf-image.png',
-    'fa-file-pdf-o' => 'pdf.png',
-    'fa-share-alt' => 'share.png',
-    'fa-file-excel-o' => 'excel.png',
-    'fa-users' => 'users.png',
-    'fa-video-camera' => 'conference.png',
-    'fa-file-sound-o' => 'audio.png',
-    'fa-list-alt file-webform' => 'webform.png',
-    'fa-file-o file-visio' => 'visio.png',
-    'fa-file-video-o' => 'video.png',
-    'fa-file-image-o image-svg' => 'svg.png',
-    'fa-id-card-o' => 'profile.png',
-    'fa-file-text-o file-odg' => 'odg.png',
-    'fa-envelope-o' => 'mail.png',
-    'fa-file-o file-cao' => 'cao.png',
-    'fa-file-archive-o' => 'archive.png',
-    'fa-trello' => "trello.png"
+    'fa-file-word' => 'word',
+    'fa-file file-other' => 'other',
+    'fa-file-powerpoint' => 'powerpoint',
+    'fa-home' => 'home',
+    'fa-globe' => 'globe',
+    'fa-file-alt' => 'text',
+    'fa-comments forums' => 'comments',
+    'fa-file-code' => 'code',
+    'fa-file-image' => 'image',
+    'fa-sitemap' => 'sitemap',
+    'fa-newspaper' => 'ballot',
+    'fa-file-pdf pdf-image' => 'pdf-image',
+    'fa-file-pdf' => 'pdf',
+    'fa-share-alt' => 'share',
+    'fa-file-excel' => 'excel',
+    'fa-users' => 'users',
+    'fa-video' => 'conference',
+    'fa-file-audio' => 'audio',
+    'fa-list-alt file-webform' => 'webform',
+    'fa-file file-visio' => 'visio',
+    'fa-file-video' => 'video',
+    'fa-file-image image-svg' => 'svg',
+    'fa-id-card' => 'profile',
+    'fa-file-text file-odg' => 'odg',
+    'fa-envelope' => 'mail',
+    'fa-file file-cao' => 'cao',
+    'fa-file-archive' => 'archive',
+    'fa-trello' => "trello",
+    'fa-flag file-task' => "flag"
   );
   foreach($matcher as $fa => $png){
     if(strpos($input, $fa)){
-      $output = str_replace('<img', '<img ' . $size . " ",theme('gofast-notifications-node-icon', array('icon' => $png)));
+      $output = theme('gofast-notifications-node-icon', array(
+        'icon' => $png . (strlen($color) > 0 ? '-' . $color : '') . '.png',
+        'width' => $width,
+      ));
       return $output;
     }
   }
-  $output = str_replace('<img', '<img ' . $size . " ", theme('gofast-notifications-node-icon', array('icon' => 'other.png')));
+  $output = theme('gofast-notifications-node-icon', array(
+    'icon' => 'other' . (strlen($color) > 0 ? '-' . $color : '') . '.png',
+    'width' => $width,
+  ));
   return $output;
 }
 /**
@@ -2371,7 +1638,7 @@ function gofast_mail_queue_fa_png($input, $little = false){
  * @param $time
  *  Optional: Set the time for timestamp filter
  * @return
- *  An array of matched notifications formated as:
+ *  An array of matched notifications formatted as:
  *
  *  [uid1] => array
  *        ['0'] => array
@@ -2413,7 +1680,7 @@ function gofast_mail_queue_api_sort_match($timestamp_filter = FALSE, $time = NUL
   $return = array();
   $limiter = 0;
   foreach($query as $occur){ //1st loop in datas
-      
+
     $uid = json_decode($occur->uid, TRUE)[0]['recpt'];
 
     if(!in_array($uid, $uid_checked, TRUE)){
@@ -2444,7 +1711,7 @@ function gofast_mail_queue_api_sort_match($timestamp_filter = FALSE, $time = NUL
     }
   }
   return $return;
-  
+
 }
 /**
  * Implements hook_theme
@@ -2463,8 +1730,11 @@ function gofast_mail_queue_theme(){
   $theme['gofast-notifications-mailer-body'] = array(
     'template' => 'tpl/gofast-notifications-mailer-body'
   );
-  $theme['gofast-notifications-node-comment'] = array(
-    'template' => 'tpl/gofast-notifications-node-comment'
+  $theme['gofast-notifications-node-subheader'] = array(
+    'template' => 'tpl/gofast-notifications-node-subheader'
+  );
+  $theme['gofast-notifications-node-body'] = array(
+    'template' => 'tpl/gofast-notifications-node-body'
   );
   $theme['gofast-notifications-node-update'] = array(
     'template' => 'tpl/gofast-notifications-node-update'
@@ -2472,29 +1742,17 @@ function gofast_mail_queue_theme(){
   $theme['gofast-notifications-node-event'] = array(
     'template' => 'tpl/gofast-notifications-node-event'
   );
-  $theme['gofast-notifications-node-version'] = array(
-    'template' => 'tpl/gofast-notifications-node-version'
-  );
-  $theme['gofast-notifications-node-ecomment'] = array(
-    'template' => 'tpl/gofast-notifications-node-ecomment'
-  );
-  $theme['gofast-notifications-node-new'] = array(
-    'template' => 'tpl/gofast-notifications-node-new'
-  );
-  $theme['gofast-notifications-node-edited'] = array(
-    'template' => 'tpl/gofast-notifications-node-edited'
-  );
   $theme['gofast-notifications-node-footer'] = array(
     'template' => 'tpl/gofast-notifications-node-footer'
   );
   $theme['gofast-notifications-node-deadline'] = array(
      'template' => 'tpl/gofast-notifications-node-deadline'
    );
+   $theme['gofast-notifications-node-deadline-element'] = array(
+    'template' => 'tpl/gofast-notifications-node-deadline-element'
+  );
   $theme['gofast-notifications-node-icon'] = array(
      'template' => 'tpl/gofast-notifications-node-icon'
-   );
-  $theme['gofast-notifications-node-info'] = array(
-     'template' => 'tpl/gofast-notifications-node-info'
    );
   $theme['gofast-notifications-node-new-member'] = array(
      'template' => 'tpl/gofast-notifications-node-new-member'

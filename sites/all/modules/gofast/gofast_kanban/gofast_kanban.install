@@ -1,13 +1,66 @@
 <?php
 
+
+
+define('GOFAST_COMMENT_EDITED_BY', 'field_edited_by');
+define('GOFAST_COMMENT_EDITED_TIMESTAMP', 'field_edited_timestamp');
+
 /**
  * Implements HOOK_install()
  */
 function gofast_kanban_install() {
-  
-  
-}
+    
+   // Create the field that will store comment editable info
+  if (! field_read_field(GOFAST_COMMENT_EDITED_BY, array('include_inactive' => true))) {
+    $field = array(
+      'field_name' => GOFAST_COMMENT_EDITED_BY,
+      'type' => 'number_integer',
+      'module' => 'number',
+      'cardinality' => 1,
+      'translatable' => FALSE,
+      'locked' => FALSE,
+      'settings' => array(),
+      'storage' => array()
+    );
+    field_create_field($field);
+  }
 
+  //associate field to content-type task comment
+  if(! field_info_instance('comment', GOFAST_COMMENT_EDITED_BY, 'comment_node_task')){
+     $field_instance = array(
+      'field_name' => GOFAST_COMMENT_EDITED_BY,
+      'bundle' => 'comment_node_task',
+      'entity_type' => 'comment'
+    );
+    field_create_instance($field_instance);
+  }
+  
+  if (! field_read_field(GOFAST_COMMENT_EDITED_TIMESTAMP, array('include_inactive' => true))) {
+    $field = array(
+      'field_name' => GOFAST_COMMENT_EDITED_TIMESTAMP,
+      'type' => 'number_integer',
+      'module' => 'number',
+      'cardinality' => 1,
+      'translatable' => FALSE,
+      'locked' => FALSE,
+      'settings' => array(),
+      'storage' => array()
+    );
+    field_create_field($field);
+  }
+
+  //associate field to content-type task comment
+  if(! field_info_instance('comment', GOFAST_COMMENT_EDITED_TIMESTAMP, 'comment_node_task')){
+     $field_instance = array(
+      'field_name' => GOFAST_COMMENT_EDITED_TIMESTAMP,
+      'bundle' => 'comment_node_task',
+      'entity_type' => 'comment'
+    );
+    field_create_instance($field_instance);
+  }
+
+  gofast_kanban_add_date_format();
+}
 
 /**
  * Implements HOOK_unistall()
@@ -17,6 +70,12 @@ function gofast_kanban_unistall() {
   //remove specific kanban vocabulary
   $vocab = taxonomy_vocabulary_machine_name_load('columns');
   taxonomy_vocabulary_delete($vocab->vid);
+  
+  //dissociate field to entity comment_node_task
+  field_delete_instance(GOFAST_COMMENT_EDITED_TIMESTAMP);  
+  field_delete_instance(GOFAST_COMMENT_EDITED_BY);  
+  
+
 }
 
 /**
@@ -163,4 +222,43 @@ function gofast_kanban_update_3701(){
                   ->condition('bundle', 'kanban')
                   ->execute();
   
+}
+
+/**
+ * GOFAST-5927 : Make uuid for kanban columns terms static
+ */
+
+function gofast_kanban_update_4000(){
+  $kanbanTermNameToUuid = [
+    "Backlog" => "fdaf02d7-ae96-486b-9f8c-24bea8ae0a66",
+    "ToDo" => "b00aaef7-4f57-4b2a-be63-f3fc1e54afde",
+    "In Progress" => "b3035c00-db64-4b4a-b1d1-7e9848daa323",
+    "Done" => "22d82937-802c-4ad3-86f4-b8fb705dd66b"
+  ];
+  foreach($kanbanTermNameToUuid as $name => $uuid) {
+    $term = taxonomy_get_term_by_name($name);
+    $term = reset($term);
+    $term->uuid = $uuid;
+    taxonomy_term_save($term);
+  }
+}
+
+function gofast_kanban_update_4005(){
+}
+
+function gofast_kanban_update_4006(){
+}
+
+/**
+ * GOFAST-8811 - Make sure all date formats are deployed
+ */
+function gofast_kanban_update_7000(){
+  gofast_kanban_add_date_format();
+}
+
+/**
+ * GOFAST-8811 - Deploy date formats using Drupal hook and utility
+ */
+function gofast_kanban_update_7001(){
+  gofast_set_default_date_formats();
 }

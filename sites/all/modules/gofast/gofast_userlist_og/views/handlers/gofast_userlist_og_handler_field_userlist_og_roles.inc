@@ -134,7 +134,7 @@ class gofast_userlist_og_handler_field_userlist_og_roles extends views_handler_f
                   $this->items[$ulid][$rid]['rid'] = $rid;
                   $this->items[$ulid][$rid]['ulid'] = $ulid;
                   $this->items[$ulid][$rid]['og_title'] = $space->title;
-                  $ogmid = db_query("select * from og_membership where gid=" . $gid . " AND etid=" . $ulid . " AND entity_type='userlist'")->fetchAll()[0];
+                  $ogmid = db_query("select * from og_membership where gid=:gid AND etid=:ulid AND entity_type='userlist'", array(":gid" => $gid, ":ulid" => $ulid))->fetchAll()[0];
                   $this->items[$ulid][$rid]['ogm_id'] = $ogmid->id;
                   $this->items[$ulid][$rid]['not_pending'] = TRUE;
               }

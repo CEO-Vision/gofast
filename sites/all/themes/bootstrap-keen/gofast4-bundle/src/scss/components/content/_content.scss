@@ -1,0 +1,34 @@
+.content-main-contianer {
+  overflow-x: auto;
+  overflow-y: auto;
+  padding-right: 69px;
+}
+
+#gofast_over_content {
+  max-width: 100%;
+  width: 100%;
+  &.gofast_over_content_mobile {
+    @media (min-width: $lg) {
+      width: 970px;
+    }
+    @media (min-width: $xl) {
+      width: 1170px;
+    }
+    @media (min-width: $md-device) {
+      min-width: 1207px;
+    }
+    @media (min-width: $lg-device) {
+      min-width: 1281px;
+    }
+    @media (min-width: $xl-device) {
+      min-width: 1441px;
+    }
+    @media (min-width: $xxl-device) {
+      min-width: 1761px;
+    }
+  }
+}
+
+.overflow-scroll {
+  overflow: scroll;
+}

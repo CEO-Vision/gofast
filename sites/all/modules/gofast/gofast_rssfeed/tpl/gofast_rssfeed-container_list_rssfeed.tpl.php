@@ -32,7 +32,7 @@
         var title = jQuery('#title_rssfeed').val();
         var link = jQuery('#url_rssfeed').val();
 
-        modalContentClose();
+        Gofast.closeModal();
         Gofast.addLoading();
 
         jQuery.post(location.origin + "/rssfeed/add", {rssfeed_title : title, url : link}, function(response){
@@ -53,7 +53,7 @@
         var title = jQuery('#title_rssfeed').val();
         var link = jQuery('#url_rssfeed').val();
         
-        modalContentClose();
+        Gofast.closeModal();
         Gofast.addLoading();
 
         jQuery.post(location.origin + "/rssfeed/edit", {rssfeed_title : title, url : link, rssfeed_fid : fid}, function(response){
@@ -70,7 +70,7 @@
     };
     
     Gofast.deleteRssFeed = function(fid){
-        modalContentClose();
+        Gofast.closeModal();
         Gofast.addLoading();
 
         jQuery.post(location.origin + "/rssfeed/delete", {rssfeed_fid : fid}, function(response){

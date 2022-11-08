@@ -167,12 +167,10 @@ $search_page = strpos(current_path(), 'search/solr') === FALSE ? FALSE : TRUE;
 
 </div>
 
+<footer class="footer container">
+  <?php print render($page['footer']); ?>
+</footer>
 
-<?php if (!empty($page['footer'])) :   ?>
-  <footer class="footer container Footer">
-    <?php print render($page['footer']); ?>
-  </footer>
-<?php endif; ?>
 
 
 <!-- Gofast JS/Overlay placeholders -->

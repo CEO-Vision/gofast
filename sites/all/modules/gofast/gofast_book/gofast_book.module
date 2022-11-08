@@ -1,9 +1,12 @@
 <?php
 require_once(DRUPAL_ROOT . "/modules/node/node.pages.inc");
+require_once("gofast_book.utils.inc");
 
 
-
-
+function gofast_book_init(){
+  $path = drupal_get_path('module', 'gofast_book');
+  drupal_add_js($path . '/js/gofast_book_block.js');
+}
 /**
  * @package gofast_book
  * Hook menu.
@@ -13,14 +16,34 @@ require_once(DRUPAL_ROOT . "/modules/node/node.pages.inc");
 function gofast_book_menu() {
   $items = array();
 
-  $items['gofast/%ctools_js/book/manage/%node'] = array(
-     'title' => 'Books',
-    'page callback' => 'gofast_book_modal_manage_book',
-    'page arguments' => array(1, 4),
-    'access callback' => 'node_access',
-    'access arguments' => array('view', 4),
-    'type' => MENU_CALLBACK,
+  /** as of GF4, this modal doesn't exist anymore */
+  // $items['gofast/%ctools_js/book/manage/%node'] = array(
+  //   'title' => 'Books',
+  //   'page callback' => 'gofast_book_modal_manage_book',
+  //   'page arguments' => array(1, 4),
+  //   'access callback' => 'node_access',
+  //   'access arguments' => array('view', 4),
+  //   'type' => MENU_CALLBACK,
+  // );
+  
+  $items['gofast/book/explorer'] = array(
+      'title' => 'Book explorer',
+      'page callback' => 'gofast_book_browser_menu_ajax',
+      'page arguments' => array('gofast_book_group', true),
+      'type' => MENU_CALLBACK,
+      'access callback' => "user_access",
+      'access arguments' => array('access content'),
   );
+
+  // quicker endpoint without theming or nested wikis
+  $items['space/book/%'] = array(
+    'title' => 'Get books inside given space',
+    'page callback' => 'gofast_book_get_book_by_gid',
+    'page arguments' => array(2, true),
+    'type' => MENU_CALLBACK,
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+);
   return $items;
 }
 
@@ -29,13 +52,13 @@ function gofast_book_menu() {
  */
 function gofast_book_after_gofast_node_form_alter(&$form, &$form_state) {
     $node = $form['#node'];
+    unset($form['actions']['delete']);
     if ($node->type == 'article' && $_POST['is_popover'] == TRUE ) {
       $form['wrapper']['#attributes']['class'][] = "gofast_display_none";
       $form['body']['#attributes']['class'][] = "gofast_display_none";
       $form['og_group_content_ref']['#attributes']['class'][] = "gofast_display_none";
-      unset($form['actions']['delete']);
       $form['actions']['cancel'] = array(
-        '#markup' => '<button id="book_cancel_' . $node->nid .' "  type="button" class="btn btn-default btn-sm book-cancel"><i class="glyphicon glyphicon-remove"></i>' . t("Cancel"),
+        '#markup' => '<button id="edit-cancel" type="button" class="btn btn-default btn-sm book-cancel"><i class="glyphicon glyphicon-remove"></i>' . t("Cancel"),
         '#weight' => '20',
       );
     }
@@ -44,166 +67,115 @@ function gofast_book_after_gofast_node_form_alter(&$form, &$form_state) {
     }
 }
 
+// function gofast_book_modal_manage_book($js = NULL, $node){
+//    module_load_include('inc', 'node', 'node.pages');
+//    $form_id = 'article_node_form';
 
-function gofast_book_modal_manage_book($js = NULL, $node){
-   module_load_include('inc', 'node', 'node.pages');
-   $form_id = 'article_node_form';
+//   if (!$js) {
 
-  if (!$js) {
+//    $form = drupal_get_form($form_id, $node);
 
-   $form = drupal_get_form($form_id, $node);
+//     return $form;
+//   }
 
-    return $form;
+//   ctools_include('modal');
+//   ctools_include('ajax');
+
+//   $form_state = array(
+//     'ajax' => TRUE,
+//     'build_info' => array(
+//       'args' => array()
+//     ),
+//     'title' => null,
+//     'node' => $node
+//   );
+
+//   $commands = ctools_modal_form_wrapper($form_id, $form_state);
+//   $commands[] = ajax_command_invoke('.form-wrapper:not(#edit-book, .form-actions), .vertical-tabs-list', 'css', array(array('display' => 'none')));
+//   if ($form_state['executed']) {
+//     $commands[] = ctools_modal_command_dismiss();
+//   }
+//   print ajax_render($commands);
+// }
+
+function gofast_book_render_books_elements($json_books, $depth = 0) {
+  $books_rendering = "";
+  foreach ($json_books as $key => $book) {
+    $books_rendering .= theme('gofast_book_file_browser_element', ['book_element' => $book, 'depth' => $depth]);
   }
-
-  ctools_include('modal');
-  ctools_include('ajax');
-
-  $form_state = array(
-    'ajax' => TRUE,
-    'build_info' => array(
-      'args' => array()
-    ),
-    'title' => null,
-    'node' => $node
-  );
-
-  $commands = ctools_modal_form_wrapper($form_id, $form_state);
-  $commands[] = ajax_command_invoke('.form-wrapper:not(#edit-book, .form-actions), .vertical-tabs-list', 'css', array(array('display' => 'none')));
-  if ($form_state['executed']) {
-    $commands[] = ctools_modal_command_dismiss();
-  }
-  print ajax_render($commands);
-
+  return $books_rendering;
 }
+
 /**
  * Implements hook_block_view
  */
-function gofast_book_block_view($delta = '') {
-  $block = array();
-  $subject = $content = '';
+function gofast_book_browser_menu_ajax() {
+  // if we need to filter by group and keep recursivity as well, we'll have to add a condition to call this differently
+  $json_books = json_decode(gofast_book_get_json_books([], TRUE));
 
-  switch ($delta) {
-    case 'gofast_book_group':
-      ## case of article we need to put the block to navigate inside article page
-      if(node_load(arg(1))->type == 'article'){
-        ## retrieve parents from a node in order to retrieve all of a parent's books from it
-        $parents = gofast_og_get_parent(node_load(arg(1)));
-        $one_parent = reset($parents);
-        if(!empty(node_load(arg(1))->book['bid'])){
-            $json_books = gofast_book_get_json_books(array($one_parent),node_load(arg(1))->book['bid']);
-            libraries_load('ztree');
-            $path = drupal_get_path('module', 'gofast_book');
-            drupal_add_js($path . '/js/gofast_book_block.js');
-            $settings = array('data_tree' => $json_books, "is_document" => "true");
+  $path = drupal_get_path('module', 'gofast_book');
+  drupal_add_js($path . '/js/gofast_book_block.js');
+  $settings = array('data_tree' => $json_books, "is_document" => "true");
 
-            drupal_add_js(array('gofast_book_tree' => $settings), 'setting');
-            $content = "<div id='ztree_book' class='ztree'></div>";
-            $subject = t("Book related to the article", array(), array("context" => "gofast"));
-        }
-      }else{
-          $subject = t("Books in this group", array(), array("context" => "gofast"));
-          $json_books = gofast_book_get_json_books(array(arg(2)));
-          
-          libraries_load('ztree');
-          $path = drupal_get_path('module', 'gofast_book');
-          drupal_add_js($path . '/js/gofast_book_block.js');
-          $settings = array('data_tree' => $json_books, "is_document" => "true");
-          $content = "<div id='ztree_book' class='ztree'></div>";
+  drupal_add_js(array('gofast_book_tree' => $settings), 'setting');
 
-          drupal_add_js(array('gofast_book_tree' => $settings), 'setting');
-      }
-    break;
-  }
+  $books = gofast_book_render_books_elements($json_books);   
+  
+  $books_output = theme('gofast_book_file_browser', ['books' => $books]);
 
-  $block['subject'] = $subject;
-  $block['content'] = $content;
-
-  return $block;
+  print $books_output;
 }
 
-
-function gofast_book_get_json_books($gids,$nid_article=NULL){
-  // This break the send by email functionnality
-
-  $tree = gofast_book_get_books($gids);
-  ## case of article we need to return only the current book (not all)
-  if(!empty($nid_article)){
-      $book[$nid_article] = $tree[$nid_article];
-      $tree = $book;
+function gofast_book_set_covers(&$subtree, $parent_cover = FALSE) {
+  foreach ($subtree as $key => $book) {
+    if ($parent_cover && $book['link']['nid'] == $parent_cover) {
+      // we don't want cover duplicates
+      unset($subtree[$key]);
+      continue;
+    }
+    $cover = gofast_og_get_article_homepage_from_og($book['link']['nid']);
+    $subtree[$key]['cover'] = $cover;
+    if ($subtree[$key]['link']["has_children"] == 1) {
+      gofast_book_set_covers($subtree[$key]['below'], $cover);
+    }
   }
+}
+
+function gofast_book_set_descriptions(&$subtree) {
+  foreach ($subtree as $key => $book) {
+    $space_title = gofast_get_node_title($book['link']['bid']);
+    if ($book['link']['nid'] == $book['link']['bid']) {
+      $subtree[$key]['description'] = t("This wiki article matches the homepage of the space", array(), array("context" => "gofast:gofast:book"));
+    } else {
+      $subtree[$key]['description'] = t("This wiki article belongs to the space @space", array("@space" => $space_title), array("context" => "gofast:gofast:book"));
+    }
+    if ($subtree[$key]['link']["has_children"] == 1) {
+      gofast_book_set_descriptions($subtree[$key]['below']);
+    }
+  }
+}
+
+function gofast_book_get_json_books($gids, $all_books = FALSE) {
+  global $user;
+
+  if($all_books){
+    $gids = gofast_og_get_spaces_by_user($user);
+  }
+  $tree = gofast_book_get_books($gids);
+
   $subtree = array();
   foreach ($tree as $value) {
     $node = node_load($value['nid']);
-    $subtree += book_menu_subtree_data($node->book);
+    $pages = book_menu_subtree_data($node->book);
+    $subtree += $pages;
   }
-  global $lnk;
-  global $j;
-  $lnk = array();
-  $j = 0;
+  // add covers nids to data object in order to set links for each books covers template-side
+  gofast_book_set_covers($subtree);
+  // add descriptions for tooltips
+  gofast_book_set_descriptions($subtree);
 
-  array_walk_recursive($subtree, 'gofast_book_recursive');
-  $data = array();
-  $val = array();
-
-  foreach ($lnk as $key => $value) {
-    if(sizeof($value) == 500) array_push($data , array('nId' => intval(end($value)), 'id' => prev($value), 'pId' => prev($value) , 'name' => $value[1], 'isParent' => true, 'url2' => $value[0]));
-    else array_push($data , array('nId' => intval(end($value)), 'id' => prev($value), 'pId' => prev($value), 'name' => $value[1], 'url2' => "/node/".end($value)));
-  }
-
-  return drupal_json_encode($data);
-
+  return drupal_json_encode($subtree);
 }
-
- function gofast_book_recursive($item, $key) {
-    $jf = $GLOBALS['j'];
-    if ($key == "menu_name") {
-      $jf ++;
-      $GLOBALS['lnk'][$jf]=array();
-    }
-    if ($key == "link_path") array_push($GLOBALS['lnk'][$jf] , $item);
-    if ($key == "link_title") array_push($GLOBALS['lnk'][$jf] , $item);
-    if ($key == "nid") array_push($GLOBALS['lnk'][$jf] , $item);
-    if ($key == "has_children" && $item == 1) array_push($GLOBALS['lnk'][$jf] , $item);
-    if ($key == "has_children" && $item == 0) array_push($GLOBALS['lnk'][$jf] , $item);
-    if ($key == "p1" && $item == 0) array_push($GLOBALS['lnk'][$jf] , $item);
-    for ($i=1; $i <= 10; $i++ ) {
-      if ($key == "p$i" && $item <> 0) array_push($GLOBALS['lnk'][$jf] , $item);
-    }
-    $GLOBALS['j'] = $jf;
-}
-
-
-/**
- * Implements hook_block_info
- */
-function gofast_book_block_info() {
-  $pages = '<?php
-if( (arg(0) == "node") && (is_numeric(arg(1))) && (arg(2) == FALSE) ){
-  $node = node_load(arg(1));
-  if(gofast_og_is_space($node){
-      return TRUE;
-  }else{
-  return FALSE;
-  }
-}else{
-  return FALSE;
-}
-?>';
-
-  $blocks['gofast_book_group'] = array(
-    'info' => t('Books in this group', array(), array('context' => 'gofast:gofast_book')),
-    'cache' => DRUPAL_CACHE_PER_PAGE,
-    'weight' => -40,
-    'status' => 1,
-    'region' => 'sidebar_second',
-    'visibility' => BLOCK_VISIBILITY_PHP,
-    'pages' => $pages, // @todo
-  );
-
-  return $blocks;
-}
-
 
 /**
  * Returns an array of all books belonging to certain groups.
@@ -226,8 +198,9 @@ function gofast_book_get_books($group_ids) {
     $nid_query = db_select('book', 'b')
       ->fields('b', array('bid'))
       ->distinct()
-      ->condition('og.gid', $group_ids, 'IN')
-      ->condition('og.entity_type', 'node');
+      ->condition('b.bid', $group_ids, 'IN');
+//      ->condition('og.gid', $group_ids, 'IN')
+//      ->condition('og.entity_type', 'node');
     $nid_query->join('og_membership', 'og', 'b.nid = og.etid');
     $nids = $nid_query->execute()->fetchCol();
 
@@ -254,4 +227,103 @@ function gofast_book_get_books($group_ids) {
   }
 
   return $all_books;
+}
+
+function gofast_book_render_page_selector(&$form) {
+  // this is a tinyint in the database so we can't go higher
+  $form['book']['weight']['#delta'] = 127;
+  // hide weight select: this will be toggled by a pseudo-pagination selector
+  $form['book']['weight']['#wrapper_attributes'] = array('class' => array('d-none'));
+  $form['book']['page_selector'] = array(
+    '#type' => 'select',
+    '#title' => t('Number / Position in Wiki Book'),
+    '#default_value' => 0,
+    '#options' => array(
+      0 => t('Please select a location'),
+    ),
+    '#validated' => TRUE,
+  );
+  // this field is intended to keep track of the weights fetched by the form ajax callback, preventing us from fetching them again after submission
+  $form['book']['weights'] = array(
+    '#attributes' => array(
+      'id' => 'gofast_book_weights',
+    ),
+    '#type' => 'hidden',
+    '#value' => '',
+  );
+}
+
+function gofast_book_article_node_position_form($form, &$form_state) {
+  if(!isset($form_state["build_info"]["args"][0]) || !is_object($form_state["build_info"]["args"][0])){
+    drupal_set_message(t("An error occurred while handling article informations", array(), array("context" => "gofast:gofast_book")), "error");
+    $form_state['executed'] = TRUE;
+    return;
+  }
+  $node = $form_state["build_info"]["args"][0];
+
+  $book = gofast_cmis_get_book($node->nid, TRUE);
+  $book_name = gofast_get_node_title($book[0]->bid);
+  gofast_book_render_page_selector($form);
+  $form['book']["page_selector"]["#title"] = t("Change location of @title in wiki @wiki", array("@title" => $node->title, "@wiki" => $book_name), array("context" => "gofast:gofast_book"));
+
+  $book_content = gofast_book_get_book_by_gid($book[0]->bid);
+  $form_state['input']['book']['weights'] = json_encode($book_content);
+
+  unset($form['book']['page_selector']['#options'][0]);
+  $form['book']['page_selector']['#options']['start'] = "W001 - " . t("Insert at the start of the wiki", array(), array("context" => "gofast:gofast_book")) ;
+  $previous_element = 0;
+  $book_page_counter = 1;
+  foreach($book_content as $book_article) {
+    if($book_article->nid == $node->nid) {
+      $form['book']['page_selector']['#default_value'] = $previous_element;
+      continue;
+    }
+    $book_page_counter++;
+    $padded_page_counter = str_pad($book_page_counter, 3, "0", STR_PAD_LEFT);
+    $form['book']['#options'][$book_article->nid] = "W" . $padded_page_counter . " - " . $book_article->title;
+    $previous_element = $book_article->nid;
+  }
+
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+    '#attributes' => array(
+      'class' => array('btn', 'btn-success'),
+    ),
+  );
+  $form['actions']['cancel'] = array(
+    '#value' => t("Cancel"),
+    "#type" => "button",
+    '#attributes' => array(
+      'class' => array('btn', 'btn-secondary'),
+      'id' => 'edit-cancel',
+    ),
+    '#weight' => '20',
+  );
+  $form['#submit'] = ['gofast_book_article_node_position_form_submit'];
+  return $form;
+}
+
+function gofast_book_article_node_position_form_submit($form, &$form_state) {
+  // Update weights
+  $target_location_nid = $form_state['values']['book']['page_selector'];
+  $book_content = json_decode($form_state['input']['book']['weights']);
+  if ($target_location_nid != 0) {
+    $new_weight = gofast_book_reset_weights($book_content, $target_location_nid);
+    $form_state['values']['book']['weight'] = $new_weight;
+  }
+}
+
+function gofast_book_theme() {
+    $themes = array(
+        'gofast_book_file_browser' => array(
+            'template' => 'tpl/gofast-book-file-browser',
+            'variables' => array('books' => NULL)
+      ),
+        'gofast_book_file_browser_element' => array(
+            'template' => 'tpl/gofast-book-file-browser-element',
+      )
+    );
+    
+    return $themes;
 }

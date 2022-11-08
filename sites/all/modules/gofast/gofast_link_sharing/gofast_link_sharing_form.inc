@@ -40,15 +40,24 @@ function gofast_link_sharing_form($form, &$form_state, $node){
     '#value' => $user->mail,
   );
 
+  $attributes = [
+    'class' => [' form-control-tags js-tagify'],
+    // 'data-enforce'=>'', //  Comment : Do not allow putting data that dose not exist | Decomment : allow putting data that dose not exist
+    'data-user' => '', // show ac users
+    'data-email' => '', // show ac emails
+    // 'data-node' => '', // show ac node
+    'data-userlist' => '', // show ac userlist
+    // 'data-taxonomy_term' => '' // show ac taxonomy term
+  ];
+
   $form['to'] = array(
     '#type' => 'textfield',
     '#title' => t('Recipient(s)', array(), array('context' => 'gofast')). ' *',
-    '#size' => 60,
-    '#maxlength' => 256,
+    '#maxlength' => '',
+    '#name' => 'ac-list-tags-to',
     '#description' => t('Email of the person to whom the document will be shared', array(), array('context' => 'gofast:gofast_link_sharing')),
     '#required' => FALSE,
-    '#autocomplete_path' => 'gofast_user_userlist_space_autocomplete',
-    '#attributes' => array('class' => array('labelize-autocomplete labelize-insert'))
+    '#attributes' => $attributes
   );
 
   $form['subject'] = array(
@@ -58,13 +67,13 @@ function gofast_link_sharing_form($form, &$form_state, $node){
     '#maxlength' => 128,
     '#description' => t('Subject for the email that will be sent', array(), array('context' => 'gofast:gofast_link_sharing')),
     '#required' => TRUE,
-    '#default_value' => $current_user_fullname.' '.t('shared with you a document on the ', array(), array('context' => 'gofast:gofast_link_sharing','langcode' => $user->language)) . variable_get('site_name', 'GoFAST 3'),
+    '#default_value' => $current_user_fullname.' '.t('shared with you a document on ', array(), array('context' => 'gofast:gofast_link_sharing','langcode' => $user->language)) . variable_get('site_name', 'GoFAST 3'),
   );
 
   $form['link'] = array(
     '#markup' => '<div class="form-item form-item-link form-group">'
                 . '<label class="control-label" for="edit-link">'.t('Link to the document %title', array('%title' => $node->title ), array('context' => 'gofast:gofast_link_sharing')).'</label>'
-                . '<div><a title="' .t('Copy the link') . '"href="#" onclick=\'event.preventDefault();event.stopPropagation();Gofast.copyToClipboard("'.$file_sharing_link.'")\'>'.$file_sharing_link.'</a><a title="'.t('Copy the link') .'" style="padding: 2px 7px; vertical-align: middle; color:#3498db; margin-left:10px;" class="btn-sm btn btn-default dropdown-toggle" onclick=\'event.preventDefault();event.stopPropagation();Gofast.copyToClipboard("'.$file_sharing_link.'")\'><i class="fa fa-files-o"></i></a></div>'
+                . '<div><a id="linksharing_link" class="clipboard gofast-non-ajax" data-clipboard-target="#linksharing_link" title="' .t('Copy the link') . '">'.$file_sharing_link.'</a><a title="'.t('Copy the link') .'" style="padding: 2px 7px; vertical-align: middle; color:#3498db; margin-left:10px;" class="btn-sm btn btn-default btn-outline-secondary btn-icon no-footer clipboard" data-clipboard-target="#linksharing_link"><i class="fa fa-files-o"></i></a></div>'
                 . '</div>',
   );
 
@@ -84,13 +93,15 @@ function gofast_link_sharing_form($form, &$form_state, $node){
   );
 
   $form['message'] = array(
-    '#type' => 'textarea',
+    '#type' => 'text_format',
     '#title' => t('Your message', array(), array('context' => 'gofast:gofast_link_sharing')),
     '#default_value' => '',
     '#cols' => 60,
     '#rows' => 5,
     '#description' => t('This message will be included in the email that will be sent', array(), array('context' => 'gofast:gofast_link_sharing')),
     '#required' => FALSE,
+    '#format' => 'filtered_html',
+    '#pre_render' => array('ckeditor_pre_render_text_format'),
   );
 
   $form['node'] = array(
@@ -120,32 +131,7 @@ function gofast_link_sharing_form_validate($form, &$form_state){
 
     ## recovery of the data to be analyzed (email address or uid)
     $recipient_addresses = array();
-    $recipients_value = json_decode($form_state['input']['edit-' . str_replace("_", "-", $form['to']['#name']) . '-hidden-values']);
-
-    ## GOFAST-5180 get all values if the user separates email addresses with spaces, commas or semicolons
-    if($form_state['input']['to'] !== null && $form_state['input']['to'] !== ""){
-
-        ## check if there are no invalid characters
-//        if (preg_match('/[^A-Za-z0-9.#\\-\_\$\,\;\@]/', $form_state['input']['to'])){
-//            form_set_error('to', t('There are invalid characters', array(), array('context' => 'gofast')));
-//            return;
-//        }
-        if (strpos($form_state['input']['to'],";") == TRUE){
-            $array_input_addresses = str_replace(' ', '', explode(';',$form_state['input']['to']));
-        }
-        if(strpos($form_state['input']['to'],",") == TRUE){
-            $array_input_addresses = str_replace(' ', '',explode(',',$form_state['input']['to']));
-        }
-        if(empty($array_input_addresses) && strpos($form_state['input']['to']," ") == TRUE ){
-            $array_input_addresses = str_replace(' ','',explode(' ',$form_state['input']['to']));
-        }
-        if (!empty($array_input_addresses)){
-            $recipients_value = array_merge($array_input_addresses, $recipients_value);
-        }else{
-            $recipients_value[] = $form_state['input']['to'];
-        }
-        $recipients_value = array_filter($recipients_value);
-    }
+    $recipients_value = json_decode($form_state['input']['ac-list-tags-to']);
 
     ## check if the number of recipients is not empty
     if(count($recipients_value) <1){
@@ -157,12 +143,12 @@ function gofast_link_sharing_form_validate($form, &$form_state){
     // and if node not in Extranet -> disabled capability to share with external people
     foreach ($recipients_value as $recipient) {
       if ($recipient->type === 'user') {
-        $space_user = $recipient->id;
+        $space_user = $recipient->value;
         $recipient_addresses[] = $space_user;
       }
       if ($recipient->type === 'node') {
         // Get nid from the group
-        $node = node_load($recipient->id);
+        $node = node_load($recipient->value);
         // Get member id from the group
         $group_members = gofast_og_get_members_userlist_included($node,'active');
         foreach ($group_members as $member) {
@@ -174,7 +160,7 @@ function gofast_link_sharing_form_validate($form, &$form_state){
       else if($recipient->type === 'userlist'){
 
         // Get the ULID from the userlist to send mails
-        $ulid = $recipient->id;
+        $ulid = $recipient->ulvalue;
         // Get all members of the group
         $group_members = gofast_userlist_get_members($ulid);
         foreach ($group_members as $uid => $member) {
@@ -186,18 +172,15 @@ function gofast_link_sharing_form_validate($form, &$form_state){
 
         }
       }
-      else if(valid_email_address($recipient)){
-
-//        if(! external_share_allowed($form_state['values']['node_id'])){
-//          form_set_error('to',
-//                    t('This document must be located in "Extranet" to be '
-//                      . 'shared with people external to GoFast (%recipient)',
-//                      array( '%recipient' => $recipient ), array('context' => 'gofast:gofast_link_sharing')
-//                    )
-//                 );
-//        }
-        $recipient_addresses[] = $recipient;
+      else if(valid_email_address($recipient->name)){
+        $recipient_addresses[] = $recipient->name;
       }
+    }
+
+    ## check if the number of recipients is not empty (no mail send)
+    if (count($recipient_addresses) < 1) {
+      drupal_set_message(t("No valid data's (no mail was send)"), "warning");
+      return;
     }
 
     ## store recipient ids or adresses in the form
@@ -230,12 +213,9 @@ function gofast_link_sharing_form_submit($form, &$form_state){
 
 
   // send mail for share the link of a document
-  if (isset($form_state['values']['op']) && $form_state['values']['op'] == t('Send', array(), array('context' => 'gofast'))) {
+  if (isset($form_state['values']['op']) && $form_state['values']['op'] == t('Send', array(), array('context' => 'gofast')) && $form_state['values']['to'] != null) {
 
     $recpts = gofast_linksharing_build_receipt_mail($form_state);
-
-    $info_recipients = json_decode($form_state['input']['edit-to-hidden-values']);
-
 
     ## get document version
     $node_ref = gofast_cmis_node_get_item_id($node);
@@ -244,6 +224,15 @@ function gofast_link_sharing_form_submit($form, &$form_state){
     $recipients_ids_list = explode(',',$form_state['values']['to']);
     $copy_recipients_ids_list = $recipients_ids_list;
 
+    //GOFAST-6804 Adding CKEditor for linksharing, we need to do some formatting to ensure that everything will be displayed correctly in the email
+    //We don't need to format plain text
+    if($form_state['values']['message']['format'] !== 'plain_text') {
+        $styles_message = gofast_cmis_ckeditor_classes_to_style($form_state['values']['message']['value']);
+        $smiley_message = gofast_cmis_ckeditor_smiley_path_update($styles_message);
+        $formatted_message = str_replace(array("\r\n","\t"), "", $smiley_message);
+    }else{
+        $formatted_message = $form_state['values']['message']['value'];
+    }
     ## reach all recipient informations to send mail to each users
     $already_add_toast = false;
     foreach($recpts as $recpt){
@@ -254,7 +243,11 @@ function gofast_link_sharing_form_submit($form, &$form_state){
         $l = array('langcode' => $recpt['language'], 'context' => 'gofast:gofast_link_sharing');
         if ($recpt['method'] == 'to'){
           ## get all mails of receipt
-          $recipient= $recpt['recpt'];
+          $recipient = $recpt['recpt'];
+          $recipient_user = user_load_by_mail($recpt['recpt']);
+          if(isset($recipient_user->uid)){
+            $recipient = gofast_user_display_name($recipient_user);
+          }
           $id_recpt = array_shift($recipients_ids_list);
 
           # create a unique link for each dest
@@ -272,60 +265,60 @@ function gofast_link_sharing_form_submit($form, &$form_state){
           $title = t('Document Sharing' , array(), $l);
           $subject = $form_state['values']['subject'];
           $footer = t('Message sent from %site_name', array('%site_name' => $site_name), $l);
+          $subheader_message = $user_name . ' ' . t('shared', array(), $l) . '<a href="' . $form_state['values']['url'] . '" style="color: #337ab7; text-decoration: none;">' . $document_pic . ' ' . $form_state['values']['title'] . '</a> ' . t('with you.', array(), $l);
           $body = theme('gofast-link-sharing-body', array(
-            'author_pic' => theme('user_picture', array('account' => $user)),
-              'author_name' => $user_name,
-              'recip_name' => $recipient,
-              'message' => nl2br($form_state['values']['message']),
-              'node_title' => $form_state['values']['title'],
-              'node_link' => $form_state['values']['url'],
-              'expiry_msg' => t('This link will be functional for the next ' . '%exp_period. After this, it will be disabled.',
-              array('%exp_period' => t(DEFAULT_EXPIRY_PERIOD_STRING, array(), $l)),
-              $l),
-              'l' => $l,
-              'document_pic' => $document_pic,
-            ));
-            if (count($recpts) == 1){
-              $recpt_mail[] = end($recpts);
-            }
-            $mail = array (
-              'subject' => $subject,
-              'title' => $title,
-              'footer' => $footer,
-              'body' => $body,
-            );
-            $ret = gofast_mail_queue_api_queue_ext($mail, $recpt_mail, time(), $user->uid);
-            if($already_add_toast == false){
-              flood_register_event('print_mail');
-              drupal_set_message(t('An email has been sent to the user(s) with the document\'s sharing link.'));
-            }
-            $already_add_toast = true;
+            'author_pic' => theme('user_picture', array('account' => $user, 'dimensions' => 40, 'attributes' => ['width' => 40, 'style' => "border-radius: 5px; width:40px;"])),
+            'recip_name' => $recipient,
+            'subheader_message' => $subheader_message,
+            'message' => nl2br($formatted_message),
+            'expiry_msg' => t('This link will be functional for the next ' . '%exp_period. After this, it will be disabled.',
+            array('%exp_period' => t(DEFAULT_EXPIRY_PERIOD_STRING, array(), $l)),
+            $l),
+            'l' => $l,
+          ));
+          if (count($recpts) == 1){
+            $recpt_mail[] = end($recpts);
+          }
+          $mail = array (
+            'subject' => $subject,
+            'title' => $title,
+            'footer' => $footer,
+            'body' => $body,
+          );
+          $ret = gofast_mail_queue_api_queue_ext($mail, $recpt_mail, time(), $user->uid);
+          if($already_add_toast == false && count($recipients_ids_list) < 1){
+            flood_register_event('print_mail');
+            drupal_set_message(t('An email has been sent to the user(s) with the document\'s sharing link.'));
+          }
+          $already_add_toast = true;
           }
         }
         if (count($recpts) > 1 ){
         $mail_active_user[] = array('recpt' => $user_mail, 'method' => 'to' );
+        $mail_list = [];
         foreach ($copy_recipients_ids_list as $recpt_mail_recpt) {
           if (is_numeric($recpt_mail_recpt)){
             $user_dest  = user_load($recpt_mail_recpt);
-            $mail_list .=  $user_dest->mail . '</br>';
+            array_push($mail_list, $user_dest->mail);
           }else{
-            $mail_list .= $recpt_mail_recpt . '</br>';
+            array_push($mail_list, $recpt_mail_recpt);
           }
         }
 
         $subject = t('You shared a document with users in ', array(), array('context' => 'gofast:gofast_link_sharing'))." ".$defaultSiteName;
-        $body = theme('gofast-link-sharing-body-all-mail', array(
-          'author_name' => $user_name,
-          'recip_name' => $user_dest->name,
-          'mail_list' => $mail_list,
-          'message' => nl2br($form_state['values']['message']),
-          'node_title' => $form_state['values']['title'],
-          'node_link' => $form_state['values']['url'],
+        $subheader_message = t('You shared', array(), $l) . '<a href="' . $form_state['values']['url'] . '" style="color: #337ab7; text-decoration: none;">' . $document_pic . ' ' . $form_state['values']['title'] . '</a> ' . t('with:', array(), $l);
+        foreach($mail_list as $mail_list_recpt){
+          $subheader_message .= "<div>" . $mail_list_recpt . "</div>";
+        }
+        $body = theme('gofast-link-sharing-body', array(
+          'author_pic' => theme('user_picture', array('account' => $user, 'dimensions' => 40, 'attributes' => ['width' => 40, 'style' => "border-radius: 5px; width:40px;"])),
+          'recip_name' => $user_name,
+          'subheader_message' => $subheader_message,
+          'message' => nl2br($formatted_message),
           'expiry_msg' => t('This link will be functional for the next ' . '%exp_period. After this, it will be disabled.',
           array('%exp_period' => t(DEFAULT_EXPIRY_PERIOD_STRING, array(), $l)),
           $l),
           'l' => $l,
-          'document_pic' => $document_pic,
         ));
 
         $mail = array(
@@ -396,15 +389,26 @@ function gofast_link_sharing_manage_mail_sharing_form($form, &$form_state) {
     '#value' => $user->mail,
   );
 
+    $attributes = [
+    'class' => [' form-control-tags js-tagify'],
+    // 'data-enforce'=>'', //  Comment : Do not allow putting data that dose not exist | Decomment : allow putting data that dose not exist
+    'data-user' => '', // show ac users
+    'data-node' => '', // show ac node
+    'data-userlist' => '', // show ac userlist
+    'data-email' => '', // show ac email
+    // 'data-taxonomy_term' => '' // show ac taxonomy term
+  ];
+
   $form['to'] = array(
     '#type' => 'textfield',
     '#title' => t('Recipient(s)', array(), array('context' => 'gofast')). ' *',
+    '#name' => 'ac-list-tags-to',
     '#size' => 60,
-    '#maxlength' => 256,
+    '#maxlength' => '',
     '#description' => t('Email of the person to whom the document will be shared', array(), array('context' => 'gofast:gofast_link_sharing')),
     '#required' => FALSE,
-    '#autocomplete_path' => 'gofast_user_userlist_space_autocomplete',
-    '#attributes' => array('class' => array('labelize-autocomplete labelize-insert'))
+    //'#autocomplete_path' => 'gofast_user_userlist_space_autocomplete',
+    '#attributes' => $attributes
   );
 
   $form['subject'] = array(
@@ -414,7 +418,7 @@ function gofast_link_sharing_manage_mail_sharing_form($form, &$form_state) {
     '#maxlength' => 128,
     '#description' => t('Subject for the email that will be sent', array(), array('context' => 'gofast:gofast_link_sharing')),
     '#required' => TRUE,
-    '#default_value' => $current_user_fullname.' '.t('shared with you documents on the ', array(), array('context' => 'gofast:gofast_link_sharing','langcode' => $user->language)) . variable_get('site_name', 'GoFAST 3'),
+    '#default_value' => $current_user_fullname.' '.t('shared with you documents on ', array(), array('context' => 'gofast:gofast_link_sharing','langcode' => $user->language)) . variable_get('site_name', 'GoFAST'),
   );
 
 
@@ -535,12 +539,13 @@ function gofast_link_sharing_manage_mail_sharing_form($form, &$form_state) {
   $nodes_title = array();
   $nodes_nids = array();
   $nodes_links = array();
+  $links = "" ;
   foreach($nodes as $key=>$nid){
       $file_sharing_link = gofast_link_sharing_build_link($nid);
-      $links .= '<label class="control-label" for="edit-link">'.t('Link to the document %title', array('%title' => node_load($nid)->title ), array('context' => 'gofast:gofast_link_sharing')).'</label>'
-                 . '<div>'
-                . '<div><a title="' .t('Copy the link') . '"href="#" onclick=\'event.preventDefault();event.stopPropagation();Gofast.copyToClipboard("'.$file_sharing_link.'")\'>'.$file_sharing_link.'</a><a title="'.t('Copy the link') .'" style="padding: 2px 7px; vertical-align: middle; color:#3498db; margin-left:10px;" class="btn-sm btn btn-default dropdown-toggle" onclick=\'event.preventDefault();event.stopPropagation();Gofast.copyToClipboard("'.$file_sharing_link.'")\'><i class="fa fa-files-o"></i></a></div>'
-                 . '</div>';
+      $links .= '<div class="form-item form-item-link form-group">'
+      . '<label class="control-label" for="edit-link">'.t('Link to the document %title', array('%title' => node_load($nid)->title ), array('context' => 'gofast:gofast_link_sharing')).'</label>'
+      . '<div><a id="linksharing_link' . $nid . '" class="clipboard gofast-non-ajax" data-clipboard-target="#linksharing_link' . $nid . '" title="' .t('Copy the link') . '">'.$file_sharing_link.'</a><a title="'.t('Copy the link') .'" style="padding: 2px 7px; vertical-align: middle; color:#3498db; margin-left:10px;" class="btn-sm btn btn-default btn-outline-secondary btn-icon no-footer clipboard" data-clipboard-target="#linksharing_link' . $nid . '"><i class="fa fa-files-o"></i></a></div>'
+      . '</div>';
       $nodes_title[$key] = node_load($nid)->title;
       $nodes_nids[$key] = $nid;
       $nodes_links[$key] = $file_sharing_link;
@@ -602,7 +607,7 @@ function gofast_link_sharing_manage_mail_sharing_form_validate($form, &$form_sta
     if (isset($form_state['values']['op']) && $form_state['values']['op'] == t('Send', array(), array('context' => 'gofast'))) {
 
     $recipient_addresses = array();
-    $recipients_value = json_decode($form_state['input']['edit-' . str_replace("_", "-", $form['to']['#name']) . '-hidden-values']);
+    $recipients_value = json_decode($form_state['input']['ac-list-tags-to']);
     if($form_state['input']['to'] !== null && $form_state['input']['to'] !== ""){
         if(filter_var($form_state['input']['to'],FILTER_VALIDATE_EMAIL)){
             $recipients_value[] = $form_state['input']['to'];
@@ -620,12 +625,12 @@ function gofast_link_sharing_manage_mail_sharing_form_validate($form, &$form_sta
     // and if node not in Extranet -> disabled capability to share with external people
     foreach ($recipients_value as $recipient) {
       if ($recipient->type === 'user') {
-        $space_user = $recipient->id;
+        $space_user = $recipient->value;
         $recipient_addresses[] = $space_user;
       }
       if ($recipient->type === 'node') {
         // Get nid from the group
-        $node = node_load($recipient->id);
+        $node = node_load($recipient->value);
         // Get member id from the group
         $group_members = gofast_og_get_members_userlist_included($node,'active');
         foreach ($group_members as $member) {
@@ -638,7 +643,7 @@ function gofast_link_sharing_manage_mail_sharing_form_validate($form, &$form_sta
       else if($recipient->type === 'userlist'){
 
         // Get the ULID from the userlist to send mails
-        $ulid = $recipient->id;
+        $ulid = $recipient->ulvalue;
         // Get all members of the group
         $group_members = gofast_userlist_get_members($ulid);
         foreach ($group_members as $uid => $member) {
@@ -649,25 +654,13 @@ function gofast_link_sharing_manage_mail_sharing_form_validate($form, &$form_sta
           }
         }
       }
-      else if(valid_email_address($recipient)){
-//        foreach(json_decode($form_state['input']['node_id']) as $key=>$nid){
-//            if(! external_share_allowed($nid)){
-//              form_set_error('to',
-//                        t('This document must be located in "Extranet" to be '
-//                          . 'shared with people external to GoFast (%recipient)',
-//                          array( '%recipient' => $recipient ), array('context' => 'gofast:gofast_link_sharing')
-//                        )
-//                     );
-//            }
-//
-//        }
-        $recipient_addresses[] = $recipient;
+      else if(valid_email_address($recipient->name)){
+        $recipient_addresses[] = $recipient->name;
       }
     }
     $recipient_addresses = array_unique($recipient_addresses);
     $form_state['values']['to'] = implode(',', $recipient_addresses);
   }
-
 }
 
 
@@ -694,8 +687,9 @@ function gofast_link_sharing_manage_mail_sharing_form_submit($form, &$form_state
   }else{
       $message = t('No message',array(),array('context' => 'gofast'));
   }
-  $html = "";
 
+  //Insert a general progress bar for mass mail sharing
+  $html = '<div class="progress mb-4" id="link-panels-progress"><div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0 / ' . count($users_uid) . '</div></div>';
   foreach($users_uid as $key=>$uid){
       $title = $form_state['values']['title'][$key];
       //Create all theme for the modal
@@ -744,6 +738,8 @@ function gofast_link_sharing_send_mail_to_transmitter($form,$form_state){
 
       $node_title = $node->title;
       $nodes_informations[$key]['title'] = $node_title;
+      $document_version = $node->field_current_version[LANGUAGE_NONE][0]['value'];
+      $nodes_informations[$key]['version'] = $document_version;
 
       ## get node icon
       $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
@@ -797,27 +793,28 @@ function gofast_link_sharing_send_mail_to_transmitter($form,$form_state){
 
         }else if(valid_email_address($info_recipient)){
 
-            ## check if the document can be shared with an extranet
-//            if(! external_share_allowed($form_state['values']['node_id'])){
-//              form_set_error('to',
-//                        t('This document must be located in "Extranet" to be '
-//                          . 'shared with people external to GoFast (%recipient)',
-//                          array( '%recipient' => $recipient ), array('context' => 'gofast:gofast_link_sharing')
-//                        )
-//                     );
-//            }
+          // // check if the document can be shared with an extranet
+          // if(! external_share_allowed($form_state['values']['node_id'])){
+          //   form_set_error('to',
+          //             t('This document must be located in "Extranet" to be '
+          //               . 'shared with people external to GoFast (%recipient)',
+          //               array( '%recipient' => $recipient ), array('context' => 'gofast:gofast_link_sharing')
+          //             )
+          //           );
+          // }
             array_push($recipients_ids_list,$info_recipient);
         }
     }
     $mail_active_user[] = array('recpt' => $user_mail, 'method' => 'to' );
 
+    $mail_list = [];
     ## store all mail in a array
     foreach (array_unique($recipients_ids_list) as $recpt_mail_recpt) {
         if (is_numeric($recpt_mail_recpt)){
             $user_dest  = user_load($recpt_mail_recpt);
-            $mail_list .=  $user_dest->mail . '</br>';
+            array_push($mail_list, $user_dest->mail);
         }else{
-            $mail_list .= $recpt_mail_recpt . '</br>';
+            array_push($mail_list, $recpt_mail_recpt);
         }
     }
 
@@ -837,7 +834,8 @@ function gofast_link_sharing_send_mail_to_transmitter($form,$form_state){
     }else{
         $message = t('No message',array(),array('context' => 'gofast'));
     }
-    $body = theme('gofast_manage_linksharing_body_all_mail', array(
+    $body = theme('gofast_manage_linksharing_body', array(
+        'is_author' => TRUE,
         'author_name' => $user_name,
         'recip_name' => $user_dest->name,
         'nodes_informations' => $nodes_informations,
@@ -847,7 +845,6 @@ function gofast_link_sharing_send_mail_to_transmitter($form,$form_state){
         array('%exp_period' => t(DEFAULT_EXPIRY_PERIOD_STRING, array(), $l)),
         $l),
         'l' => $l,
-        'document_pic' => $document_pic,
     ));
     $footer = t('Message sent from %site_name', array('%site_name' => $defaultSiteName), $l);
 
@@ -878,7 +875,6 @@ function gofast_manage_linksharing_process(){
 
       //Get current user information for the mail
       $user_name = gofast_user_display_name($user);
-      $user_mail = $user->mail;
 
       //Get user id to send mail
       $uid = $_POST['process_uid'];
@@ -938,7 +934,7 @@ function gofast_manage_linksharing_process(){
       $l = array('langcode' => $recpts['to']['language'], 'context' => 'gofast:gofast_link_sharing');
       $title = t('Shared documents' , array(), $l);
       $body = theme('gofast_manage_linksharing_body', array(
-                  'author_pic' => theme('user_picture', array('account' => $user)),
+                  'author_pic' => theme('user_picture', array('account' => $user, 'dimensions' => 40, 'attributes' => ['width' => 40, 'style' => "border-radius: 5px; width:40px;"])),
                   'author_name' => $user_name,
                   'recip_name' => $recipient_user_mail,
                   'nodes_informations' => $nids_informations,
@@ -948,7 +944,6 @@ function gofast_manage_linksharing_process(){
                     array('%exp_period' => t(DEFAULT_EXPIRY_PERIOD_STRING, array(), $l)),
                     $l),
                   'l' => $l,
-                  'document_pic' => $document_pic,
                  ));
       $footer = t('Message sent from %site_name', array('%site_name' => $defaultSiteName), $l);
 
@@ -970,6 +965,39 @@ function gofast_manage_linksharing_process(){
   exit;
 }
 
+
+function gofast_multi_sharing_check_session(){
+  global $user;
+  $curr_user = $user;
+  
+  $nodes_exist = true;
+
+  $decrypt_datas = gofast_link_sharing_link_decrypt($_GET["hash"]);
+  $nids = $decrypt_datas['nids'];
+  $exp_date = $decrypt_datas['exp_date'];
+
+  //Check node exist
+  foreach ($nids as $key => $nid) {
+    $node = node_load($nid);
+    $node_exists = isset($node->nid);
+    if(!$node_exists){
+      $nodes_exist = false;
+    }
+  }
+
+  //Check sharing expiry date
+  $link_still_valid = ( $exp_date > time())? TRUE : FALSE ;
+  
+  //Check if there is already a gofast session
+  $is_gofast_user = gofast_link_sharing_is_gofast_user($curr_user);
+  $output = '';
+  if( ! $nodes_exist || (!$link_still_valid) ){
+      drupal_set_message(t("Sorry this sharing link is not valid", array(), array('context' => 'sharing_dl')), 'error');
+      drupal_goto("/");
+      exit;
+  }
+}
+
 /**
  * Implements multi-sharing form (Check documents to download)
  * @global type $user
@@ -982,9 +1010,10 @@ function gofast_multi_link_sharing_form($form, &$form_state) {
     global $user;
     global $base_url;
 
+    // Check is the session link is not expiry
+    gofast_multi_sharing_check_session();
 
     $decrypt_datas = gofast_link_sharing_link_decrypt($_GET['hash']);
-    $hash = $_GET['hash'];
     if(isset($decrypt_datas['nid_unique'])){
         $decrypt_nid_unique= $decrypt_datas['nid_unique'];
     }
@@ -1004,34 +1033,23 @@ function gofast_multi_link_sharing_form($form, &$form_state) {
         }
     }
     $nids_title = array();
-    foreach($nids as $key=>$nid){
+    foreach($nids as $nid){
         $node = node_load($nid);
         $version = $node->field_current_version['und']['0']['value'];
-        $nids_title[$nid]=$node->title . '<code><strong> ' . t("Version : ", array(),array('context'=>'gofast:gofast_linksharing')) .$version . ' </strong></code>';
+        $nids_title[$nid]['title'] = $node->title;
+        $nids_title[$nid]['version'] = $version;
     }
 
-    $form['documents'] = array(
-      '#markup' => '<h3>' . t('Shared Documents : ', array(), array('context' => 'gofast:gofast_link_sharing')) . '</h4>',
-    );
-
-    $form['check_all'] = array(
-     '#markup' => '<a id="edit-check-all" class="btn btn-sm btn-default" data-state="active" style="margin-top:20px;"><i class="fa fa-check"> </i>' .t(' Check all documents') . '</a>',
-    );
-
-    $form['links'] = array(
+    $form['shares'] = array(
       '#title' => t('Choose documents you want to download'),
       '#type' => 'checkboxes',
-      '#prefix' => '<div style="margin:30px;">',
-      '#suffix' => '</div>',
       '#required' => TRUE,
       '#options' => $nids_title,
     );
 
     $form['actions']['submit'] = array(
-      '#attributes' => array('class' => array('btn-primary')),
+      '#attributes' => array('class' => array('btn-warning', 'gofast_link_sharing_button')),
       '#type' => 'submit',
-      '#prefix' => '<div style="margin-top:35px;">',
-      '#suffix' => '</div>',
       '#value' => t('Download', array(), array("context" => 'gofast')),
     );
 
@@ -1047,22 +1065,8 @@ function gofast_multi_link_sharing_form($form, &$form_state) {
 function gofast_multi_link_sharing_form_validate($form, &$form_state){
 }
 
-/**
- * Form submit handler for gofast_multi_link_sharing_form()
- *
- * @global $user
- * @global $base_url
- * @see gofast_link_sharing_form_validate()
- */
-function gofast_multi_link_sharing_form_submit($form,&$form_state){
+function gofast_multi_link_sharing_generate_zip_file($nodes_nid) {
     global $user;
-
-    usurp(1);
-    set_time_limit(0);
-
-    ## get documents checked
-    $nodes_nid = $form['links']['#value'];
-
     ## create new zip object
     $zip = new ZipArchive();
 
@@ -1073,39 +1077,57 @@ function gofast_multi_link_sharing_form_submit($form,&$form_state){
 
     ## close zip
     $zip->close();
+    $alfresco_ticket = gofast_cmis_retrieve_and_store_ticket($user);
+    foreach ($nodes_nid as $nid){
+      $node = node_load($nid);
+      $title = $node->title;
+      $node_ref = gofast_cmis_node_get_item_id($node);
+      $version = gofast_cmis_webservice_item_get_versions($node_ref)[0]->label;
+      $extension = gofast_cmis_node_get_extension($node);
+      $cmis_id = gofast_cmis_node_get_item_id($node);
+      $object = gofast_cmis_item_get($cmis_id, TRUE);
+      $link = $object->links["edit-media"];
+      $ddl_link = $link .'&alf_ticket='.$alfresco_ticket;
+
+      str_replace('.','_',$node->field_current_version['und']['0']['value']);
+      $full_title = str_replace('.' . $extension , '_v' . $version . '.' . $extension,$title);
+
+      //Download and add the file to the archive
+      shell_exec("wget -O \"/var/www/d7/sites/default/files/$full_title\" \"$ddl_link\"");
+      shell_exec("zip -urj $tmp_file \"/var/www/d7/sites/default/files/$full_title\"");
+      unlink("/var/www/d7/sites/default/files/$full_title");
+    }
+    return $tmp_file;
+}
+
+/**
+ * Form submit handler for gofast_multi_link_sharing_form()
+ *
+ * @global $user
+ * @global $base_url
+ * @see gofast_link_sharing_form_validate()
+ */
+function gofast_multi_link_sharing_form_submit($form,&$form_state){
+    usurp(1);
+    set_time_limit(0);
+
+    ## get documents checked
+    $nodes_nid = $form['shares']['#value'];
 
     try{
-        $alfresco_ticket = gofast_cmis_retrieve_and_store_ticket($user);
-        usurp(false);
-
-        foreach ($nodes_nid as $nid){
-            $node = node_load($nid);
-            $title = $node->title;
-            $node_ref = gofast_cmis_node_get_item_id($node);
-            $version = gofast_cmis_webservice_item_get_versions($node_ref)[0]->label;
-            $extension = gofast_cmis_node_get_extension($node);
-            $cmis_id = gofast_cmis_node_get_item_id($node);
-            $object = gofast_cmis_item_get($cmis_id, TRUE);
-            $link = $object->links["edit-media"];
-            $ddl_link = $link .'&alf_ticket='.$alfresco_ticket;
-
-            str_replace('.','_',$node->field_current_version['und']['0']['value']);
-            $full_title = str_replace('.' . $extension , '_v' . $version . '.' . $extension,$title);
-
-            //Download and add the file to the archive
-            shell_exec("wget -O \"/var/www/d7/sites/default/files/$full_title\" \"$ddl_link\"");
-            shell_exec("zip -urj $tmp_file \"/var/www/d7/sites/default/files/$full_title\"");
-            unlink("/var/www/d7/sites/default/files/$full_title");
-        }
-
+      //   $file_sharing_link = gofast_link_sharing_build_link($node->nid);
+      if (count($nodes_nid) > 1) {
+        $tmp_file = gofast_multi_link_sharing_generate_zip_file($nodes_nid);
+        
         //Clear the user ticket
         gofast_cmis_unset_user_ticket();
-
+        usurp(false);
+  
         gofast_multi_link_sharing_send_mail($form,$form_state);
-
+  
         //Prepare buffer for stream
         while (ob_get_level()) ob_end_clean();
-
+  
         ## send the file to the browser as a download
         header('Content-disposition: attachment; filename=Documents_download.zip');
         header('Content-type: application/zip');
@@ -1114,8 +1136,43 @@ function gofast_multi_link_sharing_form_submit($form,&$form_state){
         unlink($tmp_file);
         # need to exit because other header overload both header
         exit;
+      }else{
+        global $user;
+
+        $node = node_load(array_pop($nodes_nid));
+        $alfresco_ticket = gofast_cmis_retrieve_and_store_ticket($user);
+        
+        $title = $node->title;
+        $version = str_replace('.','_',$node->field_current_version['und']['0']['value']);
+        $extension = gofast_cmis_node_get_extension($node);
+        $cmis_id = gofast_cmis_node_get_item_id($node);
+        $object = gofast_cmis_item_get($cmis_id, TRUE);
+        $link = $object->links["edit-media"];
+        $ddl_link = $link .'&alf_ticket='.$alfresco_ticket;
+        str_replace('.','_',$node->field_current_version['und']['0']['value']);
+        $full_title = str_replace('.' . $extension , '_v' . $version . '.' . $extension,$title);
+
+        //Clear the user ticket
+        gofast_cmis_unset_user_ticket();
+        usurp(false);
+        
+        //Prepare buffer for stream
+        while (ob_get_level()) ob_end_clean();
+        set_time_limit(0);
+        
+        //Download the file
+        header('Content-disposition: attachment; filename="'.$full_title . '"');
+        header('Content-type: ' . $object->properties['cmis:contentStreamMimeType']);      
+        readfile($ddl_link);
+      }
+      // if a single file is checked, just download the file
+      $nid = array_pop($nodes_nid);
+      $file_sharing_link = gofast_link_sharing_build_link($nid);
+      header("Location: $file_sharing_link");
+      exit();
     }catch(Exception $e){
         gofast_cmis_unset_user_ticket();
+        usurp(false);
     }
 }
 
@@ -1130,7 +1187,7 @@ function gofast_multi_link_sharing_send_mail($form,$form_state){
     global $user;
 
     $decrypt_datas = gofast_link_sharing_link_decrypt($_GET['hash']);
-    $nids = $form['links']['#value'];
+    $nids = $form['shares']['#value'];
     $emetteur = user_load($decrypt_datas['emetteur']);
     $version = $decrypt_datas['version'];
     $dest_id = $decrypt_datas['dest_id'];
@@ -1168,16 +1225,20 @@ function gofast_multi_link_sharing_send_mail($form,$form_state){
 
     usurp(1);
     $l = array('langcode' => $emetteur->language, 'context' => 'gofast:gofast_link_sharing');
-    $title = t("Email sharing download",array(),array('langcode' => $emetteur->language, 'context' => 'sharing_dl'));
-    $subject = t("@destinaire downloaded yours documents on the GoFast 3 plateform",array('@destinaire' => $nameDestinaire),array('langcode' => $emetteur->language,'context' => 'sharing_dl'));
-    $body = theme('gofast-multi-sharing-download', array(
-          'author_pic' => theme('user_picture', array('account' => $destinataire)),
-          'author_name' => $nameDestinaire,
-          'author_mail' => $mail,
-          'recip_name' => $emetteur->mail,
-          'nodes_informations' => $nodes_informations,
-          'l' => $l,
-         ));
+    $title = t("File sharing download",array(), array('langcode' => $emetteur->language, 'context' => 'sharing_dl'));
+    $subject = t("@destinaire downloaded your document on the GoFAST plateform", array('@destinaire' => $nameDestinaire), array('langcode' => $emetteur->language, 'context' => 'sharing_dl'));
+
+    $message_tag = '<a href="mailto:' . $mail . '" style="color: 3699ff; text-decoration: none;">' . $nameDestinaire. '</a>';
+    $author_pic_url = gofast_get_url_picture_by_id($destinataire->uid);
+    $author_pic = '<img src="' . $author_pic_url . '" style="padding-right: 5px; border-radius; 5px;" width="25">';
+
+    $body = theme('gofast-sharing-download', array(
+      'message' => str_replace("{tag}", $message_tag, t("{tag} downloaded your documents on the GoFAST plateform", array(), array('context' => 'gofast:gofast_link_sharing'))),
+      'author_pic' => $author_pic,
+      'recip_name' => $emetteur->ldap_user_givenname[LANGUAGE_NONE][0]['value'],
+      'nodes_informations' => $nodes_informations,
+      'l' => $l,
+    ));
     $footer = t('Message sent from ', array(), $l) . $defaultSiteName;
     usurp(false);
     $dest_mail=array();

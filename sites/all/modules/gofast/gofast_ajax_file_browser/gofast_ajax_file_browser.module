@@ -19,6 +19,8 @@ function gofast_ajax_file_browser_init() {
   }
   $params['gofast_ajax_file_browser']['archived_spaces'] = $archived_spaces;
   $params['alfresco']['alf_ticket'] = gofast_cmis_get_user_ticket();
+  global $user;
+  $params['gofast_ajax_file_browser']['private_space_nid'] = gofast_og_get_user_private_space($user, FALSE);;
   drupal_add_js($params,'setting');
 
   libraries_load('ztree');
@@ -58,11 +60,7 @@ function gofast_ajax_file_browser_library() {
         'every_page' => TRUE,
         'weight' => 10
       ),
-      $path . '/css/gofast_ajax_file_browser_mobile.css' => array(
-        'group' => CSS_THEME,
-        'every_page' => TRUE,
-        'weight' => 10
-      ),$lib . '/NProgress/nprogress.css' => array(
+      $lib . '/NProgress/nprogress.css' => array(
         'group' => JS_THEME,
         'every_page' => TRUE,
         'weight' => 1
@@ -221,6 +219,9 @@ function gofast_ajax_file_browser_preprocess_page(&$vars) {
  */
 function gofast_ajax_file_browser_theme() {
   return array(
+      'main_ajax_file_browser' => array(
+          'template' => 'tpl/main_ajax_file_browser',
+      ),
       'ajax_file_browser' => array(
           'template' => 'tpl/ajax_file_browser',
       ),
@@ -315,25 +316,25 @@ function gofast_ajax_file_browser_menu() {
     'page callback' => 'gofast_ajax_file_browser_validate_delete_folder',
     'type' => MENU_CALLBACK,
     'access arguments' => array('access content'),
-    'access callback' => TRUE,
+    'access callback' => 'user_access'
   );
   $items['gofast/browser/check_favorite_folders'] = array(
     'page callback' => 'gofast_ajax_file_browser_check_favorite_folder',
     'type' => MENU_CALLBACK,
     'access arguments' => array('access content'),
-    'access callback' => TRUE,
+    'access callback' => 'user_access'
   );
   $items['ajax_file_browser/folder/get_documents'] = array(
     'page callback' => 'gofast_ajax_file_browser_get_documents_into_folder',
     'type' => MENU_CALLBACK,
     'access arguments' => array('access content'),
-    'access callback' => TRUE,
+    'access callback' => 'user_access'
   );
   $items['ajax_file_browser/get_icon'] = array(
     'page callback' => 'gofast_ajax_file_browser_get_icon',
     'type' => MENU_CALLBACK,
     'access arguments' => array('access content'),
-    'access callback' => TRUE,
+    'access callback' => 'user_access'
   );
 
   return $items;
@@ -363,13 +364,13 @@ function gofast_ajax_file_browser_get_rules(){
     exit;
 }
 
-function gofast_ajax_file_browser_get_nid_from_href($href = null) {
+function gofast_ajax_file_browser_get_nid_from_href($href = null, $as_admin = FALSE) {
   $href = empty($href) ? $_POST["href"] : $href;
   $href = empty($href) ? $_GET["href"] : $href;
   $href = rawurldecode($href);
   $href = str_replace("/alfresco/webdav", "", $href);
 
-  $cmis_object = gofast_cmis_item_get_by_path($href, FALSE);
+  $cmis_object = gofast_cmis_item_get_by_path($href, $as_admin);
   $nid = isset($cmis_object->properties['gofast:nid']) ? $cmis_object->properties['gofast:nid'] : FALSE;
   if($nid == FALSE){
     $reference = $cmis_object->properties['alfcmis:nodeRef'];
@@ -479,14 +480,20 @@ function gofast_ajax_file_browser_get_reference(){
  * @return type
  */
 function gofast_ajax_file_browser_form($form, &$form_state) {
-
-  $form['files'] = array(
+  $form['gofast_file_browser_upload_input'] = array(
     '#type' => 'file',
     '#title' => t("Select file(s) to upload", array(), array('context' => 'gofast:ajax_file_browser')),
     '#attributes' => array(
       'multiple' => TRUE,
-      'id' => 'gofast_file_browser_upload_input'
-    )
+      //'id' => 'edit-gofast-file-browser-upload-input'
+    ),
+  );
+  $form['resize'] = array(
+    '#type' => 'markup',
+    '#value' => "",
+    '#weight' => 51,
+    '#suffix' => "<script>jQuery('#gofast_basicModal .min-h-500px').removeClass('min-h-500px');</script>"
+
   );
   return $form;
 }
@@ -908,8 +915,8 @@ function gofast_ajax_file_browser_check_favorite_folder(){
 }
 
 function gofast_ajax_file_browser_get_documents_into_folder(){
-  $folder_path = $_GET['folder_path'];
-  $int = $_GET['int'];
+  $folder_path = gofast_xss_clean($_GET['folder_path']);
+  $int = gofast_xss_clean($_GET['int']);
   $documents = gofast_cmis_get_children($folder_path,'documents');
   $theme_list_documents = theme('gofast_ajax_file_brower_list_children_path', array('documents' => $documents));
   $result = array(
@@ -921,14 +928,23 @@ function gofast_ajax_file_browser_get_documents_into_folder(){
 }
 
 function gofast_ajax_file_browser_get_icon(){
-  $path = $_GET['folder_path'];
-  $int = $_GET['int'];
+  $path = gofast_xss_clean($_GET['folder_path']);
+  $int = gofast_xss_clean($_GET['int']);
   $nid = gofast_ajax_file_browser_get_nid_from_href($path);
   if(empty($nid)){
-    $icon = "<span class='fa fa-folder'></span>";
+    $item = gofast_cmis_item_get_by_path($path);
+    $reference = $item->properties['alfcmis:nodeRef'];
+    $parents = gofast_cmis_webservice_get_node_parents($reference);
+    if(count($parents) > 1){
+      $icon = "<span class='fas fa-folders' style='color:#3498db'></span>";
+      $locations = theme('gofast_tooltip_emplacements', array('locations' => $parents));
+    }else{
+      $icon = "<span class='fa fa-folder'></span>";
+    }
   }else{
     $node = node_load($nid);
-    $locations = node_load($nid)->field_emplacement[LANGUAGE_NONE];
+    $node_ref = $node->reference;
+    $locations = gofast_cmis_webservice_get_node_parents($node_ref);
     if (count($locations) > 1){
       $locations = theme('gofast_tooltip_emplacements', array('locations' => $locations));
     }
@@ -941,4 +957,41 @@ function gofast_ajax_file_browser_get_icon(){
   );
   print json_encode($result);
   exit;
+}
+
+function gofast_main_ajax_file_browser()
+{
+  $browser = theme('ajax_file_browser_mobile');
+  return theme('main_ajax_file_browser', array('ajax_browser'=> $browser));
+}
+
+
+/**
+ * Implements hook_block_info
+ */
+function gofast_ajax_file_browser_block_info()
+{
+  $blocks['main_ajax_file_browser'] = array(
+    'info' => t('main_ajax_file_browser', array(), array('context' => 'gofast')),
+    'cache' => DRUPAL_CACHE_GLOBAL,
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_info
+ */
+function gofast_ajax_file_browser_block_view($delta = '')
+{
+  $block = array();
+  switch ($delta) {
+    case 'main_ajax_file_browser':
+      $block['subject'] = '';
+      $content = gofast_main_ajax_file_browser();
+      $block['content'] = $content;
+      break;
+
+  }
+  return $block;
 }

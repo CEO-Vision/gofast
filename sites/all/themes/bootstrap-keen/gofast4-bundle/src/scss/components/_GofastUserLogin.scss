@@ -1,0 +1,34 @@
+.login-content {
+    & #user-pass-reset {
+        display: flex !important;
+        justify-content: center;
+    }
+    & > div > .content-main-contianer{
+        overflow-x: hidden;
+    }
+    & #content-main-container > div {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .badge-light-info {
+        color: #3699ff !important;
+        background-color: #e1f0ff;
+        border-color: transparent;
+    }
+
+    .badge-light-info > i {
+        color: #3699ff;
+    }
+
+    .badge-light-info:hover {
+        color: #fff;
+        background-color: #3699ff;
+        border-color: transparent;
+    }
+
+    .badge-light-info:hover i {
+        color: #fff;
+    }
+}

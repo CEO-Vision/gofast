@@ -1,0 +1,307 @@
+<?php 
+
+/**
+ * Implements hook_update_4
+ * Create views 
+ */
+function gofast_directory_install(){
+
+    db_query("CREATE VIEW userlist_admins_count AS SELECT og_membership.gid AS userlist_id, COUNT(og_membership.gid) AS nb_admins FROM og_membership WHERE
+	`og_membership`.`etid` != 1 GROUP BY og_membership.gid");
+
+    db_query("CREATE VIEW `d7`.`userlist_members_count` AS SELECT  `d7`.`field_data_field_userlist_members`.`entity_id` AS `userlist_id`, COUNT(`d7`.`field_data_field_userlist_members`.`field_userlist_members_value`) AS `nb_members` FROM `d7`.`field_data_field_userlist_members` GROUP BY `d7`.`field_data_field_userlist_members`.`entity_id`");   
+    
+    db_query("CREATE VIEW `d7`.`userlist_og_count` AS SELECT  `d7`.`og_membership`.`etid` AS `userlist_id`, COUNT(`d7`.`og_membership`.`gid`) AS `nb_og` FROM `d7`.`og_membership` WHERE ((`d7`.`og_membership`.`entity_type` = 'userlist') AND (`d7`.`og_membership`.`gid` NOT IN (4 , 5, 6, 7))) GROUP BY `d7`.`og_membership`.`etid`");   
+    
+    db_query("CREATE VIEW userlist_directory_detail AS SELECT gu.ulid AS ulid , gu.nid AS `nid`, gu.name AS `name`, uoc.nb_og AS `nb_og`, umc.nb_members AS `nb_members`, n.uid AS `creator_id`, n.created AS `created`, `n`.`changed` AS `modified`, n.status AS `status`, uac.nb_admins AS `nb_admins` FROM ((((`d7`.`gofast_userlists` `gu` LEFT JOIN `d7`.`userlist_og_count` `uoc` ON ((`uoc`.`userlist_id` = `gu`.`ulid`))) LEFT JOIN `d7`.`userlist_members_count` `umc` ON ((`umc`.`userlist_id` = `gu`.`ulid`))) LEFT JOIN `d7`.`node` `n` ON ((`n`.`nid` = `gu`.`nid`))) LEFT JOIN `d7`.`userlist_admins_count` `uac` ON ((`uac`.`userlist_id` = `gu`.`nid`)))");
+
+    db_query("CREATE VIEW `d7`.`users_directory_detail` AS
+    SELECT
+        `u`.`uid` AS `uid`,
+        `u`.`name` AS `username`,
+        `u`.`mail` AS `mail`,
+        `u`.`created` AS `created`,
+        `u`.`login` AS `login`,
+        `u`.`status` AS `status`,
+        `u`.`language` AS `language`,
+        `u`.`timezone` AS `timezone`,
+        `u`.`picture` AS `picture`,
+        `frlug`.`ldap_user_givenname_value` AS `firstname`,
+        `frlus`.`ldap_user_sn_value` AS `lastname`,
+        `frluo`.`ldap_user_o_value` AS `entity`,
+        `up`.`points` AS `points`,
+        GROUP_CONCAT(`ur`.`rid` SEPARATOR ',') AS `role_id`,
+        GROUP_CONCAT(`r`.`name` SEPARATOR ',') AS `role_name`,
+        `frfl`.`field_left_value` AS `left`,
+        `extr`.`is_extranet_value` AS `is_extranet`,
+        (CASE
+            WHEN ((`u`.`status` = 0) AND (`frfl`.`field_left_value` = 0)) THEN 0
+            WHEN (`u`.`status` = 0) THEN 1
+            ELSE 2
+        END) AS `total_status`
+    FROM
+        ((((((((`users` `u`
+    LEFT JOIN `field_revision_ldap_user_givenname` `frlug` ON
+        ((`frlug`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `field_revision_ldap_user_sn` `frlus` ON
+        ((`frlus`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `field_revision_ldap_user_o` `frluo` ON
+        ((`frluo`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `userpoints` `up` ON
+        ((`up`.`uid` = `u`.`uid`)))
+    LEFT JOIN `users_roles` `ur` ON
+        ((`u`.`uid` = `ur`.`uid`)))
+    LEFT JOIN `role` `r` ON
+        ((`ur`.`rid` = `r`.`rid`)))
+    LEFT JOIN `field_revision_field_left` `frfl` ON
+        ((`frfl`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `field_revision_is_extranet` `extr` ON
+        ((`extr`.`entity_id` = `u`.`uid`)))
+    WHERE
+        (`u`.`uid` NOT IN (0, 1))
+    GROUP BY
+	    (`u`.`uid`)");  
+    
+    db_query("CREATE VIEW `d7`.`view_userlist_og` AS SELECT  `gu`.`ulid` AS `ulid`, `gu`.`nid` AS `ul_nid`, `n`.`nid` AS `og_nid`, `om`.`created` AS `created`, `om`.`state` AS `state` FROM ((`d7`.`og_membership` `om` JOIN `d7`.`gofast_userlists` `gu` ON ((`gu`.`ulid` = `om`.`etid`))) LEFT JOIN `d7`.`node` `n` ON ((`n`.`nid` = `om`.`gid`))) WHERE (`om`.`entity_type` = 'userlist')");   
+    
+    db_query("CREATE VIEW `d7`.`view_user_og` AS SELECT  `u`.`uid` AS `uid`, `n`.`nid` AS `og_nid`, `om`.`created` AS `created`, `om`.`state` AS `state` FROM ((`d7`.`og_membership` `om` JOIN `d7`.`users` `u` ON ((`u`.`uid` = `om`.`etid`))) LEFT JOIN `d7`.`node` `n` ON ((`n`.`nid` = `om`.`gid`))) WHERE ((`om`.`entity_type` = 'user') AND (`om`.`field_name` <> 'og_private'))");   
+    
+    db_query("CREATE VIEW `d7`.`view_user_userlist` AS SELECT  `u`.`uid` AS `uid`, `gu`.`nid` AS `nid`, `gu`.`ulid` AS `ulid`, `our`.`rid` AS `rid` FROM (((`d7`.`field_data_field_userlist_members` `fddum` LEFT JOIN `d7`.`gofast_userlists` `gu` ON ((`gu`.`ulid` = `fddum`.`entity_id`))) JOIN `d7`.`users` `u` ON ((`u`.`uid` = `fddum`.`field_userlist_members_value`))) LEFT JOIN `d7`.`og_users_roles` `our` ON (((`our`.`uid` = `u`.`uid`) AND (`gu`.`nid` = `our`.`gid`))))");   
+}
+
+
+/**
+ * Implements hook_update_1
+ * Create views 
+ */
+// function gofast_directory_update_4000(){
+
+//     db_query("CREATE VIEW userlist_admins_count AS SELECT og_users_roles.gid AS userlist_id , COUNT(og_users_roles.rid) AS nb_admins FROM og_users_roles WHERE (og_users_roles.rid = 13) GROUP BY og_users_roles.gid ");
+    
+    
+// }
+/**
+ * Implements hook_update_2
+ * Create views 
+ */
+// function gofast_directory_update_4001(){
+
+//     db_query("CREATE VIEW `d7`.`userlist_members_count` AS SELECT  `d7`.`field_data_field_userlist_members`.`entity_id` AS `userlist_id`, COUNT(`d7`.`field_data_field_userlist_members`.`field_userlist_members_value`) AS `nb_members` FROM `d7`.`field_data_field_userlist_members` GROUP BY `d7`.`field_data_field_userlist_members`.`entity_id`");   
+    
+//     db_query("CREATE VIEW `d7`.`userlist_og_count` AS SELECT  `d7`.`og_membership`.`etid` AS `userlist_id`, COUNT(`d7`.`og_membership`.`gid`) AS `nb_og` FROM `d7`.`og_membership` WHERE ((`d7`.`og_membership`.`entity_type` = 'userlist') AND (`d7`.`og_membership`.`gid` NOT IN (4 , 5, 6, 7))) GROUP BY `d7`.`og_membership`.`etid`");   
+    
+//     db_query("CREATE VIEW userlist_directory_detail AS SELECT gu.ulid AS ulid , gu.nid AS `nid`, gu.name AS `name`, uoc.nb_og AS `nb_og`, umc.nb_members AS `nb_members`, n.uid AS `creator_id`, n.created AS `created`, n.status AS `status`, uac.nb_admins AS `nb_admins` FROM ((((`d7`.`gofast_userlists` `gu` LEFT JOIN `d7`.`userlist_og_count` `uoc` ON ((`uoc`.`userlist_id` = `gu`.`ulid`))) LEFT JOIN `d7`.`userlist_members_count` `umc` ON ((`umc`.`userlist_id` = `gu`.`ulid`))) LEFT JOIN `d7`.`node` `n` ON ((`n`.`nid` = `gu`.`nid`))) LEFT JOIN `d7`.`userlist_admins_count` `uac` ON ((`uac`.`userlist_id` = `gu`.`nid`)))");   
+// }
+
+/**
+ * Implements hook_update_3
+ * Create views 
+ */
+// function gofast_directory_update_4002(){
+
+//     db_query("CREATE VIEW `d7`.`users_directory_detail` AS SELECT  `u`.`uid` AS `uid`, `u`.`name` AS `username`, `u`.`mail` AS `mail`, `u`.`created` AS `created`, `u`.`login` AS `login`, `u`.`status` AS `status`, `u`.`language` AS `language`, `u`.`timezone` AS `timezone`, `u`.`picture` AS `picture`, `frlug`.`ldap_user_givenname_value` AS `firstname`, `frlus`.`ldap_user_sn_value` AS `lastname`, `frluo`.`ldap_user_o_value` AS `entity`, `up`.`points` AS `points`, `ur`.`rid` AS `role_id`, `r`.`name` AS `role_name` FROM ((((((`d7`.`users` `u` LEFT JOIN `d7`.`field_revision_ldap_user_givenname` `frlug` ON ((`frlug`.`entity_id` = `u`.`uid`))) LEFT JOIN `d7`.`field_revision_ldap_user_sn` `frlus` ON ((`frlus`.`entity_id` = `u`.`uid`))) LEFT JOIN `d7`.`field_revision_ldap_user_o` `frluo` ON ((`frluo`.`entity_id` = `u`.`uid`))) LEFT JOIN `d7`.`userpoints` `up` ON ((`up`.`uid` = `u`.`uid`))) LEFT JOIN `d7`.`users_roles` `ur` ON (((`u`.`uid` = `ur`.`uid`) AND (`ur`.`rid` = 3)))) LEFT JOIN `d7`.`role` `r` ON ((`ur`.`rid` = `r`.`rid`))) WHERE (`u`.`uid` NOT IN (0 , 1))");   
+    
+//     db_query("CREATE VIEW `d7`.`view_userlist_og` AS SELECT  `gu`.`ulid` AS `ulid`, `gu`.`nid` AS `ul_nid`, `n`.`nid` AS `og_nid`, `om`.`created` AS `created`, `om`.`state` AS `state` FROM ((`d7`.`og_membership` `om` JOIN `d7`.`gofast_userlists` `gu` ON ((`gu`.`ulid` = `om`.`etid`))) LEFT JOIN `d7`.`node` `n` ON ((`n`.`nid` = `om`.`gid`))) WHERE (`om`.`entity_type` = 'userlist')");   
+    
+//     db_query("CREATE VIEW `d7`.`view_user_og` AS SELECT  `u`.`uid` AS `uid`, `n`.`nid` AS `og_nid`, `om`.`created` AS `created`, `om`.`state` AS `state` FROM ((`d7`.`og_membership` `om` JOIN `d7`.`users` `u` ON ((`u`.`uid` = `om`.`etid`))) LEFT JOIN `d7`.`node` `n` ON ((`n`.`nid` = `om`.`gid`))) WHERE ((`om`.`entity_type` = 'user') AND (`om`.`field_name` <> 'og_private'))");   
+    
+//     db_query("CREATE VIEW `d7`.`view_user_userlist` AS SELECT  `u`.`uid` AS `uid`, `gu`.`nid` AS `nid`, `gu`.`ulid` AS `ulid`, `our`.`rid` AS `rid` FROM (((`d7`.`field_data_field_userlist_members` `fddum` LEFT JOIN `d7`.`gofast_userlists` `gu` ON ((`gu`.`ulid` = `fddum`.`entity_id`))) JOIN `d7`.`users` `u` ON ((`u`.`uid` = `fddum`.`field_userlist_members_value`))) LEFT JOIN `d7`.`og_users_roles` `our` ON (((`our`.`uid` = `u`.`uid`) AND (`gu`.`nid` = `our`.`gid`))))");   
+// }
+
+
+/**
+ * Implements hook_update_4
+ * Create views 
+ */
+function gofast_directory_update_4003(){
+
+    db_query("CREATE VIEW userlist_admins_count AS SELECT og_users_roles.gid AS userlist_id , COUNT(og_users_roles.rid) AS nb_admins FROM og_users_roles WHERE (og_users_roles.rid = 13) GROUP BY og_users_roles.gid ");
+
+    db_query("CREATE VIEW `d7`.`userlist_members_count` AS SELECT  `d7`.`field_data_field_userlist_members`.`entity_id` AS `userlist_id`, COUNT(`d7`.`field_data_field_userlist_members`.`field_userlist_members_value`) AS `nb_members` FROM `d7`.`field_data_field_userlist_members` GROUP BY `d7`.`field_data_field_userlist_members`.`entity_id`");   
+    
+    db_query("CREATE VIEW `d7`.`userlist_og_count` AS SELECT  `d7`.`og_membership`.`etid` AS `userlist_id`, COUNT(`d7`.`og_membership`.`gid`) AS `nb_og` FROM `d7`.`og_membership` WHERE ((`d7`.`og_membership`.`entity_type` = 'userlist') AND (`d7`.`og_membership`.`gid` NOT IN (4 , 5, 6, 7))) GROUP BY `d7`.`og_membership`.`etid`");   
+    
+    db_query("CREATE VIEW userlist_directory_detail AS SELECT gu.ulid AS ulid , gu.nid AS `nid`, gu.name AS `name`, uoc.nb_og AS `nb_og`, umc.nb_members AS `nb_members`, n.uid AS `creator_id`, n.created AS `created`, n.status AS `status`, uac.nb_admins AS `nb_admins` FROM ((((`d7`.`gofast_userlists` `gu` LEFT JOIN `d7`.`userlist_og_count` `uoc` ON ((`uoc`.`userlist_id` = `gu`.`ulid`))) LEFT JOIN `d7`.`userlist_members_count` `umc` ON ((`umc`.`userlist_id` = `gu`.`ulid`))) LEFT JOIN `d7`.`node` `n` ON ((`n`.`nid` = `gu`.`nid`))) LEFT JOIN `d7`.`userlist_admins_count` `uac` ON ((`uac`.`userlist_id` = `gu`.`nid`)))");   
+
+    db_query("CREATE VIEW `d7`.`users_directory_detail` AS SELECT  `u`.`uid` AS `uid`, `u`.`name` AS `username`, `u`.`mail` AS `mail`, `u`.`created` AS `created`, `u`.`login` AS `login`, `u`.`status` AS `status`, `u`.`language` AS `language`, `u`.`timezone` AS `timezone`, `u`.`picture` AS `picture`, `frlug`.`ldap_user_givenname_value` AS `firstname`, `frlus`.`ldap_user_sn_value` AS `lastname`, `frluo`.`ldap_user_o_value` AS `entity`, `up`.`points` AS `points`, `ur`.`rid` AS `role_id`, `r`.`name` AS `role_name` FROM ((((((`d7`.`users` `u` LEFT JOIN `d7`.`field_revision_ldap_user_givenname` `frlug` ON ((`frlug`.`entity_id` = `u`.`uid`))) LEFT JOIN `d7`.`field_revision_ldap_user_sn` `frlus` ON ((`frlus`.`entity_id` = `u`.`uid`))) LEFT JOIN `d7`.`field_revision_ldap_user_o` `frluo` ON ((`frluo`.`entity_id` = `u`.`uid`))) LEFT JOIN `d7`.`userpoints` `up` ON ((`up`.`uid` = `u`.`uid`))) LEFT JOIN `d7`.`users_roles` `ur` ON (((`u`.`uid` = `ur`.`uid`) AND (`ur`.`rid` = 3)))) LEFT JOIN `d7`.`role` `r` ON ((`ur`.`rid` = `r`.`rid`))) WHERE (`u`.`uid` NOT IN (0 , 1))");   
+    
+    db_query("CREATE VIEW `d7`.`view_userlist_og` AS SELECT  `gu`.`ulid` AS `ulid`, `gu`.`nid` AS `ul_nid`, `n`.`nid` AS `og_nid`, `om`.`created` AS `created`, `om`.`state` AS `state` FROM ((`d7`.`og_membership` `om` JOIN `d7`.`gofast_userlists` `gu` ON ((`gu`.`ulid` = `om`.`etid`))) LEFT JOIN `d7`.`node` `n` ON ((`n`.`nid` = `om`.`gid`))) WHERE (`om`.`entity_type` = 'userlist')");   
+    
+    db_query("CREATE VIEW `d7`.`view_user_og` AS SELECT  `u`.`uid` AS `uid`, `n`.`nid` AS `og_nid`, `om`.`created` AS `created`, `om`.`state` AS `state` FROM ((`d7`.`og_membership` `om` JOIN `d7`.`users` `u` ON ((`u`.`uid` = `om`.`etid`))) LEFT JOIN `d7`.`node` `n` ON ((`n`.`nid` = `om`.`gid`))) WHERE ((`om`.`entity_type` = 'user') AND (`om`.`field_name` <> 'og_private'))");   
+    
+    db_query("CREATE VIEW `d7`.`view_user_userlist` AS SELECT  `u`.`uid` AS `uid`, `gu`.`nid` AS `nid`, `gu`.`ulid` AS `ulid`, `our`.`rid` AS `rid` FROM (((`d7`.`field_data_field_userlist_members` `fddum` LEFT JOIN `d7`.`gofast_userlists` `gu` ON ((`gu`.`ulid` = `fddum`.`entity_id`))) JOIN `d7`.`users` `u` ON ((`u`.`uid` = `fddum`.`field_userlist_members_value`))) LEFT JOIN `d7`.`og_users_roles` `our` ON (((`our`.`uid` = `u`.`uid`) AND (`gu`.`nid` = `our`.`gid`))))");   
+}
+
+/**
+ * Implements hook_update_5
+ * Create views 
+ */
+function gofast_directory_update_4004()
+{
+    db_query("DROP VIEW `d7`.`users_directory_detail`");
+    db_query("CREATE VIEW `d7`.`users_directory_detail` AS
+    SELECT
+        `u`.`uid` AS `uid`,
+        `u`.`name` AS `username`,
+        `u`.`mail` AS `mail`,
+        `u`.`created` AS `created`,
+        `u`.`login` AS `login`,
+        `u`.`status` AS `status`,
+        `u`.`language` AS `language`,
+        `u`.`timezone` AS `timezone`,
+        `u`.`picture` AS `picture`,
+        `frlug`.`ldap_user_givenname_value` AS `firstname`,
+        `frlus`.`ldap_user_sn_value` AS `lastname`,
+        `frluo`.`ldap_user_o_value` AS `entity`,
+        `up`.`points` AS `points`,
+        GROUP_CONCAT(`ur`.`rid` SEPARATOR ',') AS `role_id`,
+        GROUP_CONCAT(`r`.`name` SEPARATOR ',') AS `role_name`,
+        `frfl`.`field_left_value` AS `left`
+    FROM
+        (((((((`users` `u`
+    LEFT JOIN `field_revision_ldap_user_givenname` `frlug` ON
+        ((`frlug`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `field_revision_ldap_user_sn` `frlus` ON
+        ((`frlus`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `field_revision_ldap_user_o` `frluo` ON
+        ((`frluo`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `userpoints` `up` ON
+        ((`up`.`uid` = `u`.`uid`)))
+    LEFT JOIN `users_roles` `ur` ON
+        ((`u`.`uid` = `ur`.`uid`)))
+    LEFT JOIN `role` `r` ON
+        ((`ur`.`rid` = `r`.`rid`)))
+    LEFT JOIN `field_revision_field_left` `frfl` ON
+        ((`frfl`.`entity_id` = `u`.`uid`)))
+    WHERE
+        (`u`.`uid` NOT IN (0, 1))
+    GROUP BY
+	    (`u`.`uid`)");
+}
+
+/**
+ * Implements hook_update_6 : also fetch is_extranet in users_directory view
+ */
+function gofast_directory_update_7000()
+{
+    db_query("DROP VIEW `d7`.`users_directory_detail`");
+    db_query("CREATE VIEW `d7`.`users_directory_detail` AS
+    SELECT
+        `u`.`uid` AS `uid`,
+        `u`.`name` AS `username`,
+        `u`.`mail` AS `mail`,
+        `u`.`created` AS `created`,
+        `u`.`login` AS `login`,
+        `u`.`status` AS `status`,
+        `u`.`language` AS `language`,
+        `u`.`timezone` AS `timezone`,
+        `u`.`picture` AS `picture`,
+        `frlug`.`ldap_user_givenname_value` AS `firstname`,
+        `frlus`.`ldap_user_sn_value` AS `lastname`,
+        `frluo`.`ldap_user_o_value` AS `entity`,
+        `up`.`points` AS `points`,
+        GROUP_CONCAT(`ur`.`rid` SEPARATOR ',') AS `role_id`,
+        GROUP_CONCAT(`r`.`name` SEPARATOR ',') AS `role_name`,
+        `frfl`.`field_left_value` AS `left`,
+        `extr`.`is_extranet_value` AS `is_extranet`,
+        `left`.`field_left_value` AS `is_left`,
+        CASE
+            WHEN (`u`.`status` = 0 AND COUNT(`flood`.`event`) >= 5) THEN 0 /** blocked */
+            WHEN `frfl`.`field_left_value` = 1 THEN 1 /** inactive */
+            WHEN (`u`.`status` = 1 AND COUNT(`flood`.`event`) < 5) THEN 2 /** active */
+            ELSE 2 /** active is default */
+        END AS total_status
+    FROM
+        ((((((((((`users` `u`
+    LEFT JOIN `field_revision_ldap_user_givenname` `frlug` ON
+        ((`frlug`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `field_revision_ldap_user_sn` `frlus` ON
+        ((`frlus`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `field_revision_ldap_user_o` `frluo` ON
+        ((`frluo`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `userpoints` `up` ON
+        ((`up`.`uid` = `u`.`uid`)))
+    LEFT JOIN `users_roles` `ur` ON
+        ((`u`.`uid` = `ur`.`uid`)))
+    LEFT JOIN `role` `r` ON
+        ((`ur`.`rid` = `r`.`rid`)))
+    LEFT JOIN `field_revision_field_left` `frfl` ON
+        ((`frfl`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `field_revision_is_extranet` `extr` ON
+        ((`extr`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `field_revision_field_left` `left` ON
+        ((`left`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `flood` ON
+        ((
+            (`flood`.`identifier` LIKE CONCAT('%', `u`.`uid`, '-%')) AND (`flood`.`event` = 'failed_login_attempt_user')
+        )))
+    WHERE
+        (`u`.`uid` NOT IN (0, 1))
+    GROUP BY
+	    (`u`.`uid`)");  
+}
+
+/**
+ * Implements hook_update_7 : more reliable way to fetch "blocked" status
+ */
+function gofast_directory_update_7001()
+{
+    db_query("DROP VIEW `d7`.`users_directory_detail`");
+    db_query("CREATE VIEW `d7`.`users_directory_detail` AS
+    SELECT
+        `u`.`uid` AS `uid`,
+        `u`.`name` AS `username`,
+        `u`.`mail` AS `mail`,
+        `u`.`created` AS `created`,
+        `u`.`login` AS `login`,
+        `u`.`status` AS `status`,
+        `u`.`language` AS `language`,
+        `u`.`timezone` AS `timezone`,
+        `u`.`picture` AS `picture`,
+        `frlug`.`ldap_user_givenname_value` AS `firstname`,
+        `frlus`.`ldap_user_sn_value` AS `lastname`,
+        `frluo`.`ldap_user_o_value` AS `entity`,
+        `up`.`points` AS `points`,
+        GROUP_CONCAT(`ur`.`rid` SEPARATOR ',') AS `role_id`,
+        GROUP_CONCAT(`r`.`name` SEPARATOR ',') AS `role_name`,
+        `frfl`.`field_left_value` AS `left`,
+        `extr`.`is_extranet_value` AS `is_extranet`,
+        (CASE
+            WHEN ((`u`.`status` = 0) AND (`frfl`.`field_left_value` = 0)) THEN 0
+            WHEN (`u`.`status` = 0) THEN 1
+            ELSE 2
+        END) AS `total_status`
+    FROM
+        ((((((((`users` `u`
+    LEFT JOIN `field_revision_ldap_user_givenname` `frlug` ON
+        ((`frlug`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `field_revision_ldap_user_sn` `frlus` ON
+        ((`frlus`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `field_revision_ldap_user_o` `frluo` ON
+        ((`frluo`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `userpoints` `up` ON
+        ((`up`.`uid` = `u`.`uid`)))
+    LEFT JOIN `users_roles` `ur` ON
+        ((`u`.`uid` = `ur`.`uid`)))
+    LEFT JOIN `role` `r` ON
+        ((`ur`.`rid` = `r`.`rid`)))
+    LEFT JOIN `field_revision_field_left` `frfl` ON
+        ((`frfl`.`entity_id` = `u`.`uid`)))
+    LEFT JOIN `field_revision_is_extranet` `extr` ON
+        ((`extr`.`entity_id` = `u`.`uid`)))
+    WHERE
+        (`u`.`uid` NOT IN (0, 1))
+    GROUP BY
+	    (`u`.`uid`)");  
+}
+
+/**
+ * Implements hook_update_8 : corrections on userlist views
+ */
+function gofast_directory_update_7002(){
+    db_query("DROP VIEW `d7`.`userlist_admins_count`");
+    db_query("DROP VIEW `d7`.`userlist_directory_detail`");
+    db_query("CREATE VIEW userlist_admins_count AS SELECT og_membership.gid AS userlist_id, COUNT(og_membership.gid) AS nb_admins FROM og_membership WHERE
+	`og_membership`.`etid` != 1 GROUP BY og_membership.gid");
+    db_query("CREATE VIEW userlist_directory_detail AS SELECT gu.ulid AS ulid , gu.nid AS `nid`, gu.name AS `name`, uoc.nb_og AS `nb_og`, umc.nb_members AS `nb_members`, n.uid AS `creator_id`, n.created AS `created`, `n`.`changed` AS `modified`, n.status AS `status`, uac.nb_admins AS `nb_admins` FROM ((((`d7`.`gofast_userlists` `gu` LEFT JOIN `d7`.`userlist_og_count` `uoc` ON ((`uoc`.`userlist_id` = `gu`.`ulid`))) LEFT JOIN `d7`.`userlist_members_count` `umc` ON ((`umc`.`userlist_id` = `gu`.`ulid`))) LEFT JOIN `d7`.`node` `n` ON ((`n`.`nid` = `gu`.`nid`))) LEFT JOIN `d7`.`userlist_admins_count` `uac` ON ((`uac`.`userlist_id` = `gu`.`nid`)))");
+}

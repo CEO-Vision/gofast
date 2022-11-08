@@ -25,24 +25,27 @@ function gofast_userlist_og_form_og_ui_add_users_alter(&$form, &$form_state, $fo
     '#type' => 'hidden'
   );
 
-  $form['og_user']['name']['#title'] = t('User or Userlist name ', array(), array('context' => 'gofast_og_userlist'));
+  $attributes_name = [
+    'class' => [' form-control-tags js-tagify'],
+    //'data-enforce' => '', //  Comment : Do not allow putting data that dose not exist | Decomment : allow putting data that dose not exist
+    'data-user' => '', // show ac users
+    //'data-node' => '', // show ac node
+    'data-userlist' => '', // show ac userlist
+    //'data-taxonomy_term' => '' // show ac taxonomy term
+  ];
+
+  $form['og_user']['name']=[
+      '#title' => t('User or Userlist name ', array(), array('context' => 'gofast_og_userlist')),
+      '#type' => 'textfield',
+      '#attributes' => $attributes_name,
+      '#name' => 'ac-list-tags-field-user-userlist'
+  ];
 
   $form['actions']['submit']['#value'] = t('Add new member(s)', array(), array('context' => 'gofast_og_userlist'));
-
-  $form['#validate'][0] = 'gofast_userlist_og_form_og_ui_add_users_validate';
-  $form['#validate'][1] = 'gofast_modal_og_ui_add_users_validate';
 
   $form['#attached']['js'][] = drupal_get_path('module', 'gofast_userlist_og') . '/js/gofast_userlist_og.js';
 }
 
-/**
- *
- * @param type $form
- * @param type $form_state
- */
-function gofast_userlist_og_form_og_ui_add_users_validate($form, &$form_state) {
-
-}
 
 /**
  * Implements hook_form_FORM_ID_alter()
@@ -156,13 +159,15 @@ function gofast_userlist_og_form_og_ui_delete_membership($form, &$form_state, $g
 
     $member = entity_load_single('userlist', $og_membership->etid);
 
-    return confirm_form($form,
+    $confirm_form = confirm_form($form,
         t('Remove membership in group @group', array('@group' => $label)),
         'group/' . $og_membership->group_type . '/' . $og_membership->gid . '/admin/people',
         '</br>' . "<div class='alert alert-block alert-dismissible alert-warning messages warning'>" . '<i class="fa fa-exclamation-triangle" style="color:#F0AD4E;font-size:1.5em"> </i>  ' . t('Warning: If you delete a userlist from the space, users in this list will also be removed from their child spaces') . "</div>" . t('Are you sure you would like to remove the membership for the userlist @userlist?', array('@userlist' => $member->name)),
         t('Remove'),
         t('Cancel')
     );
+    $confirm_form['actions']['cancel']['#attributes'] = array('class' => array('btn', 'btn-secondary'));
+    return $confirm_form;
   }
 }
 

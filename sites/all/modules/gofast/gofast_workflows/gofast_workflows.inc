@@ -214,29 +214,40 @@ function gofast_workflows_get_task_object($taskId){
 /*
  * fonction qui renvoit la liste des taches actives pour le user courant
  */
-function gofast_workflows_get_list_actives_tasks($archived = false, $rootCaseId = false, $filterbyuid = true, $alreadyexecuted = false, $include_case_object = true){
-     global $user;
+function gofast_workflows_get_list_actives_tasks($archived = false, $rootCaseId = false, $filterbyuid = true, $alreadyexecuted = false, $include_case_object = true, $user_uid = null){
+    if(empty($user_uid)){
+        global $user;
+        $user_drupal = $user;
+    } else{
+        $user_drupal = user_load($user_uid);
+    }
      $array_results_formatted = array();
 
      if($user->uid == 0 || $user->uid == 1){
        //gofast_workflows_get_cookie(true);
         $cookie_name = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
-        $bonita_user_id = true;
+        if(isset($user_drupal) && $user_drupal->uid != 1){
+            $bonita_user_id = gofast_workflows_get_user_id($user_drupal);
+        }else{
+            $bonita_user_id = true;
+        }
      }else{
-        global $user;
         gofast_workflows_get_cookie();
-        $cookie_name = "cookie_bonita".$user->name.".txt";
-        $bonita_user_id = gofast_workflows_get_user_id($user);
+        $cookie_name = "cookie_bonita".$user_drupal->name.".txt";
+        $bonita_user_id = gofast_workflows_get_user_id($user_drupal);
 
      }
         //Filter by process definition ID to not display some unwanted processes
-        $processes = gofast_workflows_get_list_available_processes(false, false, null, false);
+        $processes = gofast_workflows_get_list_available_processes(false, false, $user_drupal->uid, false);
         foreach(module_implements("workflows_processes_light_dashboard") as $module){
             $processes = call_user_func($module . "_workflows_processes_light_dashboard", $processes);
         }
-
         $processes = array_keys($processes);
 
+         //if admin, bypass this
+         if($user_drupal->uid == 1){
+            $processes = array(0);
+         }                
         foreach($processes as $process){
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_HEADER, 0);
@@ -277,14 +288,14 @@ function gofast_workflows_get_list_actives_tasks($archived = false, $rootCaseId 
                          $params .= "&f=caseId%3d".$rootCaseId;
                     }
                 }
-
-                $params .= "&f=processId%3d".$process;
-
+                if($user_drupal->uid != 1){
+                 $params .= "&f=processId%3d".$process;
+                }
+                
                 curl_setopt($ch, CURLOPT_URL, $url.$params);
 
                 $buf = gofast_workflows_curl_exec($ch);
                 $array_results = json_decode($buf, true);
-
                 if(count($array_results)> 0){
                     foreach($array_results as $key=>$task){
                         if($include_case_object == true){
@@ -365,14 +376,18 @@ function gofast_api_process_document($params, $api = TRUE){
     $output = array();
     if(count($mysql_result > 0)){
          if($return == "process_filter"){
-                $process_filters = "&caseids=";
+                $process_filters = "caseids=";
                 $already_pid = array();
-                foreach($mysql_result as $result){
-                    if(!isset($already_pid[$result->PID])){
-                        $process_filters .= $result->PID."-";
-                        $already_pid[$result->PID] = $result->PID;
+               if(count($mysql_result) > 0){
+                    foreach($mysql_result as $result){
+                        if(!isset($already_pid[$result->PID])){
+                            $process_filters .= $result->PID."-";
+                            $already_pid[$result->PID] = $result->PID;
+                        }
                     }
-                }
+               }else{
+                 $process_filters .= "1";
+               }
                  $output = array(
                         'process_filters' => $process_filters,
                  );
@@ -786,11 +801,11 @@ function gofast_workflows_get_html_list_actives_cases($arrayTodoList = null){
 
 function gofast_workflows_get_html_list_available_processes($reference = false){
 
-    $list_available_processes = gofast_workflows_get_list_available_processes();
+      $list_available_processes = gofast_workflows_get_list_available_processes();
 
     $output = "";
     if(count($list_available_processes) > 0){
-
+        
         $array_show_fields_list_processes = gofast_workflows_get_show_fields_list_processes();
         $output .= "<table class='available_process_table table table-bordered' id='available_process_table'><thead><tr>";
         foreach($array_show_fields_list_processes as $key=>$title){
@@ -798,7 +813,7 @@ function gofast_workflows_get_html_list_available_processes($reference = false){
         }
 
         //on rajoute les actions
-       $output .="<th>".t("Actions", array(), array('context' => 'gofast:gofast_workflows'))."</th>";
+       $output .="<th>".t("Manage model", array(), array('context' => 'gofast:gofast_workflows'))."</th>";
        $output .= "</tr></thead>";
 
         foreach($list_available_processes as $key=>$process){
@@ -817,44 +832,39 @@ function gofast_workflows_get_html_list_available_processes($reference = false){
 
             if(in_array($process["name"], variable_get("gofast_workflows_processes_models", array('Document broadcast')))){
 
-                if(strpos($reference, "||") == FALSE){
+                if(! str_ends_with(urldecode($reference), '|') ){
                     $referenceListe = $reference;
                 }else{
                     $referenceListe = "";
                 }
-                $processID = $process["id"];
-                $processName = $process["name"] . "--" . $process["version"];
+                 $processID = $process["id"];
+                $processName = $process["name"]."--".$process["version"]."|".t($process["name"], array(), array('context'=> 'gofast:gofast_workflow'))."/".$process["version"] ;
                 $addOnlick = "Drupal.gofast_workflows.ceo_vision_js_process_startit('".$processID."', '".$processName."', '".str_replace("'", " ", $reference)."', '".$referenceListe. "' , 'new', '')";
 
                 //add element to be able to start WF without any saved profil
-                $output .=  theme("workflows_process_model", array('profils' => $saved_profils, 'process_id'=> $process['id'], 'addOnclick'=> $addOnlick));
+                $actions = gofast_workflows_get_availables_buttons_from_process($process, $reference, $process['id']);
+                $output .=  theme("workflows_process_model", array('profils' => $saved_profils, 'process_id'=> $process['id'], 'addOnclick'=> $addOnlick, 'actions' => $actions));
             }else{
                 $output .= t("This process is not compatible with process models", array(), array('context' => 'gofast:gofast_workflows'));
-            }
-
-            $output .= " </td>";
+                $output .= gofast_workflows_get_availables_buttons_from_process($process, $reference, $process['id'], FALSE);
+            }           
 
             // version
-            $output .= "<td>" . $process["version"] . "</td>";
+           // $output .= "<td>" . $process["version"] . "</td>";
 
             // description
-            $process_description_array = theme("process_description", $process);
-            $output .= "<td>" . $process_description_array["output"] . "</td>";
+            //$process_description_array = theme("process_description", $process);
+            //$output .= "<td>" . $process_description_array["output"] . "</td>";
+            
+             //  action
+           $model_actions = theme("workflows_process_model_actions", array('profils' => $saved_profils, 'process_id'=> $process['id'], 'addOnclick'=> $addOnlick));      
+           $output .= "<td class=\"gofast_wf_actions\" >" . $model_actions . "</td>";
 
-            if ($reference == false) {
-                $buttons = gofast_workflows_get_availables_buttons_from_process($process, false, $process['id']);
-            } else {
-                $buttons = gofast_workflows_get_availables_buttons_from_process($process, $reference, $process['id']);
-            }
-
-            //  action
-            $output .= "</td>
-                               <td class=\"gofast_wf_actions\" >" . $buttons . "</td>
-                             </tr>";
-
-
+           $output .= "</tr>";
+      
         }
 
+           
         $output .= "</table>";
     }else{
         $output .= t("No process available", array(), array('context' => 'gofast:gofast_workflows'));
@@ -1144,18 +1154,33 @@ function _gofast_workflows_get_html_history_detail($pid, &$output){
 }
 
  function gofast_workflows_api_delete_case($api = TRUE){
+
+    global $user;
+
     $caseId = $_GET["caseid"];
     $case = gofast_workflows_api_get_case_object($caseId, false);
 
     if($case){
-         //before to delete, call custom hook to allow modules to execute custom actions
+
+        $process_current_infos = gofast_workflows_get_processcurrent_infos_from_pid($case['id'])[0];
+
+        //before to delete, call custom hook to allow modules to execute custom actions
          foreach(module_implements('workflows_case_delete') as $module){
              call_user_func_array($module . '_workflows_case_delete', array(&$case));
         }
 
-        gofast_workflows_get_cookie(true);
-        $cookie = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
-        gofast_workflows_curl_delete_case($case, $cookie);
+       gofast_workflows_get_cookie(true);
+       $cookie = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
+       gofast_workflows_curl_delete_case($case, $cookie);
+
+        //Insert into audit
+        $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => 'workflow_delete', "worklow_name" => $process_current_infos->TITLE);
+        $event = serialize($event);
+        $last_event_serialized = rawurlencode($event);
+        $last_event_unserialized["mod_timestamp"] = time();
+        $last_event_unserialized["mod_author"] = $user->uid;
+        gofast_audit_insert_line_audit(0, 'workflow_delete', $last_event_serialized, $last_event_unserialized);
+
         //TODO Send mail to inform all actors
         if($api){
             drupal_json_output(array("state" => "OK"));
@@ -1246,11 +1271,11 @@ function gofast_workflows_get_show_fields_list_task($name_workflow = null){
  * fonction qui renvoit la liste des champs que l'on affiche dans le tableau de la liste des processes dispo pour le user courant
  */
 function gofast_workflows_get_show_fields_list_processes(){
-     $fields = array("Title" => "displayName",
+     $fields = array("Process type" => "displayName",
                      "Process model" => "processModel",
-                     "Version" => "version",
+                    // "Version" => "version",
                      //"Status" => "activationState",
-                     "Description" => "__displayDescription__", // ce champs contient un objet json qui lui même contient plusieurs infos
+                     //"Description" => "__displayDescription__", // ce champs contient un objet json qui lui même contient plusieurs infos
                      //"Profil" => "Profil"
                      );
 
@@ -1328,15 +1353,27 @@ function gofast_workflows_set_case_variables($variable_name, $variable_value, $c
  * fonction qui renvoi le code html des boutons dispo en fonction de la tache courante
  * $process est le tableau representant du process courant
  */
-function gofast_workflows_get_availables_buttons_from_process($process, $reference = false, $profil_id = false){
 
+function gofast_workflows_get_availables_buttons_from_process($process, $reference = false, $profil_id = false, $model = true){
    $output = "";
    $processID = $process["id"];
 
    $content = "<span class=\"".BONITA_WF_ICON__START_PROCESS." gofast_wf_link\" alt='Start process' id='task_next_".$processID."' ></span>";
    $output .= '<span class="gofast_wf_actions">';
    $output .= theme("link_start_process_popup", array('process' => $process, "reference" => $reference, "content" => $content , "profil_id" => $profil_id));
-   $output .= theme("link_show_diagram_popup",  array('process' => $process, "style" => ""));
+   if($reference == false && $model == true){
+        global $user;
+        $reference_cart = "";
+        $query = db_query("SELECT n.title, entity_id, flagging.entity_type, flagging_id, flagging.uid name, flagging.fid FROM flagging INNER JOIN flag ON flagging.fid = flag.fid INNER JOIN node n on n.nid = flagging.entity_id WHERE flagging.uid=".$user->uid." AND (name='cart') AND n.status = 1");
+
+        foreach($query as $occur){
+            $reference_cart = $reference_cart.$occur->entity_id . "`" . $occur->title ."|";
+        }
+        $reference_cart = rtrim($reference_cart, "|");
+        $content = "<span class=\"".BONITA_WF_ICON__START_PROCESS_FROM_CART." gofast_wf_link\" alt='Start process from cart' id='task_next_".$processID."' ></span>";     
+        $output .= theme("link_start_process_popup_from_cart", array('process' => $process, "reference" => rawurlencode($reference_cart), "content" => $content , "profil_id" => $profil_id));
+   }
+   //$output .= theme("link_show_diagram_popup",  array('process' => $process, "style" => ""));
    $output .= '</span>';
 
    return $output;
@@ -1345,7 +1382,7 @@ function gofast_workflows_get_availables_buttons_from_process($process, $referen
 
 function gofast_workflows_get_image_process($processId, $process_name){
     //on copie l'image du process dans le repertoire swf dans l'arborescence Drupal
-    $output = "<img src='/sites/default/files/".$process_name.".png?rand=".time()."' />";
+    $output = "<img src='/sites/default/files/".gofast_xss_clean($process_name).".png?rand=".time()."' />";
     print $output;
 
 }
@@ -1538,9 +1575,9 @@ function gofast_workflows_get_node_infos_from_url($full_url){
 function gofast_workflows_get_number_pending_tasks(){
     global $user;
 
-    $list_actives_tasks = gofast_workflows_get_list_actives_tasks(false, false, true, false, false);
+    $count_actives_tasks = gofast_workflows_get_infos_task_count_rest_api()["count"];
     $list_kanban_tasks = gofast_kanban_get_user_tasks($user->uid, FALSE);
-    return count($list_actives_tasks) + count($list_kanban_tasks);
+    return $count_actives_tasks + count($list_kanban_tasks);
 }
 
 
@@ -1581,10 +1618,14 @@ function gofast_get_workflow_action_node($node, $empty = false) {
     $wf_count = count($list_wf);
     $new_comments_class = $wf_count ? ' new-comments' : '';
     $btn_classes = BONITA_WF_ICON__SHOW_PROCESS_IMG . $new_comments_class;
-
-    $href = "/gofast/nojs/workflow/dashboard/{$node->nid}";
-    $classes = array('ctools-use-modal ctools-modal-gofast-workflow-document');
-
+    global $base_url;
+    if(gofast_mobile_is_mobile_domain()){
+        $href = $base_url . "/workflow/rapiddashboard";
+        $classes = array('ctools-modal-gofast-workflow-document');
+    }else{
+        $href = "/gofast/nojs/workflow/dashboard/{$node->nid}";
+        $classes = $classes = array('ctools-use-modal ctools-modal-gofast-workflow-document');
+    }
     $comment_button = array(
       'id' => 'document_wf',
       'alt' => t('Workflows', array(), array('context' => 'gofast:gofast_workflows')),
@@ -1601,22 +1642,25 @@ function gofast_get_workflow_action_node($node, $empty = false) {
 }
 
 
-function gofast_workflows_get_available_processes(){
+function gofast_workflows_get_available_processes($print = true){
     $reference = $_GET["document"];
     if($reference == "cart"){
-        //$reference = "15898;15359;15336";
         global $user;
         $reference = "";
         $query = db_query("SELECT n.title, entity_id, flagging.entity_type, flagging_id, flagging.uid name, flagging.fid FROM flagging INNER JOIN flag ON flagging.fid = flag.fid INNER JOIN node n on n.nid = flagging.entity_id WHERE flagging.uid=".$user->uid." AND (name='cart') AND n.status = 1");
-
+  
         foreach($query as $occur){
             $reference = $reference.$occur->entity_id . "`" . $occur->title ."|";
         }
         $reference=rtrim($reference, "|");
     }
-    $html = "<div style='padding:20px;'>".gofast_workflows_get_html_list_available_processes(urlencode($reference))."</div>";
+    $html = "<div style=''>".gofast_workflows_get_html_list_available_processes(urlencode($reference))."</div>";
 
-    print $html;
+    if($print == true){
+        print $html;
+    }else{
+        return $html;
+    }
 }
 
 /*

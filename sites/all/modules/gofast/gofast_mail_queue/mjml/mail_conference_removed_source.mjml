@@ -1,0 +1,47 @@
+<mjml>
+  <mj-head>
+    <mj-style>
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 400;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-Regular.otf") format("opentype");
+      }
+
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 600;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-SemiBold.otf") format("opentype");
+      }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#EAF1F7" width="992px">
+    <mj-raw>
+      <!-- SubHeader -->
+    </mj-raw>
+    <mj-section padding-left="10px" padding-top="10px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%">
+        <mj-text padding-left="0" font-size="18px" font-weight="600">
+          Hello User Name,
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-raw>
+      <!-- Removed from Conference-->
+    </mj-raw>
+    <mj-section padding-left="10px" padding-top="0px" padding-bottom="10px" background-color="white">
+      <mj-group width="90%">
+        <mj-column padding-top="10px" width="10%" vertical-align="middle">
+          <mj-image padding="0" src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" alt="Author Picture" align="left" />
+        </mj-column>
+        <mj-column padding-top="10px" width="90%" vertical-align="middle">
+          <mj-text font-size="14px" font-weight="400">
+            Other Username inform you that you have been removed from the conference
+            <a href="#" style="color: #337ab7; text-decoration: none;"><img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/conference-primary.png" style="vertical-align: bottom;" width="14">&nbsp;Conference</a>.
+          </mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+  </mj-body>
+</mjml>

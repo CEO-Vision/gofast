@@ -1,0 +1,31 @@
+<mjml>
+  <mj-head>
+    <mj-style>
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 400;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-Regular.otf") format("opentype");
+      }
+
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 600;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-SemiBold.otf") format("opentype");
+      }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#EAF1F7" width="992px">
+    <mj-raw>
+      <!-- Footer -->
+    </mj-raw>
+    <mj-section padding-top="10px" padding-bottom="10px">
+      <mj-column width="100%">
+        <mj-text align="center" font-family="Poppins" color="#666666" font-size="14px">
+          Ceci est un message automatique envoyé par >> GoFAST.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

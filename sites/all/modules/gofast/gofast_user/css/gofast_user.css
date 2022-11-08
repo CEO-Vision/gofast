@@ -96,7 +96,7 @@
     display:block;
     margin-top:7px;
     min-width:320px;
-    
+
 }
 .popup-member-list-picture img{
     width:24px;
@@ -124,4 +124,52 @@
     padding-top:3px;
     display:block;
     float:left;
+}
+
+#gofastUserPopup:before {
+    content: "";
+    height: 15px;
+    transform: rotate(45deg);
+    background: white;
+    position: absolute;
+    border: 1px solid #EBEDF3;
+    width: 15px;
+    border-color: #777;
+    top: 25px;
+    left: -8px;
+    border-top: none;
+    border-right: none;
+}
+
+
+.goFastCardIcons .navi .navi-item a {
+    border-radius: 0.42em;
+    display: flex;
+    align-items: center;
+}
+
+.goFastCardIcons .navi .navi-item a:hover {
+    background-color: #f3f6f9;
+    transition: all 0.15s ease;
+    color: #3699ff;
+}
+
+.goFastCardIcons .navi .navi-item a p {
+    margin-bottom: 0;
+}
+
+#user-login-form #select2-edit-simplified-login-container{
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+form#user-pass{
+  min-width: 175px;
+  margin: auto;
+  text-align: center;
+}
+
+form#user-pass .form-item #edit-name{
+  margin: auto;
+  width: 380px;
 }

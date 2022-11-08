@@ -6,11 +6,18 @@ if (args.reference !== null) {
   var node = search.findNode(args.reference);
 
   var thumbnail = node.getThumbnail("pdf");
+  var force_recreate = false;
+   if(thumbnail !== null){
+       if(thumbnail.properties["modified"] < node.properties["modified"]){
+           //thumbnail = null;
+           force_recreate = true;
+       }
+   }
 
-  if (thumbnail === null || thumbnail.size === 0)
+  if (thumbnail === null || thumbnail.size === 0 || force_recreate === true)
   {
     // Remove broken thumbnail
-    if (thumbnail !== null)
+    if (thumbnail !== null || force_recreate === true)
     {
       thumbnail.remove();
     }

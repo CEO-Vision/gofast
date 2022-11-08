@@ -177,3 +177,24 @@ function gofast_user_update_7306(){
     db_query("UPDATE system SET weight=1 WHERE name='gofast_user'");
 }
   
+
+
+ /**
+  * Implements hook_update 
+  * Remove standard role from admin users
+  */
+function gofast_user_update_7307(){
+  $everybody = db_query("SELECT * FROM users");
+  foreach($everybody as $somebody){
+    if ($somebody->uid < 2) {
+      continue;
+    }
+    $roles = db_query("SELECT rid FROM {users_roles} WHERE uid = :uid", array(":uid" => $somebody->uid))->fetchCol();
+    if (count($roles) < 2) {
+      continue;
+    }
+    if ((in_array(3, $roles) && in_array(4, $roles)) || (in_array(4, $roles) && in_array(7, $roles))) {
+      db_query("DELETE FROM {users_roles} WHERE uid = :uid AND rid = :rid", array(":uid" => $somebody->uid, ":rid" => 4));
+    }
+  }
+}

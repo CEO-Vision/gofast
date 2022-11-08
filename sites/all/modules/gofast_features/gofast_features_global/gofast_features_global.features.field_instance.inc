@@ -1101,12 +1101,56 @@ function gofast_features_global_field_default_field_instances() {
     ),
   );
 
+  // Exported field_instance: 'flagging-subscribe_node-field_frequency_comment'.
+  $field_instances['flagging-subscribe_node-field_frequency_comment'] = array(
+    'bundle' => 'subscribe_node',
+    'default_value' => array(
+      0 => array(
+        'value' => 0,
+      ),
+    ),
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'number',
+        'settings' => array(
+          'decimal_separator' => '.',
+          'prefix_suffix' => TRUE,
+          'scale' => 0,
+          'thousand_separator' => '',
+        ),
+        'type' => 'number_integer',
+        'weight' => 1,
+      ),
+    ),
+    'entity_type' => 'flagging',
+    'field_name' => 'field_frequency_comment',
+    'label' => 'frequency_comment',
+    'required' => 0,
+    'settings' => array(
+      'max' => '',
+      'min' => '',
+      'prefix' => '',
+      'suffix' => '',
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 0,
+      'module' => 'number',
+      'settings' => array(),
+      'type' => 'number',
+      'weight' => 2,
+    ),
+  );
+
   // Exported field_instance: 'flagging-subscribe_node-field_frequency_node'.
   $field_instances['flagging-subscribe_node-field_frequency_node'] = array(
     'bundle' => 'subscribe_node',
     'default_value' => array(
       0 => array(
-        'value' => 0,
+        'value' => 1,
       ),
     ),
     'deleted' => 0,
@@ -1145,12 +1189,56 @@ function gofast_features_global_field_default_field_instances() {
     ),
   );
 
+  // Exported field_instance: 'flagging-subscribe_og-field_frequency_comment'.
+  $field_instances['flagging-subscribe_og-field_frequency_comment'] = array(
+    'bundle' => 'subscribe_og',
+    'default_value' => array(
+      0 => array(
+        'value' => 0,
+      ),
+    ),
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'number',
+        'settings' => array(
+          'decimal_separator' => '.',
+          'prefix_suffix' => TRUE,
+          'scale' => 0,
+          'thousand_separator' => '',
+        ),
+        'type' => 'number_integer',
+        'weight' => 1,
+      ),
+    ),
+    'entity_type' => 'flagging',
+    'field_name' => 'field_frequency_comment',
+    'label' => 'frequency_comment',
+    'required' => 0,
+    'settings' => array(
+      'max' => '',
+      'min' => '',
+      'prefix' => '',
+      'suffix' => '',
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 0,
+      'module' => 'number',
+      'settings' => array(),
+      'type' => 'number',
+      'weight' => 3,
+    ),
+  );
+
   // Exported field_instance: 'flagging-subscribe_og-field_frequency_og'.
   $field_instances['flagging-subscribe_og-field_frequency_og'] = array(
     'bundle' => 'subscribe_og',
     'default_value' => array(
       0 => array(
-        'value' => 0,
+        'value' => 1,
       ),
     ),
     'deleted' => 0,
@@ -1189,12 +1277,56 @@ function gofast_features_global_field_default_field_instances() {
     ),
   );
 
+  // Exported field_instance: 'flagging-subscribe_term-field_frequency_comment'.
+  $field_instances['flagging-subscribe_term-field_frequency_comment'] = array(
+    'bundle' => 'subscribe_term',
+    'default_value' => array(
+      0 => array(
+        'value' => 0,
+      ),
+    ),
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'number',
+        'settings' => array(
+          'decimal_separator' => '.',
+          'prefix_suffix' => TRUE,
+          'scale' => 0,
+          'thousand_separator' => '',
+        ),
+        'type' => 'number_integer',
+        'weight' => 1,
+      ),
+    ),
+    'entity_type' => 'flagging',
+    'field_name' => 'field_frequency_comment',
+    'label' => 'frequency_comment',
+    'required' => 0,
+    'settings' => array(
+      'max' => '',
+      'min' => '',
+      'prefix' => '',
+      'suffix' => '',
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 0,
+      'module' => 'number',
+      'settings' => array(),
+      'type' => 'number',
+      'weight' => 3,
+    ),
+  );
+
   // Exported field_instance: 'flagging-subscribe_term-field_frequency_term'.
   $field_instances['flagging-subscribe_term-field_frequency_term'] = array(
     'bundle' => 'subscribe_term',
     'default_value' => array(
       0 => array(
-        'value' => 0,
+        'value' => 1,
       ),
     ),
     'deleted' => 0,
@@ -1233,12 +1365,56 @@ function gofast_features_global_field_default_field_instances() {
     ),
   );
 
+  // Exported field_instance: 'flagging-subscribe_user-field_frequency_comment'.
+  $field_instances['flagging-subscribe_user-field_frequency_comment'] = array(
+    'bundle' => 'subscribe_user',
+    'default_value' => array(
+      0 => array(
+        'value' => 0,
+      ),
+    ),
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'number',
+        'settings' => array(
+          'decimal_separator' => '.',
+          'prefix_suffix' => TRUE,
+          'scale' => 0,
+          'thousand_separator' => '',
+        ),
+        'type' => 'number_integer',
+        'weight' => 1,
+      ),
+    ),
+    'entity_type' => 'flagging',
+    'field_name' => 'field_frequency_comment',
+    'label' => 'frequency_comment',
+    'required' => 0,
+    'settings' => array(
+      'max' => '',
+      'min' => '',
+      'prefix' => '',
+      'suffix' => '',
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 0,
+      'module' => 'number',
+      'settings' => array(),
+      'type' => 'number',
+      'weight' => 3,
+    ),
+  );
+
   // Exported field_instance: 'flagging-subscribe_user-field_frequency_user'.
   $field_instances['flagging-subscribe_user-field_frequency_user'] = array(
     'bundle' => 'subscribe_user',
     'default_value' => array(
       0 => array(
-        'value' => 0,
+        'value' => 1,
       ),
     ),
     'deleted' => 0,
@@ -3563,6 +3739,61 @@ function gofast_features_global_field_default_field_instances() {
     ),
   );
 
+  // Exported field_instance: 'node-article-field_current_version'.
+  $field_instances['node-article-field_current_version'] = array(
+    'bundle' => 'article',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'custom_gofast' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 18,
+      ),
+      'gofast_node_infos' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'search_index' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_current_version',
+    'label' => 'current_version',
+    'required' => FALSE,
+    'settings' => array(
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'module' => 'ldap_user',
+      'settings' => array(),
+      'type' => 'ldap_user_hidden',
+      'weight' => 33,
+    ),
+  );
+
   // Exported field_instance: 'node-article-field_date'.
   $field_instances['node-article-field_date'] = array(
     'bundle' => 'article',
@@ -3632,6 +3863,117 @@ function gofast_features_global_field_default_field_instances() {
       ),
       'type' => 'date_popup',
       'weight' => 15,
+    ),
+  );
+
+  // Exported field_instance: 'node-article-field_document_reference'.
+  $field_instances['node-article-field_document_reference'] = array(
+    'bundle' => 'article',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'custom_gofast' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 21,
+      ),
+      'gofast_node_infos' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'search_index' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_document_reference',
+    'label' => 'Document reference',
+    'required' => FALSE,
+    'settings' => array(
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'module' => 'ldap_user',
+      'settings' => array(
+        'size' => 60,
+      ),
+      'type' => 'ldap_user_hidden',
+      'weight' => 39,
+    ),
+  );
+
+  // Exported field_instance: 'node-article-field_emplacement'.
+  $field_instances['node-article-field_emplacement'] = array(
+    'bundle' => 'article',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'custom_gofast' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'default' => array(
+        'label' => 'above',
+        'module' => 'list',
+        'settings' => array(),
+        'type' => 'list_default',
+        'weight' => 19,
+      ),
+      'gofast_node_infos' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'search_index' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_emplacement',
+    'label' => 'Location',
+    'required' => FALSE,
+    'settings' => array(
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'module' => 'options',
+      'settings' => array(),
+      'type' => 'options_select',
+      'weight' => 35,
     ),
   );
 
@@ -3830,6 +4172,116 @@ function gofast_features_global_field_default_field_instances() {
     ),
   );
 
+  // Exported field_instance: 'node-article-field_is_homepage'.
+  $field_instances['node-article-field_is_homepage'] = array(
+    'bundle' => 'article',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'custom_gofast' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 22,
+      ),
+      'gofast_node_infos' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'search_index' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_is_homepage',
+    'label' => 'is_homepage',
+    'required' => FALSE,
+    'settings' => array(
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'module' => 'ldap_user',
+      'settings' => array(),
+      'type' => 'ldap_user_hidden',
+      'weight' => 40,
+    ),
+  );
+
+  // Exported field_instance: 'node-article-field_main_emplacement'.
+  $field_instances['node-article-field_main_emplacement'] = array(
+    'bundle' => 'article',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'custom_gofast' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 20,
+      ),
+      'gofast_node_infos' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'search_index' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_main_emplacement',
+    'label' => 'Main Location',
+    'required' => FALSE,
+    'settings' => array(
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'module' => 'ldap_user',
+      'settings' => array(),
+      'type' => 'ldap_user_hidden',
+      'weight' => 37,
+    ),
+  );
+
   // Exported field_instance: 'node-article-field_popularity'.
   $field_instances['node-article-field_popularity'] = array(
     'bundle' => 'article',
@@ -3900,6 +4352,61 @@ function gofast_features_global_field_default_field_instances() {
       'settings' => array(),
       'type' => 'radioactivity_basic_widget',
       'weight' => 5,
+    ),
+  );
+
+  // Exported field_instance: 'node-article-field_reference'.
+  $field_instances['node-article-field_reference'] = array(
+    'bundle' => 'article',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'custom_gofast' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 17,
+      ),
+      'gofast_node_infos' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'search_index' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_reference',
+    'label' => 'reference',
+    'required' => FALSE,
+    'settings' => array(
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'module' => 'ldap_user',
+      'settings' => array(),
+      'type' => 'ldap_user_hidden',
+      'weight' => 31,
     ),
   );
 
@@ -5754,6 +6261,62 @@ function gofast_features_global_field_default_field_instances() {
     ),
   );
 
+  // Exported field_instance: 'node-dashboard_article-body'.
+  $field_instances['node-dashboard_article-body'] = array(
+    'bundle' => 'dashboard_article',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'custom_gofast' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'default' => array(
+        'label' => 'hidden',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 0,
+      ),
+      'gofast_node_infos' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'hidden',
+        'module' => 'text',
+        'settings' => array(
+          'trim_length' => 600,
+        ),
+        'type' => 'text_summary_or_trimmed',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'body',
+    'label' => 'Body',
+    'required' => FALSE,
+    'settings' => array(
+      'display_summary' => TRUE,
+      'text_processing' => 1,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'module' => 'text',
+      'settings' => array(
+        'rows' => 20,
+        'summary_rows' => 5,
+      ),
+      'type' => 'text_textarea_with_summary',
+      'weight' => -4,
+    ),
+  );
+
   // Exported field_instance: 'node-extranet-body'.
   $field_instances['node-extranet-body'] = array(
     'bundle' => 'extranet',
@@ -6155,6 +6718,55 @@ function gofast_features_global_field_default_field_instances() {
       ),
       'type' => 'ldap_user_hidden',
       'weight' => 11,
+    ),
+  );
+
+  // Exported field_instance: 'node-extranet-field_logo_uri'.
+  $field_instances['node-extranet-field_logo_uri'] = array(
+    'bundle' => 'extranet',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'custom_gofast' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 14,
+      ),
+      'gofast_node_infos' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_logo_uri',
+    'label' => 'Logo URI',
+    'required' => FALSE,
+    'settings' => array(
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'module' => 'ldap_user',
+      'settings' => array(),
+      'type' => 'ldap_user_hidden',
+      'weight' => 19,
     ),
   );
 
@@ -7892,6 +8504,55 @@ function gofast_features_global_field_default_field_instances() {
     ),
   );
 
+  // Exported field_instance: 'node-group-field_logo_uri'.
+  $field_instances['node-group-field_logo_uri'] = array(
+    'bundle' => 'group',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'custom_gofast' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 13,
+      ),
+      'gofast_node_infos' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_logo_uri',
+    'label' => 'Logo URI',
+    'required' => FALSE,
+    'settings' => array(
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'module' => 'ldap_user',
+      'settings' => array(),
+      'type' => 'ldap_user_hidden',
+      'weight' => 16,
+    ),
+  );
+
   // Exported field_instance: 'node-group-field_riot_identifier'.
   $field_instances['node-group-field_riot_identifier'] = array(
     'bundle' => 'group',
@@ -8927,6 +9588,54 @@ function gofast_features_global_field_default_field_instances() {
     ),
   );
 
+  // Exported field_instance: 'node-organisation-field_logo_uri'.
+  $field_instances['node-organisation-field_logo_uri'] = array(
+    'bundle' => 'organisation',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'custom_gofast' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 15,
+      ),
+      'gofast_node_infos' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_logo_uri',
+    'label' => 'Logo URI',
+    'required' => FALSE,
+    'settings' => array(
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'module' => 'ldap_user',
+      'settings' => array(),
+      'type' => 'ldap_user_hidden',
+      'weight' => 19,
+    ),
+  );
   // Exported field_instance: 'node-organisation-field_riot_identifier'.
   $field_instances['node-organisation-field_riot_identifier'] = array(
     'bundle' => 'organisation',
@@ -10458,6 +11167,55 @@ function gofast_features_global_field_default_field_instances() {
       ),
       'type' => 'ldap_user_hidden',
       'weight' => 11,
+    ),
+  );
+
+  // Exported field_instance: 'node-public-field_logo_uri'.
+  $field_instances['node-public-field_logo_uri'] = array(
+    'bundle' => 'public',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'custom_gofast' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 13,
+      ),
+      'gofast_node_infos' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_logo_uri',
+    'label' => 'Logo URI',
+    'required' => FALSE,
+    'settings' => array(
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'module' => 'ldap_user',
+      'settings' => array(),
+      'type' => 'ldap_user_hidden',
+      'weight' => 17,
     ),
   );
 
@@ -12115,6 +12873,117 @@ ou!=SI<br />',
     ),
   );
 
+  // Exported field_instance: 'node-userlist-field_gofast_filters'.
+  $field_instances['node-userlist-field_gofast_filters'] = array(
+    'bundle' => 'userlist',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => 'A list of filters separated by newlines with possible combination of conditions.<br />
+Example :<br /><br />
+
+hr_telework=1<br />
+ldap_user_o=IT|o=GoFAST<br />',
+    'display' => array(
+      'custom_gofast' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 14,
+      ),
+      'gofast_node_infos' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_gofast_filters',
+    'label' => 'GoFAST Filters',
+    'required' => 0,
+    'settings' => array(
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'text',
+      'settings' => array(
+        'rows' => 5,
+      ),
+      'type' => 'text_textarea',
+      'weight' => 15,
+    ),
+  );
+
+  // Exported field_instance: 'node-userlist-field_is_gofast_sync'.
+  $field_instances['node-userlist-field_is_gofast_sync'] = array(
+    'bundle' => 'userlist',
+    'default_value' => array(
+      0 => array(
+        'value' => 0,
+      ),
+    ),
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'custom_gofast' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'default' => array(
+        'label' => 'above',
+        'module' => 'list',
+        'settings' => array(),
+        'type' => 'list_default',
+        'weight' => 13,
+      ),
+      'gofast_node_infos' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_is_gofast_sync',
+    'label' => 'Enable GoFAST synchronization',
+    'required' => 0,
+    'settings' => array(
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'options',
+      'settings' => array(
+        'display_label' => 1,
+      ),
+      'type' => 'options_onoff',
+      'weight' => 14,
+    ),
+  );
+
   // Exported field_instance: 'node-userlist-field_is_ldap_sync'.
   $field_instances['node-userlist-field_is_ldap_sync'] = array(
     'bundle' => 'userlist',
@@ -13710,6 +14579,46 @@ ou!=SI<br />',
     ),
   );
 
+  // Exported field_instance: 'user-user-field_chatroom_id'.
+  $field_instances['user-user-field_chatroom_id'] = array(
+    'bundle' => 'user',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 42,
+      ),
+      'search_index' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'user',
+    'field_name' => 'field_chatroom_id',
+    'label' => 'chatroom_id',
+    'required' => 0,
+    'settings' => array(
+      'text_processing' => 0,
+      'user_register_form' => 0,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'text',
+      'settings' => array(
+        'rows' => 5,
+      ),
+      'type' => 'text_textarea',
+      'weight' => 44,
+    ),
+  );
+
   // Exported field_instance: 'user-user-field_default_role'.
   $field_instances['user-user-field_default_role'] = array(
     'bundle' => 'user',
@@ -14558,6 +15467,7 @@ ou!=SI<br />');
   t('Determine if this is an OG group.');
   t('Document author');
   t('Document reference');
+  t('Enable GoFAST synchronization');
   t('Enable directory synchronization');
   t('End date');
   t('Enter a comma-separated list of words to describe your content.');
@@ -14570,6 +15480,7 @@ ou!=SI<br />');
   t('Format');
   t('Format/Type');
   t('Forums');
+  t('GoFAST Filters');
   t('Group');
   t('Group membership');
   t('Group roles and permissions');
@@ -14589,6 +15500,8 @@ ou!=SI<br />');
   t('Link to other content on the server');
   t('Linked folders');
   t('Location');
+  t('Logo URI');
+  t('Main Location');
   t('Main location');
   t('Members');
   t('Onlyoffice_lock');
@@ -14627,6 +15540,7 @@ Example : ou=ProjectAX,ou=Projects,dc=orga,dc=tld');
   t('Yousign file id');
   t('alias');
   t('archive');
+  t('chatroom_id');
   t('contact_address');
   t('contact_email');
   t('contact_entity');
@@ -14641,10 +15555,12 @@ Example : ou=ProjectAX,ou=Projects,dc=orga,dc=tld');
   t('edited_timestamp');
   t('field_retention_end');
   t('folder_reference');
+  t('frequency_comment');
   t('frequency_node');
   t('frequency_og');
   t('frequency_term');
   t('frequency_user');
+  t('is_homepage');
   t('left');
   t('message_log');
   t('node_id');

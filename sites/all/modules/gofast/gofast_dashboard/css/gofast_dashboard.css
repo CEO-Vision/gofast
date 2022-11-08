@@ -177,3 +177,29 @@ ul.dashboard.cdel.list-group  {
     margin-left: -235px;
     z-index: 9999;
 }
+
+.dashboard-favorite-content-wrap {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/** everything below is to be removed as soon as embed views are gone from the calendar dashboard */
+.dashboard-pagination-bottom,
+.view-display-id-upcoming_meetings .text-center{
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+}
+.view-content { margin-bottom: 3rem !important;}
+.views-field-field-date {
+  min-width: 16ch !important;
+}
+.views-field-title {
+  color: var(--primary);
+}
+.gofastDashboard .spinner::before {
+  left: 50%;
+}
+

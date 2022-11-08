@@ -35,38 +35,19 @@
             $('#edit-prevent-notify-update').addClass("bootstrap-switch-processed");
         }
 
-      var checked_search = $("#edit-strict_search-update").attr("checked");
+        const strict_search_input = document.querySelector("[item='strict']");
 
-       if(checked_search == "checked"){
-           var state = true;
-       }else{
-           var state = false;
-       }
-
-        $("#edit-strict_search-update").bootstrapSwitch({'state' : state });
-        if(!$("#edit-strict_search-update").hasClass("bootstrap-switch-processed")){
-            $('#edit-strict_search-update').on("switchChange.bootstrapSwitch", function (event, state) {
-                Gofast.StrictSearchToggle();
-            });
-            $('#edit-strict_search-update').addClass("bootstrap-switch-processed");
+        if (strict_search_input && !strict_search_input.classList.contains("handle-processed")) {
+          strict_search_input.classList.add("handle-processed");
+          strict_search_input.addEventListener("change", () => {
+            Gofast.StrictSearchToggle();
+          });
         }
-    }
-  };
-
-  Drupal.behaviors.hideSelectVersionLoginIfMobileTablette = {
-    attach: function (context, settings) {
-      if (Gofast.isTablet() || Gofast.isMobile()) {
-        $('#edit-simplified-login').hide();
-        $('#edit-submit').width('100%');
-      }
     }
   };
 
   Drupal.behaviors.hideNodeInfos = {
       attach: function(context, settings){
-        if(window.location.href == Drupal.settings.gofast.baseUrl+'/'){
-            $('#block-gofast-gofast-node-infos').hide();
-        }
         if(!Drupal.settings.isMobile){
             $("#pdf_frame").contents().find("#gfPresentationMode").hide();
         }
@@ -194,6 +175,22 @@
       });
     }
   };
+  
+  Drupal.behaviors.clipBoard = {
+    attach: function (context, settings) {
+      $('.clipboard:not(.clipboard-processed)').addClass('clipboard-processed').each(function () {
+        var clipboard = new ClipboardJS('.clipboard');
+        clipboard.on('success', function (e) {
+          console.info('Action:', e.action);
+          console.info('Text:', e.text);
+          console.info('Trigger:', e.trigger);
+          
+          Gofast.toast(Drupal.t('Link copied to clipboard !', {}, {'context':'gofast:conference'}));
+          e.clearSelection();
+        });
+      });
+    }
+  }
 
   Drupal.behaviors.initializeCustomScrollbar = {
     attach: function (context, settings) {
@@ -234,7 +231,8 @@
                 }).css({
                   'width': 'initial',
                   'min-width': '180px',
-                  'max-width': '400px',
+                  // was messing up with user profile page, commented out for now
+                  // 'max-width': '400px',
                 });
 
                 $('.region-sidebar-second:not(#gofast_mobile_panel .region-sidebar-second) .mCSB_draggerContainer').css('padding-bottom', 0);
@@ -357,47 +355,140 @@
     el.after(data);
   };
 
-   /*Gofast.setMemorizedPath = function (path) {
-    Gofast.setCookie('memorize_last_url_ajax_file_browser', encodeURIComponent(path), 31536000);
-    //TODO understand why ithit-state-hidden doesn't work
-    if(typeof Gofast.ajaxFileBrowser !== 'undefined' && ! $('#ithit-toggle').hasClass('ithit-state-hidden2')){
-      //console.log('Update ITHIT mobile location');
-      if(typeof Gofast.ajaxFileBrowser.SetSelectedFolderAsync == 'function'){
+  Gofast.loadcomments = function (nid, noScroll = false) {
+    $("#gofast_over_content .text-center .pagination").html("<div class='loader-chat'></div>");
+    Gofast.removeLoading();
+    $.ajax({
+      url: Drupal.settings.gofast.baseUrl + '/gofast/all_comments/render/' + nid,
+      type: 'GET',
+      dataType: 'html',
+      async: true,
+      success: function (content) {
+        $("#comments-container").html(content);
+        $("#comments-container").css("height", "");
+        Drupal.attachBehaviors("#comments-container");
+        if (location.href.indexOf("#comment") != -1) {
+          var hash = location.href.substring(location.href.indexOf("#") + 1);
+          if (noScroll == false) {
+            Gofast.scrollToComment("#" + hash);
+          }
+        }
+        setTimeout(function () {
+          Gofast.checkReply();
+        }, 500);
+      }
+    });
+  };
 
-        if( Gofast.ajaxFileBrowser._Tree().NodeExists("/alfresco/webdav" + path +"/") != false){
-          Gofast.ajaxFileBrowser.SetSelectedFolderAsync("alfresco/webdav" + path);
-        }else{
-          Gofast.ajaxFileBrowser.SetSelectedFolderAsync("alfresco/webdav/Sites/");
+  Gofast.loadtasks = function (nid) {
+      
+    if($("#lightDashboardDocumentMy #bonita_form_process").hasClass('forcefully-loaded')){
+        $("#lightDashboardDocumentMy #bonita_form_process").removeClass('forcefully-loaded');
+        return;
+    }
+          
+    $.ajax({
+      url: Drupal.settings.gofast.baseUrl + '/gofast/all_tasks/render/' + nid, // change it to taskes
+      type: 'GET',
+      dataType: 'html',
+      async: true,
+      success: function (content) {
+        if($("#document__tasktab").length && $("#document__tasktab").hasClass("active")){
+          var show_again = true;
+        }
+        
+        $("#tasktab-container").html(content);
+        Drupal.attachBehaviors("#tasktab-container");
+        
+        setTimeout(function(){  
+            $("#lightDashboardDocumentMy #bonita_form").contents().find("form").parent().next().css("display", "none");
+            $("#lightDashboardDocumentMy #bonita_form").contents().find("form").css("width", "99%");
+            $("#lightDashboardDocumentMy #bonita_form").contents().find(".col-xs-12.ng-scope.thumbnail").css("display", "none");
+            $("#bonita_form_container").css("display", "block");
+        }, 100);
+        
+        if(show_again){
+          $("#document__tasktab").addClass("active").addClass("show");
+          $("#lightDashboardDocumentMy").addClass("active").addClass("show");
         }
       }
-    }else{
-      //console.log('DO NOT update ITHIT mobile location');
-    }
-  };*/
-
-  Gofast.loadcomments = function(nid,noScroll=false){
-      $("#gofast_over_content .text-center .pagination").html("<div class='loader-chat'></div>");
-       Gofast.removeLoading();
-       $.ajax({
-            url : Drupal.settings.gofast.baseUrl+'/gofast/all_comments/render/'+nid,
-            type : 'GET',
-            dataType: 'html',
-            async: true,
-            success : function(content){
-                $("#comments-container").html(content);
-                Drupal.attachBehaviors("#comments-container");
-                if(location.href.indexOf("#") != -1){
-                  var hash = location.href.substring(location.href.indexOf("#")+1);
-                  if (noScroll == false){
-                    Gofast.scrollToComment("#" + hash);
-                  }
-                }
-                setTimeout(function(){
-                        Gofast.checkReply();
-                }, 500);
-              }
-          });
+    });
   };
+
+
+  Gofast.loadextrametadata = function (nid) {
+    $.ajax({
+      url: Drupal.settings.gofast.baseUrl + '/gofast/extra_metadata/render/' + nid, // change it to taskes
+      type: 'GET',
+      dataType: 'html',
+      async: true,
+      success: function (content) {
+        $("#extra-metadata-container").html(content);
+        Drupal.attachBehaviors("#extra-metadata-container");
+      }
+    });
+  };
+
+
+  Gofast.historyTab = function (nid) {
+    if ($("#historytab-container").hasClass("processed")) {
+      return;
+    }
+    $.ajax({
+      url: Drupal.settings.gofast.baseUrl + '/gofast/history/render/' + nid,
+      type: 'GET',
+      dataType: 'html',
+      async: true,
+      success: function (content) {
+        $("#historytab-container").html(content);
+        $("#historytab-container").addClass("processed");
+        Drupal.attachBehaviors("#historytab-container");
+      }
+    });
+  };
+
+  Gofast.handleActiveOnOGDropdownTabs = function () {
+    if (window.location.hash == "#document__tasktab") {
+      $("#node-tabsHeader a ").removeClass("active");
+      $(".header_tasks_tab").addClass("active");
+    }
+    if (window.location.hash == "#document__infotab" || window.location.hash == "#document__extra_metadata_tab") {
+      $("#node-tabsHeader a ").removeClass("active");
+      $(".header_info_tab").addClass("active");
+    }
+    if (window.location.hash.startsWith("#document__historytab")) {
+      $("[href='#document__historytab']").click();
+    }
+    if (window.location.hash.startsWith("#document__audittab")) {
+      $("[href='#document__audittab']").click();
+    }
+  }
+
+  Gofast.selectCurrentWikiArticle = function() {
+    if (!Drupal.settings.gofast_selected_book) {
+      return;
+    }
+    const preselectBookInterval = setInterval(() => {
+      const $targetPageElement = $(".item-name[href$='" +  Drupal.settings.gofast_selected_book + "']").first();
+      const bookArrow = $targetPageElement.closest("tbody").find(".book-explorer-element-open");
+      $(".gofastHighlightedWikiArticle").removeClass("gofastHighlightedWikiArticle bg-secondary p-2 rounded");
+      if (!bookArrow.length && $targetPageElement.length) {
+        $targetPageElement.addClass("gofastHighlightedWikiArticle bg-secondary p-2 rounded");
+        return;
+      }
+      if (!bookArrow.length && !$targetPageElement.length) {
+        return;
+      }
+      $(".gofastHighlightedWikiArticle").removeClass("gofastHighlightedWikiArticle bg-secondary p-2 rounded");
+      if (bookArrow.hasClass("ki-bold-arrow-next")) {
+        bookArrow.click();
+      }
+      $targetPageElement.addClass("gofastHighlightedWikiArticle bg-secondary p-2 rounded");
+      $targetPageElement[0].scrollIntoView({behavior: "smooth", block: "center"});
+
+      clearInterval(preselectBookInterval);
+    }, 100);
+  }
 
   Gofast.checkReply = function(){
     if(location.pathname.indexOf('replytocomment') !== -1){
@@ -440,7 +531,8 @@
     }
   };
 
-
+  // @todo massive cleanup: as of GF4, most of the selectors and code below are dead
+  // @warning there is still some essential stuff here, so be **really** careful while cleaning up
   $(document).ready(function () {
     if (Gofast._settings.isMobile == false || typeof Gofast._settings.isMobile == 'undefined') {
       $('.menu.nav.navbar-nav > .last').before($('#block-search-form'));
@@ -459,91 +551,6 @@
     var footer = $('.footer');
     var gofastOverContent = $('#gofast_over_content');
     var gofastOverContentOldClass = gofastOverContent.attr('class');
-
-    Gofast.toggle_fitscreen = function (fitscreenBtn) {
-      fitscreenBtn = $(fitscreenBtn);
-      if (typeof sidebar === 'undefined'){
-        var sidebar = $('aside');
-      }
-      if (sidebar.css('display') === 'block') {
-        sidebar.css('display', 'none');
-        mainMenu.css('display', 'none');
-        pageHeader.css('display', 'none');
-        //breadcrumb.css('display', 'none');
-        comments.css('display', 'none');
-        footer.css('display', 'none');
-        mainZone.css('width', '100%');
-        fullscreenNode.css('width', '100%');
-        mainContainer.css('width', '100%');
-        if ($(".gofast-og-page").length == 0){
-          gofastOverContent.attr('class', 'col-md-12');
-        }
-//        $('body').each(function () {
-//          // this.style.setProperty('padding-top', '0px', 'important');
-//        });
-        $('body.navbar-is-fixed-top').addClass('gf-full-page');
-        nodeContent.css('margin-bottom', '0px');
-        fitscreenBtn.find('i').removeClass('fa-arrows-alt').addClass('fa-compress');
-//        var maxFrameHeight = $(window).height() - fullscreenNode.css('padding-top').replace('px', '') * 2 - $('.gofast-header').outerHeight(true) - 50;
-//        $('#pdf_frame').attr('height', maxFrameHeight);
-        //Remove added CSS used when return from fullscreen
-        $('body :first').css('padding-top', '0px');
-
-        if (Gofast.Riot) {
-          // remember initial width (68 comes from gofast_riot.css)
-          this.toggle_fitscreen._RiotWidthCollapsed = Gofast.Riot.widthCollapsed || 68;
-          $("#conteneurIframe").width("0px");
-          Gofast.Riot.widthCollapsed = 0;
-        }
-      }
-      else {
-        sidebar.css('display', 'block');
-        mainMenu.css('display', 'block');
-        pageHeader.css('display', 'block');
-        //breadcrumb.css('display', 'block');
-        comments.css('display', 'block');
-        footer.css('display', 'block');
-        mainContainer.css('width', '');
-        mainZone.css('width', '');
-        fullscreenNode.css('width', '');
-        $('body.navbar-is-fixed-top').removeClass('gf-full-page');
-    //    $('body :first').css('padding-top', '70px');
-        nodeContent.css('margin-bottom', '20px');
-        fitscreenBtn.find('i').removeClass('fa-compress').addClass('fa-arrows-alt');
-        $('#pdf_frame').attr('height', '800px');
-        if (Gofast._settings.isMobile == false || typeof Gofast._settings.isMobile == "undefined") {
-          if ($(".gofast-og-page").length == 0) {
-            gofastOverContent.attr('class', "col-lg-8");
-          }
-        }
-        if (Gofast.Riot) {
-          var w  = this.toggle_fitscreen._RiotWidthCollapsed || 68; // from gofast_riot.css
-          $("#conteneurIframe").width(w + 'px');
-          Gofast.Riot.widthCollapsed = w;
-        }
-      }
-
-      //Resize the file browser
-      var eastbar = $("#file_browser_full_tree_container > .ui-resizable-handle");
-      if (eastbar.length > 0){
-        var pageX = eastbar.offset().left;
-        var pageY = eastbar.offset().top;
-
-        (eastbar.trigger("mouseover")
-                .trigger({ type: "mousedown", which: 1, pageX: pageX, pageY: pageY })
-                .trigger({ type: "mousemove", which: 1, pageX: pageX - 1, pageY: pageY })
-                .trigger({ type: "mousemove", which: 1, pageX: pageX, pageY: pageY })
-                .trigger({ type: "mouseup", which: 1, pageX: pageX, pageY: pageY }));
-      }
-  };
-
-    $('#toggle-fullscreen').on('click', function () {
-      if ($.fullscreen.isFullScreen()) {
-        $.fullscreen.exit();
-      } else {
-        $(this).parent().parent().parent().fullscreen({overflow: 'auto'});
-      }
-    });
 
     $(this).on('fscreenchange', function () {
       if ($.fullscreen.isFullScreen()) {
@@ -572,7 +579,20 @@
     if (typeof Gofast.getQueryVariables('deadline') === 'string' && typeof Gofast.getQueryVariables('gid') === 'string') {
       $('h1.page-header').hide();
     }
-  });
+    
+    // Make sur #id on url will load the good navTab
+    
+    // Javascript to enable link to tab
+    var hash = location.hash.replace(/^#/, '');  // ^ means starting, meaning only match the first hash
+    if (hash) {
+        $('.nav-tabs a[href="#' + hash + '"]').tab('show');
+    } 
+
+    // Change hash for page-reload
+    $('.nav-tabs a').on('shown.bs.tab', function (e) {
+        window.location.hash = e.target.hash;
+    })
+});
 
   /**
    * Returns the current, full url, including query string and hash.
@@ -720,6 +740,22 @@
     }
   };
 
+  Drupal.behaviors.moreBreadcrumbs = {
+    attach: function(context, settings) {
+      $("#gofast_breadcrumb_more:not(.gofast_breadcrumb_more-processed)").addClass('gofast_breadcrumb_more-processed').each(function () {
+        $(this).click(function(){
+          $(this).parent().parent().find(".breadcrumb-transparent.gofast_breadcrumb_hidden_origine").toggleClass( "d-none");
+        if($(this).hasClass("fa-plus-circle")){
+          $(this).removeClass("fa-plus-circle").addClass("fa-minus-circle");
+        }else{
+          $(this).removeClass("fa-minus-circle").addClass("fa-plus-circle");
+        }
+        });
+      });
+    }
+  }
+
+
   Drupal.behaviors.gofast_contextual_actions_submenu_display_onclick = {
     attach: function (context, settings) {
         $('.contextual-actions .dropdown-submenu .dropdown-toogle').on({"click":function(e){
@@ -832,9 +868,6 @@
                   }
                   item += '</span>';
                   autocomplete.parent().find('.selection-tags').append(item);
-                  if(typeof modalContentResize !== "undefined"){
-                    modalContentResize();
-                  }
                   // Add a click event handler that enables user to remove this item
                   autocomplete.parent().find('.tagging-tag.processed:not(.remove)').addClass('remove').click(function () {
                     var id = $(this).find('.labelize-metadata').data('id');
@@ -1028,7 +1061,7 @@
 
 
             if(full_screen == '1' && Gofast.success_fullscreen != true && Gofast.Fullscreen_node != true){
-                Gofast.toggle_fitscreen(null);
+                Gofast.toggleFullScreen();
                 Gofast.Fullscreen_node = true;
                 Gofast.success_fullscreen = true;
             }else{
@@ -1037,6 +1070,42 @@
         }
     }
   };
+
+  Drupal.behaviors.toggleSidebar = {
+    attach: function (context, settings) {
+      if ($('.GofastNode').length) {
+        $('#kt_aside_toggle').once('kt_aside_toggle', function () {
+          $(this).click(function () {
+            if (!$(this).hasClass('active')) {
+              $('.sideContent .gofastTab .nav-item .nav-link .nav-text').hide();
+            } else {
+              if (!$('#explorer').hasClass('open')) {
+                $('.sideContent .gofastTab .nav-item .nav-link .nav-text').show();
+              }
+            }
+          });
+        });
+      }
+    }
+  }
+
+  Drupal.behaviors.toggleBrowserMobile = {
+    attach: function (context, settings) {
+      if ($('.GofastNode').length) {
+        $('#explorer').once('explorer', function () {
+          $(this).click(function () {
+            if ($(this).hasClass('open')) {
+              $('.sideContent .gofastTab .nav-item .nav-link .nav-text').hide();
+            } else {             
+              if ($('.sideContent .card-body').css("visibility") == "visible") {
+                $('.sideContent .gofastTab .nav-item .nav-link .nav-text').show();
+              }
+            }
+          });
+        });
+      }
+    }
+  }
 
   Gofast.conference = Gofast.conference || {};
 
@@ -1073,38 +1142,67 @@
     /*
      * Make the audit node block asynchronous
      */
-    Drupal.behaviors.gofast_audit_node_block = {
-        attach: function (context,settings) {
-            if($('#block-gofast-gofast-audit-node-page').length > 0){
-                if(!$('#block-gofast-gofast-audit-node-page').hasClass('processed')){
-                    $('#block-gofast-gofast-audit-node-page').addClass('processed');
+    Gofast.loadAuditBlock = function () {
+        if ($('#gofast-audit-container').length > 0){
+          if (!$('#gofast-audit-container').hasClass('processed')){
+            $('#gofast-audit-container').addClass('processed');
                     if (Gofast.get('node') !== undefined){
                         var nid = Gofast.get('node').id;
                         $.post(location.origin + "/gofast/node/"+nid+"/get_audit_node").done(function(data){
-                            if($('.loader_audit_node').length !== 0){
-                                $('.loader_audit_node').remove();
-                                $('#block-gofast-gofast-audit-node-page').append(data);
+                              $('#gofast-audit-container').append(data);
                                 Gofast.auditPageBindPagination();
-                            }
                         });
                     }
                 }
             }
-        }
     };
 
-
     Gofast.auditPageBindPagination = function () {
-            $('#block-gofast-gofast-audit-node-page .pagination li a').click(function(event){
+      $('#gofast-audit-container .text-center ul li a').click(function(event){
                 event.preventDefault();
                 event.stopPropagation();
                 $.post(location.origin + $(this).attr("href")).done(function(data){
                     $('.view-gofast-audit-node').remove();
                     $('#audit_node_button').remove();
-                    $('#block-gofast-gofast-audit-node-page').append(data);
+                  $('#gofast-audit-container').append(data);
                     Gofast.auditPageBindPagination();
                 });
             });
+    };
+
+    Gofast.gofast_right_block_breadcrumb = function(manage_locations = false){
+      if($(".breadcrumb-gofast.breadcrumb-gofast-full").hasClass("processed")) {
+        return;
+      }
+          
+      Gofast.processAjax(location.origin + "/gofast/node-info/" + Gofast.get('node').id, true);
+      Gofast.Poll.init();
+      
+      //Check locations of the node 
+      $.get(location.origin + "/gofast/check-locations/" + Gofast.get('node').id, function(data) { 
+        var response = JSON.parse(data);
+        if(response.response != "OK"){
+          Gofast.processAjax(location.origin + "/gofast/node-info/" + Gofast.get('node').id, true);
+          Gofast.Poll.init();
+        }    
+      //Locations are successfully checked, process the breadcrumb, the right block and the menu                
+      var options = {'show_title': false, "show_all_items": false, "show_tooltip": true};
+      if (JSON.parse(manage_locations)) {
+        options["manage_locations"] = true;
+      }
+      $.get(location.origin + "/gofast/node-breadcrumb/" + Gofast.get('node').id + "?options=" + JSON.stringify(options), function(data) {
+        $(".loader-breadcrumb").remove();
+        const waitForBreadcrumbinterval = setInterval(function() {
+          if (!$(".breadcrumb-gofast.breadcrumb-gofast-full").length) {
+            return;
+          }
+          clearInterval(waitForBreadcrumbinterval);
+          $(".breadcrumb-gofast.breadcrumb-gofast-full").replaceWith(data);
+          $(".breadcrumb-gofast.breadcrumb-gofast-full").addClass("processed");
+          Drupal.attachBehaviors();
+        }, 250);
+        });
+      });
     };
 
   /*
@@ -1122,11 +1220,12 @@
       $('body').css('-ms-perspective', '1200px');
       $('body').wrapInner('<div class="pt-wrapper"></div>');
       $('body').append('<div class="pt-page"><div class="message">' + Drupal.settings.message_welcom + '</div></hr></div>');
-      $('#edit-submit').click(function(){
+      const animateWelcomeSlide = function(){
         $('.pt-wrapper').addClass('pt-page-rotateSlideOut');
         $('#navbar').addClass('disappear');
         $('.pt-page').addClass('pt-page-rotateSlideIn');
-      });
+      };
+      $('#user-login-form').submit(animateWelcomeSlide);
       $('.pt-page').append('<div class="poweredbyGofast"></div>');
       $('.poweredbyGofast').append('<div>Powered by</div>');
       $('.poweredbyGofast').append('<div><img class="logo_welcome_page" src="/sites/all/themes/bootstrap-gofast/Logo_GoFAST de CEO-Vision_fr_blanc.png" "></div>');
@@ -1137,30 +1236,13 @@
         Drupal.behaviors.flagLink.attach(document);
     });
     // enable tooltip
-    $('[data-toggle="tooltip"]').tooltip();
-
-    /* BEGIN hide print Iframe Preview button */
-    var waitForPreviewIframe = function (callback, count) {
-      if ($('iframe#pdf_frame').contents().has('#print').length > 0) {
-        callback();
-      } else {
-        setTimeout(function () {
-          if (!count) {
-            count = 0;
-          }
-          count++;
-          if (count < 500) { // Max CAllback 500 time
-            waitForPreviewIframe(callback, count);
-          } else { return; }
-        }, 250);
-      }
-    };
-
-    waitForPreviewIframe(function () {
-      Gofast.HidePrintButton();
+    $('[data-toggle="tooltip"]').tooltip({
+      trigger: 'hover'
     });
+    
     /* END minimized Riot LeftPanel */
 
+    Gofast.callToasterMessages();
   });
 
   //Add missing translations to the page context
@@ -1177,8 +1259,8 @@
 
     if(Drupal.settings.gofast.user.display_carousel){
         var waitForClass = setInterval(function(){
-            if($("#gofast_carousel_link").hasClass("ctools-use-modal-processed")){
-                $("#gofast_carousel_link").click();
+            if($('a[href="/gofast/nojs/carousel"]').hasClass("ctools-use-modal-processed")){
+              $('a[href="/gofast/nojs/carousel"]').click();
                 clearInterval(waitForClass);
             }
         }, 200);
@@ -1274,40 +1356,78 @@
     }
   };
 
-  $(document).bind('flagGlobalAfterLinkUpdate', function (event, data) { //Reformat tag display when AJAX subscribing to it
-    if (data.flagName === 'subscribe_term') {//It's a term
-      jQuery('.flag.flag-link-toggle.flag-processed').parent('p').children().remove()
-      var flag = $('.flag-subscribe-term-' + data.contentId).find('a');
-      var iflag = flag.first();
+  /**
+ * //For each class editableField__datapiker convert to datepiker and each class editableField__dataTimepiker to datetimepicker
+ */
+  Drupal.behaviors.setDataPiker = {
+    attach: function (context) {
+      $('.editableField__datapiker').datepicker({
+        format: "dd/mm/yyyy",
+        todayBtn: "linked",
+        language: "fr",
+        keyboardNavigation: false,
+        autoclose: true,
+        todayHighlight: true
+      });
 
-      //Format flag
-      flag.css("padding", "0");
-      flag.css("padding-left", "3");
+      $(function () {
+        if($('.editableField__dataTimepiker').length) {
+            $('.editableField__dataTimepiker').datetimepicker({
+                locale: 'ru'
+            });
+        }
+      });
+    }
+  };
 
-      //Remove text from flag
-      flag.html(flag.html().replace(Drupal.t('Subscribe', {}, { 'context': 'gofast' }), ""));
-      flag.html(flag.html().replace(Drupal.t('Unsubscribe', {}, { 'context': 'gofast' }), ""));
-
-      //Format as red for unflag case
-      if (flag.hasClass("unflag-action")) {
-        iflag.css('color', 'red');
+  /**
+   * All JS override for the Drupal CKEditor will be placed here
+   */
+   Drupal.behaviors.overrideCKEditor = {
+    attach: function (context) {
+      if (typeof CKEDITOR === "undefined") {
+        return;
+      }
+      CKEDITOR.config.defaultLanguage = GofastLocale;
+      CKEDITOR.config.language = GofastLocale;
+      const instancesKey = Object.keys(CKEDITOR.instances);
+      for (const instanceKey of instancesKey) {
+        CKEDITOR.instances[instanceKey].on('dialogShow', function () {
+          // resize dialog modal according to content, avoiding overflow if the content has been customized
+          if ($(".cke_dialog").length && $(".cke_dialog_tabs").length) {
+            $(".cke_dialog").width($(".cke_dialog_tabs").width() + 6);
+          }
+        });
       }
     }
-  });
+  };
 
-  $(document).bind('flagGlobalBeforeLinkUpdate', function (event, data) { //Rebuilding tag name
-    let tmpdata = decodeURI(data.newLink);
-    let tmp1 = tmpdata.split('get/subscribe/');
-    let tmp2 = tmp1[1].split('[GOFAST_TAG_SEPARATOR]');
-    //When we have / at the beginning, replaced by **
-    let newtag = tmp2[0].replace('**', '/');
-    data.newLink = data.newLink + '<p style="margin-top:5px; float: left;">' + newtag + '</p>';
+  $(document).bind('flagGlobalAfterLinkUpdate', function (event, data) { //Reformat tag display when AJAX subscribing to it
+    const closestTable = $(data.link).closest("table");
+    if (closestTable && closestTable.parent() && closestTable.parent().attr("id") && closestTable.parent().attr("id").includes("dashboard")) { // we're in a dashboard table
+      closestTable.html($("<div class='spinner mt-4'>"));
+      $.get(location.origin + "/gofast/dashboard/get/block?id=" + closestTable.parent().attr("id"), function (data) {
+        closestTable.replaceWith(JSON.parse(data).content);
+        Drupal.attachBehaviors();
+      });
+    }
+    if (data.flagName === 'subscribe_term') { // it's a term, not another flag name
+      jQuery('.flag.flag-link-toggle.flag-processed').parent('p').children().remove()
+      var flag = $(".tagify__tag[value='" + data.contentId + "'] .gofast-sub-icon");
+      flag.html(Drupal.getSubButtonHtml(data.contentId).responseText)
+      flag.show();
+    }
+  });
+  $(document).bind('flagGlobalBeforeLinkUpdate', function (event, data) {
+    if (data.flagName === 'subscribe_term') {
+      var flag = $(".tagify__tag[value='" + data.contentId + "'] .gofast-sub-icon");
+      flag.hide();
+    }
   });
 
   Drupal.t("Meetings", {}, {context: 'gofast_cdel'});
   Drupal.t("Documents deadlines", {}, {context: 'gofast_cdel'});
   Drupal.t("Tasks", {}, {context: 'gofast_cdel'});
-
 
   //some translation strings
   Drupal.t("The rss feed has been added", {}, {context: 'gofast:gofast_rssfeed'});
@@ -1315,12 +1435,28 @@
   Drupal.t("The rss feed has been edited", {}, {context: 'gofast:gofast_rssfeed'});
   Drupal.t("The rss feed has been deleted", {}, {context: 'gofast:gofast_rssfeed'});
   Drupal.t("The rss feed has not been deleted", {}, {context: 'gofast:gofast_rssfeed'});
+  Drupal.t("A new space is being created and will be shown as soon as it will be ready", {}, {context: 'gofast:ajax_file_browser'});
+  Drupal.t("Unable to reach the company directory. If the problem persists, please contact your IT department.", {}, {context: 'gofast:gofast_ldap'});
+  Drupal.t("Webform successfully submitted", {}, {context: 'gofast:gofast_webform'});
+  Drupal.t('Image successfully changed!');
+  Drupal.t('Awesome!');
+  Drupal.t("An error occurred while refreshing the content of the page. Please refresh the page.", {}, {context: "gofast"});
 
-  // Initialize CKEditor Object if not already.
-  Drupal.settings.ckeditor = Drupal.settings.ckeditor || {};
+  //editableInputs placeholder and other dynamic-in-context translations
+  const translatableFields = ["First name", "Last name", "Job position", "Your phone number", "Your email address", "Your organisation", "Your birthdate", "Your manager", "Description", "Your skills", "Your interests", "Your hobbies", "elements", "element"];
+  for (const translatableField of translatableFields) {
+    Drupal.t(translatableField);
+  }
+  const kanbanTranslatableFields = ["deadline", "status", "members", "person-in-charge", "description", "attachements"];
+  for (const kanbanTranslatableField of kanbanTranslatableFields) {
+    Drupal.t(kanbanTranslatableField, {}, {context: 'gofast:kanban'});
+  }
 
-  // Init hooks
+  //Initialize CKEditor Object
+  if(typeof Drupal.settings.ckeditor == "undefined"){
+    Drupal.settings.ckeditor = {};
+  }
+
+  //Init hooks
   Gofast.hooks = [];
-
 })(jQuery, Gofast, Drupal);
-

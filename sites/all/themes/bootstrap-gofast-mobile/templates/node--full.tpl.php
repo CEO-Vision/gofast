@@ -4,9 +4,7 @@
   $detect = new Mobile_Detect;
   if (user_is_logged_in()) {
     print(theme('ajax_file_browser_mobile'));
-    if ($detect->isMobile() || $detect->isTablet()) {
-      print theme('gofast_mobile_panel', array('node' => $node));
-    }
+    print theme('gofast_mobile_panel', array('node' => $node));
   }
   ?>
 
@@ -20,15 +18,26 @@
             </div>
           <?php endif; ?>
         </div>
-        <div id="breadcrumb-container"></div>
-        <script>
-          jQuery.get('/gofast/node-breadcrumb/' + <?php echo $node->nid; ?>, function(data) {
-            jQuery("#breadcrumb-container").html(data);
-            <?php if(gofast_mobile_is_mobile_domain() && $detect->isMobile()){ ?>
-              jQuery("#breadcrumb-container").find(".breadcrumb > div > b").text("<?php echo $node->title; ?>")
-            <?php } ?>
-            jQuery(".breadcrumb-gofast").css("width", "100%");
-            jQuery("#breadcrumb-container-buton-mobile").css("top", "5px");
+      <?php endif; ?>
+    </div>
+    <div id="breadcrumb-container"></div>
+    <script>
+      jQuery.get('/gofast/node-breadcrumb/' + <?php echo $node->nid; ?>, function(data) {
+        jQuery("#breadcrumb-container").html(data);
+        jQuery("#breadcrumb-container").find(".breadcrumb > div > b").text("<?php echo $node->title; ?>")
+        jQuery(".breadcrumb-gofast").css("width", "100%");
+        jQuery("#breadcrumb-container-buton-mobile").css("top", "5px");
+
+        // on mobile move alert and info div inside #breadcrumb-container to have a correct buton show
+        if (jQuery(".alert.alert-block.alert-dismissible.alert-warning.messages.warning").length) {
+          jQuery(".alert.alert-block.alert-dismissible.alert-warning.messages.warning").appendTo("#breadcrumb-container");
+        }
+        if (jQuery(".alert.alert-block.alert-dismissible.alert-info.messages.info").length) {
+          jQuery(".alert.alert-block.alert-dismissible.alert-info.messages.info").appendTo("#breadcrumb-container");
+        }
+      });
+    </script>
+    <div class="content well well-sm" <?php print $content_attributes; ?>>
 
             // on mobile move alert and info div inside #breadcrumb-container to have a correct buton show
             if (jQuery(".alert.alert-block.alert-dismissible.alert-warning.messages.warning").length) {
@@ -62,7 +71,7 @@
             if($node->status == 1 && $documents_form_defaults['gofast_onlyoffice_ro_preview'] && in_array(strtolower(gofast_cmis_node_get_extension($node)), gofast_onlyoffice_viewable_document_extensions()) && empty($node->field_external_page_url['und'][0]['value'])){ 
                 $final_content_with_iframe = gofast_onlyoffice_editor($node, TRUE);
             }else{
-                $final_content_with_iframe = gofast_cmis_replace_iframe(render($content), $node);
+                
             }
 
             if($final_content_with_iframe == "RELOAD"){

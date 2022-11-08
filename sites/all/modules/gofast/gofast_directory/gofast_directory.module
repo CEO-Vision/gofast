@@ -1,0 +1,1611 @@
+<?php
+
+/**
+ * Define values for paginations
+ */
+define('GOFAST_PAGINATION_PAGE_DEFAULT', 1);
+define('GOFAST_PAGINATION_PERPAGE_DEFAULT', 20);
+
+/**
+ * Implements hook_init
+ */
+function gofast_directory_init(){
+    unset($_SESSION["gids_bulk_actions"]);
+    drupal_add_css(drupal_get_path('module', 'gofast_directory') . "/css/gofast_directory.css");
+    drupal_add_js(drupal_get_path('module', 'gofast_directory') . "/js/gofastDirectoryTable.js");
+}
+
+/**
+ * Implements hook_menu()
+ */
+function gofast_directory_menu(){
+    $items['directory/users'] = array(
+      'title' => t('Directory', array(), array('context' => 'gofast_cdel')),
+      'page callback' => 'gofast_directory_display_users',
+      'access arguments' => array('access content'),
+      'access callback' => 'user_access',
+      'type' => MENU_NORMAL_ITEM,
+    );
+    $items['directory/userlists'] = array(
+      'title' => t('Directory', array(), array('context' => 'gofast_cdel')),
+      'page callback' => 'gofast_directory_display_userlists',
+      'access arguments' => array('access content'),
+      'access callback' => 'user_access',
+      'type' => MENU_NORMAL_ITEM,
+    );
+    $items['directory/spaces'] = array(
+      'title' => t('Directory', array(), array('context' => 'gofast_cdel')),
+      'page callback' => 'gofast_directory_display_spaces',
+      'access arguments' => array('access content'),
+      'access callback' => 'user_access',
+      'type' => MENU_NORMAL_ITEM,
+    );
+
+    $items['directory/contacts-listing'] = array(
+        'title' => t('Contacts Listing', array(), array('context' => 'gofast_cdel')),
+        'page callback' => 'gofast_directory_display_contact_listing',
+        'access arguments' => array('access content'),
+    );
+
+    $items['directory/directory_async/%'] = array(
+        'page callback' => 'gofast_directory_async',
+        'type' => MENU_CALLBACK,
+        'page arguments' => array(2),
+        'access arguments' => array('access content'),
+        'access callback' => 'user_access',
+    );
+
+    $items['modal/%ctools_js/directory/bulk_action/user/%/%'] = array(
+        'page callback' => 'gofast_directory_bulk_actions_users',
+        'type' => MENU_CALLBACK,
+        'page arguments' => array(1,5,6),
+        'access arguments' => array('access content'),
+        'access callback' => 'user_access',
+    );
+
+     $items['directory/manage_bulkactions/users/process'] = array(
+        'page callback' => 'gofast_directory_bulk_actions_users_process',
+        'type' => MENU_CALLBACK,
+        'page arguments' => array(),
+        'access arguments' => array('access content'),
+        'access callback' => 'user_access',
+    );
+
+      $items['modal/%ctools_js/directory/bulk_action/space/%/%'] = array(
+        'page callback' => 'gofast_directory_bulk_actions_spaces',
+        'type' => MENU_CALLBACK,
+        'page arguments' => array(1,5,6),
+        'access arguments' => array('access content'),
+        'access callback' => 'user_access',
+    );
+
+     $items['directory/manage_bulkactions/spaces/process'] = array(
+        'page callback' => 'gofast_directory_bulk_actions_spaces_process',
+        'type' => MENU_CALLBACK,
+        'page arguments' => array(),
+        'access arguments' => array('access content'),
+        'access callback' => 'user_access',
+    );
+
+
+
+    return $items;
+}
+
+/**
+ * Implements hook_theme()
+ */
+function gofast_directory_theme() {
+    return array(
+      'gofast_directory' => array(
+          'template' => 'tpl/gofast-directory'
+      ),
+      'gofast_directory_user_table' => array(
+          'template' => 'tpl/tables/gofast-directory-user-table'
+      ),
+      'gofast_directory_userlist_table' => array(
+          'template' => 'tpl/tables/gofast-directory-userlist-table'
+      ),
+      'gofast_directory_space_table' => array(
+          'template' => 'tpl/tables/gofast-directory-space-table'
+      ),
+      'gofast_directory_contact_listing_table' => array(
+        'template' => 'tpl/tables/gofast-directory-contact-listing-table'
+      ),
+      'gofast_directory_spaces_filter' => array(
+          'template' => 'tpl/filters/gofast-directory-spaces-filter'
+      ),
+      'gofast_directory_user_filter' => array(
+          'template' => 'tpl/filters/gofast-directory-user-filter'
+      ),
+      'gofast_directory_userlist_filter' => array(
+          'template' => 'tpl/filters/gofast-directory-userlist-filter'
+      ),
+      'gofast_manage_bulkactions_users_progression' => array(
+          'template'  => 'tpl/bulkactions/gofast-manage-bulkactions-users-progression',
+      ),
+    );
+  }
+
+
+/*
+ * Display Directories for GF4
+ */
+
+function gofast_directory_display_users(){
+
+    drupal_add_js(drupal_get_path('module', 'gofast_directory') . "/js/gofastDirectoryUsersTable.js");
+
+    $columns = [];
+
+    $columns['picture'] = t('Picture', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['firstname'] = t('First name', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['lastname'] = t('Last name', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['name'] = t('Username', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['entity'] = t('Entity', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['role'] = t('Profile', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['type'] = t('Type', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['created'] = t('Created', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['login'] = t('Last login', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['status'] = t('Status', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['actions'] = t('Actions', array(), array('context' => 'gofast:gofast_directory'));
+
+    $jsonColumns = json_encode($columns);
+
+    $content =  theme('gofast_directory_user_table', ["columns" => $jsonColumns]);
+
+    return gofast_create_page_content($content);
+}
+
+function gofast_directory_display_userlists(){
+
+    drupal_add_js(drupal_get_path('module', 'gofast_directory') . "/js/gofastDirectoryUserlistsTable.js");
+
+    $columns = [];
+
+    $columns['name'] = t('Name', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['description'] = t('Description', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['creator'] = t('Creator', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['nb_admins'] = t('Admins', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['nb_members'] = t('Members', array(), array('context' => 'gofast:gofast_directory'));
+    //$columns['nb_locations'] = t('Locations', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['created'] = t('Created', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['modified'] = t('Modified', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['actions'] = t('Actions', array(), array('context' => 'gofast:gofast_directory'));
+
+    $jsonColumns = json_encode($columns);
+
+    $content =  theme('gofast_directory_userlist_table', ["columns" => $jsonColumns]);
+
+    return gofast_create_page_content($content);
+
+}
+
+function gofast_directory_display_spaces(){
+
+    drupal_add_js(drupal_get_path('module', 'gofast_directory') . "/js/gofastDirectorySpacesTable.js");
+
+    $columns = [];
+
+    $columns['name'] = t('Name', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['type'] = t('Type', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['status'] = t('State', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['created'] = t('Created', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['chat'] = t('Chat room', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['contents'] = t('Total documents', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['members'] = t('Total members', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['admins'] = t('Administrators', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['pendings'] = t('Pending members', array(), array('context' => 'gofast:gofast_directory'));
+    $columns['actions'] = t('Actions', array(), array('context' => 'gofast:gofast_directory'));
+
+    $jsonColumns = json_encode($columns);
+
+    $content =  theme('gofast_directory_space_table', ["columns" => $jsonColumns]);
+
+    return gofast_create_page_content($content);
+}
+
+function gofast_directory_display_contact_listing(){
+
+  drupal_add_js(drupal_get_path('module', 'gofast_directory') . "/js/gofastDirectoryContactListingTable.js");
+  $columns = [];
+  $columns['lastname'] = t('Last Name', array(), array('context' => 'gofast:gofast_directory'));
+  $columns['firstname'] = t('First Name', array(), array('context' => 'gofast:gofast_directory'));
+  $columns['entity'] = t('Entity', array(), array('context' => 'gofast:gofast_directory'));
+  $columns['email'] = t('Email', array(), array('context' => 'gofast:gofast_directory'));
+  $columns['phone'] = t('Mobile', array(), array('context' => 'gofast:gofast_directory'));
+  $columns['delete'] = t('Delete', array(), array('context' => 'gofast:gofast_directory'));
+  $columns['edit'] = t('Edit', array(), array('context' => 'gofast:gofast_directory'));
+  $jsonColumns = json_encode($columns);
+  $content =  theme('gofast_directory_contact_listing_table', ["columns" => $jsonColumns]);
+  return gofast_create_page_content($content, 'contact');
+}
+
+/**
+ * Callback Async Directory - have return JSON array
+*/
+
+function gofast_directory_async($type){
+
+    $pagination = $_GET['pagination'];
+    $sort = $_GET['sort'];
+    $filters = $_GET['query'];
+    $noPopup = $_GET['nopopup'];
+
+    $directory = [];
+
+    switch ($type) {
+        case 'user':
+            $directory = gofast_getAllUsers($pagination, $sort, $filters, $noPopup);
+            break;
+
+        case 'userlist':
+            $directory = gofast_getAllUserlists($pagination, $sort, $filters);
+            break;
+
+        case 'space':
+            $directory = gofast_getAllSpaces($pagination, $sort, $filters);
+            break;
+
+        case 'contact_listing':
+          $directory = gofast_get_contact_listing($pagination, $sort);
+          break;
+
+        default:
+            $directory = [];
+            break;
+    }
+
+    print json_encode($directory);
+}
+
+function gofast_getUserRoleNameByImplodedRoleIds($role_ids) {
+    if (in_array(3, $role_ids)) {
+        $role = t(GOFAST_ROLE_SUPER_ADMIN_VALUE, array(), array('context' => 'gofast:gofast_directory'));
+    } elseif (in_array(7, $role_ids)) {
+        $role = t(GOFAST_ROLE_BUSINESS_ADMIN_VALUE, array(), array('context' => 'gofast:gofast_directory'));
+    } else {
+        $role = t('Standard', array(), array('context' => 'gofast:gofast_directory')); 
+    }
+    return $role;
+}
+
+/**
+ * Query functions
+*/
+
+function gofast_getAllUsers($pagination = NULL, $sort = NULL, $filter = NULL, $noPopup = FALSE){
+
+    global $user;
+    $users = [];
+    $uids_user_can_access = gofast_og_get_all_uids_user_can_access($user);
+
+    if(empty($pagination["page"])) $pagination["page"] = GOFAST_PAGINATION_PAGE_DEFAULT;
+    if(empty($pagination["perpage"])) $pagination["perpage"] = GOFAST_PAGINATION_PERPAGE_DEFAULT;
+    $offset = ($pagination["page"] - 1) * $pagination["perpage"];
+
+    $query = db_select('users_directory_detail', 'udd');
+    $query->fields('udd');
+
+    $query->leftJoin('field_revision_ldap_user_prov_entries', 'frlu', 'frlu.entity_id = udd.uid');
+    $query->addField('frlu', 'ldap_user_prov_entries_value');
+
+    //apply visibility restrictions
+    if($uids_user_can_access != false){
+        $query->condition('udd.uid', $uids_user_can_access, 'IN');
+    } 
+
+    if(isset($filter['status']) && $filter['status'] >= 0){
+        $query->condition('udd.total_status', $filter['status'], '=');
+    }
+
+    if(!gofast_user_current_can_see_left_user()){
+        $query->condition('udd.left', 0);
+    }
+    if(isset($filter['startLogin']) && isset($filter['endLogin'])){
+        if ($filter['startLogin'] == $filter['endLogin']) {
+            (int) $filter['endLogin'] += 86400;
+        }
+        $query->condition('udd.login', array($filter['startLogin'], $filter['endLogin']), 'BETWEEN');
+    }
+    if(isset($filter['startCreated']) && isset($filter['endCreated'])){
+        if ($filter['startCreated'] == $filter['endCreated']) {
+            (int) $filter['endCreated'] += 86400;
+        }
+        $query->condition('udd.created', array($filter['startCreated'], $filter['endCreated']), 'BETWEEN');
+    }
+    if(isset($filter['firstname'])){
+        $query->condition('udd.firstname', '%'.$filter['firstname'].'%', 'LIKE');
+    }
+    if(isset($filter['lastname'])){
+        $query->condition('udd.lastname', '%'.$filter['lastname'].'%', 'LIKE');
+    }
+    if(isset($filter['entity'])){
+        $query->condition('udd.entity', '%'.$filter['entity'].'%', 'LIKE');
+    }
+
+    if(isset($filter['name'])){
+        $query->condition(db_or()->condition('udd.firstname', '%'.$filter['name'].'%', 'LIKE')->condition('udd.lastname', '%'.$filter['name'].'%', 'LIKE'));
+    }
+
+    if(isset($filter['role']) && strlen($filter['role']) > 0) {
+        $query->condition('udd.role_id', "%" . $filter['role'] . "%", "LIKE");
+    }
+
+    if(isset($filter['type']) && strlen($filter['type']) > 0) {
+        $operator = $filter['type'] == "2" ? "=" : "!=";
+        $query->condition('udd.is_extranet', 1, $operator);
+    }
+
+    if($sort){
+       switch ($sort['field']) {
+
+           case 'firstname':
+               if($sort['sort'] == 'asc'){
+                   $query->orderBy('firstname');
+               } else {
+                $query->orderBy('firstname', 'DESC');
+               }
+               break;
+
+           case 'lastname':
+               if($sort['sort'] == 'asc'){
+                   $query->orderBy('lastname');
+               } else {
+                $query->orderBy('lastname', 'DESC');
+               }
+               break;
+
+           case 'entity':
+               if($sort['sort'] == 'asc'){
+                   $query->orderBy('entity');
+               } else {
+                $query->orderBy('entity', 'DESC');
+               }
+               break;
+
+           case 'status':
+               if($sort['sort'] == 'asc'){
+                   $query->orderBy('total_status');
+               } else {
+                $query->orderBy('total_status', 'DESC');
+               }
+               break;
+
+           case 'login':
+               if($sort['sort'] == 'asc'){
+                   $query->orderBy('login');
+               } else {
+                $query->orderBy('login', 'DESC');
+               }
+               break;
+
+           case 'created':
+               if($sort['sort'] == 'asc'){
+                   $query->orderBy('created');
+               } else {
+                $query->orderBy('created', 'DESC');
+               }
+               break;
+
+            case 'type':
+                if($sort['sort'] == 'asc'){
+                    $query->orderBy('is_extranet');
+                } else {
+                 $query->orderBy('is_extranet', 'DESC');
+                }
+                break;
+
+           default:
+
+               break;
+       }
+    }
+
+    $users_count = $query->countQuery()->execute()->fetchField();
+
+    // go back to last available page if we're pointing to a page which no longer exists after filter application
+    $page_count = ceil($users_count / $pagination["perpage"]);
+    if ($pagination["page"] > $page_count) {
+        $pagination["page"] = $page_count;
+        $offset = ($page_count - 1) * $pagination["perpage"];
+    }
+
+    $query->range($offset, $pagination["perpage"]);
+
+    $result = $query->execute();
+    $users = $result->fetchAll();
+
+    // Formatted user
+    foreach($users as $us) {
+        $account = new stdClass();
+        $account->uid = $us->uid;
+        $properties_u = ['picture','status','name','left'];
+        $users_infos = gofast_get_properties_user_by_uid_or_u_name($us->uid, NULL, $properties_u);
+        $account->field_left[LANGUAGE_NONE][0]["value"] = $users_infos->left;
+        $us->firstname = trim($us->firstname);
+        $us->lastname = trim($us->lastname);
+
+        if($noPopup){
+            $us->picture = gofast_get_url_picture_by_id($users_infos->picture);
+        }else{
+            $account->name = $users_infos->name;
+            $picture_html = '<div class="user-picture profile-to-popup " >
+                                <div class="profile-popup-wrapper">
+                            <div class="profile-popup">
+                            </div>
+                                </div>
+                                <a href="/user/'.$account->uid.'" class="symbol symbol-30"><img typeof="foaf:Image" class="img-responsive" src="'.gofast_get_url_picture_by_id($users_infos->picture).'" alt="Portrait de '.$account->name.'" title="Portrait de '.$account->name.'"></a></div>';
+            $us->picture = $picture_html;
+        }
+        $account->status = $users_infos->status;
+        $us->entity = $us->entity == null ? '-' : $us->entity;
+
+        $role_ids = explode(",", $us->role_id);
+        $us->roles = [];
+        foreach($role_ids as $role_id) {
+            if ($role_id == 3) {
+                $us->roles[] = t(GOFAST_ROLE_SUPER_ADMIN_VALUE, array(), array('context' => 'gofast:gofast_directory'));
+                continue;
+            }
+            if ($role_id == 7) {
+                $us->roles[] = t(GOFAST_ROLE_BUSINESS_ADMIN_VALUE, array(), array('context' => 'gofast:gofast_directory'));
+                continue;
+            }
+            $standard_name = t('Standard', array(), array('context' => 'gofast:gofast_directory'));
+            if (($role_id == 4 || $role_id == 5) && !in_array(3, $role_ids) && !in_array(7, $role_ids) && !in_array($standard_name, $us->roles)) {
+                $us->roles[] = $standard_name;
+            }
+        }
+        // get most important role_id name for display in directory
+        $us->main_role = gofast_getUserRoleNameByImplodedRoleIds($role_ids);
+        // keep only most important role_id for sortCallback in directory
+        if (in_array(3, $role_ids)) {
+            $us->role_id = 3;
+        } elseif (in_array(7, $role_ids)) {
+            $us->role_id = 7;
+        } else {
+            $us->role_id = 4;
+        }
+        $mapProfileRidToImportance = [
+            3 => 0,
+            7 => 1,
+            4 => 2,
+        ];
+        $us->importance = $mapProfileRidToImportance[$us->role_id];
+
+        $us->type = (bool) $us->is_extranet;
+        $us->status = array();
+        $us->status["value"] = $us->total_status;
+        switch($us->total_status) {
+            case "0":
+                $us->status['label'] = t('Blocked', array(), array('context' => 'gofast:gofast_directory'));
+                break;
+            case "1":
+                $us->status['label'] = t('Disabled', array(), array('context' => 'gofast:gofast_directory'));
+                break;
+            case "2":
+            default:
+                $us->status['label'] = t('Activated', array(), array('context' => 'gofast:gofast_directory'));
+                break;
+        }
+
+        //ACTIONS
+        $us->actions = "";
+        $account_request_actions = array();
+         foreach (gofast_user_get_request_actions($account, true) as $action) {
+           $account_request_actions[]['themed'] = $action;
+         }
+
+         $user_contextual_actions = array();
+
+         if (!empty($account_request_actions)) {
+           $user_contextual_actions[] = array(
+             'id' => 'account-dropdown',
+             'title' => 'Contextual actions',
+             'button-text' => '',
+             'icon-class' => 'fa fa-bars',
+             'children' => $account_request_actions
+           );
+         }
+
+        $actions = theme('contextual_links', array('buttons' => $user_contextual_actions));
+        $us->actions = $actions;
+    }
+
+    // sorts too complex to be treated in the SQL query here
+    if ($sort && $sort['field'] == 'role') {
+        usort($users, function($a, $b) use ($sort) {
+            if ($sort['sort'] == "asc") {
+                return $a->importance <=> $b->importance;
+            } else {
+                return $b->importance <=> $a->importance;
+            }
+        });
+    }
+
+    // data expected by KTDatatable to handle directory size
+    $meta = [
+        "page" => $pagination["page"],
+        "pages" => $page_count,
+        "perpage" => $pagination["perpage"],
+        "total" => $users_count,
+        "sort" => $sort ? $sort['sort'] : "",
+        "field" => $sort ? $sort['field'] : "",
+    ];
+    return ["data" => $users, "meta" => $meta];
+}
+
+function gofast_getAllUserlists($pagination = NULL, $sort = NULL, $filter = NULL){
+
+    global $user;
+    $userlists = [];
+    $res = [];
+
+
+    // Get userslist
+    $query = db_select('userlist_directory_detail', 'uldd');
+    $query->fields('uldd', ['ulid', 'nid', 'name', 'creator_id', 'nb_og', 'nb_members', 'nb_admins', 'created', 'modified', 'status']);
+
+    // Get creator detail
+    $query->leftJoin('`users_directory_detail`', 'udd', 'udd.uid=uldd.creator_id' );
+    $query->addField('udd', 'firstname', 'creator_firstname');
+    $query->addField('udd', 'lastname', 'creator_lastname');
+    $query->addField('udd', 'picture', 'creator_picture');
+
+    if(isset($filter['startCreated']) && isset($filter['endCreated'])){
+        // if user inputed two times the same date, we assume he was looking for a 24h timespan
+        if ($filter['startCreated'] == $filter['endCreated']) {
+            (int) $filter['endCreated'] += 86400;
+        }
+        $query->condition('uldd.created', array($filter['startCreated'], $filter['endCreated']), 'BETWEEN');
+    }
+    if(isset($filter['startModified']) && isset($filter['endModified'])){
+        if ($filter['startModified'] == $filter['endModified']) {
+            (int) $filter['endModified'] += 86400;
+        }
+        $query->condition('uldd.created', array($filter['startModified'], $filter['endModified']), 'BETWEEN');
+    }
+    if(isset($filter['userlist'])){
+        $query->condition('uldd.name', '%'.$filter['userlist'].'%', 'LIKE');
+    }
+    if(isset($filter['firstname'])){
+        $query->condition('udd.firstname', '%'.$filter['firstname'].'%', 'LIKE');
+    }
+    if(isset($filter['lastname'])){
+        $query->condition('udd.lastname', '%'.$filter['lastname'].'%', 'LIKE');
+    }
+
+    if($sort){
+        switch ($sort['field']) {
+            case 'creator':
+                if($sort['sort'] == 'asc'){
+                    $query->orderBy('creator_lastname');
+                } else {
+                 $query->orderBy('creator_lastname', 'DESC');
+                }
+                break;
+
+            case 'name':
+                if($sort['sort'] == 'asc'){
+                    $query->orderBy('name');
+                } else {
+                 $query->orderBy('name', 'DESC');
+                }
+                break;
+
+            case 'nb_og':
+                if($sort['sort'] == 'asc'){
+                    $query->orderBy('nb_og');
+                } else {
+                 $query->orderBy('nb_og', 'DESC');
+                }
+                break;
+
+            case 'nb_members':
+                if($sort['sort'] == 'asc'){
+                    $query->orderBy('nb_members');
+                } else {
+                 $query->orderBy('nb_members', 'DESC');
+                }
+                break;
+
+            case 'nb_admins':
+                if($sort['sort'] == 'asc'){
+                    $query->orderBy('nb_admins');
+                } else {
+                 $query->orderBy('nb_admins', 'DESC');
+                }
+                break;
+
+            case 'created':
+                if($sort['sort'] == 'asc'){
+                    $query->orderBy('created');
+                } else {
+                 $query->orderBy('created', 'DESC');
+                }
+                break;
+
+            case 'modified':
+                if($sort['sort'] == 'asc'){
+                    $query->orderBy('modified');
+                } else {
+                    $query->orderBy('modified', 'DESC');
+                }
+                break;
+
+            default:
+                break;
+        }
+    }
+
+
+    $result = $query->execute();
+    $res = $result->fetchAll();
+
+    foreach($res as $ul){
+        $ulformatted = [];
+        $ulformatted['ulid'] = $ul->ulid;
+        $ulformatted['nid'] = $ul->nid;
+        $ulformatted['name'] = $ul->name;
+        $ulformatted['nb_og'] = $ul->nb_og;
+
+        // Get admins informations (picture first name last name and uid)
+        $ul_admins = gofast_userlist_query_get_admins($ul->nid, array())->execute()->fetchAll();
+        foreach($ul_admins as $key => $ul_admin){
+            if($ul_admin->uid != 1){
+                $admin = user_load($ul_admin->uid);
+                $ul_admin->picture = gofast_get_url_picture_by_id($admin->picture->fid);
+            }else{
+                unset($ul_admins[$key]);
+                $ul_admins = array_values($ul_admins);
+            }
+        }
+
+        $nb_admins = $ul->nb_admins == null ? 1 : $ul->nb_admins;
+
+        $ulformatted['nb_admins'] = array(
+            'nb_admins' => $nb_admins,
+            'admins' => $ul_admins,
+        );
+        $ulformatted['nb_members'] = $ul->nb_members == null ? '-' : $ul->nb_members ;
+        $ulformatted['created'] = $ul->created;
+        $ulformatted['modified'] = $ul->modified;
+        $ulformatted['status'] = $ul->status;
+        if($ul->name == "Public"){
+            $ulformatted['creator'] = [
+                'id' => $ul->creator_id,
+                'picture' => gofast_get_url_picture_by_id($ul->creator_picture),
+                'firstname' => "-",
+                'lastname' => " "
+            ];
+        }else{
+            $ulformatted['creator'] = [
+                'id' => $ul->creator_id,
+                'picture' => gofast_get_url_picture_by_id($ul->creator_picture),
+                'firstname' => $ul->creator_firstname,
+                'lastname' => $ul->creator_lastname
+            ];
+        }
+
+        //Todo: Define user actions
+        $ulformatted['actions'] = [];
+
+        $userlist[] = $ulformatted;
+    }
+    return $userlist;
+}
+
+function gofast_getAllSpaces($pagination, $sort = NULL, $filterSpaces = NULL){
+    if(empty($pagination["page"])) $pagination["page"] = GOFAST_PAGINATION_PAGE_DEFAULT;
+    if(empty($pagination["perpage"])) $pagination["perpage"] = GOFAST_PAGINATION_PERPAGE_DEFAULT;
+    global $user;
+
+    $nb_users_query = "(SELECT count(*) FROM og_membership WHERE gid=n.nid AND og_membership.entity_type='user')";
+    $nb_admins_query = "(SELECT count(*) FROM og_users_roles our LEFT JOIN og_role oro on our.rid = oro.rid WHERE name='administrator member' AND our.gid=n.nid)";
+    $nb_pending_query = "(SELECT count(*) FROM og_membership WHERE og_membership.state ='2' AND og_membership.gid=n.nid)";
+
+    $query = db_select('node', 'n');
+    $query->fields('n', ['nid','type', 'title', 'uid']);
+    $query->addExpression('COUNT(*)', 'nb_contents');
+    $query->addExpression($nb_users_query, 'nb_members');
+    $query->addExpression($nb_admins_query, 'nb_admins');
+    $query->addExpression($nb_pending_query, 'nb_pendings_members');
+    $query->leftJoin('og_membership', 'ogm', 'n.nid=ogm.gid');
+    $query->condition('n.type', ['organisation', 'group', 'public', 'extranet'], 'IN');
+    $query->condition('n.nid', ['4', '5', '6', '7'], 'NOT IN');
+    $query->condition('ogm.field_name', 'og_group_content_ref' , '=');
+    $query->groupBy('n.nid');
+ 
+    //get and apply visibility settings
+    $partitioning = variable_get('gofast_og_partitioning', GOFAST_OG_PARTITIONING_DEFAULT);
+    // Admin ON : allow to see spaces for admin's
+    $admin_visibility = variable_get('gofast_admin_visibility', GOFAST_ADMIN_VISIBILITY_DEFAULT);
+
+    if ($partitioning == GOFAST_OG_PARTITIONING_ON || (gofast_user_is_extranet($user) && $partitioning == GOFAST_OG_PARTITIONING_ON_ONLY_EXTRANET)) {
+         if(!gofast_user_is_business_admin($user)){
+             if($admin_visibility == GOFAST_ADMIN_VISIBILITY_ON && gofast_user_is_adm($user)) {
+
+             }else{
+                 $user_spaces = gofast_og_get_spaces_by_user($user, TRUE, FALSE);
+                 $query->condition('n.nid', $user_spaces, 'IN');
+             }
+         }
+    }
+
+    //FILTERS
+    if ($filterSpaces) {
+
+        foreach($filterSpaces as $key => &$value) {
+
+            switch ($key) {
+
+                case 'name':
+                    $query->condition('n.title', '%'.$value.'%', 'LIKE');
+                    break;
+                case 'type':
+                    $query->condition('n.type', $value, '=');
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    //SORT
+    if ($sort) {
+        switch ($sort['field']) {
+            case 'name':
+                if ($sort['sort'] == 'asc') {
+                    $query->orderBy('n.title');
+                } else {
+                    $query->orderBy('n.title', 'DESC');
+                }
+                break;
+            case 'type':
+                if ($sort['sort'] == 'asc') {
+                    $query->orderBy('n.type');
+                } else {
+                    $query->orderBy('n.type', 'DESC');
+                }
+                break;
+            case 'nb_contents':
+                if ($sort['sort'] == 'asc') {
+                    $query->orderBy('nb_contents');
+                } else {
+                    $query->orderBy('nb_contents', 'DESC');
+                }
+                break;
+            case 'nb_members':
+                if ($sort['sort'] == 'asc') {
+                    $query->orderBy('nb_members');
+                } else {
+                    $query->orderBy('nb_members', 'DESC');
+                }
+                break;
+            case 'nb_admins':
+                if ($sort['sort'] == 'asc') {
+                    $query->orderBy('nb_admins');
+                } else {
+                    $query->orderBy('nb_admins', 'DESC');
+                }
+                break;
+            case 'nb_pendings_members':
+                if ($sort['sort'] == 'asc') {
+                    $query->orderBy('nb_pendings_members');
+                } else {
+                    $query->orderBy('nb_pendings_members', 'DESC');
+                }
+                break;
+
+
+            default:
+                break;
+        }
+    }
+    
+    //duplicate query without rang to have total element count
+    $total_count_result = $query->execute();
+    $total_count = $total_count_result->rowCount();  
+    $query->range(($pagination["page"]-1)*$pagination["perpage"], $pagination["perpage"]);
+    $result = $query->execute();
+    $spaces = $result->fetchAll();
+    
+    $spacesAr = [];
+    foreach($spaces as $key => &$space) {
+        $node = node_load($space->nid);
+
+        $space->name = $node->title;
+        $space->type = $node->type;
+        $space->breadcrumb = gofast_breadcrumb_display_breadcrumb($node->nid, ['return' => TRUE, 'only_title' => FALSE, 'from_tooltip' => TRUE]);
+        if ($node->status) {
+            $space->status = t('Active', array(), array('context' => 'gofast:gofast_directory'));
+        } else if (gofast_group_is_archive($node)) {
+            t('Archived', array(), array('context' => 'gofast:gofast_directory'));
+        }
+
+        $space->chat_room = $node->field_riot_identifier['und'][0]['value'];
+        $space->chat_room = (!empty($space->chat_room)) ? $space->chat_room : 'null';
+
+        switch (gofast_og_get_user_roles($space->nid, $space->uid)) {
+            case 'group contributor':
+                $space->my_role = t('Contributor', array(), array('context' => 'gofast:gofast_directory'));
+                break;
+            case 'read only member':
+                $space->my_role = t('Read only', array(), array('context' => 'gofast:gofast_directory'));
+                break;
+            default:
+                $space->my_role = t('Administrator', array(), array('context' => 'gofast:gofast_directory'));
+                break;
+        }
+        $space->actions = gofast_directory_bulk_actions_spaces_get_all_actions($space->nid);
+        unset($space->uid);
+        unset($space->title);
+
+        $spacesAr[] = $space;
+
+        // Get spaces admins
+        $admins = get_all_admin_group($node->nid);
+        $admin_members = array();
+        if(count($admins) > 0){
+          foreach($admins as $uid){
+            $properties_u = ['picture','name','firstname', 'lastname'];
+            $users_infos = gofast_get_properties_user_by_uid_or_u_name($uid, NULL, $properties_u);
+            $admin_members[] = array(
+                "uid" => $uid,
+                "picture" => gofast_get_url_picture_by_id($users_infos->picture),
+                "firstname" => $users_infos->firstname,
+                "lastname" => $users_infos->lastname,
+            );
+          }
+        }
+        $space->nb_admins = array(
+            "admins" => $admin_members,
+            "nb_admins" => $space->nb_admins
+        );
+    }
+
+    $data = $spacesAr;
+    $spaces = [];
+    $spaces['data'] = $data;
+    $spaces['meta']['total'] = $total_count;
+    $spaces['meta']["sort"]="desc";
+    $spaces['meta']["page"] = $pagination["page"];
+    $spaces['meta']["pages"]= $spaces['meta']['total'] / $pagination["perpage"];
+    $spaces['meta']["perpage"]= $pagination["perpage"];
+
+    return $spaces;
+}
+
+function gofast_get_contact_listing($pagination, $sort = NULL) {
+
+  $userlist = [];
+  if (empty($pagination->page)) {
+    $pagination->page = GOFAST_PAGINATION_PAGE_DEFAULT;
+  }
+  if (empty($pagination->perpage)) {
+    $pagination->perpage = GOFAST_PAGINATION_PERPAGE_DEFAULT;
+  }
+
+  $query = db_select('node', 'n');
+  $query->leftJoin('field_data_field_contact_name', 'lastname', 'lastname.entity_id = n.nid');
+  $query->leftJoin('field_data_field_contact_email', 'email', 'email.entity_id = n.nid');
+  $query->leftJoin('field_data_field_contact_entity', 'entity', 'entity.entity_id = n.nid');
+  $query->leftJoin('field_data_field_contact_firstname', 'firstaname', 'firstaname.entity_id = n.nid');
+  $query->leftJoin('field_data_field_contact_phone', 'phone', 'phone.entity_id = n.nid');
+  $query->addField('n', 'nid');
+  $query->addField('lastname', 'field_contact_name_value');
+  $query->addField('firstaname', 'field_contact_firstname_value');
+  $query->addField('entity', 'field_contact_entity_value');
+  $query->addField('email', 'field_contact_email_value');
+  $query->addField('phone', 'field_contact_phone_value');
+  $query->condition('n.type', 'contact');
+
+  //SORT
+  if ($sort) {
+    switch ($sort['field']) {
+      case 'lastname':
+        if ($sort['sort'] == 'asc') {
+          $query->orderBy('lastname.field_contact_name_value');
+        }
+        else {
+          $query->orderBy('lastname.field_contact_name_value', 'DESC');
+        }
+        break;
+      case 'firstname':
+        if ($sort['sort'] == 'asc') {
+          $query->orderBy('firstaname.field_contact_firstname_value');
+        }
+        else {
+          $query->orderBy('firstaname.field_contact_firstname_value', 'DESC');
+        }
+        break;
+      case 'entity':
+        if ($sort['sort'] == 'asc') {
+          $query->orderBy('entity.field_contact_entity_value');
+        }
+        else {
+          $query->orderBy('entity.field_contact_entity_value', 'DESC');
+        }
+        break;
+      case 'email':
+        if ($sort['sort'] == 'asc') {
+          $query->orderBy('email.field_contact_email_value');
+        }
+        else {
+          $query->orderBy('email.field_contact_email_value', 'DESC');
+        }
+        break;
+      case 'phone':
+        if ($sort['sort'] == 'asc') {
+          $query->orderBy('phone.field_contact_phone_value');
+        }
+        else {
+          $query->orderBy('phone.field_contact_phone_value', 'DESC');
+        }
+        break;
+      default:
+        break;
+    }
+  }
+  $result = $query->execute();
+  $contacts = $result->fetchAll();
+
+  foreach ($contacts as $contact) {
+    $data = [];
+    $data['lastname'] = $contact->field_contact_name_value ?? " ";
+    $data['firstname'] = $contact->field_contact_firstname_value ?? " ";
+    $data['email'] = $contact->field_contact_email_value ?? " ";
+    $data['entity'] = $contact->field_contact_entity_value ?? " ";
+    $data['phone'] = $contact->field_contact_phone_value ?? " ";
+    $data['nid'] = $contact->nid;
+    $userlist[] = $data;
+  }
+
+  return $userlist;
+}
+
+/**
+ * Helpers
+*/
+
+function gofast_get_view_user_userlist_by($id, $type = 'user'){
+
+    $list = [];
+
+    $query = db_select('view_user_userlist', 'vuu');
+
+    switch ($type) {
+        case 'user':
+                $query->addField('vuu', 'nid', 'id');
+                $query->condition('vuu.uid', $id, '=');
+            break;
+
+            case 'userlist':
+                $query->addField('vuu', 'uid', 'id');
+                $query->condition('vuu.nid', $id, '=');
+
+            break;
+
+        default:
+            return [];
+            break;
+    }
+
+    $result = $query->execute();
+    $res = $result->fetchAll();
+
+    foreach($res as $item) {
+        $list[] = $item->id;
+    }
+
+    return $list;
+}
+
+function gofast_get_view_user_og_by($id, $type = 'user'){
+
+    $list = [];
+
+    $query = db_select('view_user_og', 'vuo');
+
+    switch ($type) {
+        case 'user':
+                $query->addField('vuo', 'og_nid', 'id');
+                $query->condition('vuo.uid', $id, '=');
+            break;
+
+            case 'og':
+                $query->addField('vuo', 'uid', 'id');
+                $query->condition('vuo.og_nid', $id, '=');
+
+            break;
+
+        default:
+            return [];
+            break;
+    }
+
+    $result = $query->execute();
+    $res = $result->fetchAll();
+
+    foreach($res as $item) {
+        $list[] = $item->id;
+    }
+
+    return $list;
+
+}
+
+function gofast_get_view_userlist_og_by($id, $type = 'userlist'){
+
+    $list = [];
+
+    $query = db_select('view_userlist_og', 'vuo');
+
+    switch ($type) {
+        case 'userlist':
+                $query->addField('vuo', 'og_nid', 'id');
+                $query->condition('vuo.ul_nid', $id, '=');
+            break;
+
+            case 'og':
+                $query->addField('vuo', 'ul_nid', 'id');
+                $query->condition('vuo.og_nid', $id, '=');
+
+            break;
+
+        default:
+            return [];
+            break;
+    }
+
+    $result = $query->execute();
+    $res = $result->fetchAll();
+
+    foreach($res as $item) {
+        $list[] = $item->id;
+    }
+
+    return $list;
+
+}
+
+
+function gofast_get_all_users_by_ogId($id){
+    $users = [];
+
+    $usersOg = gofast_get_view_user_og_by($id, 'og');
+    foreach($usersOg as $u_id){
+        $users[] = $u_id;
+    }
+    if(count($usersOg) > 1) {
+    }
+
+    $userlists = gofast_get_view_userlist_og_by($id, 'og');
+
+    foreach($userlists as $ul_id){
+        $list = gofast_get_view_user_userlist_by($ul_id, 'userlist');
+        if(count($list) > 0){
+            foreach($list as $u_id){
+                $users[] = $u_id;
+            }
+        }
+    }
+
+    return array_unique($users);
+}
+
+
+function gofast_get_all_users_by_userlistId($id){
+
+    $users = [];
+
+    $usersUl = gofast_get_view_user_userlist_by($id, 'userlist');
+
+    array_push($users, ...$usersUl);
+
+    $userlistOg = gofast_get_view_userlist_og_by($id, 'userlist');
+
+    foreach($userlistOg as $og_id){
+        $ogUsers = gofast_get_all_users_by_ogId($og_id);
+        array_push($users, ...$ogUsers);
+    }
+
+
+    return $users;
+}
+
+
+function gofast_get_user_by_id($uid){
+
+    $user;
+
+    $query = db_select('users_directory_detail', 'udd');
+    $query->fields('udd');
+    $query->condition('udd.uid', $uid, '=');
+
+    $result = $query->execute();
+    $user = $result->fetch();
+
+    return $user;
+}
+
+
+function gofast_directory_bulk_actions_users($js,$action, $uids){
+  $form_id = 'gofast_modal_form_bulk_actions_users';
+  if (!$js) {
+    return drupal_get_form($form_id, $action, $uids);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+        'action' => $action,
+        'uids' => $uids,
+      )
+    ),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if (isset($commands[0])) {
+    $commands[0]['output'] = gofast_normalize_string_from_ajaxifying($commands[0]['output']);
+  }
+
+  if ($action == 'rolechange') {
+    $commands[] = ajax_command_html('#ctools-add-js', "<script>
+       Gofast.initPermissionsForm();
+    </script>')");
+  }
+
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_processAjax("/directory/users");
+  }
+  print ajax_render($commands);
+
+}
+
+
+function gofast_modal_form_bulk_actions_users($form, &$form_state, $action, $uids) {
+    $uids_array = explode("-",$uids);
+    switch ($action) {
+        case 'rolechange':
+            $title_confirm = t('Change users permissions and profiles', array(), array('context' => 'gofast'));
+            $text_confirm = "<hr>" . t('You are about to change the permissions and profiles of those @count user(s), if possible', array("@count" => count($uids_array)), array('context' => 'gofast'));
+
+            $options = gofast_user_get_and_order_profile_options();
+            // apply bootstrap switch
+            foreach ($options as $key => $option) {
+                $options[$key . '_bs_switch'] = $option;
+                unset($options[$key]);
+            }
+
+            $form["permissions"] = [
+                '#prefix' => '<div class="font-weight-bolder font-size-h4 text-dark-75">' . t('Please choose the new permissions and profiles for the selected users', array(), array('context' => 'gofast:gofast_directory')) . '</div>',
+                '#type' => 'checkboxes',
+                '#options' => $options,
+            ];
+            break;
+        case 'unblock':
+            $title_confirm = t('Unleave / Unblock', array(), array('context' => 'gofast'));
+            $text_confirm = t('You are about to unleave or unblock those @count user(s)', array("@count" => count($uids_array)), array('context' => 'gofast'));
+            break;
+        case 'disable':
+            $title_confirm = t('Disable', array(), array('context' => 'gofast'));
+            $text_confirm = t('You are about to disable those @count user(s)', array("@count" => count($uids_array)), array('context' => 'gofast'));
+            break;
+        default:
+            $title_confirm = "";
+            break;
+    }
+
+    $confirm_form = confirm_form(
+          $form,
+          $title_confirm,
+          "/directory/users",
+           '<div class="font-weight-bolder font-size-h4 text-dark-75">'.$text_confirm.'</div>',
+          t('Submit', array(), array('context' => 'gofast'))
+    );
+
+    $titles = "<div";
+    foreach($uids_array as $uid) {
+      $account = user_load($uid);
+      if(isset($account->uid)){
+           $title = $account->ldap_user_givenname[LANGUAGE_NONE][0]['value']." ".$account->ldap_user_sn[LANGUAGE_NONE][0]['value'];
+           $picture =  theme('user_picture', array('account' => $account, 'dimensions' => 40));
+           $titles .= '<div class="d-flex align-items-center">' . $picture . '<span class="ml-3 text-dark font-size-h6">' . $title  . '</span></div>';
+      }
+    }
+    $titles .= "</div>";
+
+    $confirm_form["selected_uids_titles"] = array(
+      '#type' => 'fieldset',
+      '#title' => $titles,
+    );
+    $confirm_form['actions']['submit']['#attributes'] = array('class' => array('btn-success'));
+    $confirm_form['actions']['cancel']['#type'] = "button";
+    $confirm_form['actions']['cancel']['#value'] = t('Cancel');
+    $confirm_form['actions']['cancel']['#attributes'] = array(
+        'id'> 'edit-cancel',
+        'class' => array('btn', 'btn-secondary') 
+    );
+
+    return $confirm_form;
+}
+
+function gofast_modal_form_bulk_actions_users_validate(&$form, &$form_state) {
+
+}
+
+
+function gofast_modal_form_bulk_actions_users_submit(&$form, &$form_state) {
+  //Create nodes array
+  $uids = explode("-",$form_state["build_info"]["args"]["uids"]);
+  $action_name = $form_state["build_info"]["args"]["action"];
+  $options = FALSE;
+  //Insert a general progress bar for mass action
+  $html = '<div class="progress mb-4" id="bulkactions-users-panels-progress"><div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0 / ' . count($uids)  . '</div></div>';
+  foreach($uids as $uid) {
+      $account = user_load($uid);
+      if(isset($account->uid)){
+        //Create bulk action modal theme
+        $title = $account->ldap_user_givenname[LANGUAGE_NONE][0]['value']." ".$account->ldap_user_sn[LANGUAGE_NONE][0]['value'];
+        switch ($action_name) {
+            case 'rolechange':
+                $title_action = t('Change user permissions and profiles', array(), array('context' => 'gofast'));
+                // unapply bs_switch trigger to get back the technical values
+                foreach($form_state["values"]["permissions"] as $key => $value) {
+                    if (!$value) {
+                        continue;
+                    }
+                    $new_key = str_replace("_bs_switch", "", $key);
+                    $new_value = str_replace("_bs_switch", "", $key);
+                    $options[$new_key] = $new_value;
+                }
+            break;
+            case 'unblock':
+                $title_action = t('Unleave / Unblock user', array(), array('context' => 'gofast'));
+                break;
+            case 'disable':
+               $title_action = t("Disable user", array(), array("context" => "gofast"));
+                break;
+            default:
+               $title_action = "";
+               break;
+       }
+        $html .= theme('gofast_manage_bulkactions_users_progression', array('uid' => $uid, 'title' => $title, "action" => $action_name, "title_action" => $title_action, "options" => $options));
+      }
+  }
+
+  //Remove the current modal (ztree)
+  $commands[] = ctools_modal_command_dismiss();
+
+  //Display a modal that tracks the progress of publications
+  $commands[] = ctools_modal_command_display(t("In progress", array(), array('context' => 'gofast:taxonomy')), $html);
+
+  //Call asynchronous function (call in gofast_modal.js)
+  $commands[] = gofast_command_callback('Gofast.manage_bulkactions_users_process');
+  print(ajax_render($commands));
+  exit;
+}
+
+
+
+
+function gofast_directory_bulk_actions_users_get_all_actions(){
+    $has_role_permission = user_access("administer roles");
+    $array_actions[]['themed'] = theme('gofast_link_generic', array(
+        'icon_class' => "fas fa-user-tag",
+        'href' => "/modal/nojs/directory/bulk_action/user/rolechange/0",
+        'link_class' => $has_role_permission ?'ctools-use-modal' : 'disabled',
+        'text' => t('Change permissions and profiles', array(), array('context' => 'gofast'))
+    ));
+
+    $array_actions[]['themed'] = theme('gofast_link_generic', array(
+        'icon_class' => "fas fa-unlock",
+        'href' => "/modal/nojs/directory/bulk_action/user/unblock/0",
+        'link_class' => 'ctools-use-modal',
+        'text' => t('Re-enable or unblock', array(), array('context' => 'gofast'))
+    ));
+
+    $array_actions[]['themed'] = theme('gofast_link_generic', array(
+        'icon_class' => "fas fa-ban",
+        'href' => "/modal/nojs/directory/bulk_action/user/disable/0",
+        'link_class' => 'ctools-use-modal',
+        'text' => t('Disable', array(), array('context' => 'gofast'))
+    ));
+
+    $array_actions[]['themed'] = theme('gofast_link_generic', array(
+        'icon_class' => "fas fa-trash",
+        'href' => "",
+        'link_class' => 'disabled',
+        'text' => t('Delete', array(), array('context' => 'gofast'))
+    ));
+
+    $user_contextual_actions[] = array(
+            'id' => 'account-dropdown',
+            'title' => 'Contextual actions',
+            'button-text' => '',
+            'icon-class' => 'fa fa-bars',
+            'children' => $array_actions
+    );
+
+    $actions = theme('contextual_links', array('buttons' => $user_contextual_actions));
+    return $actions;
+}
+
+function gofast_directory_bulk_actions_users_process(){
+    $uid = $_POST["uid"];
+    $action = $_POST["action"];
+
+    //first check if current user has permission to administer users
+    if(!user_access("gofast administer users")){
+        print(t("You don't have permission to do this action", array(), array("context" => "gofast")));
+        exit;
+    }
+
+    $account = user_load($uid);
+    if(!isset($account->uid)){
+        print(t("User doesn't exist", array(), array("context" => "gofast")));
+        exit;
+    }
+    switch ($action) {
+        case 'rolechange':
+            global $user;
+            if (!user_access("administer roles", $user)) {
+                print(t("You are not authorized to change permissions or profiles", array(), array("context" => "gofast")));
+                exit;
+            }
+            $options = explode(",", $_POST["options"]);
+            if (!empty($options)) {
+                $all_options = array_keys(gofast_get_global_permissions_and_profiles());
+                $unchecked_options = array_diff($all_options, $options);
+                gofast_change_user_global_permissions_and_profiles($account, $unchecked_options, FALSE);
+                gofast_change_user_global_permissions_and_profiles($account, $options);
+            }
+        break;
+        case 'unblock':
+            $operationCount = 0;
+            //unleave user, so check if user is disabled
+            if (gofast_user_is_left($account)) {
+                gofast_user_unleave_user($uid);
+                $operationCount++;
+            }
+            //unblock user, so check if user is blocked
+            if($account->status == 0){
+                gofast_user_unblock($uid);
+                $operationCount++;
+            }
+            if ($operationCount == 0) {
+                print(t("This user isn't disabled neither blocked", array(), array("context" => "gofast")));
+                exit;
+            }
+            break;
+        case 'disable':
+           //first, check if user is already disabled. if yes, error
+            if (!gofast_user_is_left($account)) {
+                gofast_user_leave_user($uid);
+            }else{
+                print(t("This user is already disabled", array(), array("context" => "gofast")));
+                exit;
+            }
+            break;
+        default:
+            break;
+    }
+
+    print "succesfully_managed";
+    exit;
+}
+
+/** @param $nid of 0 means it's a bulk action */
+function gofast_directory_bulk_actions_spaces_get_all_actions($nid = 0){
+    global $user;
+
+    $array_actions[]['themed'] = theme('gofast_link_generic', array(
+          'icon_class' => "fa fa-user-plus",
+          'href' => $nid == 0 ? "/modal/nojs/directory/bulk_action/space/add_member/0" : "/modal/nojs/og/{$nid}/add/members",
+          'link_class' => 'ctools-use-modal',
+          'text' => t('Add members/Userlists', array(), array('context' => 'gofast:gofast_userlist'))
+        ));
+
+        $array_actions[]['themed'] = theme('gofast_link_generic', array(
+          'icon_class' => "fa fa-user-plus",
+          'href' => $nid == 0 ? "/modal/nojs/directory/bulk_action/space/ask_join/0" : "/modal/nojs/ask/join/{$nid}/space",
+          'link_class' => 'ctools-use-modal',
+          'text' => t('Ask to join those spaces', array(), array('context' => 'gofast'))
+        ));
+
+      if(gofast_user_is_business_admin($user)){
+        $array_actions[]['themed'] = theme('gofast_link_generic', array(
+          'icon_class' => "fa fa-user-plus",
+          'href' => $nid == 0 ? "/modal/nojs/directory/bulk_action/space/preadd/0" : "/modal/nojs/og/{$nid}/preadd/members",
+          'link_class' => 'ctools-use-modal',
+          'text' => t('Pre-Add members/Userlists', array(), array('context' => 'gofast:gofast_userlist'))
+        ));
+      }
+
+        $user_contextual_actions[] = array(
+             'id' => 'account-dropdown',
+             'title' => 'Contextual actions',
+             'button-text' => '',
+             'icon-class' => 'fa fa-bars',
+             'children' => $array_actions
+           );
+
+       $actions = theme('contextual_links', array('buttons' => $user_contextual_actions));
+
+
+
+       $actions  = str_replace("btn btn-primary btn-icon btn-sm position-relative", "btn btn-light btn-xs btn-icon mr-2 dropdown-placeholder dropdown-processed", $actions);
+       $actions  = str_replace("dropdown ml-3", "dropdown", $actions);
+       $actions  = str_replace("justify-content-center", "", $actions);
+
+
+       return $actions;
+}
+
+
+function gofast_directory_bulk_actions_spaces($js,$action, $gids){
+
+    ctools_include('modal');
+    ctools_include('ajax');
+    ctools_include('og_ui/og_ui.admin', 'og', '');
+
+    $array_gids = explode("-",$gids);
+    $array_gids_clean = array();
+    foreach($array_gids as $gid){
+        if($gid == ""){
+
+        }else{
+            $array_gids_clean[] = $gid;
+        }
+    }
+    $_SESSION["gids_bulk_actions"] = $array_gids_clean;
+
+    switch ($action) {
+        case 'add_member':
+            //for this action, check for each space if we are administrator of it.
+            global $user;
+            $title_confirm = t('Add members', array(), array('context' => 'gofast'));
+            $text_confirm = t('You are about to add members into the following spaces : ', array(), array('context' => 'gofast'));
+            $titles = [];
+            foreach($array_gids_clean as $key=>$gid){
+                 if(!in_array('administrator member', gofast_og_get_user_final_roles_for_space('node', $gid, $user->uid), true)){
+                    unset($array_gids_clean[$key]);
+                  }else{
+                      $space = node_load($gid);
+                      $titles[] = $space->title;
+                  }
+            }
+            $text_confirm .= implode(", ", $titles);
+
+            $array_gids_clean_count = count($array_gids_clean);
+            if($array_gids_clean_count == 0){
+               drupal_set_message(t("You have selected only spaces on which you are not administrator", array(), array("context" => "gofast")), "error");
+               unset($_SESSION["gids_bulk_actions"]);
+               $commands[] = ctools_modal_command_dismiss();
+               $commands[] = gofast_command_processAjax("/directory/spaces");
+               print ajax_render($commands);exit;
+           }
+           $label = t($array_gids_clean_count == 1 ? "You are about to add members in @space" : "You are about to add members in @count spaces", array("@count" => $array_gids_clean_count, "@space" => array_pop($titles)), array('context' => 'gofast'));
+           $_SESSION["gids_bulk_actions"] = $array_gids_clean;
+           $form_id = 'og_ui_add_users';
+
+           $form_state = array(
+             'build_info' => array(
+               'args' => array(
+                 "node",
+                 reset($array_gids_clean),
+               ),
+             ),
+             'title' => $title_confirm,
+             'label' => $label,
+             'ajax' => TRUE,
+             're_render' => FALSE,
+             'no_redirect' => TRUE,
+           );
+
+           $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+            break;
+        case 'ask_join':
+            $title_confirm = t('Ask to join', array(), array('context' => 'gofast'));
+            $text_confirm = t('You are about to ask to join following spaces : ', array(), array('context' => 'gofast'));
+
+            //for this action, check for each space if we are already member of it.
+            global $user;
+            foreach($array_gids_clean as $key=>$gid){
+                 if(count(gofast_og_get_user_final_roles_for_space('node', $gid, $user->uid), true) > 0){
+                    unset($array_gids_clean[$key]);
+                  }else{
+                      $space = node_load($gid);
+                      $text_confirm .= " ".$space->title.",";
+                  }
+            }
+            if(count($array_gids_clean) == 0){
+               drupal_set_message(t("You have selected only spaces on which you are already member", array(), array("context" => "gofast")), "error");
+               unset($_SESSION["gids_bulk_actions"]);
+               $commands[] = ctools_modal_command_dismiss();
+               $commands[] = gofast_command_processAjax("/directory/spaces");
+               print ajax_render($commands);exit;
+           }
+            $_SESSION["gids_bulk_actions"] = $array_gids_clean;
+
+            $form_id = 'gofast_og_ask_join_space_form';
+            if (!$js) {
+              $form = drupal_get_form($form_id);
+              return $form;
+            }
+            ctools_include('modal');
+            ctools_include('ajax');
+            $form_state = array(
+              'ajax' => TRUE,
+              'build_info' => array(
+                'args' => array(
+                  (int) reset($array_gids_clean),
+                )
+              ),
+              'title' => $title_confirm
+            );
+            $commands = ctools_modal_form_wrapper($form_id, $form_state);
+            break;
+        case 'preadd':
+            $title_confirm = t('Pre-add members/userlists', array(), array('context' => 'gofast'));
+            $text_confirm = t('You are about to pre-add members into the following spaces : ', array(), array('context' => 'gofast'));
+
+            $titles = [];
+             foreach($array_gids_clean as $key=>$gid){
+                $space = node_load($gid);
+                $titles[] = $space->title;
+            }
+            $text_confirm .= implode(", ", $titles);
+
+            $array_gids_clean_count = count($array_gids_clean);
+            $label = t($array_gids_clean_count == 1 ? "You are about to pre-add members in @space" : "You are about to pre-add members in @count spaces", array("@count" => $array_gids_clean_count, "@space" => array_pop($titles)), array('context' => 'gofast'));
+            $form_id = 'gofast_preadd_users_form';
+
+            ctools_include('modal');
+            ctools_include('ajax');
+
+              $form_state = array(
+              'reset_html_ids' => TRUE,
+              'build_info' => array(
+                'args' => array(
+                  "node",
+                  reset($array_gids_clean),
+                )
+              ),
+              'label' => $label,
+              'ajax' => TRUE,
+              'title' => $title_confirm
+            );
+
+            $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+            break;
+        default:
+            $title_confirm = "";
+            break;
+    }
+
+
+
+
+  //$commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if ($form_state['executed']) {
+    unset($_SESSION["gids_bulk_actions"]);
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_processAjax("/directory/spaces");
+  }
+  print ajax_render($commands);
+
+}
+

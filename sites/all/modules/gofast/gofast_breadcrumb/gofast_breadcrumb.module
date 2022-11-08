@@ -1,0 +1,92 @@
+<?php
+
+module_load_include('inc', 'gofast_breadcrumb', 'gofast_breadcrumb.utils');
+module_load_include('inc', 'gofast_breadcrumb', 'gofast_breadcrumb.handlers');
+
+/*
+ * Implements hook_menu
+ * 
+ */
+function gofast_breadcrumb_menu(){
+  $items['gofast/node-breadcrumb/%'] = [
+    'page callback' => 'gofast_breadcrumb_display_breadcrumb',
+    'page arguments' => [2],
+    'type' => MENU_CALLBACK,
+    'access arguments' => ['access content'],
+    'access callback' => 'user_access'
+  ];
+  
+  return $items;
+}
+
+/*
+ * Implements hook_theme
+ * 
+ */
+function gofast_breadcrumb_theme(){  
+  $themes['gofast_global_breadcrumb'] = [
+    'template' => 'tpl/gofast-breadcrumb',
+  ];
+  
+  return $themes;
+} 
+
+/*
+ * CORE Function
+ * Take a nid in parameter and return it's breadcrumb
+ * Options are available and can be send via parameter or GET params
+ * 
+ * @params
+ * nid => Entity ID
+ * options
+ * 
+ */ 
+function gofast_breadcrumb_get_breadcrumb($nid, $options = []){
+  //Retrieve node without cache
+  $node = node_load($nid, NULL, TRUE);
+  
+  //Merge options
+  $options = gofast_breadcrumb_options($options);
+  
+  //Search for an handler
+  $breadcrumb = [];
+  if(function_exists("gofast_breadcrumb_handle_" . $node->type)){
+    //Call the handler
+    $breadcrumb = call_user_func_array("gofast_breadcrumb_handle_" . $node->type, [$node, $options]);
+  }
+  
+  return $breadcrumb;
+}
+
+/*
+ * CORE Function
+ * Take a nid in parameter, get the corresponding breadcrumb and theme it
+ * Options are available and can be send via parameter or GET params
+ * 
+ * @params
+ * breadcrumb => Array of breadcrumb description
+ * options
+ * 
+ */ 
+function gofast_breadcrumb_display_breadcrumb($nid, $options = []){
+  //Merge options
+  $options = gofast_breadcrumb_options($options);
+  
+  //Get webdav path for spaces (GOFAST-8093)
+  $webdav_path = gofast_og_is_space(node_load($nid), TRUE) ? gofast_cmis_space_get_webdav_path($nid) : null;
+  
+  $breadcrumb = gofast_breadcrumb_get_breadcrumb($nid, $options);
+  $breadcrumb = theme('gofast_global_breadcrumb', [
+    'breadcrumb' => $breadcrumb, 
+    "options" => $options,
+    "webdav_path" => $webdav_path,
+    "nid" => $nid,
+  ]);
+  
+  if($options['return']){
+    return $breadcrumb;
+  }else{
+    print $breadcrumb;
+    exit;
+  }
+}

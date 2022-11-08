@@ -78,8 +78,11 @@
           if('undefined' !== typeof($roles)){
             $roles.once('single-role', function () {
               $(this).on('change', function () {
-                if (this.checked) {
+                if ($(this).hasClass("role_contributor")) {
                   $roles.not(this).not(':disabled').prop('checked', false);
+                }
+                if ($(this).hasClass("role_administrator") || $(this).hasClass("role_business_adm")) {
+                  $('.role_contributor').prop('checked', false);
                 }
               });
             });
@@ -121,16 +124,17 @@
    */
   Drupal.behaviors.gofastLDAPAccountPasswordState = {
     attach: function (context, settings) {
-      var $account = $('fieldset[id^="edit-group-account"]', context),
+      var $account = $('#user-register-form', context);
+      var $account = $('#user-register-form, #user_profile_form'),
         $pass = $('input[type="password"]', $account),
         $select_pass = $('select[name="select_pass"]', $account),
         $sasl = $('input[name="sasl_auth[und]"]', $account);
+        $welcome_checkbox = $('input[name="notify"]', $account);
       if (window.location.pathname.indexOf('/admin/people/create') !== -1){
         var create = true;
       }else{
         var create = false;
       }
-
       // User create form
       if(create){
         if($sasl.prop('checked') == true){
@@ -138,6 +142,10 @@
         }else if($select_pass.val() == 0){
           $pass.prop('disabled', true) && $pass.closest('.edit-pass-wrapper').hide(300);
         }
+        $select_pass.on('change', function(){
+          if ($(this).val() == 0) $welcome_checkbox.prop("checked", true);
+        }
+        );
         $sasl.once('states', function () {
           $(this).on('change', function () {
             $pass.prop('disabled', this.checked);
@@ -161,10 +169,10 @@
           $(this).on('change', function(){
               if($select_pass.val() == 0){
                 $pass.prop('disabled', true);
-                 $pass.closest('.edit-pass-wrapper').hide(300);
+                $pass.closest('.edit-pass-wrapper').hide(300);
               }else{
-                 $pass.prop('disabled', false);
-                 $pass.closest('.edit-pass-wrapper').toggle(300);
+                $pass.prop('disabled', false);
+                $pass.closest('.edit-pass-wrapper').toggle(300);
               }
           });
         });
@@ -211,8 +219,9 @@
     };
 
     // Gofast Custom
-    var $containerFluid = $('<div class="container-fluid"></div>');
-    var $passwordRow = $('<div class="row"></div>').appendTo($containerFluid);
+    debugger;
+    var $containerFluid = $('<div ></div>');
+    var $passwordRow = $('<div class="d-flex"></div>').appendTo($containerFluid);
     var $labelColumn = $('<div class="col-md-2"></div>');
     var $helpBlockText = $('<div class="gofast_help_block"></div>');
     $helpBlockText.appendTo(this.$wrapper);
@@ -222,7 +231,7 @@
     $containerFluid.appendTo(this.password.$wrapper);
     // Strength meter.
     this.strength = {
-      $label: $('<div class="label" aria-live="assertive"></div>').appendTo($labelColumn),
+      $label: $('<div class="label rounded w-50 m-1" aria-live="assertive"></div>').appendTo($labelColumn),
       $progress: $('<div class="progress"><div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div></div>').appendTo($labelColumn)
     };
     this.strength.$bar = this.strength.$progress.find('.progress-bar');

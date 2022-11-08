@@ -1,7 +1,8 @@
 <ul>
   <?php foreach ($documents as $key => $document) : ?>
     <?php $nid = $document->nid; ?>
-    <?php $locations = node_load($nid)->field_emplacement[LANGUAGE_NONE]; ?>
+    <?php $node_ref = $key; ?>
+    <?php $locations = gofast_cmis_webservice_get_node_parents($node_ref); ?>
     <li>
       <?php print theme('gofast_node_icon_format', array('node' => node_load($nid)))  ?>
       <?php print node_load($nid)->title; ?>

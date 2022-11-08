@@ -1,25 +1,23 @@
-(function ($) {
-Drupal.behaviors.radioactivity_history = {
+(function ($, Gofast) {
 
-  attach: function (context, settings) {
-
+  Gofast.radioactivityGenerateGraph = function () {
     if ($.fn.sparkline) {
       $('.radioactivity-history').each(function (match) {
         var dataset = $.parseJSON($(this).text());
         if (dataset) {
           $(this).sparkline(dataset.values, {
-            type:'bar',
-            height:'100%',
-            width:'100%',
+            type: 'bar',
+            height: '150%',
+            width: '150%',
             chartRangeMin: dataset.cutoff,
             tooltipFormat: dataset.tooltipFormat,
             tooltipValueLookups: {
               tooltips: dataset.tooltips
-            } 
+            }
           });
         }
       });
     }
-  }
-};
-})(jQuery);
+  };
+
+})(jQuery, Gofast);

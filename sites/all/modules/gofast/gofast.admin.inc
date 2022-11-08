@@ -15,6 +15,7 @@
  */
 function gofast_admin_settings() {
   drupal_add_js(drupal_get_path('module', 'gofast') . '/js/gofast_admin.js');
+  drupal_add_js(drupal_get_path('module', 'gofast') . '/js/gofast_ajax_form.js');
   $form = array();
 
   $form['vt'] = array(
@@ -149,6 +150,15 @@ function gofast_admin_settings() {
     '#attributes' => array('class' => array('edit-categories')),
   );
 
+  $form['metadata'] = array(
+    '#title' => t('Metadata', array(), array('context' => 'gofast')),
+    '#type' => 'fieldset',
+    '#collapsible' => FALSE,
+    '#collapsed' => FALSE,
+    '#group' => 'vt',
+    '#attributes' => array('class' => array('edit-metadata')),
+  );
+
   if(module_exists('gofast_signature')) {
       $form['signature'] = array(
         '#title' => t('Signature', array(), array('context' => 'gofast:gofast_signature')),
@@ -192,9 +202,246 @@ function gofast_admin_settings() {
         '#attributes' => array('class' => array('edit-pastell')),
         );
   }
+  
+  if(module_exists('gofast_esup')){
+      $form['esup'] = array(
+        '#title' => t('GoFAST ESUP'),
+        '#type' => 'fieldset',
+        '#collapsible' => FALSE,
+        '#collapsed' => FALSE,
+        '#group' => 'vt',
+        '#attributes' => array('class' => array('edit-esup')),
+        );
+  }
 
   return $form;
 }
+
+
+
+function gofast_admin_settings_tabs() {
+    drupal_add_js(drupal_get_path('module', 'gofast') . '/js/gofast_admin.js');
+
+    $tab_path = "admin/config/gofast/global/getform";
+    $gofastAdminTabs = array();
+
+   $sub_path = $tab_path."/edit-general";
+    if ($router_item = menu_get_item($sub_path)) {
+       if ($router_item['access']) {
+            $gofastAdminTabs['general'] = array(
+                'title' => t('General', array(), array('context' => 'gofast')),
+                'attributes' => array('class' => 'edit-general'),
+                'icon' => 'flaticon-settings'
+            );
+        }
+    }
+
+    $sub_path = $tab_path."/edit-smtp";
+    if ($router_item = menu_get_item($sub_path)) {
+        if ($router_item['access']) {
+          $gofastAdminTabs['smtp'] = array(
+              'title' => t('SMTP Server', array(), array('context' => 'gofast')),
+              'attributes' => array('class' => 'edit-smtp'),
+              'icon' => 'flaticon-mail'
+          );
+        }
+    }
+
+    $sub_path = $tab_path . "/edit-rssfeed";
+    if ($router_item = menu_get_item($sub_path)) {
+        if ($router_item['access']) {
+            $gofastAdminTabs['rssfeeds'] = array(
+                'title' => t('RSS Feeds', array(), array('context' => 'gofast')),
+                'attributes' => array('class' => 'edit-rssfeed'),
+                'icon' => 'flaticon-feed'
+            );
+        }
+    }
+
+    $sub_path = $tab_path . "/edit-ldap";
+    if ($router_item = menu_get_item($sub_path)) {
+        if ($router_item['access']) {
+            $gofastAdminTabs['ldap'] = array(
+                'title' => t('LDAP / AD Server', array(), array('context' => 'gofast')),
+                'attributes' => array('class' => 'edit-ldap'),
+                'icon' => 'flaticon-folder-1'
+            );
+        }
+    }
+
+    $sub_path = $tab_path . "/edit-users";
+    if ($router_item = menu_get_item($sub_path)) {
+        if ($router_item['access']) {
+            $gofastAdminTabs['users'] = array(
+                'title' => t('Users', array(), array('context' => 'gofast')),
+                'attributes' => array('class' => 'edit-users'),
+                'icon' => 'flaticon-users'
+            );
+        }
+    }
+
+    $sub_path = $tab_path . "/edit-documents";
+    if ($router_item = menu_get_item($sub_path)) {
+        if ($router_item['access']) {
+            $gofastAdminTabs['documents'] = array(
+                'title' => t('Documents', array(), array('context' => 'gofast')),
+                'attributes' => array('class' => 'edit-documents'),
+                'icon' => 'flaticon2-document'
+            );
+        }
+    }
+
+
+    $sub_path = $tab_path . "/edit-spaces";
+    if ($router_item = menu_get_item($sub_path)) {
+        if ($router_item['access']) {
+            $gofastAdminTabs['spaces'] = array(
+                'title' => t('Spaces', array(), array('context' => 'gofast')),
+                'attributes' => array('class' => 'edit-spaces'),
+                'icon' => 'flaticon2-group'
+            );
+        }
+    }
+
+    $sub_path = $tab_path . "/edit-sso";
+    if ($router_item = menu_get_item($sub_path)) {
+        if ($router_item['access']) {
+            $gofastAdminTabs['sso'] = array(
+                'title' => t('SSO', array(), array('context' => 'gofast')),
+                'attributes' => array('class' => 'edit-sso'),
+                'icon' => 'flaticon2-user-outline-symbol'
+            );
+        }
+    }
+
+    $sub_path = $tab_path . "/edit-visibility";
+    if ($router_item = menu_get_item($sub_path)) {
+        if ($router_item['access']) {
+            $gofastAdminTabs['visibility'] = array(
+                'title' => t('Visibility', array(), array('context' => 'gofast')),
+                'attributes' => array('class' => 'edit-visibility'),
+                'icon' => 'flaticon-visible'
+            );
+        }
+    }
+
+    $sub_path = $tab_path . "/edit-indexing";
+    if ($router_item = menu_get_item($sub_path)) {
+        if ($router_item['access']) {
+            $gofastAdminTabs['indexing'] = array(
+                'title' => t('Search Index', array(), array('context' => 'gofast')),
+                'attributes' => array('class' => 'edit-indexing'),
+                'icon' => 'flaticon-search'
+            );
+        }
+    }
+
+    $sub_path = $tab_path . "/edit-integrity";
+    if ($router_item = menu_get_item($sub_path)) {
+        if ($router_item['access']) {
+            $gofastAdminTabs['integrity'] = array(
+                'title' => t('Integrity', array(), array('context' => 'gofast:gofast_integrity')),
+                'attributes' => array('class' => 'edit-integrity'),
+                'icon' => 'flaticon2-graph-2'
+            );
+        }
+    }
+
+    /*
+$gofastAdminTabs['onlyoffice'] = array(
+  'title' => t('OnlyOffice parameters', array(), array('context' => 'gofast')),
+);
+ */
+
+    // $sub_path = $tab_path . "/edit-categories";
+    // if ($router_item = menu_get_item($sub_path)) {
+    //     if ($router_item['access']) {
+    //         $gofastAdminTabs['categories'] = array(
+    //             'title' => t('Categories', array(), array('context' => 'gofast')),
+    //             'attributes' => array('class' => 'edit-categories'),
+    //             'icon' => 'flaticon2-setup'
+    //         );
+    //     }
+    // }
+
+    if (module_exists('gofast_signature')) {
+        $sub_path = $tab_path . "/edit-signature";
+        if ($router_item = menu_get_item($sub_path)) {
+            if ($router_item['access']) {
+                $gofastAdminTabs['signature'] = array(
+                    'title' => t('Signature', array(), array('context' => 'gofast:gofast_signature')),
+                    'attributes' => array('class' => 'edit-signature'),
+                );
+            }
+        }
+    }
+
+    //DUA
+    if (!module_exists('gofast_community')) {
+        $sub_path = $tab_path . "/edit-retention";
+        if ($router_item = menu_get_item($sub_path)) {
+            if ($router_item['access']) {
+                $gofastAdminTabs['retention'] = array(
+                    'title' => t('Document Retention', array(), array('context' => 'gofast:gofast_retention')),
+                    'attributes' => array('class' => 'edit-retention'),
+                    'icon' => 'flaticon-calendar-with-a-clock-time-tools'
+                );
+            }
+        }
+    }
+
+    $sub_path = $tab_path . "/edit-custom-link";
+    if ($router_item = menu_get_item($sub_path)) {
+        if ($router_item['access']) {
+            $gofastAdminTabs['custom_link'] = array(
+                'title' => t('Custom Link', array(), array('context' => 'gofast:gofast_menu')),
+                'attributes' => array('class' => 'edit-custom-link'),
+                'icon' => 'fas fa-archway'
+            );
+        }
+    }
+
+    if (module_exists('gofast_community')) {
+        $sub_path = $tab_path . "/edit-update";
+        if ($router_item = menu_get_item($sub_path)) {
+            if ($router_item['access']) {
+                $gofastAdminTabs['update'] = array(
+                    'title' => t('Update'),
+                    'attributes' => array('class' => 'edit-update'),
+                );
+            }
+        }
+    }
+
+    if (module_exists('gofast_pastell')) {
+        $sub_path = $tab_path . "/edit-pastell";
+        if ($router_item = menu_get_item($sub_path)) {
+            if ($router_item['access']) {
+                $gofastAdminTabs['pastelll'] = array(
+                    'title' => t('GoFAST Pastell'),
+                    'attributes' => array('class' => 'edit-pastell'),
+                );
+            }
+        }
+    }
+
+    if (module_exists('gofast_esup')) {
+        $sub_path = $tab_path . "/edit-esup";
+        if ($router_item = menu_get_item($sub_path)) {
+            if ($router_item['access']) {
+                $gofastAdminTabs['esup'] = array(
+                    'title' => t('GoFAST ESUP'),
+                    'attributes' => array('class' => 'edit-esup'),
+                    'icon' => 'fas fa-file-signature'
+                );
+            }
+        }
+    }
+    return $gofastAdminTabs;
+}
+
+
+
 
 function gofast_admin_menu(){
   $items = array();
@@ -203,7 +450,7 @@ function gofast_admin_menu(){
     'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gofast_admin_general_settings_form'),
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => array('administer general configuration'),
     'delivery callback' => 'gofast_admin_deliver_page',
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
@@ -213,7 +460,7 @@ function gofast_admin_menu(){
     'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gofast_admin_smtp_settings_form'),
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => array('administer smtp configuration'),
     'delivery callback' => 'gofast_admin_deliver_page',
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
@@ -223,7 +470,7 @@ function gofast_admin_menu(){
     'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gofast_admin_rssfeed_settings_form'),
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => array('administer rss configuration'),
     'delivery callback' => 'gofast_admin_deliver_page',
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
@@ -233,7 +480,7 @@ function gofast_admin_menu(){
     'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gofast_admin_ldap_settings_form'),
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => array('administer ldap configuration'),
     'delivery callback' => 'gofast_admin_deliver_page',
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
@@ -243,7 +490,7 @@ function gofast_admin_menu(){
     'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gofast_admin_users_settings_form'),
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => array('administer users configuration'),
     'delivery callback' => 'gofast_admin_deliver_page',
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
@@ -253,7 +500,7 @@ function gofast_admin_menu(){
     'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gofast_admin_documents_settings_form'),
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => array('administer documents configuration'),
     'delivery callback' => 'gofast_admin_deliver_page',
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
@@ -263,7 +510,7 @@ function gofast_admin_menu(){
     'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gofast_admin_spaces_settings_form'),
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => array('administer spaces configuration'),
     'delivery callback' => 'gofast_admin_deliver_page',
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
@@ -273,7 +520,7 @@ function gofast_admin_menu(){
     'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gofast_admin_sso_settings_form'),
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => array('administer sso configuration'),
     'delivery callback' => 'gofast_admin_deliver_page',
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
@@ -283,7 +530,7 @@ function gofast_admin_menu(){
     'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gofast_admin_indexing_settings_form'),
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => array('administer index configuration'),
     'delivery callback' => 'gofast_admin_deliver_page',
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
@@ -293,7 +540,7 @@ function gofast_admin_menu(){
     'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gofast_admin_integrity_settings_form'),
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => false,
     'delivery callback' => 'gofast_admin_deliver_page',
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
@@ -303,16 +550,17 @@ function gofast_admin_menu(){
     'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gofast_admin_category_settings_form'),
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => array('administer categories configuration'),
     'delivery callback' => 'gofast_admin_deliver_page',
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
   );
+
    $items['admin/config/gofast/global/getform/edit-visibility'] = array(
     'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gofast_admin_visibility_settings_form'),
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => array('administer visibility configuration'),
     'delivery callback' => 'gofast_admin_deliver_page',
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
@@ -321,7 +569,16 @@ function gofast_admin_menu(){
     'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gofast_admin_retention_settings_form'),
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => array('administer retention configuration'),
+    'delivery callback' => 'gofast_admin_deliver_page',
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'gofast.admin.inc'
+  );
+  $items['admin/config/gofast/global/getform/edit-custom-link'] = array(
+    'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gofast_admin_custom_link_settings_form'),
+    'access arguments' => array('administer custom link configuration'),
     'delivery callback' => 'gofast_admin_deliver_page',
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
@@ -331,7 +588,16 @@ function gofast_admin_menu(){
     'GoFAST Configuration', array(), array('context' => 'gofast')),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gofast_admin_pastell_settings_form'),
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => array('administer pastell configuration'),
+    'delivery callback' => 'gofast_admin_deliver_page',
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'gofast.admin.inc'
+    );
+  $items['admin/config/gofast/global/getform/edit-esup'] = array(
+    'title' => t('GoFAST Configuration', array(), array('context' => 'gofast')),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gofast_admin_esup_settings_form'),
+    'access arguments' => array('administer esup configuration'),
     'delivery callback' => 'gofast_admin_deliver_page',
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
@@ -340,7 +606,7 @@ function gofast_admin_menu(){
     'title' => t('Gofast Configuration', array(), array('context' => 'gofast:gofast_signature')),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('gofast_admin_signature_settings_form'),
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => array('administer signature configuration'),
     'delivery callback' => 'gofast_admin_deliver_page',
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
@@ -421,6 +687,7 @@ function gofast_admin_indexing_settings_form() {
     '#type' => 'fieldset',
     '#collapsible' => FALSE,
     '#collapsed' => FALSE,
+    '#attributes'=> array('class' => array('mt-5')),
     '#description' => t('Content extraction may sometimes fail with certain documents which, in consequence,'
       . ' are excluded from the extraction process in order not to slow down the whole indexing system.', array(), array('context' => 'gofast:gofast_search'))
       . ' ' . t('These documents are still searchable because all metadata are indexed regardless of the'
@@ -433,6 +700,7 @@ function gofast_admin_indexing_settings_form() {
     '#type' => 'fieldset',
     '#collapsible' => FALSE,
     '#collapsed' => FALSE,
+    '#attributes'=> array('class' => array('mt-5')),
     '#description' => t('Some documents might be excluded from the index if they are the source of critical errors.'
       . ' Gofast won\'t reattempt to index such documents until an action is taken, meaning they are not searchable.', array(), array('context' => 'gofast:gofast_search'))
       . '<br /><br />'
@@ -653,7 +921,8 @@ function gofast_admin_integrity_settings_form() {
       '#title' => t("Folders integrity results", array(), array('context' => 'gofast:gofast_integrity')),
       '#type' => 'fieldset',
       '#collapsible' => TRUE,
-      '#collapsed' => TRUE
+      '#collapsed' => TRUE,
+      '#keen-accordion' => TRUE,
     );
 
     $form['results']['folders']['content'] = array(
@@ -665,7 +934,8 @@ function gofast_admin_integrity_settings_form() {
       '#title' => t("Spaces integrity results", array(), array('context' => 'gofast:gofast_integrity')),
       '#type' => 'fieldset',
       '#collapsible' => TRUE,
-      '#collapsed' => TRUE
+      '#collapsed' => TRUE,
+      '#keen-accordion' => TRUE,
     );
 
     $form['results']['spaces']['content'] = array(
@@ -677,7 +947,8 @@ function gofast_admin_integrity_settings_form() {
       '#title' => t("Documents integrity results", array(), array('context' => 'gofast:gofast_integrity')),
       '#type' => 'fieldset',
       '#collapsible' => TRUE,
-      '#collapsed' => TRUE
+      '#collapsed' => TRUE,
+      '#keen-accordion' => TRUE,
     );
 
     $form['results']['documents']['content'] = array(
@@ -838,7 +1109,7 @@ function gofast_admin_ldap_settings_form() {
   if(!($server_status || $sasl)){
     $form['sasl_delegation']["#attributes"] = array('class' => array('gofast_display_none'));
   }
-
+  $form['sasl_delegation']['#attributes']['class'][] = 'mt-5';
   $sync_settings = variable_get('gofast_directory_sync_config', array());
   $sync = variable_get('gofast_directory_sync', FALSE);
 
@@ -935,14 +1206,14 @@ function gofast_admin_ldap_settings_form() {
 
   );
   $form['ldap_sync']['fields_mapping']['title'] = array(
-    '#title' => t('Title', array(), array('context' => 'gofast:gofast_ldap')),
+    '#title' => t('Function', array(), array('context' => 'gofast:gofast_ldap')),
     '#type' => 'textfield',
     '#default_value' => $sync_settings['mapping']['title'],
     '#disabled' => !($server_status || $sync),
 
   );
   $form['ldap_sync']['fields_mapping']['company'] = array(
-    '#title' => t('Company', array(), array('context' => 'gofast:gofast_ldap')),
+    '#title' => t('Entity', array(), array('context' => 'gofast:gofast_ldap')),
     '#type' => 'textfield',
     '#default_value' => $sync_settings['mapping']['company'],
     '#disabled' => !($server_status || $sync),
@@ -1188,21 +1459,21 @@ function gofast_admin_users_settings_form() {
 
   $form['user_form']['extranet'] = array(
     '#type' => 'checkbox',
-    '#title' => t("Extranet user", array(), array('context' => 'gofast')),
+    '#title' => t("External user", array(), array('context' => 'gofast')),
     '#default_value' => $user_form_defaults['extranet'],
-    '#description' => t("Depending on global settings, administrators can revoke permissions to extranet users so they can't access non-extranet spaces regardless of their roles.", array(), array('context' => 'gofast'))
+    '#description' => t("Depending on global settings, administrators can revoke permissions to external users so they can't access non-external spaces regardless of their profiles.", array(), array('context' => 'gofast'))
   );
 
   $form['user_form']['broadcaster'] = array(
     '#type' => 'checkbox',
     '#title' => t("Broadcaster", array(), array('context' => 'gofast')),
     '#default_value' => $user_form_defaults['broadcaster'],
-    '#description' => t("Broadcaster are allowed to broadcast any content they can access in any spaces including spaces in which they are not a member, regardless of their roles and permissions.", array(), array('context' => 'gofast'))
+    '#description' => t("Broadcaster are allowed to broadcast any content they can access in any spaces including spaces in which they are not a member, regardless of their profiles and permissions.", array(), array('context' => 'gofast'))
   );
 
   $form['user_form']['comment_restricted'] = array(
     '#type' => 'checkbox',
-    '#title' => t("Restricted comments and annotations", array(), array('context' => 'gofast')),
+    '#title' => t("Restricted comments", array(), array('context' => 'gofast')),
     '#default_value' => $user_form_defaults['comment_restricted'],
     '#description' => t("Restricted users won't be able to post public comments and make public annotations if they haven't administrative rights on a content.", array(), array('context' => 'gofast'))
   );
@@ -1306,6 +1577,7 @@ function gofast_admin_users_settings_form_validate($form, &$form_state) {
  */
 function gofast_admin_users_settings_form_submit(&$form, &$form_state) {
     $user_form_defaults = $form_state['values'];
+    $user_form_defaults["notify"] = TRUE;
 
     unset($user_form_defaults['submit']);
     unset($user_form_defaults['form_build_id']);
@@ -1585,6 +1857,13 @@ function gofast_admin_sso_settings_form() {
         '#description' => t('If this setting is enabled, the login form will be disabled. Make sure that another authentication mechanism is enabled and working before.', array(), array('context' => 'gofast:gofast_sso'))
     );
 
+    $form['login']['disable_password_reset'] = array(
+      '#title' => t(' Disable password reset', array(), array('context' => 'gofast:gofast_sso')),
+      '#type' => 'checkbox',
+      '#default_value' => variable_get("gofast_disable_password_reset", FALSE),
+      '#description' => t('If this setting is enabled, users will no be able to reset their password on their own. Make sure that another authentication mechanism is enabled and working before.', array(), array('context' => 'gofast:gofast_sso'))
+  );
+
     //Keycloak configuration
     if(module_exists("gofast_keycloak")){
         $form['keycloak_settings'] = array(
@@ -1633,6 +1912,7 @@ function gofast_admin_sso_settings_form() {
         '#type' => 'fieldset',
         '#collapsible' => TRUE,
         '#collapsed' => FALSE,
+        '#keen-accordion' => TRUE,
     );
 
     //Retrieve eventual already existing IDP
@@ -1657,6 +1937,7 @@ function gofast_admin_sso_settings_form() {
         '#type' => 'fieldset',
         '#collapsible' => TRUE,
         '#collapsed' => FALSE,
+        '#keen-accordion' => TRUE,
     );
 
     if ($idp !== null) {
@@ -1833,6 +2114,11 @@ function gofast_admin_sso_format_sp_form($sp_form){
         '#title' => t('Signing private key', array(), array('context' => 'gofast:gofast_keycloak')),
     );
 
+
+    //[GOFAST-6837]
+    $sp_form['saml_sp__security']['#keen-accordion'] = TRUE;
+    $sp_form['metadata']['#keen-accordion'] = TRUE;
+
     return $sp_form;
 }
 
@@ -1848,6 +2134,11 @@ function gofast_admin_sso_settings_form_validate($form, &$form_state) {
  */
 function gofast_admin_sso_settings_form_submit(&$form, &$form_state) {
   variable_set("gofast_disable_login_form", $form_state['values']['disable_login']);
+  if ((bool) $form_state['values']['disable_login'] === FALSE) {
+    variable_set("gofast_disable_password_reset", FALSE);
+  } else {
+    variable_set("gofast_disable_password_reset", $form_state['values']['disable_password_reset']);
+  }
 
   //Set IDP machine_name field
   $form_state['values']['machine_name'] = "gofast_sso";
@@ -1913,12 +2204,12 @@ function gofast_admin_visibility_settings_form() {
   );
 
   // Adds checkbox admin config to the form.
-  $form['visibility']['checkbox_admin'] = array(
+ /* $form['visibility']['checkbox_admin'] = array(
     '#type' => 'checkbox',
     '#title' => t('Platform administrators can see all users and spaces', array(), array('context' => 'gofast')),
     '#default_value' => variable_get('gofast_admin_visibility', GOFAST_ADMIN_VISIBILITY_DEFAULT),
     '#description' => t('Platform administrators can’t access contents if they are not members of spaces but can see what spaces exists and can access all users profiles', array(), array('context' => 'gofast:gofast_og'))
-  );
+  );*/
 
   $form['visibility']['checkbox_conference_check'] = array(
     '#type' => 'checkbox',
@@ -1942,6 +2233,7 @@ function gofast_admin_general_settings_form() {
     '#type' => 'textfield',
     '#default_value' => variable_get('site_name', 'GoFast'),
     '#description' => t('Set your site name', array(), array('context' => 'gofast')) . '.<br /><br />',
+    '#attributes' => array('class' => array('form-control'))
   );
 
   $form['welcome_message'] = array(
@@ -2001,21 +2293,23 @@ function gofast_admin_general_settings_form() {
     '#required' => true
   );
 
-  $dropdown_frequency = array( //Options
-    0 => t('Twice a day', array(), array('context' => 'gofast:subscription')),
-    1 => t('Once a day', array(), array('context' => 'gofast:subscription')),
-    2 => t('Once a week', array(), array('context' => 'gofast:subscription')),
-    3 => t('Once a month', array(), array('context' => 'gofast:subscription')),
-    4 => t('Instantly', array(), array('context' => 'gofast:subscription')),
-  );
+  $dropdown_frequency = gofast_subscriptions_ui_get_frequency_dropdown();
   $form['notifications_frequency'] =  array(
-                          '#title' => t('Default notification frequency', array(), array('context' => 'gofast')),
-                          '#type'     => 'select',
-                          '#options'  => $dropdown_frequency,
-                          '#key_type' => 'associative',
-                          '#description' => t('Set the default notification frequency when a user joins a space.', array(), array('context' => 'gofast')),
-                          '#default_value' => variable_get("notification_frequency_configuration", 0),
-                        );
+    '#title' => t('Default notification frequency', array(), array('context' => 'gofast')),
+    '#type'     => 'select',
+    '#options'  => $dropdown_frequency,
+    '#key_type' => 'associative',
+    '#description' => t('Set the default notification frequency for activity notifications.', array(), array('context' => 'gofast')),
+    '#default_value' => variable_get("notification_frequency_configuration", 0),
+  );
+  $form['comments_notifications_frequency'] =  array(
+    '#title' => t('Default comments notification frequency', array(), array('context' => 'gofast')),
+    '#type'     => 'select',
+    '#options'  => $dropdown_frequency,
+    '#key_type' => 'associative',
+    '#description' => t('Set the default notification frequency for comments notifications.', array(), array('context' => 'gofast')),
+    '#default_value' => variable_get("comments_notification_frequency_configuration", 0),
+  );
 
   $home_page = variable_get('site_frontpage', 'node');
   $form['home_node'] = array(
@@ -2214,7 +2508,7 @@ function gofast_admin_category_settings_form() {
           }
         }
       }
-      if ($language->name == 'Dutch' || $language->name == 'French' || $language->name == 'English'){
+      if ($language->name == 'French' || $language->name == 'English'){
       $form['add_edit'][$term_id][$language->language] = array(
         '#type' => 'textfield',
         '#title' => t($language->name),
@@ -2239,14 +2533,16 @@ function gofast_admin_category_settings_form() {
       '#type' => 'fieldset',
       '#title' => t('Standard categories', array(), array('context' => 'gofast')),
       '#collapsible' => TRUE,
-      '#collapsed' => TRUE
+      '#collapsed' => TRUE,
+      '#keen-accordion' => TRUE,
     );
 
     $form['filter']['custom']= array(
       '#type' => 'fieldset',
       '#title' => t('Custom categories', array(), array('context' => 'gofast')),
       '#collapsible' => TRUE,
-      '#collapsed' => TRUE
+      '#collapsed' => TRUE,
+      '#keen-accordion' => TRUE,
     );
 
 
@@ -2292,7 +2588,10 @@ function gofast_admin_category_settings_form() {
 
   $form['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Save', array(), array('context' => 'gofast'))
+    '#attributes' => array(
+      "class" => array("btn btn-success"),
+    ),
+    '#value' => t('Save categories', array(), array('context' => 'gofast'))
   );
   return $form;
 }
@@ -2379,7 +2678,7 @@ function gofast_admin_visibility_settings_form_submit(&$form, &$form_state){
   // Update space visibility setting.
   variable_set('gofast_og_partitioning', (int) $form_state['values']['space_partitioning']);
   // Update admin visibility setting.
-  variable_set('gofast_admin_visibility', (int) $form_state['values']['checkbox_admin']);
+  //variable_set('gofast_admin_visibility', (int) $form_state['values']['checkbox_admin']);
   //Update conference check setting
   variable_set('gofast_conference_check_room', (int) $form_state['values']['checkbox_conference_check']);
 }
@@ -2432,6 +2731,72 @@ function gofast_admin_category_settings_form_submit(&$form, &$form_state) {
 
   // Filters submit : Save current settings to the variable
   variable_set('gofast_map_category_spaces', $form_state['map_category_spaces']);
+}
+
+/**
+ * Implements hook_form()
+ */
+function gofast_admin_custom_link_settings_form(){
+  $form = array();
+
+  $form['add_edit'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Activate/Modify a custom link', array(), array('context' => 'gofast')),
+    '#collapsible' => FALSE,
+    '#collapsed' => FALSE,
+    'markup' => array(
+      '#markup' => t('You can activate or edit a menu link on the top menu bar', array(), array('context' => 'gofast'))
+    )
+  );
+
+  $form['has_custom_link'] = array(
+    '#title' => t('Display a custom link', array(), array('context' => 'gofast')),
+    '#type' => 'checkbox',
+    '#default_value' => variable_get('gofast_has_custom_menu_link', false),
+    '#description' => t('Determine whether a custom link will be displayed on the top menu bar or not', array(), array('context' => 'gofast'))
+  );
+
+  $form['custom_link_label'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Label of the custom link', array(), array('context' => 'gofast')),
+    '#default_value' => variable_get("gofast_custom_menu_link_label", t("Custom Link", [], ["context" => "gofast:gofast_menu"]))
+  );
+
+  $form['custom_link_link'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Link of the custom link', array(), array('context' => 'gofast')),
+    '#default_value' => variable_get("gofast_custom_menu_link_href", "https://community.ceo-vision.com")
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save', array(), array('context' => 'gofast'))
+  );
+
+  return $form;
+}
+
+/**
+ * Implements hook_form_validate()
+ */
+function gofast_admin_custom_link_settings_form_validate(&$form, &$form_state) {
+  if (strlen($form_state['values']['custom_link_label']) < 5) {
+    form_set_error('custom_link_label', t('The label of the custom link must be at least 4 characters long', array(), array('context' => 'gofast')));
+  }
+  if (!valid_url($form_state['values']['custom_link_link'])) {
+    form_set_error('custom_link_link', t('The url of the custom link is not valid', array(), array('context' => 'gofast')));
+  }
+}
+
+/**
+ * Implements hook_form_validate()
+ */
+function gofast_admin_custom_link_settings_form_submit(&$form, &$form_state) {
+  variable_set("gofast_has_custom_menu_link", (bool) $form_state['values']['has_custom_link']);
+  if((bool) $form_state['values']['has_custom_link']) {
+    variable_set("gofast_custom_menu_link_label", $form_state['values']['custom_link_label']);
+    variable_set("gofast_custom_menu_link_href", $form_state['values']['custom_link_link']);
+  }
 }
 
 function gofast_admin_general_settings_form_validate(&$form, &$form_state) {
@@ -2508,6 +2873,7 @@ function gofast_admin_general_settings_form_submit(&$form, &$form_state) {
         $theme_settings['default_logo'] = 0;
         variable_set('theme_bootstrap_gofast_settings', $theme_settings);
         variable_set('theme_bootstrap_gofast_mobile_settings', $theme_settings);
+        variable_set('theme_bootstrap_keen_settings', $theme_settings);
         $_POST['toggle_logo'] = 1;
       }
       else {
@@ -2537,6 +2903,8 @@ function gofast_admin_general_settings_form_submit(&$form, &$form_state) {
   }
 
   variable_set('notification_frequency_configuration', $form_state['values']['notifications_frequency']);
+  variable_set('comments_notification_frequency_configuration', $form_state['values']['comments_notifications_frequency']);
+
   $instance = field_read_instance('flagging', 'field_frequency_term', 'subscribe_term');
   $instance['default_value'][0]['value'] = $form_state['values']['notifications_frequency'];
   field_update_instance($instance);
@@ -2552,6 +2920,12 @@ function gofast_admin_general_settings_form_submit(&$form, &$form_state) {
   $instance = field_read_instance('flagging', 'field_frequency_user', 'subscribe_user');
   $instance['default_value'][0]['value'] = $form_state['values']['notifications_frequency'];
   field_update_instance($instance);
+
+  foreach(['subscribe_term', 'subscribe_node', 'subscribe_og', 'subscribed_user'] as $bundle) {
+    $instance = field_read_instance('flagging', 'field_frequency_comment', $bundle);
+    $instance['default_value'][0]['value'] = $form_state['values']['comments_notifications_frequency'];
+    field_update_instance($instance);
+  }
 
   if (!empty($form_state['values']['mobile_url'])){
       variable_set('mobile_url', $form_state['values']['mobile_url']);

@@ -88,7 +88,7 @@ function gofast_og_edit_membership($js, $group_type, $gid, $og_membership) {
   }else if ($form_state['submitted']) {
     $commands = array(
       ctools_modal_command_dismiss(),
-      gofast_command_processAjax("/node/{$gid}" . "#ogmembers")
+      gofast_command_processAjax("/node/{$gid}" . "#gofastSpaceMembers")
     );
   }
 
@@ -97,6 +97,117 @@ function gofast_og_edit_membership($js, $group_type, $gid, $og_membership) {
 
 function gofast_og_form_og_ui_edit_membership_form_alter(&$form, &$form_state) {
   $form['#submit'][] = '';
+}
+
+/**
+ * Show confirmation modal for membership instant edit
+ */
+function gofast_og_instant_edit_membership($js, $group_type, $gid, $type, $og_membership, $role_id) {
+  ctools_include('og_ui/og_ui.admin', 'og', '');
+
+  $args = func_get_args();
+  array_shift($args);
+
+  if (!$js){
+    return drupal_get_form('gofast_og_ui_instant_edit_membership', $group_type, $gid, $type, $og_membership, $role_id);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $group = entity_load_single($group_type, $gid);
+  $label = entity_label($group_type, $group);
+  $form_state = array(
+    'ajax' => TRUE,
+    'title' => t('Edit membership in group @group', array('@group' => $label)),
+    'build_info' => array(
+      'args' => $args
+    )
+  );
+
+  $commands = ctools_modal_form_wrapper('gofast_og_ui_instant_edit_membership', $form_state);
+
+  if ($form_state['last_admin']){
+    form_get_errors();
+    $commands = array(
+      ctools_modal_command_dismiss(),
+      gofast_command_toast_message(t("You can't remove the last administrator of a space", array(), array('context' => "gofast:gofast_og")), "error")
+    );
+  } elseif ($form_state['submitted']) {
+    $message = $type == "userlist"
+      ? t("The userlist has successfully been edited", array(), array('context' => "gofast:gofast_og"))
+      : t("The user has successfully been edited", array(), array('context' => "gofast:gofast_og"));
+    $commands = array(
+      ctools_modal_command_dismiss(),
+      gofast_command_processAjax("/node/{$gid}" . "#gofastSpaceMembers"),
+      gofast_command_toast_message($message, "success")
+    );
+  }
+
+  print ajax_render($commands);
+}
+
+function gofast_og_ui_instant_edit_membership($form, &$form_state, $group_type, $gid, $type, $og_membership, $role_id) {
+  $account = user_load($og_membership->etid);
+
+  // Current roles
+  $form_state['og_roles'] = og_roles('node', gofast_get_node_type($gid), $gid, FALSE, FALSE);
+  $form_state['current_roles'] = og_get_user_roles($group_type, $gid, $og_membership->etid);
+  // Target role
+  $form_state['role_id'] = $role_id;
+  $form_state['role_name'] = og_role_load($role_id)->name;
+
+  $form_state['group_type'] = $group_type;
+  $form_state['gid'] = $gid;
+  if ($type == 'userlist') {
+    $userlist = entity_load_single("userlist", $og_membership->etid);
+    $form_state["userlist"] = $userlist;
+    $name = $userlist->name;
+  } else {
+    $form_state["uid"] = $og_membership->etid;
+    $form_state["userlist"] = FALSE;
+    $name = $account->name;
+  }
+
+  $form['#validate'][] = "gofast_og_ui_instant_edit_membership_validate";
+  $form['#submit'][] = "gofast_og_ui_instant_edit_membership_submit";
+
+  $confirm_form = confirm_form($form,
+      "", // title is already set
+      "/node/{$gid}" . "#gofastSpaceMembers",
+      t('Are you sure you would like to edit the membership for @user ?', array('@user' => $name), array('context' => "gofast:gofast_og")),
+  );
+  // classes for the global modal script to properly display the cancel button
+  $confirm_form['actions']['cancel']['#type'] = "submit";
+  $confirm_form['actions']['cancel']['#value'] = t('Cancel');
+  $confirm_form['actions']['cancel']['#attributes'] = array(
+      'id' => 'edit-cancel',
+      'class' => array('btn', 'btn-secondary')
+  );
+  return $confirm_form;
+}
+
+function gofast_og_ui_instant_edit_membership_validate($form, &$form_state) {
+  $users_admins = gofast_userlist_og_get_node_members_by_role($form_state["gid"], array(OG_STATE_ACTIVE), "administrator member");
+  if(count($users_admins) < 2 && strpos($form_state['role_name'], "administrator member") == FALSE && in_array("administrator member", $form_state['current_roles'])) {
+      $form_state['last_admin'] = TRUE;
+      form_set_error("last_admin", t("You can't remove the last administrator of a space", array(), array('context' => "gofast:gofast_og")));
+  }
+  return FALSE;
+}
+
+function gofast_og_ui_instant_edit_membership_submit($form, &$form_state) {
+  foreach(array_keys($form_state["og_roles"]) as $rid) {
+    if ($rid != $form_state['role_id']) {
+      $form_state["userlist"]
+        ? gofast_userlist_og_role_revoke_userlist($form_state["group_type"], $form_state["gid"], $form_state["userlist"]->ulid, $rid)
+        : og_role_revoke($form_state["group_type"], $form_state["gid"], $form_state["uid"], $rid);
+    } else {
+      $form_state["userlist"]
+      ? gofast_userlist_og_role_grant_userlist($form_state["group_type"], $form_state["gid"], $form_state["userlist"]->ulid, $rid)
+      : og_role_grant($form_state["group_type"], $form_state["gid"], $form_state["uid"], $rid);
+    }
+  }
 }
 
 /**
@@ -115,9 +226,12 @@ function gofast_og_delete_membership($js, $group_type, $gid, $og_membership) {
   ctools_include('modal');
   ctools_include('ajax');
 
+  $group = entity_load_single($group_type, $gid);
+  $label = entity_label($group_type, $group);
+
   $form_state = array(
     'ajax' => TRUE,
-    'title' => t('Delete membership', array(), array('context' => 'gofast:gofast_og')),
+    'title' => t('Remove membership in group @group', array('@group' => $label)),
     'build_info' => array(
       'args' => $args
     )
@@ -134,7 +248,7 @@ function gofast_og_delete_membership($js, $group_type, $gid, $og_membership) {
   }else if ($form_state['submitted']) {
     $commands = array(
       ctools_modal_command_dismiss(),
-      gofast_command_processAjax("/node/{$gid}" . "#ogmembers")
+      gofast_command_processAjax("/node/{$gid}" . "#gofastSpaceMembers")
     );
   }
 
@@ -146,22 +260,26 @@ function gofast_og_delete_membership($js, $group_type, $gid, $og_membership) {
  */
 function gofast_og_ui_delete_membership($form, &$form_state, $group_type, $gid, $og_membership) {
   og_set_breadcrumb($group_type, $gid, array(l(t('Group'), "$group_type/$gid/group")));
-  $group = entity_load_single($group_type, $gid);
-  $label = entity_label($group_type, $group);
   $account = user_load($og_membership->etid);
+
 
   // Add group membership form. We still don't have the user or state.
   $form_state['og_membership'] = $og_membership;
   $form['#validate'][] = "gofast_og_ui_delete_membership_validate";
 
-    return confirm_form($form,
-        t('Remove membership in group @group', array('@group' => $label)),
-        'group/' . $group_type . '/' . $gid . '/admin/people',
-        '</br>' . "<div class='alert alert-block alert-dismissible alert-warning messages warning'>" . '<i class="fa fa-exclamation-triangle" style="color:#F0AD4E;font-size:1.5em"> </i>  ' . t('Warning: If you delete a member of the space it will also be deleted from its child spaces') . "</div>" . t('Are you sure you would like to remove the membership for the user @user?', array('@user' => $account->name)) ,
-        t('Remove'),
-        t('Cancel')
-    );
-  }
+  $confirm_form = confirm_form($form,
+      "",
+      "/node/{$gid}" . "#gofastSpaceMembers",
+      t('Are you sure you would like to remove the membership for the user @user?', array('@user' => $account->name)),
+  );
+  $confirm_form['actions']['cancel']['#type'] = "submit";
+  $confirm_form['actions']['cancel']['#value'] = t('Cancel');
+  $confirm_form['actions']['cancel']['#attributes'] = array(
+      'id' => 'edit-cancel',
+      'class' => array('btn', 'btn-secondary')
+  );
+  return $confirm_form;
+}
 
 /**
  * Implements validation of membership deletion form
@@ -245,20 +363,18 @@ function gofast_og_ui_delete_membership_submit($form, &$form_state) {
   $check = gofast_og_check_spaces_user($membership->entity_type, $account, $membership->gid);
   if( $check == FALSE ){
       gofast_og_sendmail_delete_membership_user(user_load($member_uid), array($node), NULL);
-  }
-
-  if($membership->entity_type == 'user'){
-    $membership_data = array(
-        'membership_action' => 'DMEM', // Remove Member
+        if($membership->entity_type == 'user'){
+            $membership_data = array(
+                'membership_action' => 'DMEM', // Remove Member
         'membership_type' => 'user',
         'membership_id' => $member_uid,
         'membership_name' => gofast_user_get_display_name_sql($member_uid)
-    );
-    gofast_message_ext_create_og_membership_entity($node, $membership_data);
+            );
+           gofast_message_ext_create_og_membership_entity($node, $membership_data);
+         }
+           //Log into audit
+        gofast_audit_delete_members($node, $membership_data);
   }
-
-  //Log into audit
-  gofast_audit_delete_members($node, $membership_data);
 
   $form_state['redirect'] = 'group/' . $membership->group_type . '/' . $membership->gid . '/admin/people';
 
@@ -281,20 +397,27 @@ function gofast_og_grant_membership($js, $group_type, $gid, $og_membership) {
   ctools_include('modal');
   ctools_include('ajax');
 
+  $group = entity_load_single($group_type, $gid);
+  $label = entity_label($group_type, $group);
+
   $form_state = array(
     'ajax' => TRUE,
-    'title' => t('Accept membership request', array(), array('context' => 'gofast:gofast_og')),
+    'title' =>  t('Accept membership request in group @group', array('@group' => $label)),
     'build_info' => array(
       'args' => $args
     )
   );
 
   $commands = ctools_modal_form_wrapper('gofast_og_ui_grant_membership', $form_state);
+  // Handle if submit with errors
+  if (isset($commands[0])) {
+    $commands[0]['output'] = gofast_normalize_string_from_ajaxifying($commands[0]['output']);
+  }
 
   if ($form_state['submitted']) {
     $commands = array(
       ctools_modal_command_dismiss(),
-      gofast_command_processAjax("/node/{$gid}" . "#ogmembers")
+      gofast_command_processAjax("/node/{$gid}" . "#gofastSpaceMembers")
     );
   }
 
@@ -317,20 +440,26 @@ function gofast_og_deny_membership($js, $group_type, $gid, $og_membership) {
   ctools_include('modal');
   ctools_include('ajax');
 
+  $group = entity_load_single($group_type, $gid);
+  $label = entity_label($group_type, $group);
+
   $form_state = array(
     'ajax' => TRUE,
-    'title' => t('Deny membership request', array(), array('context' => 'gofast:gofast_og')),
+    'title' =>  t('Deny membership in group @group', array('@group' => $label)),
     'build_info' => array(
       'args' => $args
     )
   );
 
   $commands = ctools_modal_form_wrapper('gofast_og_ui_deny_membership', $form_state);
-
+  // Handle if submit with errors
+  if (isset($commands[0])) {
+    $commands[0]['output'] = gofast_normalize_string_from_ajaxifying($commands[0]['output']);
+  }
   if ($form_state['submitted']) {
     $commands = array(
       ctools_modal_command_dismiss(),
-      gofast_command_processAjax("/node/{$gid}" . "#ogmembers")
+      gofast_command_processAjax("/node/{$gid}" . "#gofastSpaceMembers")
     );
   }
 
@@ -342,20 +471,39 @@ function gofast_og_deny_membership($js, $group_type, $gid, $og_membership) {
  */
 function gofast_og_ui_grant_membership($form, &$form_state, $group_type, $gid, $og_membership) {
   og_set_breadcrumb($group_type, $gid, array(l(t('Group'), "$group_type/$gid/group")));
-  $group = entity_load_single($group_type, $gid);
-  $label = entity_label($group_type, $group);
+
   $account = user_load($og_membership->etid);
 
   // Add group membership form. We still don't have the user or state.
   $form_state['og_membership'] = $og_membership;
 
-  return confirm_form($form,
-    t('Accept membership request in group @group', array('@group' => $label)),
-    'group/' . $group_type . '/' . $gid . '/admin/people',
-    t('Are you sure you would like to accept the membership request for the user @user?', array('@user' => $account->name)),
-    t('Accept'),
-    t('Cancel')
+  $og_default_roles = og_get_default_roles(FALSE);
+  $og_default_role_trad = array();
+  foreach($og_default_roles as $key => $role_string){
+    $og_default_role_trad[$role_string] = t($role_string);
+  }
+  $role = array_values(gofast_og_get_user_roles($og_membership->gid, $og_membership->etid, FALSE))[0];
+  $form['role'] = array(
+    '#type' => 'radios',
+    '#options' => $og_default_role_trad,
+    '#required' => TRUE,
+    '#description' => t('Role to be assigned for the user', array(), array('context' => 'gofast:gofast_og')),
+    '#default_value' => $role,
   );
+
+  $confirm_form = confirm_form($form,
+  "", // title is already set
+  "/node/{$gid}" . "#gofastSpaceMembers",
+  t('Are you sure you would like to accept the membership request for @user?', array('@user' => $account->name), array('context' => "gofast:gofast_og")),
+  );
+  $confirm_form['actions']['cancel']['#type'] = "submit";
+  $confirm_form['actions']['cancel']['#value'] = t('Cancel');
+    // classes for the global modal script to properly display the cancel button
+  $confirm_form['actions']['cancel']['#attributes'] = array(
+      'id' => 'edit-cancel',
+      'class' => array('btn', 'btn-secondary')
+  );
+  return $confirm_form;
 }
 
 /**
@@ -363,6 +511,10 @@ function gofast_og_ui_grant_membership($form, &$form_state, $group_type, $gid, $
  */
 function gofast_og_ui_grant_membership_submit($form, &$form_state) {
   $membership = $form_state['og_membership'];
+  $rid = key(gofast_og_space_admin_get_node_role('node', $membership->gid, $form_state["values"]["role"]));
+  // remove pending user membership role before granting resetted role
+  db_query("delete from {og_users_roles} where uid = :uid and gid = :gid", array(':uid' => $membership->etid, ':gid' => $membership->gid));
+  og_role_grant($membership->group_type, $membership->gid, $membership->etid, $rid);
   $membership->state = '1';
   $membership->save();
   //We propagate the membership to the parents
@@ -386,20 +538,24 @@ function gofast_og_ui_grant_membership_submit($form, &$form_state) {
  */
 function gofast_og_ui_deny_membership($form, &$form_state, $group_type, $gid, $og_membership) {
   og_set_breadcrumb($group_type, $gid, array(l(t('Group'), "$group_type/$gid/group")));
-  $group = entity_load_single($group_type, $gid);
-  $label = entity_label($group_type, $group);
   $account = user_load($og_membership->etid);
 
   // Add group membership form. We still don't have the user or state.
   $form_state['og_membership'] = $og_membership;
 
-  return confirm_form($form,
-    t('Deny membership in group @group', array('@group' => $label)),
-    'group/' . $group_type . '/' . $gid . '/admin/people',
-    t('Are you sure you would like to deny the membership request for the user @user?', array('@user' => $account->name)),
-    t('Deny'),
-    t('Cancel')
+  $confirm_form = confirm_form($form,
+  "", // title is already set
+  "/node/{$gid}" . "#gofastSpaceMembers",
+  '</br>' . t('Are you sure you would like to accept the membership request for @user?', array('@user' => $account->name), array('context' => "gofast:gofast_og")),
   );
+  // classes for the global modal script to properly display the cancel button
+  $confirm_form['actions']['cancel']['#type'] = "submit";
+  $confirm_form['actions']['cancel']['#value'] = t('Cancel');
+  $confirm_form['actions']['cancel']['#attributes'] = array(
+      'id' => 'edit-cancel',
+      'class' => array('btn', 'btn-secondary')
+  );
+  return $confirm_form;
 }
 
 /**

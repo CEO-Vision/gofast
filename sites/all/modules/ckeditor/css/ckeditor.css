@@ -30,3 +30,103 @@
 .ibimage_right {
     float: right;
 }
+
+/* Custom CKEDITOR autocomplete */
+
+/* TAGLIST */
+
+.gofast__comment-taglist-elem {
+    padding: .5em .7em;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0 1em;
+    grid-template-areas: "avatar name"
+                         "avatar uid";
+}
+
+.gofast__comment-taglist-icon {
+    grid-area: avatar;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #EEE;
+    transition: .1s ease-out;
+}
+
+.gofast__comment-taglist-elem:hover .gofast__comment-taglist-icon{
+    transform: scale(1.2);
+}
+
+.gofast__comment-taglist-icon img {
+    width: 100%;
+    vertical-align: top;
+}
+
+.gofast__comment-taglist-elem span{
+    grid-area: uid;
+    width: 100%;
+    font-size: .9em;
+    opacity: .6;
+}
+
+.gofast__comment-taglist-elem strong{
+    width: 100%;
+    align-self: center;
+}
+
+/* TAG */
+
+.gofast__comment-tag{
+    border: 1px solid transparent;
+    border-radius: 20px;
+    cursor: pointer;
+    padding: 0px 0.3em 0px 0.23em;
+    text-decoration: none;
+    background-color: rgba(0,0,0,.1);
+    color: #2e2f32;
+}
+
+
+gofast__comment-tag::after {
+    content: " ";
+    white-space: pre;
+}
+
+.gofast__comment-tag:hover {
+    color: black;
+}
+
+.gofast__comment-tag:hover .gofast__comment-tag-icon {
+    transform: scale(1.2);
+}
+
+.gofast__comment-tag-icon {
+    vertical-align: top;
+    border-style: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #EEE;
+    outline: none;
+    transition: .1s ease-out;
+    padding: 1px;
+    margin: 1px;
+}
+
+/* Custom scrollbar the ac */
+/* width */
+.cke_autocomplete_panel.cke_autocomplete_opened::-webkit-scrollbar {
+  width: 2px;
+}
+
+/* Track */
+.cke_autocomplete_panel.cke_autocomplete_opened::-webkit-scrollbar-track {
+  background-color: rgba(0,0,0,0.15);
+}
+
+/* Handle */
+.cke_autocomplete_panel.cke_autocomplete_opened::-webkit-scrollbar-thumb {
+  background-color: rgba(0,0,0,0.75);
+}

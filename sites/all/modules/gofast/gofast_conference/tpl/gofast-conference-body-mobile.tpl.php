@@ -33,13 +33,13 @@
     <div class="container">
       <div class="row">
         <div class="col-xs-12 col-md-6">
-          <strong><?php print t('Gofast participants') ?></strong>
+          <strong><?php print t('User participants') ?></strong>
           <br />
           <?php print $gofast_participants; ?>
           <div style='clear:both;'></div>
         </div>
         <div class="col-xs-12 col-md-6">
-          <strong><?php print t('Other participants') ?></strong>
+          <strong><?php print t('Non user participants') ?></strong>
           <br />
           <div>
             <ul class="list-group">

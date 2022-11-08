@@ -2,4 +2,4 @@ name = Gofast Kanban
 description = "Kanban module"
 package = Gofast
 core = 7.x
-version = "7.x-3.10.0_r2"
+version = "7.x-4.0.0_r3"

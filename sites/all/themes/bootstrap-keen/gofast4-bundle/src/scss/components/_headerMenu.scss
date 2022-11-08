@@ -1,0 +1,17 @@
+.gofast-headerMenu {
+
+    &.header-menu {
+        .gf-dropdown-submenu > div.menu-submenu {
+            top:0;
+            position: fixed;
+        
+        }
+    
+        .gf-dropdown-submenu > div.menu-submenu, #gf-spaces-menu>div {
+            width:auto; 
+            max-width: 90vw;
+            right: auto;
+        }
+    }
+
+}

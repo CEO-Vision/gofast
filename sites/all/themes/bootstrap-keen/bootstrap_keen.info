@@ -1,0 +1,102 @@
+name = Bootstrap Keen
+description = A Bootstrap Sub-theme.
+core = 7.x
+base theme = bootstrap
+
+
+;;;;;;;;;;;;;;;;;;;;;
+;; Regions
+;;;;;;;;;;;;;;;;;;;;;
+
+regions[navigation]     = 'Navigation'
+regions[sidebar]        = 'Sidebar'
+regions[riot]           = 'Riot'
+regions[explorer]       = 'Explorer'
+regions[maincontent]    = 'Main Conent'
+regiosn[filter]         = 'Filter'
+regions[header]         = 'Top Bar'
+regions[highlighted]    = 'Highlighted'
+regions[help]           = 'Help'
+regions[content]        = 'Content'
+regions[sidebar_first]  = 'Primary'
+regions[sidebar_second] = 'Secondary'
+regions[footer]         = 'Footer'
+regions[page_top]       = 'Page top'
+regions[page_bottom]    = 'Page bottom'
+
+
+;;;;;;;;;;;;;;;;;;;;;
+;; Stylesheets
+;;;;;;;;;;;;;;;;;;;;;
+
+
+;stylesheets[all][] = css/oldstyle.css
+;stylesheets[all][] = appstack/css/classic.css
+stylesheets[all][] = keenv2/assets/plugins/custom/kanban/kanban.bundle.css
+stylesheets[all][] = keenv2/assets/plugins/custom/fullcalendar/fullcalendar.bundle.css
+stylesheets[all][] = keenv2/assets/plugins/custom/jstree/jstree.bundle.css
+stylesheets[all][] = keenv2/assets/plugins/custom/cropper/cropper.bundle.css
+stylesheets[all][] = keenv2/assets/plugins/global/plugins.bundle.css
+stylesheets[all][] = keenv2/assets/plugins/custom/prismjs/prismjs.bundle.css
+stylesheets[all][] = keenv2/assets/css/style.bundle.css
+stylesheets[all][] = keenv2/assets/css/themes/layout/header/base/base_light.css
+stylesheets[all][] = keenv2/assets/css/themes/layout/header/menu/light.css
+stylesheets[all][] = keenv2/assets/css/themes/layout/brand/brand_dark.css
+stylesheets[all][] = keenv2/assets/css/themes/layout/aside/dark.css
+stylesheets[all][] = keenv2/assets/css/pages/login/login-1.css
+;stylesheets[all][] = bootstrap/dist/css/bootstrap.css
+;stylesheets[all][] = bootstrap/dist/css/bootstrap-reboot.css
+;stylesheets[all][] = bootstrap/dist/css/bootstrap-grid.css
+;stylesheets[all][] = scss/style.css
+stylesheets[all][] = gofast4-bundle/dist/css/style.min.css
+stylesheets[all][] = keenv2/assets/plugins/custom/uppy/uppy.bundle.css
+;stylesheets[all][] = fontawesome/css/all.css
+
+
+; For information on choosing the desired method, please read the Drupal
+; Bootstrap sub-theme "how-to" documentation:
+; https://drupal.org/node/1978010
+
+; ;----------------------------------
+; ; Bootstrap Source Files
+; ;----------------------------------
+;
+; ;;;;;;;;;;;;;;;;;;;;;
+; ;; Scripts
+; ;;;;;;;;;;;;;;;;;;;;;
+
+; scripts[] = 'bootstrap/dist/js/jquery.slim.min.js'
+
+;scripts[] = 'appstack/js/app.js'
+scripts[] = 'js/keenConfig.js'
+scripts[] = 'keenv2/assets/js/scripts.bundle.js'
+scripts[] = 'keenv2/assets/plugins/custom/prismjs/prismjs.bundle.js'
+scripts[] = 'keenv2/assets/plugins/global/plugins.bundle.js'
+scripts[] = 'keenv2/assets/plugins/custom/jstree/jstree.bundle.js'
+scripts[] = 'keenv2/assets/plugins/custom/fullcalendar/fullcalendar.bundle.js'
+scripts[] = 'keenv2/assets/plugins/custom/kanban/kanban.bundle.js'
+;scripts[] = 'keenv2/assets/plugins/custom/ckeditor/ckeditor-classic.bundle.js'
+scripts[] = 'keenv2/assets/plugins/custom/ckeditor/ckeditor-classic-enriched.bundle.js'
+scripts[] = 'keenv2/assets/plugins/custom/cropper/cropper.bundle.js'
+scripts[] = 'js/translations/GofastPluginsTranslations.js'
+scripts[] = 'js/components/GofastEditableInput.js'
+scripts[] = 'keenv2/assets/plugins/custom/uppy/uppy.bundle.js'
+scripts[] = 'js/components/tus.min.js'
+scripts[] = 'js/components/GofastFileInput.js'
+
+;scripts[] = 'bootstrap/dist/js/popper.min.js'
+;scripts[] = 'bootstrap/dist/js/bootstrap.js'
+;scripts[] = 'bootstrap/js/affix.js'
+;scripts[] = 'bootstrap/js/transition.js'
+
+; Disable BootstrapCDN if using Bootstrap source files in your sub-theme.
+ ;settings[bootstrap_cdn] = ''
+
+
+; ;-------------------------
+; ; Customs JS Files
+; ;-------------------------
+;
+ ;scripts[] = 'js/core/page.js'
+ ;scripts[] = 'js/components/dropdown.js'
+

@@ -212,39 +212,79 @@ function gofast_cmis_update_7702() {
 }
 
 /**
-
-Implements hook_update
-
-GOFAST-6238 permissions template folders
-*/
-function gofast_cmis_update_7704() {
-    $typeSpace = array('group','extranet','organisation','public');
+ * Implements hook_update
+ * Will probably need some adjustments
+ * We select all spaces, insert the folder that will contain articles, update all articles from this space with the new location, and create one for the homepage.
+ * 
+ */
+function gofast_cmis_update_7707() {
+    set_time_limit(0);
+    usurp(1);
     
-    for ($i = 0; $i != count($typeSpace) ; $i++) {
-    $query = new EntityFieldQuery();
-    $query->entityCondition('entity_type', 'node')
-    ->propertyCondition('type', $typeSpace[$i]);
-    $result = $query->execute();
-    foreach($result['node'] as $node_space) {
-        $node = node_load($node_space->nid);
-        $node_is_group = gofast_og_is_space($node);
-        if ($node_is_group) {
-            $unique_name = rawurlencode(str_replace(",", ",", gofast_ldap_space_cn($node)));
-            $node_location_path = gofast_cmis_space_get_webdav_path($node->nid);
-            $node_location_path .= "/TEMPLATES/";
-            $item = gofast_cmis_item_get_by_path($node_location_path);
-            $template_folder = true;
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_HEADER, 0);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($ch, CURLOPT_USERPWD, 'admin:' . gofast_get_admin_pwd());
-            $url = "http://localhost:8080/alfresco/service/set/subfolder/permission/?nodeRef=" . $item->properties['alfcmis:nodeRef'] . "&unique_name=" . $unique_name . "&template_folder=" . $template_folder;
-            curl_setopt($ch, CURLOPT_URL, $url);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-            curl_exec($ch);
-            }
-        }
+    $mimetype = "text/html";
+ 	
+    //For each space, insert the folder, and update its Articles
+    $space_query = db_query("SELECT nid FROM node WHERE type = 'organisation' OR type = 'private_space' OR type = 'group' OR type = 'extranet' OR type = 'public' ");
+    $articles_query = db_query("SELECT nid FROM node WHERE type = 'article'");
+    //storing all articles in an array so we can unset each one after updating it to avoid 
+    foreach($articles_query as $r) {
+        $articles_array[] = $r;
     }
+    foreach($space_query as $gid) {
+        $space = node_load($gid->nid);
+   
+        //We want to move articles into a special folder with a different organisation
+        //We create this "Wikis" folder for each space, and then the tree structure associated with the book if needed
+        $folder = $space->{field_folder_reference}[LANGUAGE_NONE][0]['value'];
+        
+        //Possibilty to recover the children of $space, so we can easily test if it has already a "Wikis" folder
+        $anc = gofast_og_get_ancestors_path($space);
+        //$children = gofast_cmis_get_children($anc);
+        if(!gofast_og_is_root_space($space) || gofast_og_is_user_private_space($space)) {
+            gofast_cmis_item_folder_insert("Wikis", $folder, TRUE);
+        }
+        
+        
+        // ======== Update all articles, place them in the "Wikis" folder ========
+        
+        foreach($articles_array as $key => $r) {
+            $node = node_load($r->nid);
+            if($node->{GOFAST_OG_CONTENT_MEMBERSHIP_FIELD}[LANGUAGE_NONE][0]['target_id'] !== $space->nid) {
+                continue;
+            }
+            //Might need nl2br() to keep line breaks on the content
+            $article_content = isset($node->{body}[LANGUAGE_NONE][0]['value']) ? $node->{body}[LANGUAGE_NONE][0]['value'] : " ";  
+            $article_title = $node->title . '.html';
+            //field_folder_reference is taken from the article's current location. We get the id, load the node and get the field.
+            $new_path = $anc . '/Wikis';
+            $emplacement = gofast_cmis_item_get_by_path($new_path);
+        
+            $inserted_article = gofast_cmis_item_content_insert($emplacement->id, $article_title, $article_content, $mimetype, array(), TRUE);
+        
+            if (!isset($inserted_article->id)) {
+                //We have an error in the creation, print something if needed
+                print "Can't create article content for " . $r->nid . '\n';
+            }
+            $article_reference = $inserted_article->properties['alfcmis:nodeRef'];
+            //Cancel replication since the article already exists on Drupal
+            variable_set("cmis_creating_" . $article_reference, "true");
+        
+            //Now that the Article exists in Alfresco, we will link fields between the Alfresco Article and the Drupal node
+            //Location is unique for now since Articles couldn't be multifilled before the update
+            //We shouldn't need to set version (Auto sets at v1.0)
+            //TODO Modify locations if needed
+            $node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value'] = $article_reference;
+            $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE][0]['value'] = $new_path;
+            $node->{GOFAST_CMIS_MAIN_LOCATION_FIELD}[LANGUAGE_NONE][0]['value'] = $new_path;
+            $node->{GOFAST_CMIS_MAIN_LOCATION_FIELD}[LANGUAGE_NONE][0]['safe_value'] = $new_path;
+            node_save($node);
+            unset($articles_array[$key]);
+        } 
+        
+        //Now, all existing articles have been reworked so we can create some for og spaces with the new methods
+        gofast_og_add_article_homepage($space);
+    }    
+    usurp(FALSE);
 }
 
 /**
@@ -260,6 +300,274 @@ function gofast_cmis_update_7706() {
     
     db_query("ALTER TABLE field_revision_field_main_emplacement MODIFY field_main_emplacement_value VARCHAR(1024)");
     db_query("ALTER TABLE field_revision_field_main_emplacement MODIFY field_main_emplacement_format VARCHAR(1024)");
+}
+
+function gofast_cmis_update_7708() {
+    set_time_limit(0);
+    usurp(1);
+
+    $articles_query = db_query("SELECT nid FROM node WHERE type = 'article'");
+    //storing all articles in an array so we can unset each one after updating it to avoid 
+    foreach($articles_query as $r) {
+        $articles_array[] = $r;
+    }
+
+     foreach($articles_array as $article_object){
+           $node = node_load($article_object->nid);
+           if(isset($node->nid) && $node->status == 0){               
+                 //check if document exists into Alfresco
+                  $reference = gofast_cmis_node_get_item_id($node);
+                  $item = gofast_cmis_item_get($reference);
+                   if(isset($item->properties["alfcmis:nodeRef"]) && $item->properties["gofast:nid"] == $node->nid){
+                           $node->status = 1;
+                           $node = gofast_prepare_node_save_technically($node);
+                           $ruid = $node->revision_uid;
+                           node_save($node);
+                            db_update('node_revision')
+                              ->fields(array('uid' => $ruid))
+                              ->condition('nid', $node->nid)
+                              ->execute();
+                            cache_clear_all("field:node:$node->nid", 'cache_field');
+                            watchdog("gofast_cmis_restore_article", $node->nid);
+                   }
+               
+            }
+    }
+
+    
+}
+
+function gofast_cmis_update_7709(){
+
+  watchdog('gofast_cmis', '%name() --- START -- REBUILD REF_ALFRESCO MISSING FOR WIKI ---', array('%name' => __FUNCTION__));
+
+  $articles_query = db_query("SELECT nid FROM node WHERE type = 'article'");
+  foreach ($articles_query as $r) {
+    $articles_array[] = $r;
+  }
+
+  $nb_broken_wiki = 0;
+  $nb_fixed_wiki = 0;
+  $wiki_still_broken = array();
+  foreach ($articles_array as $key => $r) {
+    $node = node_load($r->nid);
+    if (!isset($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']) || $node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value'] == null) {
+      $nb_broken_wiki++;
+
+      //Retreive reference and fixed it
+      $fixed = gofast_book_wiki_repare_alf_reference($node);
+
+      if($fixed != FALSE){
+        $nb_fixed_wiki++;
+      } else {
+        $wiki_still_broken[]= $r->nid;
+      }
+    }
+  }
+
+  watchdog('gofast_cmis', '%name() --- RESUME : %nb_fixed fixed/ %nb_broken broken wikis', array('%name' => __FUNCTION__, '%nb_fixed' =>$nb_fixed_wiki, '%nb_broken' =>$nb_broken_wiki));
+  if(count($wiki_still_broken) > 0){
+    watchdog('gofast_cmis', '%name() --- FIX UNCOMPLETE => could not fixed the following wikis %wikis', array('%name' => __FUNCTION__, '%wikis' => json_encode($wiki_still_broken) ));
+  }else{
+    watchdog('gofast_cmis', '%name() --- FIX COMPLETE' , array('%name' => __FUNCTION__ ));
+  }
+  watchdog('gofast_cmis', '%name() --- END --', array('%name' => __FUNCTION__));
+}
+
+
+function gofast_cmis_update_7710() {
+
+  watchdog('gofast_cmis', '%name() --- START -- REBUILD FIELD_EMPLACEMENT FOR WIKI ---', array('%name' => __FUNCTION__));
+
+  global $user;
+  $articles_query = db_query("SELECT nid FROM node WHERE type = 'article'");
+  foreach ($articles_query as $r) {
+    $articles_array[] = $r;
+  }
+
+  $nb_broken_wiki = 0;
+  $nb_fixed_wiki = 0;
+  $wiki_still_broken = array();
+  foreach ($articles_array as $key => $r) {
+    $node = node_load($r->nid);
+    $parent = gofast_cmis_item_get_parent($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']);
+    $parents_formatted = array();
+
+    if (count($parent->objectList) > 0) {
+      foreach ($parent->objectList as $myparent) {
+        $parents_formatted[] = array("value" => $myparent->properties["cmis:path"]);
+      }
+    }
+    if ($node->status != 0) { //Node is published
+      $is_equal = $parents_formatted === $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE];
+      if ($is_equal === false && $user->uid != 1) {
+        $nb_broken_wiki++;
+
+        //Only rebuild if article is not multifiled
+        if(count($node->og_group_content_ref[LANGUAGE_NONE]) < 2 ){
+          gofast_book_repare_emplacements($node, $parents_formatted);
+          $nb_fixed_wiki++;
+
+        }else{
+          $wiki_still_broken[] = $node->nid;
+        }
+      }
+    }
+  }
+
+  watchdog('gofast_cmis', '%name() --- RESUME : %nb_fixed fixed/ %nb_broken broken wikis', array('%name' => __FUNCTION__, '%nb_fixed' => $nb_fixed_wiki, '%nb_broken' => $nb_broken_wiki));
+  if (count($wiki_still_broken) > 0) {
+    watchdog('gofast_cmis', '%name() --- FIX UNCOMPLETE => could not fixed (cause multifiled) the following wikis %wikis', array('%name' => __FUNCTION__, '%wikis' => json_encode($wiki_still_broken)));
+  } else {
+    watchdog('gofast_cmis', '%name() --- FIX COMPLETE', array('%name' => __FUNCTION__));
+  }
+  watchdog('gofast_cmis', '%name() --- END --', array('%name' => __FUNCTION__));
+}
+
+
+
+// create missing books mainly for emplacements restored by GOFAST-8617 (which fixed missing alfRef and field_emplacement on many articles)
+// hence: must be run after gofast_cmis_update_7710
+function gofast_cmis_update_7711() {
+  gofast_bookify_spaces();
+  gofast_book_log_multifiled_articles("Executing gofast_book_update_7003");
+}
+
+
+/**
+ * Fixed wiki homepage membership
+ */
+function gofast_cmis_update_7712(){
+
+ watchdog('gofast_cmis', '%name() --- START -- REBUILD OG_MEMBERSHIPS FOR SPACE HOMEPAGE(WIKI) ---', array('%name' => __FUNCTION__));
+
+   // Get all wiki homepage
+  $results = db_query("select nid from og_membership INNER JOIN node ON nid=etid INNER JOIN field_data_field_is_homepage ON etid=entity_id WHERE node.type='article' ;", array())->fetchAll();
+
+  $wiki = array();
+
+  if (count($results) > 0) {
+    foreach ($results as $r) {
+      $wiki[] = $r->nid;
+    }
+  }
+  variable_set('gf_all_wiki', $wiki);
+  $wikis = variable_get('gf_all_wiki');
+
+  $nb_fixed_wiki = 0;
+  $nb_broken_wiki = count($wikis);
+  $unfixed_wiki = array();
+ // $last_fixed = $wikis[0]; // Nid of last fixed wiki : need to be updated at each run.
+ // $max_at_once = 300; // Nb of wiki fixed by run (can be increased up to 150 depending on customer server)
+
+  $i = 0;
+
+  foreach ($wikis as $key => $wiki_nid) {
+
+  //  if ($wiki_nid > $last_fixed && $i < $max_at_once) {
+      $i++;
+      try {
+        /*         * **************** 1 - Rebuild Alfresco Item if needed   ***************************************** */
+        watchdog('gofast_cmis', '%name() --- Rebuild alf_reference for %nid ---', array('%name' => __FUNCTION__, '%nid' => $wiki_nid));
+
+        //current node (wiki)
+        $nid = $wiki_nid;
+        $node = node_load($nid);
+
+        //Run gofast_cmis_update_7709() for one item
+        $fixed = gofast_book_wiki_repare_alf_reference($node);
+        if($fixed != FALSE){
+          $nb_fixed_wiki++;
+        } else {
+          $wiki_still_broken[]= $nid;
+          continue;
+        }
+
+
+        /*         * **************** 2 - FIX OG_MEMBERSHIP BASED ON ALFRESCO LOCATION (WIKI ONLY) **************** */
+        watchdog('gofast_cmis', '%name() --- Rebuild og_membership for %nid ---', array('%name' => __FUNCTION__, '%nid' => $nid));
+        $node = node_load($nid, NULL, TRUE); // force reload of node
+        //retreive right space nid, based on Alfresco location for the node
+        $parent = gofast_cmis_item_get_parent($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']);
+        $folder_path = $parent->objectList[0]->properties['cmis:path'];
+        $node_ref = $parent->objectList[0]->properties['alfcmis:nodeRef'];
+
+        $group_parent_gid = gofast_cmis_get_spaceid_by_webdav_folder($folder_path, $node_ref);
+        $wrong_parent_gid = $node->og_group_content_ref['und'][0]['target_id'];
+
+        //unsubscribe form current (WRONG) space AND subscribe to the right parent space
+        gofast_og_unsubscribe_node($wrong_parent_gid, $nid);
+        gofast_og_subscribe_node($group_parent_gid, $nid);
+
+        /*         * ********************** 3- FIX BOOK MEMBERSHIP (WIKI ONLY) ************************** */
+        // Extraction form "gofast_bookify_spaces"
+        // /!\ Do not run the full gofast_bookify_spaces, cause there is a bug with the function  gofast_og_add_article_homepage($space) in 4.0.0_R3 (until HFX 3.0)
+        // Not required since we don't want to create book if only the homepage is present in Wiki folder (it might change, then uncomment this part)
+
+        /*
+          $node = node_load($nid, NULL, TRUE);
+
+          $wiki_content = gofast_book_get_wiki_content($group_parent_gid);
+          // if the space has no book but already has some wiki content, we create the book
+          $space_book = gofast_cmis_get_book($group_parent_gid);
+          if (count($wiki_content) > 0 && empty($space_book)) {
+          gofast_cmis_create_space_book($group_parent_gid);
+          $space_book = gofast_cmis_get_book($group_parent_gid);
+          }
+          if (count($wiki_content) > 0) {
+          foreach($wiki_content as $content) {
+          if($content->nid != $nid){
+          // we add the article in the target list only if it is not already in the space book
+          empty(gofast_cmis_get_book($content->nid, TRUE)) && $must_update_articles[] = ['nid' => $content->nid, 'bid' => $group_parent_gid, 'plid' => $space_book[0]->mlid];
+          }
+          }
+          }
+          gofast_book_add_pages($must_update_articles);
+         */
+
+
+        /*         * **************** 4 - Fixed wiki node emplacement  ***************************************** */
+        watchdog('gofast_cmis', '%name() --- Rebuild emplacement (in node) for %nid ---', array('%name' => __FUNCTION__, '%nid' => $nid));
+        //gofast_cmis_update_7710() for one item
+
+        $node = node_load($nid, NULL, TRUE);
+        $parent = gofast_cmis_item_get_parent($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']);
+        $parents_formatted = array();
+
+        if (count($parent->objectList) > 0) {
+          foreach ($parent->objectList as $myparent) {
+            $parents_formatted[] = array("value" => $myparent->properties["cmis:path"]);
+          }
+        }
+        if ($node->status != 0) { //Node is published
+          $is_equal = $parents_formatted === $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE];
+          if ($is_equal === false && $user->uid != 1) {
+            $nb_broken_wiki++;
+
+            //Only rebuild if article is not multifiled
+            if (count($node->og_group_content_ref[LANGUAGE_NONE]) < 2) {
+              gofast_book_repare_emplacements($node, $parents_formatted);
+              $nb_fixed_wiki++;
+            } else {
+              $wiki_still_broken[] = $node->nid;
+            }
+          }
+        }
+      } catch (Exception $e) {
+        $unfixed_wiki[] = $wiki_nid;
+      }
+      $last_fixed = $wiki_nid;
+  //  }
+  }
+
+  watchdog('gofast_cmis', '%name() --- RESUME : %nb_fixed fixed/ %nb_broken broken wikis', array('%name' => __FUNCTION__, '%nb_fixed' => $nb_fixed_wiki, '%nb_broken' => $nb_broken_wiki));
+  if (count($wiki_still_broken) > 0) {
+    watchdog('gofast_cmis', '%name() --- FIX UNCOMPLETE => could not fixed the following wikis %wikis', array('%name' => __FUNCTION__, '%wikis' => json_encode($wiki_still_broken)));
+  } else {
+    watchdog('gofast_cmis', '%name() --- FIX COMPLETE', array('%name' => __FUNCTION__));
+  }
+  variable_del('gf_all_wiki');
+  watchdog('gofast_cmis', '%name() --- END --', array('%name' => __FUNCTION__));
 }
 
 /**

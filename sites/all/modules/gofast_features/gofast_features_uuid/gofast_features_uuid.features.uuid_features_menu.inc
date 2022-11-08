@@ -736,7 +736,7 @@ function gofast_features_uuid_menu_default_uuid_features_menu() {
     'menu_name' => 'main-menu',
     'link_path' => 'node/add/article',
     'router_path' => 'node/add/article',
-    'link_title' => 'Article, Page',
+    'link_title' => 'Wiki article',
     'options' => array(
       'attributes' => array(
         'title' => '',
@@ -1077,8 +1077,6 @@ function gofast_features_uuid_menu_default_uuid_features_menu() {
 
   // Translatables
   // Included for use with string extractors like potx.
-  t('Active contributors');
-  t('Article, Page');
   t('Audit');
   t('Browser');
   t('Cart');
@@ -1116,7 +1114,7 @@ function gofast_features_uuid_menu_default_uuid_features_menu() {
   t('UserList');
   t('Userlists');
   t('Users');
-  t('Webform');
+  t('Wiki article');
   t('Workflows');
 
   return $menu_uuid_links;

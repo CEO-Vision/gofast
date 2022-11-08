@@ -2927,12 +2927,12 @@
   };
 
   Cropper.TEMPLATE = (
-    '<div class="cropper-container">' +
+    '<div class="cropper-container w-100">' +
       '<div class="cropper-wrap-box">' +
         '<div class="cropper-canvas"></div>' +
       '</div>' +
       '<div class="cropper-drag-box"></div>' +
-      '<div class="cropper-crop-box">' +
+      '<div class="cropper-crop-box w-100">' +
         '<span class="cropper-view-box"></span>' +
         '<span class="cropper-dashed dashed-h"></span>' +
         '<span class="cropper-dashed dashed-v"></span>' +

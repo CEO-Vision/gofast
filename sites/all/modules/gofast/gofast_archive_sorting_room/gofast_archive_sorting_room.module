@@ -1,0 +1,1182 @@
+<?php
+
+
+/*Define global variables*/
+define('GOFAST_ARCHIVE_REGISTRE_TRANSFERT', 'GOFAST_ARCHIVE_REGISTRE_TRANSFERT');
+define('GOFAST_ARCHIVE_REGISTRE_EXIT', 'GOFAST_ARCHIVE_REGISTRE_EXIT');
+define('GOFAST_ARCHIVE_REGISTRE_TREATEMENT', 'GOFAST_ARCHIVE_REGISTRE_TREATEMENT');
+define('GOFAST_ARCHIVE_LAST_NUM_TRANSFERT', 'GOFAST_ARCHIVE_LAST_NUM_TRANSFERT');
+define('GOFAST_ARCHIVE_SORTING_ROOM_END_DATE_NOTIFY', 'GOFAST_ARCHIVE_SORTING_ROOM_END_DATE_NOTIFY');
+define('GOFAST_ARCHIVES_SPACES_NIDS', 'GOFAST_ARCHIVES_SPACES_NIDS');
+define('GOFAST_ARCHIVES_ULID', 'GOFAST_ARCHIVES_ULID');
+define('GOFAST_ARCHIVES_FOLDERS_REFS', 'GOFAST_ARCHIVES_FOLDERS_REFS');
+define('GOFAST_ARCHIVISTS_NOT_REGISTRED', 'GOFAST_ARCHIVISTS_NOT_REGISTRED');
+define('GOFAST_ARCHIVISTS_REGISTRED', 'GOFAST_ARCHIVISTS_REGISTRED');
+define('GOFAST_ARCHIVE_FIELDS_INSTANCES', 'GOFAST_ARCHIVE_FIELDS_INSTANCES');
+
+/*
+ * hook_init()
+ */
+function gofast_archive_sorting_room_init(){
+    drupal_add_css(drupal_get_path('module', 'gofast_archive_sorting_room') . "/css/gofast_archive_sorting_room_style.css");
+    drupal_add_js(drupal_get_path('module', 'gofast_archive_sorting_room') . "/js/gofast_archive_sorting_room.js");
+}
+
+/*
+ * hook_menu
+ */
+function gofast_archive_sorting_room_menu(){
+
+    $items = array();
+    $items['modal/%ctools_js/toggle_to_sorting_room'] = array(
+    'title' => t('Transfert to Sorting room', array(), array('context' => 'gofast:gofast_archive_sorting_room')),
+    'page callback' => 'gofast_modal_toggle_to_sorting_room',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'type' => MENU_CALLBACK,
+  );
+
+    $items['modal/%ctools_js/sorting_room_action'] = array(
+    'title' => t('Sorting Room actions', array(), array('context' => 'gofast:gofast_archive_sorting_room')),
+    'page callback' => 'gofast_modal_sorting_room_action',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'type' => MENU_CALLBACK,
+  );
+
+    $items['modal/%ctools_js/toggle_to_transfer_room'] = array(
+    'title' => t('Toggle to Transfer room', array(), array('context' => 'gofast_archive_sorting_room')),
+    'page callback' => 'gofast_modal_toggle_to_transfer_room',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+
+  }
+/*
+ * Hook_theme
+ */
+function gofast_archive_sorting_room_theme(){
+
+    $theme = array();
+    $theme['gofast-archive-sorting-room-notification'] = array(
+    'template' => 'tpl/gofast-archive-sorting-room-notification'
+  );
+
+  return $theme;
+}
+
+
+/*
+ *
+ */
+function gofast_archive_sorting_room_multifilling_to_pre_transfer_room( $node ){
+
+  global $cmis_as_publisher;
+  global $cmis_sudo_admin;
+  $cmis_as_publisher = true;
+  $cmis_sudo_admin = true;
+
+
+  //Save old emplacements before add Pre transfer room
+  $old_locations = array();
+  foreach ($node->field_emplacement[LANGUAGE_NONE] as $old_location) {
+    //If DUA was apply before don't reach this code
+    if(in_array($old_location['value'],array_column($node->field_archive_old_emplacements['und'], 'value')) == false && $old_location['value'] !== "/Sites/_Groups/_Archives/_Pre salle de transfert"){
+      $node->field_archive_old_emplacements['und'][] = array(
+        'value' => $old_location['value'],
+        'format' => '',
+        'safe_value' => $old_location['value']
+      );
+    }
+  }
+  node_save($node);
+
+  //Multifille node to Pre transfer room
+  $location = '/Sites/_Groups/_Archives/_Pre salle de transfert';
+  $node->field_emplacement[LANGUAGE_NONE][] = array('value' => $location);
+
+  $locations_to_send = array();
+  foreach ($node->field_emplacement[LANGUAGE_NONE] as $location_to_send) {
+    $locations_to_send[] = $location_to_send['value'];
+  }
+
+  $field = GOFAST_CMIS_LOCATIONS_FIELD;
+  $_POST['pk'] = $node->nid;
+  $_POST['name'] = $field;
+  $_POST['value'] = $locations_to_send;
+  $_POST['non_xeditable'] = TRUE;
+  unset($_POST['vid']);
+
+  gofast_update_node_field();
+  $node = node_load($node->nid, null, true);
+
+  $registerTransfer = variable_get(GOFAST_ARCHIVE_REGISTRE_TRANSFERT);
+  $registerTransfer++;
+  variable_set(GOFAST_ARCHIVE_REGISTRE_TRANSFERT, $registerTransfer);
+
+  return $node;
+}
+
+
+/*
+ * This function manage cycle life of archived document
+ * $params = array(
+        'final_action'  =>  $finalAction,
+        'transfer_num'  =>  $transfer_num,
+        'transfer_name' =>  $transferName,
+        'transfer_actor' =>  $transfer_actor,
+        'date_entry_sr' =>  date('d-m-Y')
+    );
+ */
+function gofast_archive_sorting_room_toggle_to_Sorting_room( $node, $params){
+
+    $node->field_archive_final_action['und']['0']['value']   = $params['final_action'];
+    $node->field_archive_transfer_name['und']['0']['value']  = $params['transfer_name'];
+    $node->field_archive_transfer_num['und']['0']['value']   = $params['transfer_num'];
+    $node->field_archive_date_entry_sr['und']['0']['value']  = $params['date_entry_sr'];
+    $transferActor = user_load($params['transfer_actor']);
+    $node->field_archive_transfer_actor['und']['0']['value'] = $transferActor->ldap_user_displayname['und']['0']['value'];
+    $node->field_archive_quote['und']['0']['value'] = $params['archive_quote'];
+    // save node
+    node_save($node);
+
+    //save old empalcements, nid, creator in data base
+    //gofast_archive_sorting_room_insert_db( $nodes );
+
+    // if document is ready to store
+    if($params['final_action'] == 'Store'){
+
+        $new_location = '/Sites/_Groups/_Archives/_Salle de tri/Non traité';
+        gofast_archive_sorting_room_manage_locations( $node, $new_location );
+
+    }
+
+    // if document needs sorting and some mofifications metadata
+    if($params['final_action'] == 'Sorting'){
+        $new_location = '/Sites/_Groups/_Archives/_Salle de tri/Non traité';
+        gofast_archive_sorting_room_manage_locations( $node, $new_location );
+
+    }
+    // if document must be destroyed
+    if($params['final_action'] == 'Destroy'){
+
+        $new_location = '/Sites/_Groups/_Archives/_Salle de tri/Non traité';
+        gofast_archive_sorting_room_manage_locations( $node, $new_location );
+
+    }
+
+    //update aspect of node in alfresco
+    gofast_cmis_update_aspect_properties( $node );
+}
+
+
+function gofast_archive_sorting_room_manage_locations( $node, $new_location ){
+
+    $nid= $node->nid;
+
+    $locations_final[] = $new_location;
+
+    //Update locations
+    $_POST['pk'] = $nid;
+    $_POST['name'] = GOFAST_CMIS_LOCATIONS_FIELD;
+    $_POST['value'] = $locations_final;
+    $_POST['non_xeditable'] = TRUE;
+    gofast_update_node_field();
+
+    //Reload node, cleaning cache
+    gofast_process_location_check_async($nid, true, false, true);
+    $node = node_load($nid, NULL, TRUE);
+
+}
+
+/*
+ *
+ */
+function gofast_archive_sorting_room_alter_cmis_update_aspect_properties( $wrapper, $properties){
+
+    $properties['gofast:transferNum'] = $wrapper->field_archive_transfer_num->value()!== NULL ? $wrapper->field_archive_transfer_num->value() : "";
+    $properties['gofast:transferName'] = $wrapper->field_archive_transfer_name->value()!== NULL ? $wrapper->field_archive_transfer_name->value() : "";
+    $properties['gofast:actor_transfer'] = $wrapper->field_archive_transfer_actor->value()!== NULL ? $wrapper->field_archive_transfer_actor->value() : "";
+    $properties['gofast:date_entry_sr']  = $wrapper->field_archive_date_entry_sr->value()!== NULL ? $wrapper->field_archive_date_entry_sr->value() : "";
+    $properties['gofast:final_fate'] = $wrapper->field_archive_final_action->value()!== Null ? $wrapper->field_archive_final_action->value() : "";
+    $properties['gofast:date_exit_sr'] = $wrapper->field_archive_date_exit_sr->value()!== NULL ? $wrapper->field_archive_date_exit_sr->value() : "";
+    $properties['gofast:quote'] = $wrapper->field_archive_quote->value()!== NULL ? $wrapper->field_archive_quote->value() : "";
+    $properties['gofast:destruction_app_num'] = $wrapper->field_archive_certi_destr_num->value()!== NULL ? $wrapper->field_archive_certi_destr_num->value() : "";
+    $properties['gofast:ext_trans_app_num'] = $wrapper->field_archive_depo_slip_num->value()!== NULL ? $wrapper->field_archive_depo_slip_num->value() : "";
+
+    return $properties;
+}
+
+
+/*
+ *
+ */
+function gofast_archive_sorting_room_Toggle_to_transfer_room_form($form, &$form_state){
+
+  global $user;
+  $selected_items_paths = array();
+  $selected_items_json = array();
+
+  if( isset($_GET['nid']) ){
+
+    $form['selected_items_nids'] = array(
+      '#type' => 'hidden',
+      '#value' => $_GET['nid']
+    );
+
+  }elseif(variable_get("ithit_bulk_".$user->uid, NULL)){
+      $selected_items_json = json_decode(rawurldecode(variable_get("ithit_bulk_".$user->uid, NULL)));
+      //variable_del("ithit_bulk_".$user->uid);
+
+      $items_by_type = array();
+      foreach ($selected_items_json as $selected_item_type) {
+         $items_by_type[$selected_item_type->type][] = $selected_item_type->url;
+      }
+      $rendered_items = '<h2>' . t('Selected document(s):', array(), array('context' => 'gofast:gofast_archive_sorting_room')) . '</h2>';
+      foreach ($items_by_type as $key => $item) {
+         $rendered_items .= '<ul><li>' . implode('</li><li>', $item) . '</li></ul>';
+         $selected_items_paths[] = $item;
+      }
+      $selected_items_nids = array();
+      foreach( $selected_items_paths as $selected_item_path ){
+         foreach($selected_item_path as $path){
+             $path = substr($path, strlen('/alfresco/webdav'));
+             $node = gofast_cmis_item_get_by_path($path, FALSE);
+             $selected_items_nids[] = $node->properties['gofast:nid'];
+         }
+      }
+
+      $form['selected_items_nids'] = array(
+         '#type' => 'hidden',
+         '#value' => $selected_items_nids
+      );
+    }
+
+  $form['user_id'] = array(
+      '#type' => 'hidden',
+      '#value' => $user->uid
+  );
+
+  $form['note'] = array(
+    '#markup' =>
+        '<p>Les documents seront transférés en permanence dans la salle de Transfert pour être stockés en dehors de la plateforme Gofast. Cette opération est irréversible!</p>',
+      );
+   $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t("Validate", array(), array('context' => 'gofast:gofast_archive_sorting_room')),
+   );
+  return $form;
+}
+
+/*
+ *
+ */
+function gofast_archive_sorting_room_Toggle_to_transfer_room_form_submit($form, &$form_state){
+
+    $transfer_actor = $form_state["values"]['user_id'];
+    $params = array(
+        'transfer_actor' =>  $transfer_actor,
+        'date_exit_sr' =>  date('d-m-Y')
+    );
+
+
+    $result = $form_state["values"]['selected_items_nids'];
+    if(is_array($result)){
+
+        foreach($result as $nid){
+        watchdog('isma_debug', ' id of node :'.$nid);
+            if(!empty($nid)){
+                $node = node_load($nid);
+                gofast_archive_sorting_room_toggle_to_transfer_room( $node, $params );
+            }
+        }
+    }else{
+        $node = node_load($result);
+        gofast_archive_sorting_room_toggle_to_transfer_room( $node, $params );
+    }
+
+    $registerExit = variable_get(GOFAST_ARCHIVE_REGISTRE_EXIT);
+    $registerExit++;
+    variable_set(GOFAST_ARCHIVE_REGISTRE_EXIT, $registerExit);
+}
+
+/*
+ *
+ */
+function gofast_archive_sorting_room_toggle_to_transfer_room( $node, $params ){
+
+    $node->field_archive_date_exit_sr['und']['0']['value']  = $params['date_exit_sr'];
+    $transferActor = user_load($params['transfer_actor']);
+    $node->field_archive_transfer_actor['und']['0']['value'] = $transferActor->ldap_user_displayname['und']['0']['value'];
+    // save node
+    node_save($node);
+
+    $new_location = '/Sites/_Groups/_Archives/_Salle de transfert';
+    gofast_archive_sorting_room_manage_locations( $node, $new_location );
+
+    //update aspect of node in alfresco
+    gofast_cmis_update_aspect_properties( $node );
+
+}
+
+
+/*
+ *
+ */
+function gofast_archive_sorting_room_action_sorting_form($form, &$form_state){
+
+  global $user;
+
+  $selected_items_paths = array();
+  $selected_items_json = array();
+
+  if( isset($_GET['nid']) ){
+
+    $form['selected_items_nids'] = array(
+      '#type' => 'hidden',
+      '#value' => $_GET['nid']
+    );
+
+  }elseif(variable_get("ithit_bulk_".$user->uid, NULL)){
+      $selected_items_json = json_decode(rawurldecode(variable_get("ithit_bulk_".$user->uid, NULL)));
+      //variable_del("ithit_bulk_".$user->uid);
+
+      $items_by_type = array();
+      foreach ($selected_items_json as $selected_item_type) {
+         $items_by_type[$selected_item_type->type][] = $selected_item_type->url;
+      }
+      $rendered_items = '<h2>' . t('Selected document(s):', array(), array('context' => 'gofast:gofast_archive_sorting_room')) . '</h2>';
+      foreach ($items_by_type as $key => $item) {
+         $rendered_items .= '<ul><li>' . implode('</li><li>', $item) . '</li></ul>';
+         $selected_items_paths[] = $item;
+      }
+      $selected_items_nids = array();
+      foreach( $selected_items_paths as $selected_item_path ){
+         foreach($selected_item_path as $path){
+             $path = substr($path, strlen('/alfresco/webdav'));
+             $node = gofast_cmis_item_get_by_path($path, FALSE);
+             $selected_items_nids[] = $node->properties['gofast:nid'];
+         }
+      }
+
+      $form['selected_items_nids'] = array(
+         '#type' => 'hidden',
+         '#value' => $selected_items_nids
+      );
+    }
+
+    $form['user_id'] = array(
+      '#type' => 'hidden',
+      '#value' => $user->uid
+    );
+    $form['Sorting_action'] = array(
+    '#title' => t('Sorting actions',array(),array('context' => 'gofast:gofast_archive_sorting_room')),
+    '#type' => 'select',
+    '#options' => array('Traité','Eliminé','En cours','Non traité')
+    );
+    $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t("Validate", array(), array('context' => 'gofast:gofast_archive_sorting_room')),
+    );
+  return $form;
+}
+
+/*
+ * hook_submit()
+ * Final action select : 0 -> treated, 1 -> eliminate, 2 -> in progress
+ */
+function gofast_archive_sorting_room_action_sorting_form_submit($form, &$form_state) {
+
+  if ($form_state["values"]['Sorting_action'] == '0') {
+    $finalAction = 'Store';
+  } elseif ($form_state["values"]['Sorting_action'] == '1') {
+    $finalAction = 'Destroy';
+  } elseif ($form_state["values"]['Sorting_action'] == '2') {
+    $finalAction = 'Sorting';
+  } elseif ($form_state["values"]['Sorting_action'] == '3') {
+    $finalAction = 'Non traité';
+  }
+  $transfer_actor = $form_state["values"]['user_id'];
+
+  $params = array(
+    'final_action'  =>  $finalAction,
+    'transfer_actor' =>  $transfer_actor
+  );
+
+  $result = $form_state["values"]['selected_items_nids'];
+  if (is_array($result)) {
+    foreach ($result as $nid) {
+      watchdog('isma_debug', ' id of node :' . $nid);
+      if (!empty($nid)) {
+        $node = node_load($nid);
+        gofast_archive_sorting_room_action_sorting_room($node, $params);
+      }
+    }
+  } else {
+    $node = node_load($result);
+    gofast_archive_sorting_room_action_sorting_room($node, $params);
+  }
+}
+
+function gofast_archive_sorting_room_action_sorting_room( $node, $params ){
+
+    //$node->field_archive_final_action['und']['0']['value']  = $params['final_action'];
+    $transferActor = user_load($params['transfer_actor']);
+    $node->field_archive_transfer_actor['und']['0']['value'] = $transferActor->ldap_user_displayname['und']['0']['value'];
+    // save node
+    node_save($node);
+
+
+    //document is ready to store
+    if($params['final_action'] == 'Store'){
+        $new_location = '/Sites/_Groups/_Archives/_Salle de tri/Traité';
+        gofast_archive_sorting_room_manage_locations( $node, $new_location );
+
+    }
+
+    // if document needs sorting and some mofifications metadata
+    if($params['final_action'] == 'Sorting'){
+        $new_location = '/Sites/_Groups/_Archives/_Salle de tri/En cours';
+        gofast_archive_sorting_room_manage_locations( $node, $new_location );
+
+    }
+
+    // if document must be destroyed
+    if($params['final_action'] == 'Destroy'){
+        $new_location = '/Sites/_Groups/_Archives/_Salle de tri/Eliminé';
+        gofast_archive_sorting_room_manage_locations( $node, $new_location );
+
+    }
+
+    if($params['final_action'] == 'Non traité'){
+        $new_location = '/Sites/_Groups/_Archives/_Salle de tri/Non traité';
+        gofast_archive_sorting_room_manage_locations( $node, $new_location );
+
+}
+}
+
+
+
+/*
+ *
+ */
+function gofast_archive_sorting_room_form($form, &$form_state){
+
+  global $user;
+
+  $selected_items_paths = array();
+  $selected_items_json = array();
+
+  if( isset($_GET['nid']) ){
+
+    $form['selected_items_nids'] = array(
+      '#type' => 'hidden',
+      '#value' => $_GET['nid']
+    );
+
+  }elseif(variable_get("ithit_bulk_".$user->uid, NULL)){
+      $selected_items_json = json_decode(rawurldecode(variable_get("ithit_bulk_".$user->uid, NULL)));
+      //variable_del("ithit_bulk_".$user->uid);
+
+      $items_by_type = array();
+      foreach ($selected_items_json as $selected_item_type) {
+         $items_by_type[$selected_item_type->type][] = $selected_item_type->url;
+      }
+      $rendered_items = '<h2>' . t('Selected document(s):', array(), array('context' => 'gofast:gofast_archive_sorting_room')) . '</h2>';
+      foreach ($items_by_type as $key => $item) {
+         $rendered_items .= '<ul><li>' . implode('</li><li>', $item) . '</li></ul>';
+         $selected_items_paths[] = $item;
+      }
+      //watchdog('isma_debug', print_r($selected_items_paths, true));
+      $selected_items_nids = array();
+      foreach( $selected_items_paths as $selected_item_path ){
+         foreach($selected_item_path as $path){
+             $path = substr($path, strlen('/alfresco/webdav'));
+             $node = gofast_cmis_item_get_by_path($path, FALSE);
+             $selected_items_nids[] = $node->properties['gofast:nid'];
+         }
+      }
+
+      $form['selected_items_nids'] = array(
+         '#type' => 'hidden',
+         '#value' => $selected_items_nids
+      );
+    }
+
+
+  $form['user_id'] = array(
+      '#type' => 'hidden',
+      '#value' => $user->uid
+  );
+
+  $form['name_transfert'] = array(
+    '#title' => t('Transfer Name',array(),array('context' => 'gofast:gofast_archive_sorting_room')),
+    '#type' => 'textfield',
+    '#required' => 'required'
+  );
+  $form['archive_quote'] = array(
+    '#title' => t('Quote',array(),array('context' => 'gofast:gofast_archive_sorting_room')),
+    '#type' => 'textfield'
+  );
+
+  $form['final_action'] = array(
+    '#title' => t('Final action',array(),array('context' => 'gofast:gofast_archive_sorting_room')),
+    '#type' => 'select',
+    '#options' => array(
+      t('Store', array(), array('context' => 'gofast:gofast_archive_sorting_room')),
+      t('Destroy', array(), array('context' => 'gofast:gofast_archive_sorting_room')),
+      t('Sort', array(), array('context' => 'gofast:gofast_archive_sorting_room')))
+  );
+
+  $form['list_nodes'] = array(
+    '#markup' => $rendered_items,
+  );
+
+  $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t("Transfert to Sorting room", array(), array('context' => 'gofast:gofast_archive_sorting_room')),
+  );
+  return $form;
+}
+
+/*
+ * hook_submit()
+ * Final action select : 0 -> Store, 1 -> Destroy, 2 -> Sorting
+ */
+function gofast_archive_sorting_room_form_submit($form, &$form_state) {
+
+    $transfer_num = gofast_archive_sorting_room_generate_transfert_num();
+    $transferName = $form_state["values"]['name_transfert'];
+    if($form_state["values"]['final_action'] == '0'){
+        $finalAction = 'Store';
+    }elseif ($form_state["values"]['final_action'] == '1'){
+        $finalAction = 'Destroy';
+    }elseif ($form_state["values"]['final_action'] == '2') {
+        $finalAction = 'Sorting';
+    }
+    $transfer_actor = $form_state["values"]['user_id'];
+    $quote = $form_state["values"]['archive_quote'];
+
+    $params = array(
+        'final_action'  =>  $finalAction,
+        'transfer_num'  =>  $transfer_num,
+        'transfer_name' =>  $transferName,
+        'archive_quote' =>  $quote,
+        'transfer_actor' =>  $transfer_actor,
+        'date_entry_sr' =>  date('d-m-Y')
+    );
+
+    $result = $form_state["values"]['selected_items_nids'];
+    if(is_array($result)){
+
+        foreach($result as $nid){
+        watchdog('isma_debug', ' id of node :'.$nid);
+            if(!empty($nid)){
+                $node = node_load($nid);
+                gofast_archive_sorting_room_toggle_to_Sorting_room( $node, $params );
+            }
+        }
+    }else{
+        $node = node_load($result);
+        gofast_archive_sorting_room_toggle_to_Sorting_room( $node, $params );
+    }
+
+    $registerTreatement = variable_get(GOFAST_ARCHIVE_REGISTRE_TREATEMENT);
+    $registerTreatement++;
+    variable_set(GOFAST_ARCHIVE_REGISTRE_TREATEMENT, $registerTreatement);
+}
+
+function gofast_archive_sorting_room_generate_transfert_num(){
+
+    $last_transfert_num = variable_get(GOFAST_ARCHIVE_LAST_NUM_TRANSFERT);
+    $last_transfert_num++;
+    variable_set(GOFAST_ARCHIVE_LAST_NUM_TRANSFERT, $last_transfert_num);
+    $last_transfert_num = date('Y').'_'.$last_transfert_num;
+    return $last_transfert_num;
+}
+
+/*
+ * Build modal archive sorting room
+ */
+function gofast_modal_toggle_to_sorting_room($js){
+
+  $form_id = 'gofast_archive_sorting_room_form';
+
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'title' => t('Transfert to Sorting room', array(), array('context' => 'gofast:gofast_archive_sorting_room')),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id,
+      $form_state
+    );
+
+  if ($form_state['executed']) {
+    if (isset($_GET['nid'])) {
+      $commands[] = gofast_command_processAjax("/node/{$_GET['nid']}");
+    }
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+  exit;
+}
+
+/*
+ * Build modal archive sorting actions
+ */
+function gofast_modal_sorting_room_action($js){
+
+  $form_id = 'gofast_archive_sorting_room_action_sorting_form';
+
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'title' => t('Sorting Room actions', array(), array('context' => 'gofast:gofast_archive_sorting_room')),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if ($form_state['executed']) {
+    if (isset($_GET['nid'])) {
+      $commands[] = gofast_command_processAjax("/node/{$_GET['nid']}");
+    }
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+  exit;
+}
+
+
+function gofast_modal_toggle_to_transfer_room($js){
+
+  $form_id = 'gofast_archive_sorting_room_Toggle_to_transfer_room_form';
+
+  if (!$js) {
+    $form = drupal_get_form($form_id);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'title' => t('Toggle to Transfer room', array(), array('context' => 'gofast:gofast_archive_sorting_room')),
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if ($form_state['executed']) {
+    if (isset($_GET['nid'])) {
+      $commands[] = gofast_command_processAjax("/node/{$_GET['nid']}");
+    }
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+  exit;
+
+}
+
+/*
+ * Implements hook_alter_mass_actions_on_selected_items
+ */
+function gofast_archive_sorting_room_alter_mass_actions_on_selected_items($actions, $contains_space, $contains_folder, $selected){
+
+  $is_archived = true;
+  foreach ($selected as $path) {
+    $path = substr($path, strlen('/alfresco/webdav'));
+    $path_decoded = rawurldecode($path);
+    $nid = gofast_ajax_file_browser_get_nid_from_href($path_decoded);
+    if($is_archived = true){
+      $is_archived = gofast_get_content_state_archived(node_load($nid));
+    }
+    $path = str_replace('%20', ' ', $path);
+    if (stripos($path, 'Pre salle de transfert')) {
+      $name_emplacement = 'Pre salle de transfert';
+    } elseif (stripos($path, 'En cours')) {
+      $name_emplacement = 'En cours';
+    } elseif (stripos($path, 'Eliminé')) {
+      $name_emplacement = 'Eliminé';
+    } elseif (stripos($path, 'Traité')) {
+             $name_emplacement = 'Traité';
+          }
+          break;
+    }
+
+
+    $attr = array(
+        'onClick' => "Gofast.gofast_sorting_room.BuildSortingRoomModal(event)"
+    );
+    if(!$contains_space && !$contains_folder && gofast_archive_sorting_room_is_archivist() && $is_archived ){
+        if($name_emplacement == 'Pre salle de transfert'){
+            $actions[]['themed'] = '<li>' .  gofast_dropdown_link(t('Transfert to Sorting room', array(), array('context' => 'gofast:gofast_archive_sorting_room')), '/modal/nojs/toggle_to_sorting_room', 'toggle_str_span', 'ctools-use-modal toggle_sorting_room', 'fa fa-exchange', $attr). '</li>';
+
+        }elseif($name_emplacement == 'En cours' || $name_emplacement == 'Eliminé'){
+            $actions[]['themed'] = '<li>' .  gofast_dropdown_link(t('Sorting room actions', array(), array('context' => 'gofast:gofast_archive_sorting_room')), '/modal/nojs/sorting_room_action', 'action_str_span', 'ctools-use-modal action_sorting_room', 'fa fa-exchange', $attr). '</li>';
+
+        }elseif($name_emplacement == 'Traité'){
+            $actions[]['themed'] = '<li>' .  gofast_dropdown_link(t('Toggle to Transfer room', array(), array('context' => 'gofast:gofast_archive_sorting_room')), '/modal/nojs/toggle_to_transfer_room', 'toggle_tr_span', 'ctools-use-modal toggle_transfer_room', 'fa fa-exchange', $attr). '</li>';
+
+        }
+    }
+    return $actions;
+}
+
+/*
+ * Display actions sorting room in contextuel menu node according to space room
+ */
+function gofast_archive_sorting_room_node_available_actions($actions, $node){
+
+    $attr = array();
+    $node_locations = $node->field_emplacement;
+    $node_emplacement = $node->field_main_emplacement['und']['0']['value'];
+    $is_archived = gofast_get_content_state_archived($node);
+    if( gofast_archive_sorting_room_is_archivist() && $is_archived ){
+      foreach($node_locations as $location){
+        if(count($location) > 1 || count($location) == 1 && stripos($location[0]['value'], 'Pre salle de transfert')){
+          foreach($location as $path){
+            if(stripos($path['value'],'Pre salle de transfert')){
+                 $actions[] = '<li>' .  gofast_dropdown_link(t('Transfert to Sorting room', array(), array('context' => 'gofast:gofast_archive_sorting_room')), '/modal/nojs/toggle_to_sorting_room?nid='.$node->nid, 'toggle_str_span', 'ctools-use-modal toggle_sorting_room', 'fa fa-exchange', $attr). '</li>';
+                 break;
+               }
+            }
+        }elseif (stripos($node_emplacement,'En cours')|| stripos($node_emplacement, 'Eliminé') || stripos($node_emplacement,'Non traité')){
+                $actions[] = '<li>' .  gofast_dropdown_link(t('Sorting room actions', array(), array('context' => 'gofast:gofast_archive_sorting_room')), '/modal/nojs/sorting_room_action?nid='.$node->nid, 'action_str_span', 'ctools-use-modal action_sorting_room', 'fa fa-exchange', $attr). '</li>';
+            }elseif (stripos($node_emplacement,'Traité')) {
+                $actions[] = '<li>' .  gofast_dropdown_link(t('Toggle to Transfer room', array(), array('context' => 'gofast:gofast_archive_sorting_room')), '/modal/nojs/toggle_to_transfer_room?nid='.$node->nid, 'toggle_tr_span', 'ctools-use-modal toggle_transfer_room', 'fa fa-exchange', $attr). '</li>';
+        }
+      }
+    }
+    return $actions;
+}
+
+/*
+ * Function Unrchive document,
+ *
+ */
+
+function gofast_archive_sorting_room_unarchive_document( $node ){
+
+    $as_admin = true;
+    $main_location = $node->field_main_emplacement['und']['0']['value'];
+    $old_location_item = gofast_cmis_item_get_by_path( $main_location );
+    $old_location_item_id = $old_location_item->properties["alfcmis:nodeRef"];
+
+    $new_location = $node->field_archive_old_emplacements['und']['0']['value'];
+    $new_location_item = gofast_cmis_item_get_by_path( $new_location );
+    $new_location_item_id = $new_location_item->properties["alfcmis:nodeRef"];
+
+    $result = gofast_cmis_item_move(gofast_cmis_node_get_item_id($node), $new_location_item_id,  $old_location_item_id, $as_admin );
+    $node = node_load($node->nid, null, true);
+
+    //GOFAST-6553
+    $node->field_main_emplacement['und']['0']['value'] = $node->field_archive_old_emplacements['und']['0']['value'];
+    node_save($node);
+
+    //set all old multifilles of document
+    $node->field_emplacement = array();
+    foreach( $node->field_archive_old_emplacements as $old_location ){
+       foreach($old_location as $path){
+          $node->field_emplacement[LANGUAGE_NONE][] = array('value' => $path['value']);
+       }
+    }
+
+    $locations_to_send = array();
+    foreach($node->field_emplacement[LANGUAGE_NONE] as $location_to_send){
+        $locations_to_send[] = $location_to_send['value'];
+    }
+
+    $field = GOFAST_CMIS_LOCATIONS_FIELD;
+    $_POST['pk'] = $node->nid;
+    $_POST['name'] = $field;
+    $_POST['value'] = $locations_to_send;
+    $_POST['non_xeditable'] = TRUE;
+    unset($_POST['vid']);
+
+    gofast_update_node_field();
+    $node = node_load($node->nid, null, true);
+
+    // init all archive fields
+    $node->field_archive_final_action = array();
+    $node->field_archive_transfer_name = array();
+    $node->field_archive_transfer_num = array();
+    $node->field_archive_transfer_actor = array();
+    $node->field_archive_date_entry_sr = array();
+    $node->field_archive_date_exit_sr = array();
+    $node->field_archive_quote = array();
+    $node->field_archive_certi_destr_num = array();
+    $node->field_archive_depo_slip_num = array();
+    $node->field_archive_old_emplacements = array();
+    node_save($node);
+
+    //update aspect of node in alfresco
+    gofast_cmis_update_aspect_properties( $node );
+
+    return $node;
+
+}
+
+/*
+ * Implements _alter_admin_retention_settings_form : add Frequence notification sorting room fields form
+ */
+function gofast_archive_sorting_room_alter_admin_retention_settings_form( $form, $units_trad ){
+
+   $form['frequence_sorting']= array(
+    '#type' => 'fieldset',
+    '#title' => t('Frequence notification Sorting Room', array(), array('context' => 'gofast:gofast_retention')),
+    '#collapsible' => FALSE,
+    '#collapsed' => FALSE,
+    '#tree' => TRUE, //Make the form elements keep their tree
+   );
+
+  $form['frequence_sorting']['duration']= array(
+    '#title' => t('Frequence duration', array(), array('context' => 'gofast:gofast_retention')),
+    '#type' => 'textfield',
+  );
+
+  $form['frequence_sorting']['select']= array(
+    '#type' => 'select',
+    '#title' => t('Choose Frequence of notification  for Sorting archived documents', array(), array('context' => 'gofast:gofast_retention')),
+    '#options' => $units_trad
+   );
+
+    return $form;
+}
+
+/*
+ * Settings frequence notification
+ */
+function gofast_archive_sorting_room_settings_frequence_notification( $form, &$form_state ){
+
+  $duration = $form_state['values']['frequence_sorting']['duration'];
+  $unit = $form_state['values']['frequence_sorting']['select'];
+  if (!empty($duration)) {
+    if ($unit == 'm') {
+      $endTimestamp = mktime(0, 0, 0, date("m") + $duration, date("d"),   date("Y"));
+    }
+    if ($unit == 'd') {
+      $endTimestamp  = mktime(0, 0, 0, date("m"), date("d") + $duration, date("Y"));
+    }
+    if ($unit == 'y') {
+      $endTimestamp  = mktime(0, 0, 0, date("m"),   date("d"),   date("Y") + $duration);
+    }
+    variable_set(GOFAST_ARCHIVE_SORTING_ROOM_END_DATE_NOTIFY, $endTimestamp);
+  }
+}
+
+/*
+ *
+ */
+function gofast_archive_sorting_room_send_notification(){
+
+  $today = mktime(0, 0, 0, date("m"), date("d"), date("Y"));
+
+  if (!empty(variable_get(GOFAST_ARCHIVE_SORTING_ROOM_END_DATE_NOTIFY))) {
+    $endTimestamp = variable_get(GOFAST_ARCHIVE_SORTING_ROOM_END_DATE_NOTIFY);
+    if ($today == $endTimestamp) {
+      $archivists_userlist_ulid = variable_get(GOFAST_ARCHIVES_ULID);
+      $members_uids = array_keys(gofast_userlist_get_members($archivists_userlist_ulid));
+      $uid_recpts = array();
+      foreach ($members_uids as $member_uid) {
+        $member = user_load($member_uid);
+        // if true check if this is a good mail address
+        if (filter_var($member->mail, FILTER_VALIDATE_EMAIL)) {
+          $uid_recpts[] = $member->mail;
+        }
+      }
+
+      $allNidsArchivesSpaces = variable_get(GOFAST_ARCHIVES_SPACES_NIDS);
+      foreach ($allNidsArchivesSpaces as $archiveSpace) {
+        if ($archiveSpace['space_name'] == 'pre-transfer') {
+          $preTransferRoom_gid = $archiveSpace['nid'];
+          break;
+        }
+      }
+
+      $nids = gofast_og_get_content($preTransferRoom_gid, false);
+      $infos = array();
+      foreach ($nids as $nid) {
+        $item = node_load($nid);
+        if ($item->type == 'alfresco_item') {
+          $infos[] = array(
+            'uid_product' => $item->uid,
+            'title' => $item->title,
+            'emplacements' =>  $item->field_emplacement
+          );
+        }
+      }
+
+      if (count($uid_recpts) > 0) {
+        foreach ($uid_recpts as $uid_recpt) {
+          $uid_formated = array(array('recpt' => $uid_recpt, 'method' => 'to'));
+          $subject = t('Sorting room is waiting for you', array(), array('context' => 'gofast:gofast_archive_sorting_room'));
+          $title = t("Sorting archived ducuments", array(), array('context' => 'gofast:gofast_archive_sorting_room'));
+          $footer = t('Message sent from %site_name', array('%site_name' => variable_get('site_name', 'GoFAST')), array('context' => 'gofast'));
+          $body = theme('gofast-archive-sorting-room-notification', array('infos' => $infos));
+          gofast_mail_queue_api_send_mail($subject, $title, $footer, $body, $uid_formated);
+        }
+      }
+    }
+  }
+}
+
+/*
+ * Add a cron to check if it's time to send notification to Archivits
+ */
+
+function gofast_archive_sorting_room_cron(){
+
+  $hour = date("G");
+  $minute = date("i");
+  if ($hour == 12 && $minute == 00) {
+    gofast_archive_sorting_room_send_notification();
+  }
+}
+
+
+/*
+ * Check if global user is archivist
+ */
+function gofast_archive_sorting_room_is_archivist(){
+
+    global $user;
+    $current_user_id = $user->uid;
+    $uid_archivists = array();
+    $ulid = variable_get(GOFAST_ARCHIVES_ULID);
+    $userlist_uids = gofast_userlist_get_members($ulid) ;
+    foreach( $userlist_uids  as  $key => $value){
+        $uid_archivists[] = $key;
+    }
+
+    $spacesNamesNids = variable_get(GOFAST_ARCHIVES_SPACES_NIDS);
+    foreach($spacesNamesNids as $spaceNid){
+        $gid = $spaceNid['nid'];
+        $space = node_load($gid);
+        if(!empty($space)){
+        $members_uids = gofast_og_get_members($space);
+        foreach ($members_uids as $member_uid){
+            $uid_archivists[] = $member_uid;
+        }
+    }
+    }
+    if(in_array($current_user_id, $uid_archivists)){
+        return true;
+    }
+    return false;
+}
+
+/*
+ *
+ */
+function gofast_archive_sorting_room_get_path_space($space_name){
+
+    $allNidsArchivesSpaces = variable_get(GOFAST_ARCHIVES_SPACES_NIDS);
+    foreach ($allNidsArchivesSpaces as $archiveSpace){
+        if( $archiveSpace['space_name'] == $space_name ){
+            $nid = $archiveSpace['nid'];
+            $path = gofast_cmis_space_get_webdav_path($nid);
+        }
+    }
+    return $path;
+}
+
+/**
+ * Implement hook_extra_metadata
+ */
+function gofast_archive_sorting_room_extra_metadata($node)
+{
+
+  $loaded = libraries_load('x-editable');
+  drupal_add_js(drupal_get_path('module', 'gofast') . '/js/gofast_xeditable.js', array('type' => 'file', 'weight' => 5));
+
+
+  $info = array();
+  $links = "";
+  $wrapper = entity_metadata_wrapper("node", $node);
+
+
+  $final_action = $wrapper->{'field_archive_final_action'}->value();
+  if(empty($final_action)){
+    return $info;
+  }
+  $info['node_final_action'] = $final_action ? t($final_action) : 'None';
+
+  $transfer_name = $wrapper->{'field_archive_transfer_name'}->value();
+  $info['node_archive_transfer_name'] = $transfer_name ? $transfer_name : '';
+
+  $transfer_num = $wrapper->{'field_archive_transfer_num'}->value();
+
+  $info['node_transfer_num'] = $transfer_num ? $transfer_num : 'None';
+
+
+  $transfer_actor = $wrapper->{'field_archive_transfer_actor'}->value();
+  $info['node_transfer_actor'] = $transfer_actor ? $transfer_actor : 'None';
+
+  $date_entry_sr = $wrapper->{'field_archive_date_entry_sr'}->value();
+  $info['node_date_entry_sr'] = $date_entry_sr ? $date_entry_sr : 'None';
+
+  $date_exit_sr = $wrapper->{'field_archive_date_exit_sr'}->value();
+  $info['node_date_exit_sr'] = $date_exit_sr ? $date_exit_sr : 'None';
+
+  $certi_destr_num = isset($wrapper->{'field_archive_certi_destr_num'}) ? $wrapper->{'field_archive_certi_destr_num'}->value() : array();
+  $certi_destr_Numbers = array_map(function ($element) {
+    $number = $element;
+    return l($element, $number);
+  }, $certi_destr_num);
+  $info['node_certi_destr_num'] = !empty($certi_destr_num) ? implode('<br />', $certi_destr_Numbers) : '';
+
+  /*$depo_slip_num = $wrapper->{'field_archive_depo_slip_num'}->value();
+        $info['node_depo_slip_num'] = $depo_slip_num ? i18n_taxonomy_localize_terms($depo_slip_num)->name : ''; */
+
+  $depo_slip_num = isset($wrapper->{'field_archive_depo_slip_num'}) ? $wrapper->{'field_archive_depo_slip_num'}->value() : array();
+  $depo_slip_Numbers = array_map(function ($element) {
+    $number = $element;
+    return l($element, $number);
+  }, $depo_slip_num);
+  $info['node_depo_slip_num'] = !empty($depo_slip_num) ? implode('<br />', $depo_slip_Numbers) : '';
+
+  $archive_quote = $wrapper->{'field_archive_quote'}->value();
+  $info['node_archive_quote'] = $archive_quote ? $archive_quote : '';
+
+  $archive_old_emplacements = isset($wrapper->{'field_archive_old_emplacements'}) ? $wrapper->{'field_archive_old_emplacements'}->value() : array();
+  $old_emplacements = array_map(function ($element) {
+    $location = $element;
+    return l($element, $location);
+  }, $archive_old_emplacements);
+  $info['node_old_emplacements'] = !empty($archive_old_emplacements) ? implode('<br />', $old_emplacements) : '';
+
+  // Init variables for taxonomy fields
+  $field_taxonomy = array(
+    'pk' => $node->nid,
+    'type' => 'select2',
+    'showbuttons' => 'bottom',
+    'select2' => array(
+      'multiple' => true,
+      'allowClear' => true,
+    ),
+    'placement' => 'left',
+    'mode' => 'popup',
+    'url' => '/update_node_field',
+    'inputclass' => 'input-extra-large',
+    'delegated' => 'true',
+  );
+
+  $field_node_transfer_name = array(
+    'name' => 'field_archive_transfer_name',
+    'pk' => $node->nid,
+    'value' => $info['node_archive_transfer_name'],
+    'title' => t('Transfer name', array(), array('context' => 'gofast')),
+    'placement' => 'left',
+    'showbuttons' => 'bottom',
+    'emptytext' => t('None', array(), array('context' => 'gofast')),
+    'delegated' => 'true',
+    'url' => '/update_node_field',
+    'mode' => 'popup',
+    'type' => 'typeaheadjs',
+    'wrapper_class' => array(
+      'node-info-archive_transfer_name',
+    )
+  );
+  $info['node_archive_transfer_name'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_node_transfer_name));
+
+  $field_node_archive_quote = array(
+    'name' => 'field_archive_quote',
+    'pk' => $node->nid,
+    'value' => $info['node_archive_quote'],
+    'title' => t('Quote', array(), array('context' => 'gofast')),
+    'placement' => 'left',
+    'showbuttons' => 'bottom',
+    'emptytext' => t('None', array(), array('context' => 'gofast')),
+    'delegated' => 'true',
+    'url' => '/update_node_field',
+    'mode' => 'popup',
+    'type' => 'typeaheadjs',
+    'wrapper_class' => array(
+      'node-info-archive_quote',
+    )
+  );
+  $info['node_archive_quote'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_node_archive_quote));
+
+  $field_node_certi_destr_num = array(
+    'name' => 'field_archive_certi_destr_num',
+    'value' => implode(',', $certi_destr_num),
+    'data' => array('Numbers' => !empty($certi_destr_Numbers) ? $certi_destr_Numbers : null),
+    'title' => t('Certi destruction number', array(), array('context' => 'gofast')),
+    'delegated' => 'true',
+    'emptytext' => t('None', array(), array('context' => 'gofast')),
+    'select2' => array(
+      'tags' => array(),
+      'multiple' => true,
+      'placeholder' => t('Enter number', array(), array('context' => 'gofast')),
+    ),
+  );
+  $field_certi_destr_num = array_replace_recursive($field_taxonomy, $field_node_certi_destr_num);
+  $info['node_certi_destr_num'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_certi_destr_num));
+
+  $field_node_depo_slip_num = array(
+    'name' => 'field_archive_depo_slip_num',
+    'value' => implode(',', $depo_slip_num),
+    'data' => array('Numbers' => !empty($depo_slip_Numbers) ? $depo_slip_Numbers : null),
+    'title' => t('Deposit slip number', array(), array('context' => 'gofast')),
+    'delegated' => 'true',
+    'emptytext' => t('None', array(), array('context' => 'gofast')),
+    'select2' => array(
+      'tags' => array(),
+      'multiple' => true,
+      'placeholder' => t('Enter number', array(), array('context' => 'gofast')),
+    ),
+  );
+  $field_depo_slip_num = array_replace_recursive($field_taxonomy, $field_node_depo_slip_num);
+
+  $info['node_depo_slip_num'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_depo_slip_num));
+
+  $is_archived = gofast_get_content_state_archived($node);
+  if (gofast_archive_sorting_room_is_archivist() && $is_archived) {
+    $node_emplacement = $node->field_main_emplacement['und']['0']['value'];
+    $links .= theme('gofast_node_info_field', array('title' => t('Final action', array(), array('context' => 'gofast:gofast_archive_sorting_room')), 'values' => $info['node_final_action']));
+    $links .= theme('gofast_node_info_field', array('title' => t('Transfer Name', array(), array('context' => 'gofast:gofast_archive_sorting_room')), 'values' => $info['node_archive_transfer_name']));
+    $links .= theme('gofast_node_info_field', array('title' => t('Transfer Number', array(), array('context' => 'gofast:gofast_archive_sorting_room')), 'values' => $info['node_transfer_num']));
+    $links .= theme('gofast_node_info_field', array('title' => t('Transfer Actor', array(), array('context' => 'gofast:gofast_archive_sorting_room')), 'values' => $info['node_transfer_actor']));
+    $links .= theme('gofast_node_info_field', array('title' => t('Date entry in Sorting Room', array(), array('context' => 'gofast:gofast_archive_sorting_room')), 'values' => $info['node_date_entry_sr']));
+    $links .= theme('gofast_node_info_field', array('title' => t('Date exit from Sorting Room', array(), array('context' => 'gofast:gofast_archive_sorting_room')), 'values' => $info['node_date_exit_sr']));
+
+    if (stripos($node_emplacement, 'Eliminé')) {
+      $links .= theme('gofast_node_info_field', array('title' => t('Certi destruction number', array(), array('context' => 'gofast:gofast_archive_sorting_room')), 'values' => $info['node_certi_destr_num']));
+    }
+    if (stripos($node_emplacement, 'Salle de transfert')) {
+
+      $links .= theme('gofast_node_info_field', array('title' => t('Deposit slip number', array(), array('context' => 'gofast:gofast_archive_sorting_room')), 'values' => $info['node_depo_slip_num']));
+    }
+    $links .= theme('gofast_node_info_field', array('title' => t('Quote', array(), array('context' => 'gofast:gofast_archive_sorting_room')), 'values' => $info['node_archive_quote']));
+    $links .= theme('gofast_node_info_field', array('title' => t('Old emplacements', array(), array('context' => 'gofast:gofast_archive_sorting_room')), 'values' => $info['node_old_emplacements']));
+  }
+
+  return $links;
+}

@@ -15,7 +15,7 @@ function theme_process_description($process){
 function theme_link_start_process_popup($variables){
   $process = $variables['process'];
    $reference = utf8_decode($variables["reference"]);
-   if(strpos($reference, "||") == FALSE){
+   if(! str_ends_with(urldecode($reference), '|') ){
        $referenceListe = $reference;
    }else{
        $referenceListe = "";
@@ -23,10 +23,28 @@ function theme_link_start_process_popup($variables){
    $content = $variables["content"];
    $processID = $process["id"];
    $profilID = $variables["profil_id"];
-   $processName = $process["name"]."--".$process["version"];
+   $processName =  $process["name"]."--".$process["version"]."|".t($process["name"], array(), array('context'=> 'gofast:gofast_workflow'))."/".$process["version"] ;
    $title_button = t("Start this workflow", array(), array('context' => 'gofast:gofast_workflows'));
    $output = "<span class=\"btn-process-startit-". $processID."\" onClick='Drupal.gofast_workflows.ceo_vision_js_process_startit(\"".$processID."\", \"".$processName."\", \"".str_replace("'", " ", $reference)."\", \"".$referenceListe. "\" , \"\", \"".$profilID."\")'  id='task_next_".$processID."' style='cursor:pointer;vertical-align: middle;' title='".$title_button."' >".$content."</span>";
 
+   return $output;
+}
+
+function theme_link_start_process_popup_from_cart($variables){
+   $process = $variables['process'];
+   $reference = utf8_decode($variables["reference"]);
+   if(! str_ends_with(urldecode($reference), '|') ){
+       $referenceListe = $reference;
+   }else{
+       $referenceListe = "";
+   }
+
+   $content = $variables["content"];
+   $processID = $process["id"];
+   $profilID = $variables["profil_id"];
+   $processName = $process["name"]."--".$process["version"]."|".t($process["name"], array(), array('context'=> 'gofast:gofast_workflow'))."/".$process["version"] ;
+   $title_button = t("Start this workflow with documents from your cart", array(), array('context' => 'gofast:gofast_workflows'));
+   $output = "<span class=\"btn-process-startit-". $processID."\" onClick='Drupal.gofast_workflows.ceo_vision_js_process_startit(\"".$processID."\", \"".$processName."\", \"".str_replace("'", " ", $reference)."\", \"".$referenceListe. "\" , \"\", \"".$profilID."\")'  id='task_next_".$processID."' style='cursor:pointer;vertical-align: middle;' title='".$title_button."' >".$content."</span>";
    return $output;
 }
 

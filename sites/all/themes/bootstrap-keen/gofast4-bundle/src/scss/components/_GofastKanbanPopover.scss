@@ -1,0 +1,10 @@
+.GofastKanbanPopover {
+
+    width: fit-content !important;
+    width: -moz-fit-content !important;
+    max-width: 150px !important;
+
+    .popover-body {
+        padding: 0.5rem 1rem;
+    }
+}

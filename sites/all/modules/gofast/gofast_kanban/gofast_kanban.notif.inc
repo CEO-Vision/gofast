@@ -382,16 +382,14 @@ function gofast_kanban_is_user_concerned_node($node, $uid) {
 }
 
 /**
- * Check if an immediate notification must be sent to someone
- * @global type $base_url
- * @global type $base_url
+ * Check if a notification must be keep to send later in Cron Job
+ * @global type $user
  * @param type $node
  */
-function gofast_kanban_send_immediate_notification($node) {
-
+function gofast_kanban_send_delayed_notification($node) {
   global $user;
   
-  //If the task modification is about the assignee, the responsible or a checklist assignee, notify the user immediatly   
+  //If the task modification is about the assignee, the responsible or a members, keep change to be proccessed in Cron Job later
   $original_node = $node->original;
   $node_data = gofast_message_ext_split_node($node);
 
@@ -406,6 +404,37 @@ function gofast_kanban_send_immediate_notification($node) {
   $original_node_data = gofast_message_ext_split_node($original_node);
   $node_compare = gofast_kanban_notif_compare_taks($original_node_data, $node_data);
   
+  if(isset($node_compare['person_in_charge']) || isset($node_compare['members']) || isset($node_compare['state'])){
+      $n = variable_get('kanban_notifications',array());
+      if(!isset($n[$node->nid]))$n[$node->nid] = array(); 
+      if(!isset($n[$node->nid]['task'])){
+          $n[$node->nid]['task']= $original_node_data;
+          if(!isset($n[$node->nid]['participants']))$n[$node->nid]['participants'] = array(); 
+      }
+      if(!in_array($user->uid,$n[$node->nid]['participants'])){
+          $n[$node->nid]['participants'][]=$user->uid;
+      }
+      $n[$node->nid]['last_update']=time();
+      variable_set('kanban_notifications', $n);
+  }
+}
+
+/**
+ * Send notifications / compare with original data
+ * @param type INT $nid: Task ID
+ * @param type Array $participants: Array of UID who did change
+ * @param type Array $original_node_data: Original task data before change
+ * @return type Array $sent_to: Array of UID who receive notifications
+ */
+
+function gofast_kanban_send_notification($nid,$participants,$original_node_data){
+ global $base_url;
+  
+ $node=node_load($nid);
+ $node_data = gofast_message_ext_split_node($node);
+ $node_compare = gofast_kanban_notif_compare_taks($original_node_data, $node_data);
+ $sent_to=array();
+ 
  if(isset($node_compare["person_in_charge"])){
 
     $from = gofast_message_ext_api_get_username($node_compare["person_in_charge"]['from']);
@@ -421,144 +450,28 @@ function gofast_kanban_send_immediate_notification($node) {
       foreach ($to as $username) {
         $account = $RecipUser = user_load_by_name($username);
         $recpt = array(array('recpt' => $account->mail, 'method' => 'to'));
-        
-        //Do not send notification if the assignee is the current user
-        if ($account->uid !== $user->uid) {
-
+       
+        //Do not send notification if the user has update the task
+        if (!in_array($account->uid, $participants)) {
           $userName = gofast_user_display_name($account);
           $l = array('langcode' => $RecipUser->language, 'context' => 'gofast_kanban');
-
           $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
-          $document_pic = gofast_mail_queue_fa_png($node_icon);
-
-          
-          $subject = t('Task: You are responsible of "!title"', array('!title'=>$node->title), $l);
-          
+          $document_pic = gofast_mail_queue_fa_png($node_icon);      
+          $subject = t('Task: You are responsible of "!title"', array('!title'=>$node->title), $l);        
           $title = t('New assignation as responsible on a card', array(), $l);
           $footer = t('Message sent from ', array(), $l) . " " . variable_get('site_name');
-          global $base_url;
-          $node_link = $base_url . '/node/' . $node->nid;
-          $description = t('You have been assigned as responsible on the card :', array(), $l);        
-          $description_detail = "<h3>".t('Description', array(), $l)."</h3><pre style='font-family: inherit;font-size: inherit;border: none;background-color: transparent;padding: 8px;'>".urldecode(trim($node->body[LANGUAGE_NONE][0]["value"]))."</pre>";
-          $deadline = new DateTime($node->field_date[LANGUAGE_NONE][0]["value"]);
-          $description_detail .= "<h3>".t('Deadline', array(), $l)."</h3>".format_date($deadline->getTimestamp(),  'short_without_hours');
-          $body = theme('gofast-notifications-node-task-assignee', array(
-              'user_name' => $userName,
+          $node_link = $base_url . '/node/' . $node->nid;        
+          $description = t('You have been assigned as responsible on the card :', array(), $l);
+          $short_without_hours_format = system_date_format_locale($account->language, "short_without_hours");
+          
+          $description_detail = theme('gofast-notifications-node-card-detail', array(
+              'node' => $node,
+              'node_compare' => $node_compare,
               'l' => $l,
-              'node_title' => $node->title,
-              'node_link' => $node_link,
-              'node_icon' => $document_pic,
-              'description' => $description,
-              'description_detail' => $description_detail
-          ));
-          $mail = array(
-              'body' => $body,
-              'title' => $title,
-              'subject' => $subject,
-              'footer' => $footer
-          );
-          gofast_mail_queue_api_queue_ext($mail,  $recpt, time()); 
-        }
-      }
-    }
-    
-  } elseif (isset($node_compare["members"])) {
-    $from = gofast_message_ext_api_get_username($node_compare["members"]['from']);
-    $to = gofast_message_ext_api_get_username($node_compare["members"]['to']);
-    $array_from = explode(",", $from);
-    $array_to = explode(",", $to);
-    $array_from_diff = array_diff($array_from, $array_to);
-    $array_to_diff = array_diff($array_to, $array_from);
-
-    $from = implode(",", $array_from_diff);
-    $to = $array_to_diff;
-    //at this point, $to contains all usersnames added into members, so we can send them immediate notification
-    if (count($to) > 0) {
-      foreach ($to as $username) {
-        $account = $RecipUser = user_load_by_name($username);
-        $recpt = array(array('recpt' => $account->mail, 'method' => 'to'));
-
-        //Do not send notification if the assignee is the current user
-        if ($account->uid !== $user->uid) {
-
-          $userName = gofast_user_display_name($account);
-          $l = array('langcode' => $RecipUser->language, 'context' => 'gofast_kanban');
-
-          $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
-          $document_pic = gofast_mail_queue_fa_png($node_icon);
-
-         
-          $subject = t('Task: You are a member of "!title"', array('!title'=>$node->title), $l);
+              'short_without_hours_format' => $short_without_hours_format
+            ));      
           
-          $title = t('New assignation on a card', array(), $l);
-          $footer = t('Message sent from ', array(), $l) . " " . variable_get('site_name');
-          global $base_url;
-          $node_link = $base_url . '/node/' . $node->nid;
-          $description = t('You have been assigned as participant on the card :', array(), $l);
-          $responsible = user_load($node->field_person_in_charge[LANGUAGE_NONE][0]["target_id"]);
-          $username = theme('username', array('account' => $responsible, 'popup' => FALSE, 'link' => $options['link']));
-          $description_detail = "<h3>".t('Responsible', array(), $l)."</h3>".$username;
-          $description_detail .= "<h3>".t('Description', array(), $l)."</h3><pre style='font-family: inherit;font-size: inherit;border: none;background-color: transparent;padding: 8px;'>".urldecode(trim($node->body[LANGUAGE_NONE][0]["value"]))."</pre>";
-          $deadline = new DateTime($node->field_date[LANGUAGE_NONE][0]["value"]);
-          $description_detail .= "<h3>".t('Deadline', array(), $l)."</h3>".format_date($deadline->getTimestamp(),  'short_without_hours');
-          $body = theme('gofast-notifications-node-task-assignee', array(
-              'user_name' => $userName,
-              'l' => $l,
-              'node_title' => $node->title,
-              'node_link' => $node_link,
-              'node_icon' => $document_pic,
-              'description' => $description,
-              'description_detail' => $description_detail
-          ));
-          $mail = array(
-              'body' => $body,
-              'title' => $title,
-              'subject' => $subject,
-              'footer' => $footer
-          );
-          gofast_mail_queue_api_queue_ext($mail,  $recpt, time()); 
-        }
-      }
-    }
-  } elseif (isset($node_compare["state"])) {
-    
-    $user_responsible = explode(",", gofast_message_ext_api_get_username($original_node_data['person_in_charge']));
-    $array_members = explode(",", gofast_message_ext_api_get_username($original_node_data['members']));
-    
-    $to = array_unique(array_merge($user_responsible, $array_members ));
-
-    if (count($to) > 0) {
-      foreach ($to as $username) {
-        $account = $RecipUser = user_load_by_name($username);
-        $recpt = array(array('recpt' => $account->mail, 'method' => 'to'));
-
-        //Do not send notification if the assignee is the current user
-        if ($account->uid !== $user->uid) {
-
-          $userName = gofast_user_display_name($account);
-          $l = array('langcode' => $RecipUser->language, 'context' => 'gofast_kanban');
-
-          $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
-          $document_pic = gofast_mail_queue_fa_png($node_icon);
           
-          $task_status = $node_compare["state"]['to'];
-          $status =  i18n_taxonomy_localize_terms(taxonomy_term_load($task_status))->name;
-
-        
-          
-          $subject = t('Task: Status "!status" for "!title"', array('!status'=> $status,'!title'=>$node->title), $l);
-          
-          $title = t('Status changed on a card', array(), $l);
-          $footer = t('Message sent from ', array(), $l) . " " . variable_get('site_name');
-          global $base_url;
-          $node_link = $base_url . '/node/' . $node->nid;
-          $description = t('The status of the card changed to : <b>@status</b>', array('@status' => $status), $l);
-          $responsible = user_load($node->field_person_in_charge[LANGUAGE_NONE][0]["target_id"]);
-          $username = theme('username', array('account' => $responsible, 'popup' => FALSE, 'link' => $options['link']));
-          $description_detail = "<h3>".t('Responsible', array(), $l)."</h3>".$username;
-          $description_detail .= "<h3>".t('Description', array(), $l)."</h3><pre style='font-family: inherit;font-size: inherit;border: none;background-color: transparent;padding: 8px;'>".urldecode(trim($node->body[LANGUAGE_NONE][0]["value"]))."</pre>";
-          $deadline = new DateTime($node->field_date[LANGUAGE_NONE][0]["value"]);
-          $description_detail .= "<h3>".t('Deadline', array(), $l)."</h3>".format_date($deadline->getTimestamp(),  'short_without_hours');
           $body = theme('gofast-notifications-node-task-status', array(
               'user_name' => $userName,
               'l' => $l,
@@ -575,11 +488,120 @@ function gofast_kanban_send_immediate_notification($node) {
               'footer' => $footer
           );
           gofast_mail_queue_api_queue_ext($mail,  $recpt, time()); 
+          $sent_to[]=$account->uid;
+        }
+      }
+    }
+ }  
+ if (isset($node_compare["members"])) {
+    $from = gofast_message_ext_api_get_username($node_compare["members"]['from']);
+    $to = gofast_message_ext_api_get_username($node_compare["members"]['to']);
+    $array_from = explode(",", $from);
+    $array_to = explode(",", $to);
+    $array_from_diff = array_diff($array_from, $array_to);
+    $array_to_diff = array_diff($array_to, $array_from);
+
+    $from = implode(",", $array_from_diff);
+    $to = $array_to_diff;
+    if (count($to) > 0) {
+      foreach ($to as $username) {
+        $account = $RecipUser = user_load_by_name($username);
+        $recpt = array(array('recpt' => $account->mail, 'method' => 'to'));
+        //Do not send notification if the user has update the task
+        if (!in_array($account->uid, $participants)) {
+          $userName = gofast_user_display_name($account);
+          $l = array('langcode' => $RecipUser->language, 'context' => 'gofast_kanban');
+          $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
+          $document_pic = gofast_mail_queue_fa_png($node_icon);    
+          $subject = t('Task: You are a member of "!title"', array('!title'=>$node->title), $l);        
+          $title = t('New assignation on a card', array(), $l);
+          $footer = t('Message sent from ', array(), $l) . " " . variable_get('site_name');
+          $node_link = $base_url . '/node/' . $node->nid;
+          $description = t('You have been assigned as participant on the card :', array(), $l);
+          $short_without_hours_format = system_date_format_locale($account->language, "short_without_hours");
+          
+          $description_detail = theme('gofast-notifications-node-card-detail', array(
+              'node' => $node,
+              'node_compare' => $node_compare,
+              'l' => $l,
+              'short_without_hours_format' => $short_without_hours_format
+            )); 
+
+          $body = theme('gofast-notifications-node-task-status', array(
+              'user_name' => $userName,
+              'l' => $l,
+              'node_title' => $node->title,
+              'node_link' => $node_link,
+              'node_icon' => $document_pic,
+              'description' => $description,
+              'description_detail' => $description_detail
+          ));
+          $mail = array(
+              'body' => $body,
+              'title' => $title,
+              'subject' => $subject,
+              'footer' => $footer
+          );
+          gofast_mail_queue_api_queue_ext($mail,  $recpt, time()); 
+          
+          $sent_to[]=$account->uid;
         }
       }
     }
   }
-
+  if (isset($node_compare["state"])) {
+    
+    $user_responsible = explode(",", gofast_message_ext_api_get_username($node_data['person_in_charge']));
+    $array_members = explode(",", gofast_message_ext_api_get_username($node_data['members']));
+    $to = array_unique(array_merge($user_responsible, $array_members ));
+    if (count($to) > 0) {
+      foreach ($to as $username) {
+        $account = $RecipUser = user_load_by_name($username);
+        $recpt = array(array('recpt' => $account->mail, 'method' => 'to'));
+       
+        //Do not send notification if the user has update the task
+        if (!in_array($account->uid, $participants) && !in_array($account->uid,$sent_to)) {
+          $userName = $account->ldap_user_givenname[LANGUAGE_NONE][0]['value'];
+          $l = array('langcode' => $RecipUser->language, 'context' => 'gofast_kanban');
+          $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
+          $document_pic = gofast_mail_queue_fa_png($node_icon);          
+          $task_status = $node_compare["state"]['to'];
+          $status =  i18n_taxonomy_localize_terms(taxonomy_term_load($task_status))->name;      
+          $subject = t('Task: Status "!status" for "!title"', array('!status'=> $status,'!title'=>$node->title), $l);         
+          $title = t('Status changed on a card', array(), $l);
+          $footer = t('Message sent from ', array(), $l) . " " . variable_get('site_name');      
+          $node_link = $base_url . '/node/' . $node->nid;
+          $description = t('The status of the card changed to : <b>@status</b>', array('@status' => $status), $l);
+          $short_without_hours_format = system_date_format_locale($account->language, "short_without_hours");
+          
+          $description_detail = theme('gofast-notifications-node-card-detail', array(
+              'node' => $node,
+              'node_compare' => $node_compare,
+              'l' => $l,
+              'short_without_hours_format' => $short_without_hours_format
+            )); 
+ 
+          $body = theme('gofast-notifications-node-task-status', array(
+              'user_name' => $userName,
+              'l' => $l,
+              'node_title' => $node->title,
+              'node_link' => $node_link,
+              'node_icon' => $document_pic,
+              'description' => $description,
+              'description_detail' => $description_detail
+          ));
+          $mail = array(
+              'body' => $body,
+              'title' => $title,
+              'subject' => $subject,
+              'footer' => $footer
+          );
+          gofast_mail_queue_api_queue_ext($mail,  $recpt, time()); 
+          $sent_to[]=$account->uid;
+        }
+      }
+    }
+  }
 }
 
 /**
@@ -600,4 +622,112 @@ function gofast_kanban_notif_compare_taks($from, $to) {
     }
   }
   return $compare_array;
+}
+
+/**
+ * Send notifications of checks list Items change / compare with original data
+ * @param type INT $nid: Task ID
+ * @param type Array $participants: Array of UID who did change
+ * @param type Array $$old_values_items: original items checklists data before change
+ */
+
+function gofast_kanban_checklistItem_notification($nid,$participants,$old_values_items) {
+    global $base_url;
+   
+    $new_values = gofast_kanban_get_task_checklists($nid);
+    
+    $node = node_load($nid);  
+    foreach ($new_values[0]['items'] as $key => $item) {     
+      $ciid = $item->ciid;
+      
+      if (!in_array($item->uid, $participants)) {
+        $assignation_sent=false;
+        
+        if ($item->uid != $old_values_items[$ciid]->uid) {        
+            $account = $RecipUser = user_load($item->uid);
+            $recpt = array(array('recpt' => $account->mail, 'method' => 'to'));
+
+            $userName = gofast_user_display_name($account);
+            $l = array('langcode' => $RecipUser->language, 'context' => 'gofast_kanban');
+            $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
+            $document_pic = gofast_mail_queue_fa_png($node_icon);      
+            $subject = t('Task: You are assigned on "!title_todo" of the "!title" task', array('!title_todo'=>$item->label,'!title'=>$node->title), $l);
+            $title = t('New assignation on a checklist item', array(), $l);
+            $footer = t('Message sent from ', array(), $l) . " " . variable_get('site_name');     
+            $node_link = $base_url . '/node/' . $node->nid;
+            $description = t('You have been assigned to a checklist element of the card : ', array(), $l);       
+            $short_without_hours_format = system_date_format_locale($account->language, "short_without_hours");    
+            
+            $description_detail = theme('gofast-notifications-node-card-detail', array(
+              'node' => $node,
+              'task' => $item,
+              'l' => $l,
+              'short_without_hours_format' => $short_without_hours_format
+            ));          
+            
+            $body = theme('gofast-notifications-node-task-status', array(
+                'user_name' => $userName,
+                'l' => $l,
+                'node_title' => $node->title,
+                'node_link' => $node_link,
+                'node_icon' => $document_pic,
+                'description' => $description,
+                'description_detail' => $description_detail
+
+            ));
+
+            $mail = array(
+                'body' => $body,
+                'title' => $title,
+                'subject' => $subject,
+                'footer' => $footer
+            );
+            gofast_mail_queue_api_queue_ext($mail, $recpt, time());
+            $assignation_sent=true;
+          }
+          if($item->deadline !=  $old_values_items[$ciid]->deadline && !$assignation_sent && isset($item->uid)){   
+            $account = $RecipUser = user_load($item->uid);
+            $recpt = array(array('recpt' => $account->mail, 'method' => 'to'));
+            $userName = gofast_user_display_name($account);
+            $l = array('langcode' => $RecipUser->language, 'context' => 'gofast_kanban');
+            $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
+            $document_pic = gofast_mail_queue_fa_png($node_icon);  
+            $deadline_formated = format_date($item->deadline, 'short_without_hours', '', NULL, $l); 
+            $subject = t('Task: New deadline on "!deadline" for "!title_todo" of the "!title" task', array('!deadline'=>$deadline_formated,'!title_todo'=>$item->label,'!title'=>$node->title), $l);
+            $title = t('New deadline', array(), $l);
+            $footer = t('Message sent from ', array(), $l) . " " . variable_get('site_name');
+            
+            $node_link = $base_url . '/node/' . $node->nid;
+            $description = t('Deadline has change on a checklist element of the card : ', array(), $l);
+            $short_without_hours_format = system_date_format_locale($account->language, "short_without_hours");
+            
+            $description_detail = theme('gofast-notifications-node-card-detail', array(
+              'node' => $node,
+              'task' => $item,
+              'l' => $l,
+              'short_without_hours_format' => $short_without_hours_format
+            ));  
+            
+            $body = theme('gofast-notifications-node-task-deadline-change', array(
+                'user_name' => $userName,
+                'l' => $l,
+                'node_title' => $node->title,
+                'node_link' => $node_link,
+                'node_icon' => $document_pic,
+                'description' => $description,
+                'description_detail' => $description_detail
+
+            ));
+
+            $mail = array(
+                'body' => $body,
+                'title' => $title,
+                'subject' => $subject,
+                'footer' => $footer
+            );
+            gofast_mail_queue_api_queue_ext($mail, $recpt, time()); 
+
+          }
+      }
+    }
 }

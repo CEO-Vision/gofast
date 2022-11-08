@@ -1,2 +1,2 @@
 <?php global $base_url; ?>
-<img src='<?php echo $base_url ?>/sites/all/modules/gofast/gofast_mail_queue/icon/<?php echo $icon; ?>' alt='Icon' />
+<img src='<?php echo $base_url ?>/sites/all/modules/gofast/gofast_mail_queue/icon/<?php echo $icon; ?>' alt='Icon' class="gofast_png_icon" width="<?= strlen($width) > 0 ? $width : "14" ?>" />

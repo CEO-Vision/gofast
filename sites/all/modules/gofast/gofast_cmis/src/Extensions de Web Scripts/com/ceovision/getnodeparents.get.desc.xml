@@ -1,0 +1,6 @@
+<webscript>
+  <shortname>Get all parents of a node</shortname>
+  <description>Get all parents of a node</description>
+  <url>/getnodeparents?node={node}</url>
+  <authentication>user</authentication>
+</webscript>

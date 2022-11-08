@@ -266,20 +266,24 @@ function gofast_userlist_api_render_event($event) {
 function gofast_userlist_audit_membership($node, $membership_data) {
 
   global $user;
-  if ($membership_data['membership_action'] == 'DMEM') {
 
-    $event_type = 'delete_member';
-    $group_node = array();
-    $group_node['event']['value'] = $membership_data['membership_action']; //NMEM or DMEM
-//    $group_node['changed']['value'] = time();
-    $group_node['title']['value'] = $node->title;
-    $group_node['type']['value'] = $node->type;
-    $group_node['ruid']['value'] = $user->uid;
-    $group_node['nid']['value'] = $node->nid;
-    $group_node['new_member_type']['value'] = $membership_data['membership_type']; // user or userlist
-    $group_node['new_member_id']['value'] = $membership_data['membership_id']; // uid or ulid
-    $group_node['new_member_name']['value'] = $membership_data['membership_name']; // name or title
-    // $message = $group_node['event']['value'].'|'.json_encode($group_node);
+    if ($membership_data['membership_action'] == 'DMEM') {
+      $event_type = 'delete_member';
+    }else if ($membership_data['membership_action'] == 'NMEM'){
+      $event_type = 'add_member';
+    }
+
+  $group_node = array();
+  $group_node['event']['value'] = $membership_data['membership_action']; //NMEM or DMEM
+  //    $group_node['changed']['value'] = time();
+  $group_node['title']['value'] = $node->title;
+  $group_node['type']['value'] = $node->type;
+  $group_node['ruid']['value'] = $user->uid;
+  $group_node['nid']['value'] = $node->nid;
+  $group_node['new_member_type']['value'] = $membership_data['membership_type']; // user or userlist
+  $group_node['new_member_id']['value'] = $membership_data['membership_id']; // uid or ulid
+  $group_node['new_member_name']['value'] = $membership_data['membership_name']; // name or title
+  // $message = $group_node['event']['value'].'|'.json_encode($group_node);
 
     if ('user' == $group_node['new_member_type']['value']) {
       $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => $event_type, 'user_name' => $group_node['new_member_name']['value'], 'dest_id' => $group_node['new_member_id']['value'], 'user_role' => $user_role);
@@ -288,11 +292,12 @@ function gofast_userlist_audit_membership($node, $membership_data) {
       $members_added = array_keys(gofast_userlist_get_members($entity_ulid));
       $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => $event_type, 'userlist_name' => $group_node['new_member_name']['value'], 'userlist_id' => $entity_ulid, 'dest_list' => $members_added, 'userlist_role' => $user_role);
     }
-    $event = serialize($event);
-    $last_event_serialized = rawurlencode($event);
-    $last_event_unserialized["mod_timestamp"] = time();
-    $last_event_unserialized["mod_author"] = $user->uid;
-    $last_event_unserialized["mod_members"] = implode(';', $members_added);
-  }
+
+  $event = serialize($event);
+  $last_event_serialized = rawurlencode($event);
+  $last_event_unserialized["mod_timestamp"] = time();
+  $last_event_unserialized["mod_author"] = $user->uid;
+  $last_event_unserialized["mod_members"] = implode(';', $members_added);
+
   gofast_audit_insert_line_audit($node->nid, $event_type, $last_event_serialized, $last_event_unserialized);
 }

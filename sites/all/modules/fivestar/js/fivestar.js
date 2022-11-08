@@ -16,7 +16,7 @@ Drupal.behaviors.fivestar = {
   attach: function (context) {
     $(context).find('div.fivestar-form-item').once('fivestar', function() {
       var $this = $(this);
-      var $container = $('<div class="fivestar-widget clearfix"></div>');
+      var $container = $('<div class="fivestar-widget clearfix d-inline-block float-right"></div>');
       var $select = $('select', $this);
 
       // Setup the cancel button
@@ -34,7 +34,7 @@ Drupal.behaviors.fivestar = {
         classes += (i + 1) % 2 == 0 ? ' even' : ' odd';
         classes += i == 0 ? ' star-first' : '';
         classes += i + 1 == $options.length ? ' star-last' : '';
-        $('<div class="star"><a href="#' + element.value + '" title="' + element.text + '">' + element.text + '</a></div>')
+        $('<div class="star d-inline-block"><a href="#' + element.value + '" title="' + element.text + '">' + element.text + '</a></div>')
           .addClass(classes)
           .appendTo($container);
         if (element.value == $select.val()) {

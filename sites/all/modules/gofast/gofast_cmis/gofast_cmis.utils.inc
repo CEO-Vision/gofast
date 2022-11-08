@@ -160,7 +160,7 @@ function gofast_cmis_node_get_base_path($node) {
  */
 function gofast_cmis_node_get_item_id($node) {
   $wrapper = entity_metadata_wrapper('node', $node);
-  if ($node->type === 'alfresco_item') {
+  if ($node->type === 'alfresco_item' || $node->type == 'article') {
     return $wrapper->{GOFAST_CMIS_REFERENCE_FIELD}->value();
   }
   else {
@@ -670,14 +670,21 @@ function gofast_cmis_item_get_by_path($path, $asAdmin = TRUE) {
     return array_shift($cached_item);
   }
 
+  // if we find a way to safely reset the folder cache each time it is modified, we will be able to use the caching below instead of the static caching above
+  // $cache_id = "gofast_item_get_by_path_" . $path;
+  // $cache_object = cache_get($cache_id);
+  // if ($cache_object) {
+  //   return $cache_object->data;
+  // }
+
   global $cmis_sudo_admin;
   $cmis_sudo_admin = $asAdmin;
-
   $item = cmisapi_getObjectByPath($repository_id, rawurlencode($path));
 
   if (isset($item->properties['alfcmis:nodeRef'])) {
     $cached_item = &gofast_cmis_static_cache($item->properties['alfcmis:nodeRef']);
     $cached_item = $item;
+    // cache_set($cache_id, $item, "cache", time() + 86400);
   }
   $cmis_sudo_admin = FALSE;
 
@@ -714,6 +721,15 @@ function gofast_cmis_item_get_parent($item_id, $asAdmin = TRUE, $cache = TRUE) {
   $cmis_sudo_admin = FALSE;
 
   return $parent_item;
+}
+
+function gofast_cmis_activate_alfresco_connection() {
+  $drupal_db_info = Database::getConnectionInfo()["default"];
+  $alfresco_database = array_merge($drupal_db_info, array("database" => "alfresco", "username" => "alfresco"));
+  unset($alfresco_database["port"]);
+  unset($alfresco_database["prefix"]);
+  // will add only if it has not been added yet
+  Database::addConnectionInfo('default', 'alfresco', $alfresco_database);
 }
 
 /**
@@ -1017,7 +1033,7 @@ function &gofast_cmis_static_cache($name, $reset = FALSE) {
  */
 function gofast_cmis_node_get_webdav_path($nid) {
   $node = node_load($nid);
-  if ($node->type !== "alfresco_item") {
+  if ($node->type !== "alfresco_item" && $node->type !== "article") {
     return FALSE;
   }
   $parents_webdav_paths = array();
@@ -1032,12 +1048,50 @@ function gofast_cmis_node_get_webdav_path($nid) {
 }
 
 function gofast_cmis_node_get_reference_by_path($node) {
-  if ($node->type !== "alfresco_item") {
+  if ($node->type !== "alfresco_item" && $node->type !== "article") {
     return FALSE;
   }
   $item_path = $node->{GOFAST_CMIS_MAIN_LOCATION_FIELD}[LANGUAGE_NONE][0]['value'] . '/' . $node->{GOFAST_CMIS_FILENAME_FIELD}[LANGUAGE_NONE][0]['value'];
   $item = gofast_cmis_item_get_by_path($item_path);
   return !isset($item->id) ? $item->properties['alfcmis:nodeRef'] : FALSE;
+}
+
+/**
+ * Retreive an alfresco_reference based on node nid
+ * @param int $nid
+ * @return alf_reference if found, FALSE if no or too much maching item found
+ */
+function gofast_cmis_node_get_reference_by_nid($nid){
+
+   usurp(1);
+
+  $start = 0;
+  $count = 1000000;
+  $alf_ref = FALSE;
+
+  $query = "SELECT * "
+    . "FROM cmis:document AS f "
+    . "JOIN gofast:nodeproperties AS gfp ON f.cmis:objectId = gfp.cmis:objectId "
+    . "WHERE gfp.gofast:nid = '$nid' ";
+
+  $results = gofast_integrity_alfresco_cmis_query($query, $start, $count);
+  if (count($results) == 1) {
+   $alf_ref = $results[0]->properties['alfcmis:nodeRef'];
+  }else{
+    foreach($results as $key => $result){ 
+      if( strpos($result->properties['cmis:name'], ".html.html" ) > -1 ) {
+        // uwanted wiki duplicate => to be deleted
+        gofast_cmis_item_remove_item($result->properties['alfcmis:nodeRef'], TRUE );
+      }else{
+        $alf_ref = $result->properties['alfcmis:nodeRef'];
+        
+      }
+    }
+  }
+
+   usurp(FALSE);
+
+  return $alf_ref;
 }
 
 /**
@@ -1296,7 +1350,7 @@ function gofast_cmis_aspect_get_drupal_origin_reset_property() {
  */
 function gofast_cmis_node_is_locked($node) {
   $node_locked = FALSE;
-  if($node->type === 'alfresco_item') {
+  if($node->type === 'alfresco_item' || $node->type === 'article') {
     $node_reference = gofast_cmis_node_get_item_id($node);
     $lock_state = gofast_cmis_webservice_execute_request("getlocked", $node_reference);
     if($lock_state !== 'nolocked') {
@@ -1324,7 +1378,7 @@ function gofast_cmis_node_archive($node, $manually = false) {
     //Si c'est un noeud de type document, on appel le script Alfresco qui mettra tout le monde en lecture seul (sauf adm);
     //je change les droits du document
     // puis je supprime ses versions intermédiaires
-    if ($node->type == "alfresco_item") {
+    if ($node->type == "alfresco_item" || $node->type == "article") {
       $node_ref = gofast_cmis_node_get_item_id($node);
       //je change le owner du document pour ne pas que l'auteur puisse continuer de la modifier
       gofast_cmis_webservice_item_set_owner($node_ref);
@@ -1343,7 +1397,7 @@ function gofast_cmis_node_archive($node, $manually = false) {
 
 function gofast_cmis_node_unarchive($node, $manually = false) {
   $node->field_state[LANGUAGE_NONE] = array();
-  if ($node->type == "alfresco_item") {
+  if ($node->type == "alfresco_item" || $node->type == "article") {
     $node_ref = gofast_cmis_node_get_item_id($node);
     gofast_cmis_webservice_item_archive($node_ref, TRUE);
   }
@@ -1574,6 +1628,7 @@ function gofast_cmis_get_templates_option() {
   $template_array = array();
   if (count($nids) > 0) {
     $query = db_select('field_revision_' . GOFAST_CMIS_LOCATIONS_FIELD, 'f');
+    $query->distinct();
     $query->join('node', 'n', 'n.nid = f.entity_id');
     $query->join('field_revision_' . GOFAST_CMIS_REFERENCE_FIELD, 'r', 'r.entity_id = f.entity_id');
     $query->join('field_revision_field_filename', 'fn', 'fn.entity_id = f.entity_id');
@@ -1756,7 +1811,7 @@ function gofast_cmis_convert_old_office_format_to_new($node){
 
 function gofast_cmis_get_all_multifilled_documents_from_gid($gid){
 
-  $res = db_query("select node.nid,node.title,og_membership.gid from {node} INNER JOIN {og_membership} ON node.nid=og_membership.etid WHERE (SELECT COUNT(*) FROM og_membership where og_membership.etid=node.nid AND og_membership.field_name='og_group_content_ref')>1 AND node.status=1 AND og_membership.gid=".$gid);
+  $res = db_query("select node.nid,node.title,og_membership.gid from {node} INNER JOIN {og_membership} ON node.nid=og_membership.etid WHERE (SELECT COUNT(*) FROM og_membership where og_membership.etid=node.nid AND og_membership.field_name='og_group_content_ref')>1 AND node.status=1 AND og_membership.gid=:gid", array(":gid" => $gid));
   $return = array();
   foreach ($res as $node_infos) {
 
@@ -1859,7 +1914,85 @@ function gofast_cmis_restore_document_alfresco_into_private_space($node){
                 exec("curl 'http://localhost:8080/alfresco/service/set/version/major/?comment=".rawurlencode($comment)."&reference=".$existing_publication_node->reference."&alf_ticket=" . $ticket . "'");
 
         }
-
     }
+  }
 
+// check if a path is mirrored without checking if it's inside a mirrored location
+function gofast_cmis_check_mirroring($path) {
+  $item = gofast_cmis_item_get_by_path($path);
+  $reference = $item->properties['alfcmis:nodeRef'];
+  $folder_parents = gofast_cmis_webservice_get_node_parents($reference);
+  $nb_parents = count($folder_parents);
+  if($nb_parents > 1){
+    return TRUE;
+  } else {
+    return $folder_parents;
+  }
+}
+
+// check if a path is mirrored _or_ inside a mirrored location
+function gofast_cmis_is_path_mirrored() {
+  global $user;
+  // Get item
+  if (!isset($_GET["path"])) {
+    echo "0";
+    exit;
+  }
+
+  $is_mirror = FALSE;
+  $is_root = FALSE;
+  $paths = [gofast_xss_clean($_GET["path"])];
+  // we added a standalone "/Sites" entry as a failsafe just in case
+  $root_spaces_paths = ["/Sites/_Groups" , "/Sites/_Extranet", "/Sites/_Public", "/Sites/_" . $user->name, "/Sites"];
+
+  while(!$is_mirror && !$is_root) {
+    foreach ($paths as $path) {
+      // we may have some semi-colons appended to paths, in this case the subsequent cmis request would just timeout after 60 seconds of wait
+      if (substr($path, -1) == ";") {
+        $path = substr($path, 0, -1);
+      }
+      if (in_array($path, $root_spaces_paths)) {
+        $is_root = TRUE;
+        break;
+      }
+      $result = gofast_cmis_check_mirroring($path);
+      if ($result === TRUE) {
+        $is_mirror = TRUE;
+        break;
+      }
+      $paths = $result;
+    }
+  }
+
+  echo $is_mirror ? "1" : "0";
+  exit;
+}
+
+/** this is a temporary logic, we should add a "path" column to gofast_bookmark_folder to avoid such heavy treatment and get the actual location which was selected instead of a location with the same content */
+function gofast_cmis_get_mirrored_path_by_alf_ref($folder_reference, $folder_name) {
+  $path = "";
+  $parents = gofast_cmis_webservice_get_node_parents($folder_reference);
+  foreach ($parents as $parent_path) {
+    // using Alfresco native API instead of the webservice would avoid this additional call
+    $parent_item = gofast_cmis_item_get_by_path($parent_path);
+    $permissions = gofast_cmis_webservice_item_get_permissions($parent_item->properties['alfcmis:nodeRef']);
+    $has_consumer_permission = FALSE;
+    foreach($permissions as $permission) {
+      if (strpos($permission, "Consumer") !== FALSE) {
+        $has_consumer_permission = TRUE;
+        break;
+      }
+    }
+    if ($has_consumer_permission === TRUE) {
+      $path = $parent_path . "/" . $folder_name;
+      break;
+    }
+  }
+  return $path;
+}
+
+function gofast_cmis_get_replication_count(){
+  $query = db_select("alfresco_replication", "r");
+  $count = $query->countQuery()->execute()->fetchField();
+  return $count;
 }

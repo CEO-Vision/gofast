@@ -1,24 +1,14 @@
 /**
  * FacetAPI Collapsible structural styles.
  */
-.facet-collapsible-wrapper{
-   padding: 2px 8px !important;
-}
-
 .block-facetapi h2 {
     padding: 10px 15px !important;
-}
-.block.facetapi-collapsible .facet-collapsible-wrapper {
-  display: none;
-}
-.block.facetapi-collapsible.expanded .facet-collapsible-wrapper {
-  display: block;
 }
 .block.facetapi-collapsible ul.facetapi-collapsible ul {
   display:none;
 }
-.block.facetapi-collapsible ul.facetapi-collapsible ul.expanded {
-  display:block
+.block.facetapi-collapsible ul.facetapi-collapsible ul:not(.collapse) {
+  display:block;
 }
 /**
  * FacetAPI Collapsible Block Titles & Toggle
@@ -34,49 +24,13 @@
   margin-right: 5px;
   width: 10px;
 }
-.block.facetapi-collapsible.expanded h2.block-title .toggle {
-  background-image: url(../img/collapse.png);
-}
-.block.facetapi-collapsible.expanded.active h2.block-title {
-  cursor: default;
-}
-.block.facetapi-collapsible.expanded.active h2.block-title .toggle {
-  display: none;
-}
+
 /**
  * FacetAPI Collapsible facet tree and handle.
  */
-.facetapi-collapsible-handle:before, .facetapi-handle-leaf:before {
-  /* prevent glitches when content switches */
-  display: inline-block;
-  position: relative;
-  right: 15px;
-  width: 0px;
-  color: #999;
-}
-.facetapi-collapsible-handle:before {
-  content: '\25b6'; /* looks ugly on firefox */
-}
-.facetapi-collapsible-handle.expanded:before {
-  content:'\25e2';
-}
-.facetapi-handle-leaf:before {
-  content:'\25aa';
-  font-size: 10px;
-  right: 13px;
-}
-.block-facetapi ul, .block-facetapi ul.expanded {
-  padding-left: 15px;
-}
-/* adjustment for firefox */
-@-moz-document url-prefix() {
-  .facetapi-collapsible-handle:before {
-    font-size: 8px;
-    top:-2px;
-  }
-  .facetapi-handle-leaf:before { 
-    right: 14px; 
-  }  
+
+.facetapi-collapsible li {
+  list-style-type: none;
 }
 
 /**

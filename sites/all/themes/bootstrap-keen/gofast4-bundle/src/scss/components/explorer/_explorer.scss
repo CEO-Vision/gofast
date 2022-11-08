@@ -1,0 +1,72 @@
+.explorer {
+    background-color: #f2f5f8;
+    width: 20px;
+    position: relative;
+    transition: width 350ms ease-in;
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column-reverse;
+    box-shadow: rgba(0, 0, 0, 0.08) 1.95px 1.95px 2.6px;
+    &.open {
+        width: 270px;
+
+        .explorer-main-container {
+            opacity: 1;
+        }
+    }
+
+    #explorer-toggle {
+        background-color: #f2f5f8;
+        border-radius: 0 14px 14px 0;
+        cursor: pointer;
+        height: 44px;
+        margin-top: -22px;
+        position: absolute;
+        left: 100%;
+        top: 50%;
+        transition: width 0.5s, background-color 0.5s, padding-left 0.5s;
+        width: 14px;
+        z-index: 1;
+        display: flex;
+        i {
+            margin: auto;
+            
+        }
+
+        &:hover {
+
+            background-color: #c8c8c8;
+            width: 28px;
+            padding-left: 6px;
+        }
+
+        &.open {
+            i {
+                transform: rotate(180deg);;
+            }
+        }
+    }
+
+    .explorer-tabs {
+        position: absolute;
+        bottom : 5px;
+        padding-top: 20px;
+        padding-right: 20px;
+        padding-bottom: 20px;
+        padding-left: 5px;    
+    }
+}
+
+.explorer {
+    .explorer-main-container {
+        display: flex;
+        flex-direction: column-reverse;
+        height: 100%;
+        width: 270px;
+        position: absolute;
+        top: 0;
+        right: 0;
+        opacity: 0;
+        transition: opacity 350ms ease-in;
+    }
+}

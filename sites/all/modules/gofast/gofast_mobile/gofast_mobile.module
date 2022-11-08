@@ -29,10 +29,13 @@ function gofast_mobile_init()
     $mobile_path = "";
     $parts = explode('.', $_SERVER['HTTP_HOST']);
     $mobile_prefix_url = variable_get_value('mobile_prefix_url');
-    $parts[0] = $mobile_prefix_url;
+    // if mobile is a second-level subdomain, avoid duplicating the first-level subdomain
+    if ($parts[0] != explode(".", $mobile_prefix_url)[0]) {
+      $parts[0] = $mobile_prefix_url;
+    }
     $mobile_path = $_SERVER["REQUEST_SCHEME"] . "://" . implode(".", $parts);
     $current_path = $_SERVER['REQUEST_URI'];
-    drupal_goto($mobile_path . "/" . $current_path);
+    drupal_goto($mobile_path . $current_path);
   }
   if (gofast_mobile_is_mobile_domain()) {
     if (current_path() == 'activity') {
@@ -45,7 +48,7 @@ function gofast_mobile_init()
     ), 'setting');
   }
   if ($detect->isMobile() || $detect->isTablet()) {
-    drupal_add_css(drupal_get_path('module', 'gofast_mobile') . '/css/gofast_mobile_activity.css');
+//    drupal_add_css(drupal_get_path('module', 'gofast_mobile') . '/css/gofast_mobile_activity.css');
   }
   drupal_add_library('gofast_mobile', 'gofast_mobile', TRUE);
   drupal_add_library('gofast_mobile', 'gofast_mobile_panel', TRUE);
@@ -76,7 +79,8 @@ function gofast_mobile_is_mobile_domain()
 
   $is_mobile_domain = FALSE;
   $parts = explode('.', $_SERVER['HTTP_HOST']);
-  if ($parts[0] === $mobile_prefix_url) {
+  // mobile may be a second-level subdomain so by exploding the prefix we make sure we are not comparing a part of the subdomain against the whole
+  if ($parts[0] === explode(".", $mobile_prefix_url)[0]) {
     $is_mobile_domain = TRUE;
   }
   return $is_mobile_domain;
@@ -406,7 +410,7 @@ function gofast_mobile_get_preserved_alfresco_item_actions($node)
       $preserved_actions[] = theme('gofast_link_generic', array(
         'text' => t('Share/Edit locations', array(), array('context' => 'gofast:gofast_views')),
         'link_id' => "manage-locations",
-        'link_class' => 'btn btn-sm ctools-use-modal ctools-use-moal-processed',
+        'link_class' => 'btn btn-sm ctools-use-modal ctools-use-modal-processed',
         'href' => '/modal/nojs/node/' . $node->nid . '/manage-locations',
         'onclick' => 'Gofast.ITHit.bulkSelected(event)',
         'icon_class' => "fa fa-share-alt",
@@ -1313,11 +1317,8 @@ function gofast_mobile_get_node_info($node)
       $info .= '<p class="text-danger bg-warning">' . t("You have read-only permission on this document", array(), array('context' => 'gofast')) . '</p><br />';
     }
   } else if (module_exists('gofast_retention') && isset($retention_end_date)) {
-    if (node_access("delete", $node)) {
-      $info .= '<p class="text-danger bg-warning">' . t("This document has a retention date, you can't change its content or its category", array(), array('context' => 'gofast:gofast_retention')) . '</p>';
-    } else {
-      $info .= '<p class="text-danger bg-warning">' . t("This document has a retention date, you can't change its content, its category or its state", array(), array('context' => 'gofast:gofast_retention')) . '</p>';
-    }
+    $formated_expiration_date = format_date($node->field_retention_end[LANGUAGE_NONE][0]['value'], "short_without_hours");
+    $info['message'] .= t("Pre-archived document with Duration of Administrative Use in progress until @expiration. If you are a Space administrator, you can change the status to remove the DUA", array("@expiration" => $formated_expiration_date), array('context' => 'gofast:gofast_retention')) . '</br>';
   } elseif (node_access("delete", $node) && gofast_get_content_state_archived($node)) {
     $info .= '<p class="text-danger bg-warning">' . t("This document is archived, you can't change its content", array(), array('context' => 'gofast:gofast_retention')) . '</p>';
   }
@@ -1344,6 +1345,13 @@ function gofast_mobile_get_node_info($node)
     $context['workflows_document'] = $node_workflow_action[0]['button-text'];
     gofast_set_context($context);
   }
+
+//     if(!module_exists('gofast_community')){
+//        //Set the workflow count in the context
+//        $node_workflow_action = gofast_get_workflow_action_node($node);
+//        $context['workflows_document'] = $node_workflow_action[0]['button-text'];
+//        gofast_set_context($context);
+//   }
 
   $info .= gofast_mobile_get_node_format($node);
   $info .= gofast_mobile_get_node_size($node_infos);
@@ -1442,7 +1450,39 @@ function gofast_mobile_form_user_login_block_alter(&$form, &$form_state)
 
 function gofast_mobile_home_page_navigation()
 {
-  return theme('gofast_mobile_activity_dashboard_browser_page');
+  //Add activity stream filter JS to display the activity feed
+  $path = drupal_get_path('module', 'gofast_activity_feed');
+  drupal_add_js($path . '/js/gofast_activity_stream_filters.js');
+
+  //Mobile version detector
+  $detect = new Mobile_Detect;
+
+  //Mobile home page tabs
+  $tabs = [
+    'dashboard' => [
+      'icon' => 'fas fa-tachometer-alt',
+      'id' => 'mobileHomeTab_dashboard',
+      'label' => t('Dashboard'),
+      'href' => 'navDashboard',
+      'content' => gofast_dashboard_container_display()
+    ],
+    'filebrowser' => [
+      'icon' => 'fas fa-folder-open',
+      'id' => 'mobileHomeTab_filebrowser',
+      'label' => t('Spaces and documents', array(), array('context' => 'gofast:gofast_mobile')),
+      'href' => 'navBrowser',
+      'content' => $detect->isMobile() && !$detect->isTablet() ? theme('gofast_mobile_ajax_file_browser') : theme('ajax_file_browser', array('browser' => TRUE))
+    ],
+    'activity' => [
+      'icon' => 'fas fa-list-alt',
+      'id' => 'mobileHomeTab_activity',
+      'label' => t('Activity feed'),
+      'href' => 'navActivity',
+      'content' => gofast_activity_feed_display(FALSE, FALSE)
+    ]
+  ];
+
+  return theme('gofast_mobile_activity_dashboard_browser_page', array('links' => $tabs));
 }
 
 function gofast_mobile_tasks_page_navigation()
@@ -1461,7 +1501,7 @@ function gofast_mobile_kanban_simplified_board()
 
   $private_space_id = gofast_og_get_user_private_space($user)->nid;
   $kanban_id = gofast_kanban_get_space_kanban($private_space_id)[0];
-
+  
   $groups_user_gids = gofast_og_get_spaces_by_user($user);
   return theme('kanban_simplified', array('kanban_id' => $kanban_id, 'group_user_gids' => $groups_user_gids));
 }

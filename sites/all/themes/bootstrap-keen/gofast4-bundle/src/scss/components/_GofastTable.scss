@@ -1,0 +1,80 @@
+.GofastTable {
+    &--scroll {
+        display: flex !important;
+        flex-direction: column;
+        & table {
+            flex-grow: 1;
+            height: 0 !important; // compensated by flex-grow; prevents wrong sizing of table (sizing is handled by the flex flow)
+            & thead tr:first-of-type {
+                & th:not([data-field='']):not([data-field='checkbox']):not([data-field='picture']):not([data-field='buttons']):not([data-field^='actions']):not([data-field$='id']) > span {
+                    display: flex;
+                    align-items: center;
+                    overflow: visible;
+                }
+                & th:not([data-field='']):not([data-field='checkbox']):not([data-field='picture']):not([data-field='buttons']):not([data-field^='actions']):not([data-field^='uid']):not([data-field^='gid']):not(.datatable-cell-sorted) > span:after {
+                    font-family: "FontAwesome";
+                    content: "\f078";
+                    font-size: 13px;
+                    position: relative;
+                    bottom: 2px;
+                }
+                & th > span > i {
+                    font-size: 13px !important;
+                    right: 0 !important;
+                    bottom: 2px;
+                    &:before {
+                        /** prevent icon from wrapping, let text-ellipsis handle the cut */
+                        position: absolute;
+                    }
+                }
+                /** prevent having a forced pointer cursor on all datatable megadropdown actions */
+                & th.datatable-cell-sort[data-field='picture'] {
+                    cursor: default !important;
+                }
+            }
+            & .datatable-subheader {
+                width: 100%;
+                & > th {
+                    width: 100%;
+                    & > form {
+                        width: 100% !important;
+                    }
+                }
+            }
+            & tbody {
+                overflow: auto;
+                height: calc(100% - 100px);
+            }
+            & .datatable-cell {
+                padding: 0.5rem 0.5rem !important;
+                & .dropdown {
+                    margin: auto !important;
+                    & i {
+                        font-size: 1rem !important;
+                    }
+                }
+            }
+            & select.bs-select-hidden, .bootstrap-select > select.bs-select-hidden, select.selectpicker {
+                display: block !important;
+            }
+        }
+        & .datatable-pager {
+            padding: 0 !important;
+            flex-shrink: 1,
+        }
+    }   
+}
+
+#gofastSubscriptionsTable > table {
+    overflow-y: scroll;
+    width: max-content;
+    & thead {
+        width: max-content;
+    }
+}
+
+#gofastSpaceMembersTable {
+    & tbody {
+        height: calc(100% - 30px) !important;
+    }
+}

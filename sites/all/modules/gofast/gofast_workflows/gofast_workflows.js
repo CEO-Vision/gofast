@@ -9,6 +9,32 @@ var last_reconnect_session = d.getTime();
   Drupal.gofast_workflows = Drupal.gofast_workflows || {};
    Gofast.already_check_login = false;
 
+
+   Drupal.behaviors.gofast_workflows_tabs_document = {
+        attach: function (context, settings) {
+           $("#lightDashboardDocumentMyParentTab:not(.tab_processed)").addClass("tab_processed").click(function(){
+              // alert("coucou");
+               $("#lightDashboardDocumentMyTab").click();             
+           });
+           
+            $("#lightDashboardDocumentOtherParentTab:not(.tab_processed)").addClass("tab_processed").click(function(){
+              //  alert("coucou2");
+               $("#lightDashboardDocumentOtherTab").click();             
+           });
+             $("#lightDashboardDocumentHistoryParentTab:not(.tab_processed)").addClass("tab_processed").click(function(){
+              // alert("coucou");
+               $("#lightDashboardDocumentHistoryTab").click();             
+           });
+           
+            $("#lightDashboardDocumentNewParentTab:not(.tab_processed)").addClass("tab_processed").click(function(){
+              //  alert("coucou2");
+               $("#lightDashboardDocumentNewTab").click();             
+           });
+         
+    }
+   };
+
+
    $(document).ready(function(){
          var current_user = Gofast.get("user");
          if(current_user.uid == 0){
@@ -154,9 +180,73 @@ Drupal.behaviors.bonita  = {
 
 }
 
+Drupal.behaviors.changeWfButonHrefDocument = {
+    attach: function (context) {
+        $('.GofastNode [id^=wf-process-]:not(.processed)').addClass("processed").change(function () {
+            
+            var id_select = this.id;
+            var process_id = id_select.replace('wf-process-', '');
+            var profil_id = this.value;
+            var name_profil = $("#" + id_select +" option:selected").text();
+            var onClickStr = $(".GofastNode .btn-process-startit-" + process_id).attr("onclick");
+
+            var startIndexEdit = onClickStr.lastIndexOf(',', onClickStr.lastIndexOf(',') - 1); // start index
+            var endIndexEdit = onClickStr.lastIndexOf(',');   // end index
+            var preStrEdit = onClickStr.substring(0, startIndexEdit+1);
+            var postStrEdit = onClickStr.substring(endIndexEdit, onClickStr.length);
+            var onClickStrEdit = preStrEdit + '"edit"' + postStrEdit;   // outputs
+
+            if (profil_id == 0){ // in case of no profile selected
+                profil_id == ""; // set profile to nothing
+
+                // disable edit buton front + remove attribute onclick
+                $(".GofastNode #task_edit_" + process_id).css('cursor', 'not-allowed'); // 'default' to revert
+                $(".GofastNode #task_edit_" + process_id).css('opacity', '0.4');               
+                $(".GofastNode #task_edit_" + process_id).removeAttr("onclick");
+
+                // disable delete buton front + remove attribute onclick
+                $(".GofastNode #task_delete_" + process_id).css('cursor', 'not-allowed'); // 'default' to revert
+                $(".GofastNode #task_delete_" + process_id).css('opacity', '0.4');
+                $(".GofastNode #task_delete_" + process_id).removeAttr("onclick");
+            } else { // in case of a profile is selected
+
+                // enable edit buton front + add attribute on click
+                $(".GofastNode #task_edit_" + process_id).css('cursor', 'pointer'); // 'default' to revert
+                $(".GofastNode #task_edit_" + process_id).css('opacity', '1');
+                $(".GofastNode #task_edit_" + process_id).attr("onclick", onClickStrEdit);
+
+                // enable delete buton front + add attribute on click
+                $(".GofastNode #task_delete_" + process_id).css('cursor', 'pointer'); // 'default' to revert
+                $(".GofastNode #task_delete_" + process_id).css('opacity', '1');
+                $(".GofastNode #task_delete_" + process_id).attr("onclick", "Drupal.gofast_workflows.ceo_vision_popup_delete_profil_generate('" + profil_id + "','" + name_profil+"')");
+            }
+
+            jQuery(".GofastNode .btn-process-startit-" + process_id).each(function () {
+                var startIndex = onClickStr.lastIndexOf(",") + 1;  // start index
+                var endIndex = onClickStr.lastIndexOf(")"); // end index
+                var preStr = onClickStr.substring(0, startIndex);
+                var postStr = onClickStr.substring(endIndex + 1, onClickStr.length - 1);
+                var result = preStr + '"' + profil_id + '"' + postStr;   // outputs
+                $(this).attr("onclick", result);
+            });
+            
+            jQuery(".GofastNode .btn-process-editmodel-" + process_id).each(function () {
+                onClickStr = $(this).attr("onclick");
+                var startIndex = onClickStr.lastIndexOf(",") + 1;  // start index
+                var endIndex = onClickStr.lastIndexOf(")"); // end index
+                var preStr = onClickStr.substring(0, startIndex);
+                var postStr = onClickStr.substring(endIndex + 1, onClickStr.length - 1);
+                var result = preStr + '"' + profil_id + '"' + postStr;   // outputs
+                $(this).attr("onclick", result);
+            });
+
+        });
+    }
+}
+
 Drupal.behaviors.changeWfButonHref = {
     attach: function (context) {
-        $('[id^=wf-process-]').change(function () {
+        $('[id^=wf-process-]:not(.processed)').addClass("processed").change(function () {
             
             var id_select = this.id;
             var process_id = id_select.replace('wf-process-', '');
@@ -175,28 +265,33 @@ Drupal.behaviors.changeWfButonHref = {
 
                 // disable edit buton front + remove attribute onclick
                 $("#task_edit_" + process_id).css('cursor', 'not-allowed'); // 'default' to revert
+                $("#task_edit_" + process_id).css('opacity', '0.4');       
                 $("#task_edit_" + process_id).removeAttr("onclick");
 
                 // disable delete buton front + remove attribute onclick
                 $("#task_delete_" + process_id).css('cursor', 'not-allowed'); // 'default' to revert
+                $("#task_delete_" + process_id).css('opacity', '0.4'); 
                 $("#task_delete_" + process_id).removeAttr("onclick");
             } else { // in case of a profile is selected
 
                 // enable edit buton front + add attribute on click
                 $("#task_edit_" + process_id).css('cursor', 'pointer'); // 'default' to revert
+                $("#task_edit_" + process_id).css('opacity', '1');
                 $("#task_edit_" + process_id).attr("onclick", onClickStrEdit);
 
                 // enable delete buton front + add attribute on click
                 $("#task_delete_" + process_id).css('cursor', 'pointer'); // 'default' to revert
+                $("#task_delete_" + process_id).css('opacity', '1'); // 'default' to revert
                 $("#task_delete_" + process_id).attr("onclick", "Drupal.gofast_workflows.ceo_vision_popup_delete_profil_generate('" + profil_id + "','" + name_profil+"')");
             }
 
-            jQuery(".btn-process-startit-" + process_id).each(function () {
-                var startIndex = onClickStr.lastIndexOf(",") + 1;  // start index
-                var endIndex = onClickStr.lastIndexOf(")"); // end index
-                var preStr = onClickStr.substring(0, startIndex);
-                var postStr = onClickStr.substring(endIndex + 1, onClickStr.length - 1);
-                var result = preStr + '"' + profil_id + '"' + postStr;   // outputs
+            jQuery(".btn-process-startit-" + process_id).each(function () {               
+                var onClickStr2 = $(this).attr("onclick");  
+                var startIndex = onClickStr2.lastIndexOf(",") + 1;  // start index
+                var endIndex = onClickStr2.lastIndexOf(")"); // end index
+                var preStr = onClickStr2.substring(0, startIndex);
+                var postStr = onClickStr2.substring(endIndex + 1, onClickStr2.length - 1);
+                var result = preStr + '"' + profil_id + '"' + postStr;   // outputs                                        
                 $(this).attr("onclick", result);
             });
             
@@ -222,7 +317,7 @@ Drupal.behaviors.changeWfButonHref = {
         html += "<br /><br />";
         html += '<button id="deleteButton" class="btn btn-danger btn-sm icon-before" type="submit" onClick="Drupal.gofast_workflows.ceo_vision_js_delete_profil(\'' + profilID +'\')"><span class="icon glyphicon glyphicon-trash"></span>' + ' ' + Drupal.t('Delete') + '</button>';
         // show modal
-        Gofast.modal(html, title);
+        Gofast.modal(html, title, { allowStretch: true });
     }
 
 
@@ -265,7 +360,7 @@ Drupal.gofast_workflows.ceo_vision_js_check_login = function(callback){
         }
 
         Gofast.already_check_login = true;
-		 var URL = "/bonita/portal/homepage";
+		 var URL = "/bonita/apps/appDirectoryBonita/home/";
 
                 $.ajax({
                 url: URL,
@@ -301,7 +396,7 @@ Drupal.gofast_workflows.ceo_vision_js_check_login = function(callback){
             type : 'GET',
             async: true,
             success : function(content){
-               Gofast.bonita_token = content.replace(/ /g,'');
+               Gofast.bonita_token = content.replace(/ /g,'').replace(/\n/g, '');
             }
           });
        //return password;
@@ -355,8 +450,7 @@ Drupal.gofast_workflows.ceo_vision_js_login = function(myusername, mypassword, c
 
 
 
- Drupal.gofast_workflows.ceo_vision_js_task_doit = function(taskID, processName, userID, taskName, force_assign){
-
+ Drupal.gofast_workflows.ceo_vision_js_task_doit = function(taskID, processName, userID, taskName, force_assign, modal = true){
             if (typeof force_assign === 'undefined') {
                 force_assign = "false";
             }
@@ -378,30 +472,77 @@ Drupal.gofast_workflows.ceo_vision_js_login = function(myusername, mypassword, c
                         Drupal.gofast_workflows.ceo_vision_js_check_login(function(){
                             var prefix_url = '/bonita/portal/resource/taskInstance/';
                             var iframe = '<div style="padding:0px;height:100%;"><iframe src="'+prefix_url+processName+'/'+taskName+'/content/?id='+taskID+'&locale='+ Gofast.get("user").language +'" id="bonita_form" style="width:100%;height:100%;min-height:550px;border:none;float:left;"></iframe></div>';
-                            /* if(Drupal.settings.isMobile){
-                                jQuery("#bonita_form_process").prop("src", prefix_url+processName+'/'+taskName+'/content/?id='+taskID+'&locale='+ Gofast.get("user").language);
-                                Gofast.removeLoading();
-                                jQuery("#refresh-pagedashboard").removeClass("gofast_display_none");
-                            }else{ */
-                                Gofast.modal(iframe, Drupal.t("Execute the task", {}, {'context' : 'gofast:gofast_workflows'}));
-                            // }
+                            if(modal == true){
+                                var iframe = '<div style="padding:0px;height:100%;"><iframe src="'+prefix_url+processName+'/'+taskName+'/content/?id='+taskID+'&locale='+ Gofast.get("user").language +'" id="bonita_form" style="width:100%;height:100%;min-height:550px;border:none;float:left;"></iframe></div>';
+                                Gofast.addLoading();
+                                Gofast.modal(iframe, Drupal.t("Execute the task", {}, {'context' : 'gofast:gofast_workflows'}), { allowStretch: true });
+                            }else{
+                                var iframe = '<div id="bonita_form_container" style="padding:0px;height:310px;display:none;overflow:visible;"><iframe src="'+prefix_url+processName+'/'+taskName+'/content/?id='+taskID+'&locale='+ Gofast.get("user").language +'" id="bonita_form" style="width:100%;min-height:310px;border:none;float:left;"></iframe></div>';
+                                $("#document__infotab.active").removeClass("active");
+                                $('a[href$="#document__infotab"]').removeClass("active");
+                                $("#lightDashboardDocumentMyParentTab").click();                               
+                                $("#lightDashboardDocumentMy #bonita_form_process").css("min-height", "0px");
+                                //$("#lightDashboardDocumentMy #bonita_form_process").css("margin-bottom", "30px");
+                                $("#lightDashboardDocumentMy #bonita_form_process").after(iframe);
+                                $("#lightDashboardDocumentMy #bonita_form_process").addClass('forcefully-loaded');
+                                var task_name = $("#lightDashboardDocumentMy #bonita_form_process").contents().find(".fa-flag-o").next().html();
+                                var title_do_task = "<div style='width:100%;text-align:center;'><h4 style='display: block;margin-left: auto;margin-right: auto;'>"+Drupal.t("Do your task :", {}, {'context' : 'gofast:gofast_workflows'})+" "+task_name+"</h4></div>";
+                                $("#lightDashboardDocumentMy #bonita_form_process").after(title_do_task);
+
+
+                               var checkExistsDocumentTasksListOpenTask = setInterval(function() {
+                                if (jQuery("#lightDashboardDocumentMy #bonita_form").contents().find("form").length) {
+                                   clearInterval(checkExistsDocumentTasksListOpenTask);
+                                   setTimeout(function(){  
+                                        $("#lightDashboardDocumentMy #bonita_form").contents().find("form").parent().next().css("display", "none");
+                                        $("#lightDashboardDocumentMy #bonita_form").contents().find("form").css("width", "99%");
+                                        $("#lightDashboardDocumentMy #bonita_form").contents().find(".col-xs-12.ng-scope.thumbnail").css("display", "none");
+                                        $("#bonita_form_container").css("display", "block");
+                                    }, 100);    
+                                }
+
+                               }, 500);       
+                            }       
                         });
                      }
                    });
 
             }else{
-                Gofast.addLoading();
+              
                 Drupal.gofast_workflows.ceo_vision_js_check_login(function(){
                     var prefix_url = '/bonita/portal/resource/taskInstance/';
                      //var prefix_url = '/bonita/portal/homepage';
-                    var iframe = '<div style="padding:0px;height:100%;"><iframe src="'+prefix_url+processName+'/'+taskName+'/content/?id='+taskID+'&locale='+ Gofast.get("user").language +'" id="bonita_form" style="width:100%;height:100%;min-height:550px;border:none;float:left;"></iframe></div>';
-                    /*if(Drupal.settings.isMobile){
-                        jQuery("#bonita_form_process").prop("src", prefix_url+processName+'/'+taskName+'/content/?id='+taskID+'&locale='+ Gofast.get("user").language);
-                        Gofast.removeLoading();
-                        jQuery("#refresh-pagedashboard").removeClass("gofast_display_none");
-                    }else{ */
-                        Gofast.modal(iframe, Drupal.t("Execute the task", {}, {'context' : 'gofast:gofast_workflows'}));
-                    // }
+                   if(modal == true){
+                       var iframe = '<div style="padding:0px;height:100%;"><iframe src="'+prefix_url+processName+'/'+taskName+'/content/?id='+taskID+'&locale='+ Gofast.get("user").language +'" id="bonita_form" style="width:100%;height:100%;min-height:550px;border:none;float:left;"></iframe></div>';                     
+                       Gofast.modal(iframe, Drupal.t("Execute the task", {}, {'context' : 'gofast:gofast_workflows'}), { allowStretch: true });
+                    }else{
+                        var iframe = '<div id="bonita_form_container" style="padding:0px;height:310px;display:none;overflow:visible;"><iframe src="'+prefix_url+processName+'/'+taskName+'/content/?id='+taskID+'&locale='+ Gofast.get("user").language +'" id="bonita_form" style="width:100%;min-height:310px;border:none;float:left;"></iframe></div>';
+                        $("#node-tabsHeader a ").removeClass("active");
+                        $(".header_tasks_tab").addClass("active");
+                        $("#lightDashboardDocumentMyParentTab").click();  
+                        $("#lightDashboardDocumentMy #bonita_form_process").css("min-height", "0px");
+                        //$("#lightDashboardDocumentMy #bonita_form_process").css("margin-bottom", "30px");
+                        $("#lightDashboardDocumentMy #bonita_form_process").after(iframe);
+                        $("#lightDashboardDocumentMy #bonita_form_process").addClass('forcefully-loaded');
+                        var task_name = $("#lightDashboardDocumentMy #bonita_form_process").contents().find(".fa-flag-o").next().html();
+                        var title_do_task = "<div style='width:100%;text-align:center;'><h4 style='display: block;margin-left: auto;margin-right: auto;'>"+Drupal.t("Do your task :", {}, {'context' : 'gofast:gofast_workflows'})+" "+task_name+"</h4></div>";
+                        $("#lightDashboardDocumentMy #bonita_form_process").after(title_do_task);
+                       
+                       
+                       var checkExistsDocumentTasksListOpenTask = setInterval(function() {
+                        if (jQuery("#lightDashboardDocumentMy #bonita_form").contents().find("form").length) {
+                           clearInterval(checkExistsDocumentTasksListOpenTask);
+                           setTimeout(function(){  
+                                $("#lightDashboardDocumentMy #bonita_form").contents().find("form").parent().next().css("display", "none");
+                                $("#lightDashboardDocumentMy #bonita_form").contents().find("form").css("width", "99%");
+                                $("#lightDashboardDocumentMy #bonita_form").contents().find(".col-xs-12.ng-scope.thumbnail").css("display", "none");
+                                $("#bonita_form_container").css("display", "block");
+                            }, 100);    
+                        }
+
+                       }, 500);       
+                    }
+
                 });
             }
 
@@ -447,31 +588,28 @@ Drupal.gofast_workflows.ceo_vision_js_login = function(myusername, mypassword, c
 
      Drupal.gofast_workflows.ceo_vision_js_check_login(function(){
         var prefix_url = '/bonita/portal/resource/process/';
-        processName = processName.replace("--", "/");
+
+        var processNameData = processName.split('|');
+
+        processName = processNameData[0].replace("--", "/");
+        var processLabel = processNameData[1];
         reference = reference.replace(/\+/g, " ");
          var iframe = '<div style="padding:0px;height:100%;"><iframe src="' + prefix_url + processName + '/content/?id=' + processID + '&locale=' + Gofast.get("user").language + '&nids=' + reference + '&id_profil=' + profil_id + '&action_profil=' + action_profil+'" id="bonita_form_process" style="width:100%;height:100%;min-height:550px;border:none;"></iframe></div>';
 
+        reference = decodeURI(reference);
         if(reference != ""){
         if(reference_liste != ""){
             var docname = Drupal.t("Documents from your cart");
-            var title_modal = Drupal.t(processName, {}, {'context' : 'gofast:gofast_workflows'})+" "+docname;
+                var title_modal = Drupal.t('Workflow', {}, {'context' : 'gofast:gofast_workflow'}) +": "+processLabel+" - "+docname;
         }else{
-            var docname = reference.split('||')[1];
-            var title_modal = Drupal.t(processName, {}, {'context' : 'gofast:gofast_workflows'})+" "+docname;
+                var docname = (reference.split('`')[1]).replace('|', '');
+                var title_modal = Drupal.t('Workflow', {}, {'context' : 'gofast:gofast_workflow'}) +": "+processLabel+" - "+docname;
+        }
+        }else{
+            var title_modal = Drupal.t('Workflow', {}, {'context' : 'gofast:gofast_workflow'}) +": "+processLabel ;
         }
 
-        }else{
-            var title_modal = Drupal.t(processName, {}, {'context' : 'gofast:gofast_workflows'});
-        }
-
-        /*if(Drupal.settings.isMobile){
-            jQuery("#bonita_form_process").prop("src", $(iframe).find('iframe').attr("src"));
-            Gofast.removeLoading();
-            Gofast.closeModal();
-            jQuery("#refresh-pagedashboard").removeClass("gofast_display_none");
-        }else{*/
-            Gofast.modal(iframe,title_modal);
-        // }
+        Gofast.modal(iframe, title_modal, { allowStretch: true });
 
         Drupal.gofast_workflows.ceo_vision_js_automatic_reload_dashboard();
         $('#modalBackdrop').remove();
@@ -484,8 +622,7 @@ Drupal.gofast_workflows.ceo_vision_js_login = function(myusername, mypassword, c
                type: "GET",
                dataType:'html',
                success:function(response){
-                   Gofast.modal(response,Drupal.t("View the process", {}, {'context' : 'gofast:gofast_workflows'}));
-                   modalContentResize();
+                   Gofast.modal(response, Drupal.t("View the process", {}, {'context' : 'gofast:gofast_workflows'}), { allowStretch: true });
                }
              })
  }
@@ -627,9 +764,8 @@ Drupal.gofast_workflows.ceo_vision_js_process_get_actives_tasklist = function(ca
     url:URI,
     dataType:'html',
     success:function(data){
-        Gofast.modal(data, Drupal.t("Active tasks", {}, {'context' : 'gofast:gofast_workflows'})) ;
+        Gofast.modal(data, Drupal.t("Active tasks", {}, {'context' : 'gofast:gofast_workflows'}), { allowStretch: true }) ;
         $("#modal-content").addClass("modal-content-workflow");
-       // Drupal.behaviors.dynatable($("#modal-content"));
     }
   });
 }
@@ -647,9 +783,8 @@ Drupal.gofast_workflows.ceo_vision_js_process_get_finished_tasklist = function(c
     url:URI,
     dataType:'html',
     success:function(data){
-        Gofast.modal(data, Drupal.t("Finished tasks", {}, {'context' : 'gofast:gofast_workflows'})) ;
+        Gofast.modal(data, Drupal.t("Finished tasks", {}, {'context' : 'gofast:gofast_workflows'}), { allowStretch: true }) ;
         $("#modal-content").addClass("modal-content-workflow");
-        //Drupal.behaviors.dynatable($("#modal-content"));
     }
   });
 }
@@ -675,10 +810,8 @@ Drupal.gofast_workflows.ceo_vision_js_process_get_available_processes = function
     data:data,
     dataType:'html',
     success:function(data){
-        Gofast.modal(data);
-       /* gofast_modal(data, title_modal);*/
+        Gofast.modal(data, "GoFast", { allowStretch: true });
         $("#modal-content").addClass("modal-content-workflow");
-        //Drupal.behaviors.dynatable($("#modal-content"));
     }
   });
 }
@@ -696,7 +829,7 @@ Drupal.gofast_workflows.ceo_vision_js_edit_deadline = function(taskId){
     data:data,
     dataType:'html',
     success:function(data){
-       Gofast.modal(data, Drupal.t("Edit deadline", {}, {'context' : 'gofast:gofast_workflows'}));
+       Gofast.modal(data, Drupal.t("Edit deadline", {}, {'context' : 'gofast:gofast_workflows'}), { allowStretch: true });
        Drupal.gofast_workflows._ceo_vision_js_automatic_reload_dashboard();
     }
   });
@@ -1021,8 +1154,11 @@ Drupal.behaviors.gofastWorkflowGetIconNode  = {
   }
 };
 
-Gofast.refreshWorkflowIcon = function(){
-    $("#breadcrumb-alt-wf").removeClass("workflow_icone_processed");
+Gofast.refreshWorkflowIcon = function(count){
+    $(".gofast-task-notifiation").each(function(){
+        $(this).html(count);
+    })
+    $("#refresh-lightdashboard-document").click();   
 };
 
 Gofast.gofast_workflow_search = function(e){
@@ -1032,31 +1168,31 @@ Gofast.gofast_workflow_search = function(e){
 
     //Retrieve form data
     var form_data = $("form[id^=\"gofast-workflow-dashboard-search-form\"]").serializeArray();
+    
+    //Save form data
+    Gofast.gofast_workflow_save_filters(form_data);
+    
     var data = {};
     form_data.forEach(function(e){
-	data[e.name] = e.value;
+	    data[e.name.split("-").pop()] = e.value;
     });
 
-    if(data.creator !== ""){
-        data.creator = data.creator.match("<(.*)>")[1];
+    if(data.creator !== "" && typeof data.creator !== "undefined"){
+        data.creator = JSON.parse(data.creator)[0].value;
     }
 
-    //Prepare an array with the reator and the users to turn them into bonita ids
-    data.users = data['edit-users-hidden-values'].split(" ");
-    if(data.creator !== ""){
-        data.users[0] = data.creator;
-    }else{
-        if(data.users.length === 1){
-            data.users = [];
-        }else{
-            data.users.shift();
+    //Prepare an array with the creator and the users to turn them into bonita ids
+    if(data.users !== "" && typeof data.users !== "undefined"){
+        data.users = JSON.parse(data.users).map(user => user.value);
+        if(data.creator !== "" && typeof data.creator !== "undefined"){
+            data.users.push( data.creator);
         }
+    } else if(data.creator !== "" && typeof data.creator !== "undefined") { 
+       data.users = [];    
+       data.users.push(data.creator);
+    }else {
+       data.users = [];
     }
-
-    //Temporary (or maybe not) : Restrict displayed process to my processes
-    /*if(Gofast.get("user").uid !== 1){
-        data.users.push(Gofast.get("user").uid);
-    }*/
 
     //Retrieve bonita user ids from user ids
     $.get(location.origin + "/workflow/get_bonitaids_from_uids", {uids : data.users}, function(response){
@@ -1066,45 +1202,33 @@ Gofast.gofast_workflow_search = function(e){
         var form_data = $("#gofast-workflow-dashboard-search-form").serializeArray();
         var data = {};
         form_data.forEach(function(e){
-            data[e.name] = e.value;
+            data[e.name.split("-").pop()] = e.value;
         });
 
         //So we have the creator and the users bonita ids
-        if(data.creator !== ""){
+        if(data.creator !== "" && typeof data.creator !== "undefined") {
             data.creator = response.shift();
         }
 
         data.users = response;
 
         //We have an array of node ids corresponding to the wanted documents
-        data.documents = data['edit-documents-hidden-values'].split(" ");
-        data.documents.shift();
+        if(data['ac-list-tags-list-documents'] !== "" && typeof data['ac-list-tags-list-documents'] !== "undefined") {
+            data.documents = JSON.parse(data['ac-list-tags-list-documents']).map(document => document.value);
+        } else {
+            data.documents = [];
+        }
+
         //Translate french format to english if needed and set them to proper date format
         var userlang = Gofast.get('user').language;
         if(data.started !== ""){
-            data.started = data.started.split("-");
-            if(userlang === "fr"){
-                var day = data.started[0];
-                data.started[0] = data.started[1];
-                data.started[1] = day;
-            }
-
-            //Change date format to ISO
-            data.started = new Date(data.started[2], data.started[0]-1, data.started[1]);
+            data.started = moment(data.started, GofastConvertDrupalDatePattern("moment", Drupal.settings.date_format_short, false)).toDate();
             data.started.setTime(data.started.getTime() + (2*60*60*1000));
             data.started = data.started.toISOString();
         }
 
         if(data.deadline !== ""){
-            data.deadline = data.deadline.split("-");
-            if(userlang === "fr"){
-                var day = data.deadline[0];
-                data.deadline[0] = data.deadline[1];
-                data.deadline[1] = day;
-            }
-
-            //Change date format to ISO
-            data.deadline = new Date(data.deadline[2], data.deadline[0]-1, data.deadline[1]);
+            data.deadline =  moment(data.deadline, GofastConvertDrupalDatePattern("moment", Drupal.settings.date_format_short, false)).toDate();
             data.deadline.setTime(data.deadline.getTime() + (2*60*60*1000));
             data.deadline = data.deadline.toISOString();
         }
@@ -1127,6 +1251,28 @@ Gofast.gofast_workflow_search = function(e){
     });
 
 };
+
+Gofast.gofast_workflow_save_filters = function(form_data){
+    $.cookie('gofast_workflow_dashboard_filters', JSON.stringify(form_data));
+}
+
+Gofast.gofast_workflow_apply_filters = function(){
+    var form_data = [];
+    var search_form = $("form[id^=\"gofast-workflow-dashboard-search-form\"]");
+    var search_cookie_filters = $.cookie('gofast_workflow_dashboard_filters')
+    
+    if(search_cookie_filters){
+        form_data = JSON.parse(search_cookie_filters);
+    }
+    
+    form_data.forEach(function(e){
+        if(e.name == "form_build_id" || e.name == "form_token" || e.name == "form_id" || e.name == "ac-list-tags-list-creator" || e.name == "ac-list-tags-list-documents" || e.name == "ac-list-tags-list-users"){ 
+            return; 
+        }
+        
+        search_form.find('[name="' + e.name + '"]').val(e.value).trigger('change');
+    });
+}
 
 Gofast.gofast_workflow_search_execute = function(params){
     jQuery("#ajax_content").append("<style>.main-container{width: 90%;}</style>");
@@ -1196,6 +1342,56 @@ Gofast.gofast_workflow_dashboard_back = function(){
     $(".breadcrumb-gofast").html(Drupal.t("Workflows dashboard", {}, {context: "gofast:gofast_workflows"}));
     Gofast.removeLoading();
 };
+
+  /*
+   * Handle the downloading of stats
+   */
+  Gofast.download_workflow_fields = function(e){
+    Gofast.modal('<div class="loader-sync-status"></div> ' + Drupal.t("Please hold on while your export is being generating. This process may take a few minutes.", {}, {context : "gofast_stats"}), Drupal.t("Your export is being generating", {}, {context : "gofast_stats"}), { allowStretch: true });
+    //Check filters
+    
+    if(typeof e === "object"){
+        e.preventDefault();
+    }
+    
+    //Retrieve form data
+    var form_data = $("form[id^=\"gofast-workflow-dashboard-search-form\"]").serializeArray();
+    var data = {};
+    form_data.forEach(function(e){
+	    data[e.name.split("-").pop()] = e.value;
+    });
+
+    if(data.creator !== "" && typeof data.creator !== "undefined"){
+        data.creator = JSON.parse(data.creator)[0].value;
+    }
+
+    //Prepare an array with the creator and the users to turn them into bonita ids
+    if(data.users !== "" && typeof data.users !== "undefined"){
+        data.users = JSON.parse(data.users).map(user => user.value);
+        if(data.creator !== "" && typeof data.creator !== "undefined"){
+            data.users[0] = data.creator;
+        }
+    } else if(data.creator !== "" && typeof data.creator !== "undefined") { 
+       data.users = [];    
+       data.users[0] = data.creator;
+    }else {
+       data.users = [];
+    }
+
+    $.post(location.origin + "/gofast_workflow_dashboard_export", data, function(fid){
+        var downloadInterval = setInterval(function(){
+            $.get(location.origin + "/gofast_workflow_dashboard_export_check?fid=" + fid, function(file){
+               if(file !== "Waiting"){
+                   clearInterval(downloadInterval);
+                   Gofast.closeModal();
+                   window.location = location.origin + "/gofast_workflow_dashboard_export_check?fid=" + fid;
+               } 
+            });
+        }, 1000); 
+    });
+    
+};
+
 
 //Init hooks
 Gofast.hooks.gofast_workflows = [];

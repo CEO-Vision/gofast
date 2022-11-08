@@ -5,7 +5,7 @@
     background: #F1F1F1 url(../img/new/edit-12.png) 98% 3px no-repeat;
     /*background-position:right top;*/
 }
-.profile-name_firstname.row-processed:hover, .profile-name_firstname.row-processed:focus, 
+.profile-name_firstname.row-processed:hover, .profile-name_firstname.row-processed:focus,
 .profile-name_firstname.jrow-focused {
     margin:0px 2px -4px 0px;
 }
@@ -260,6 +260,10 @@ form.jeditable-field textarea:focus, form.jeditable-field textarea[type=text]:fo
   width:auto;
 }
 
-.region-sidebar-second .popover textarea{ 
+.region-sidebar-second .popover textarea{
     max-height: inherit;
+}
+
+#edit-ldap-user-prov-entries-und-add-more{
+  display :none;
 }

@@ -43,12 +43,12 @@ function gofast_ldap_fields(){
     ),
     array(
       'field_name' => 'ldap_user_title',
-      'label' => t('Title', array(), array('context' => 'gofast')),
+      'label' => t('Function', array(), array('context' => 'gofast')),
       'element' => 'text::textfield',
     ),
     array(
       'field_name' => 'ldap_user_o',
-      'label' => t('Company', array(), array('context' => 'gofast')),
+      'label' => t('Entity', array(), array('context' => 'gofast')),
       'element' => 'text::textfield',
     ),
     array(
@@ -227,4 +227,33 @@ function gofast_ldap_fields_create() {
      $current_ldap_conf = variable_get("ldap_user_conf", array());
      $current_ldap_conf["ldapEntryProvisionTriggers"][7] = 0;
      variable_set("ldap_user_conf", $current_ldap_conf);
+  }
+  
+    function gofast_ldap_update_7400(){  
+     #GOFAST-7635
+//    $form = array();
+//    $form_state['submitted'] = true;
+//    $new_encyption = $form_state['values']['ldap_servers_encryption'] = LDAP_SERVERS_ENC_TYPE_BLOWFISH;
+//    $old_encyption = $form_state['values']['previous_encryption'] = LDAP_SERVERS_ENC_TYPE_CLEARTEXT;
+//    
+//     if ($form_state['submitted']) {
+//          $new_encyption = $form_state['values']['ldap_servers_encryption'];
+//          $old_encyption = $form_state['values']['previous_encryption'];
+//
+//          // use db instead of functions to avoid classes encryption and decryption
+//          if ($new_encyption != $old_encyption) {
+//            $servers = db_query("SELECT sid, bindpw FROM {ldap_servers} WHERE bindpw is not NULL AND bindpw <> ''")->fetchAllAssoc('sid');
+//            foreach ($servers as $sid => $server) {
+//              if ($server->bindpw != '') {
+//              $decrypted_bind_pwd = ldap_servers_decrypt($server->bindpw, $old_encyption);
+//              $rencrypted = ldap_servers_encrypt($decrypted_bind_pwd, $new_encyption);
+//              }
+//              else {
+//                $rencrypted = '';
+//              }
+//              db_query("UPDATE {ldap_servers} SET bindpw = :bindpw WHERE sid = :sid", array(':bindpw' => $rencrypted, ':sid' => $sid));
+//            }
+//          }
+//        }   
+//    variable_set('ldap_servers_encryption' , LDAP_SERVERS_ENC_TYPE_BLOWFISH);
   }

@@ -2115,8 +2115,8 @@ function gofast_ldap_fields_definition() {
             ),
           ),
           'required' => 0,
-          'label' => 'Extranet user',
-          'description' => 'Flags the user as an "extranet" (or external) user. Depending on global settings, administrators can revoke permissions to extranet users so they can\'t access non-extranet spaces regardless of their roles.',
+          'label' => 'External user',
+          'description' => 'Flags the user as an "extranet" (or external) user. Depending on global settings, administrators can revoke permissions to external users so they can\'t access non-external spaces regardless of their roles.',
           'default_value' => array(
             0 => array(
               'value' => 0,
@@ -2615,7 +2615,7 @@ function gofast_ldap_fields_definition() {
               'settings' => array(),
             ),
           ),
-          'label' => 'Company',
+          'label' => t('Entity', array(), array('context' => 'gofast')),
           'required' => FALSE,
           'settings' => array(
             'text_processing' => 0,
@@ -3020,7 +3020,7 @@ function gofast_ldap_fields_definition() {
               'settings' => array(),
             ),
           ),
-          'label' => 'Title',
+          'label' => t('Function', array(), array('context' => 'gofast')),
           'required' => FALSE,
           'settings' => array(
             'text_processing' => 0,
@@ -3064,7 +3064,7 @@ function gofast_ldap_fields_definition() {
               'settings' => array(),
             ),
           ),
-          'label' => 'Private Space',
+          'label' => 'Personal Space',
           'required' => 0,
           'settings' => array(
             'behaviors' => array(

@@ -235,6 +235,11 @@ td.forum-last-reply {
   padding: 0.3em 0.5em 0 2em;
 }
 
+/*** FORUM HISTORY **********************************************************/
+.gf-version-tag  span.label-inline{
+    min-width : 100%;
+}
+
 
 /*** ICONS LEGEND ***********************************************************/
 
@@ -306,18 +311,18 @@ background-color: #FFFFFF;
 .forum-post-info {
   height:100%;
   clear: both;
-/*  background-color: #DDDDDD;  fallback 
-  background: -webkit-gradient(linear, left top, left bottom, from(#F5F5F5), to(#DDDDDD));  Safari 4-5, Chrome 1-9 
-  background: -webkit-linear-gradient(top, #F5F5F5, #DDDDDD);    Safari 5.1, Chrome 10+ 
-  background: -moz-linear-gradient(top, #F5F5F5, #DDDDDD);       Firefox 3.6+ 
-  background: -o-linear-gradient(top, #F5F5F5, #DDDDDD);         Opera 11.10+ 
-  background: -ms-linear-gradient(top, #F5F5F5, #DDDDDD);        IE 10 
+/*  background-color: #DDDDDD;  fallback
+  background: -webkit-gradient(linear, left top, left bottom, from(#F5F5F5), to(#DDDDDD));  Safari 4-5, Chrome 1-9
+  background: -webkit-linear-gradient(top, #F5F5F5, #DDDDDD);    Safari 5.1, Chrome 10+
+  background: -moz-linear-gradient(top, #F5F5F5, #DDDDDD);       Firefox 3.6+
+  background: -o-linear-gradient(top, #F5F5F5, #DDDDDD);         Opera 11.10+
+  background: -ms-linear-gradient(top, #F5F5F5, #DDDDDD);        IE 10
   color: #333333;
   font-weight: bold;
   border: 1px solid #C1C1C1;
   border-radius: 8px 8px 0px 0px;
   -moz-border-radius : 8px 8px 0px 0px;
-  -webkit-border-radius: 8px 8px 0px 0px; 
+  -webkit-border-radius: 8px 8px 0px 0px;
   border-bottom: none;
   margin-bottom: 0px;*/
 }
@@ -332,10 +337,6 @@ background-color: #FFFFFF;
   float: none;
 }
 
-.forum-post-number {
-  float: right;
-  margin-right: 5px;
-}
 
 .forum-post-title {
   font-weight: bold;
@@ -387,7 +388,7 @@ background-color: #FFFFFF;
 
  These heights keep the AP items from jumping out of the bottom. Depending
    on how many items you display, there, this number may need to be adjusted
-   to avoid having unnecessary white space in your posts. 
+   to avoid having unnecessary white space in your posts.
   min-height: 230px;
   height: auto !important;
   height: 230px;*/
@@ -430,9 +431,9 @@ background-color: #FFFFFF;
 
 /* Post footer */
 .forum-post-footer {
-   background-color: #F9F9F9; 
+   background-color: #F9F9F9;
 /*  border-top: 1px solid #C1C1C1;
-  
+
   background-color: #DDDDDD;
   background: -webkit-gradient(linear, left top, left bottom, from(#F5F5F5), to(#DDDDDD));
   background: -webkit-linear-gradient(top, #F5F5F5, #DDDDDD);
@@ -565,16 +566,9 @@ background-color: #FFFFFF;
 }
 
 .vud-widget {
-/*  width: auto;*/
-  overflow: hidden !important;
   float: right !important;
   position: relative !important;
-/*  position: absolute;
-  top: 0px;
-  right: 0px;*/
   padding-right: 0px !important;
-  margin: 7px 0px 7px 7px !important;
-  height: 85px !important;
 }
 
 .updown-score {
@@ -605,4 +599,108 @@ background-color: #FFFFFF;
 
 .form-item-shadow {
     display: none !important;
+}
+
+.forum-actions {
+    text-align: right;
+}
+
+.forum-actions > ul {
+    margin: 0;
+}
+
+.forum-actions > ul > li {
+    display: inline-block;
+    margin-right: .5rem;
+}
+
+.forum-header-user-icon {
+    border: 2px solid #ebedf3;
+    border-radius: 20%;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #fff;
+}
+
+.forum-node-wrapper #comments-container{
+  height: auto !important;
+}
+
+pre {
+  display: block;
+  padding: 8px;
+  margin: 0 0 8.5px;
+
+  font-size: 11px;
+  line-height: 1.42857143;
+  word-break: break-all;
+  word-wrap: break-word;
+  color: #333333;
+  background-color: #f5f5f5;
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+}
+pre code {
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+  white-space: pre-wrap;
+  background-color: transparent;
+  border-radius: 0;
+}
+.pre-scrollable {
+  max-height: 340px;
+  overflow-y: scroll;
+}
+
+.forum-header-user-icon > img {
+    border-radius: 20%;
+}
+
+.timeline.timeline-3 .timeline-items .timeline-item .timeline-media img {
+    border-radius: 20% !important;
+}
+
+.timeline.timeline-3 .timeline-items .timeline-item {
+    border-left: 2px dotted #CCCED4 !important;
+}
+
+.timeline.timeline-3 .timeline-items .timeline-item .timeline-content img:not(.gofast__comment-tag-icon){
+    width: 100% !important;
+    height: 100% !important;
+}
+
+#comment-jstree.jstree i.jstree-themeicon-custom{
+  background-size: cover !important;
+  border-radius: 0.42rem;
+}
+
+.forum-post-number {
+  float: none;
+  margin-right: 5px;
+}
+
+.gofastAddComment{
+  padding: .5rem;
+}
+
+.gofastAddComment:hover{
+  background-color: #f3f6f9 !important;
+  padding: .5rem;
+  border-radius: .42rem !important;
+}
+
+.timeline-item ul {
+  margin-bottom: 0;
+}
+
+.timeline-item .timeline-content__body{
+  overflow: auto;
+}
+
+.timeline-item .timeline-content__body table{
+  margin-right: 0px;
 }

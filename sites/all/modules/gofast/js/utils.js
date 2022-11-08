@@ -82,57 +82,6 @@ var Gofast = (function($) {
       return (lhs < rhs) ? -1 : ((lhs > rhs) ? 1 : 0);
   };
 
-  /**
-   * Toaster interface, ease options mapping & fallback behavior.
-   */
-  var toaster = function (type) {
-    return function (msg, title, options) {
-      var message = $('<div/>')
-              .append(msg)
-              .addClass(options.messageClass),
-
-          title = $('<div/>')
-              .append(title)
-              .addClass(options.titleClass),
-
-          toaster = $('<div/>')
-              .addClass(options.toastClass)
-              .addClass(this.toasterConfig.defaults.iconClasses[type] || options.iconClass)
-              .append(title)
-              .append(message);
-      var container;
-      if ($('#'+options.containerId).length <= 0) {
-        container = $('<div/>')
-            .attr('id', options.containerId)
-            .addClass(options.positionClass)
-            .html(toaster)
-            .click(function(){ $(this).remove(); delete container; })
-            .css({display:'none'});
-        container.appendTo($(options.target));
-      } else {
-        container = $('#'+options.containerId);
-      }
-      toaster.appendTo(container);
-
-      if (options.timeOut > 0) {
-        setTimeout(function () {
-          container[options.hideMethod]({
-            duration: options.hideDuration,
-            easing: options.hideEasing,
-            complete: function(){ container.remove(); delete container; }
-          });
-        }, options.timeOut);
-      }
-
-
-
-
-      return container[options.showMethod]({
-        duration: options.showDuration,
-        easing: options.showEasing
-      });
-    };
-  };
 
   return {
     global: {
@@ -154,25 +103,17 @@ var Gofast = (function($) {
     ]*/
 
     toasterConfig: {
-      _get: function () {
-        return {
-          info: toaster('info'),
-          success: toaster('success'),
-          warning: toaster('warning'),
-          error: toaster('error')
-        };
-      },
       defaults: {
         tapToDismiss: true,
         toastClass: 'toast',
         containerId: 'toast-container',
         debug: false,
         showMethod: 'fadeIn', // fadeIn, slideDown, and show are built into jQuery
-        showDuration: 500,
+        showDuration: 300,
         showEasing: 'swing', // swing and linear are built into jQuery
         onShown: undefined,
         hideMethod: 'fadeOut',
-        hideDuration: 1000,
+        hideDuration: 300,
         hideEasing: 'swing',
         onHidden: undefined,
         extendedTimeOut: 1000,
@@ -204,7 +145,7 @@ var Gofast = (function($) {
        * Toasts a message using Gofast Toaster.
        */
       toast: function (ajax, response, status) {
-        Gofast.toast(response.message, response.type, response.title);
+        Gofast.toast(response.message, response.type, response.title, response.options);
       },
 
       /**
@@ -226,9 +167,9 @@ var Gofast = (function($) {
        */
       openWindow: function (ajax, response, status) {
         if(response.newtab == true){
-            window.open(response.url, '_blank');
+          window.open(response.url, '_blank');
         }else{
-            window.open(response.url);
+          window.open(response.url, '_self');
         }
       },
 
@@ -252,18 +193,17 @@ var Gofast = (function($) {
     },
 
     scrollToComment: function(comment) {
+      $('a[href=#document__commentstab]').click();
       if ($(comment).length >= 1) {
         $('html, body').animate({
           scrollTop: $(comment).offset().top - 70
-        }, 1000, 'swing', function () {
-          window.location.hash = comment;
-        });
+        }, 1000, 'swing');
         setTimeout(function(){
-          $(comment).next().find(".panel-heading").addClass("comment-new");
-          $(comment).next().find(".panel-footer").addClass("comment-new");
+          $(comment).find(".timeline-content").addClass("comment-new");
+          $(comment).find(".timeline-content").addClass("comment-new");
           setTimeout(function(){
-            $(comment).next().find(".panel-heading").removeClass("comment-new");
-            $(comment).next().find(".panel-footer").removeClass("comment-new");
+            $(comment).find(".timeline-content").removeClass("comment-new");
+            $(comment).find(".timeline-content").removeClass("comment-new");
           }, 2000);
         }, 900);
       }else{ //Waiting for comments to be fully loaded
@@ -271,8 +211,9 @@ var Gofast = (function($) {
       }
     },
 
-    getToaster: function () {
-      return this.toasterConfig._get();
+    getToaster: function (type,title,msg,options) {
+      toastr.options = options;
+      toastr[type](msg,title);
     },
 
     /**
@@ -725,16 +666,34 @@ var Gofast = (function($) {
       var backdrop = $('#backdrop');
       backdrop.stop();
 
-      // Get the docHeight and (ugly hack) add 50 pixels to make sure we don't
-      // have a *visible* border below our div. (modal.js)
-      var docHeight = $(document).height() + 50,
-          docWidth = $(document).width(),
-          css = {
-            height: docHeight + 'px',
-            width: docWidth + 'px'
-          };
+      $(document).ready(function () {
+        // Get the docHeight and (ugly hack) add 50 pixels to make sure we don't
+        // have a *visible* border below our div. (modal.js)
+        var docHeight = $(document).height() + 50,
+        docWidth = $(document).width(),
+        css = {
+          height: docHeight + 'px',
+          width: docWidth + 'px'
+        };
 
-      $('#backdrop').css(css).fadeIn();
+        $('#backdrop').css(css).fadeIn();
+      });
+    },
+
+    addAreaBackdrop: function ($areaElement) {
+      $areaElement.prepend("<div class=\"backdrop-area\">");
+    },
+
+    removeAreaBackdrop: function ($areaElement) {
+      $areaElement.find(".backdrop-area").remove();
+    },
+
+    addAreaBackdrop: function ($areaElement) {
+      $areaElement.prepend("<div class=\"backdrop-area\">");
+    },
+
+    removeAreaBackdrop: function ($areaElement) {
+      $areaElement.find(".backdrop-area").remove();
     },
 
     /**
@@ -810,7 +769,6 @@ var Gofast = (function($) {
       options = options || {};
       title = title || 'GoFast';
 
-      Drupal.CTools.Modal.show(options);
       Drupal.CTools.Modal.modal_display.apply(undefined, [options, {title: title, output: html}]);
     },
 
@@ -1008,9 +966,13 @@ var Gofast = (function($) {
      *  Override default properties.
      */
     toast: function (msg, type, title, options) {
+      if(options !=null && options.length > 0){
+        options = JSON.parse(options);
+      }        
       type = type || 'info';
       options = Gofast.apply({}, options || {}, Gofast.toasterConfig.defaults);
-      Gofast.getToaster()[type].apply(this, [msg, title, options]);
+      
+      Gofast.getToaster(type,title,msg,options);
     },
 
     removeBookmarkDromDashboard : function(nid){
@@ -1035,11 +997,8 @@ var Gofast = (function($) {
 
     //If we are on the dashboard and there is a tasks block, reload it
     refreshDashboardTasksBlock : function(){
-        if($(".panel-dashboard-workflows").length === 1){
-            var iframe = $(".panel-dashboard-workflows").find("iframe")[0];
-            Drupal.gofast_workflows.ceo_vision_js_check_login(function(){
-               iframe.src = iframe.src;
-            });
+        if($("#refresh-lightdashboard").length === 1){
+             $("#refresh-lightdashboard").click();          
         }
     },
 
@@ -1098,6 +1057,11 @@ var Gofast = (function($) {
       var isTablet = /(ipad|tablet|(android(?!.*mobile))|(windows(?!.*phone)(.*touch))|kindle|playbook|silk|(puffin(?!.*(IP|AP|WP))))/.test(userAgent);
       return isTablet;
     },
+      isiPad: function () {
+          var userAgent = navigator.userAgent.toLowerCase();
+          var isiPad = /ipad/.test(userAgent);
+          return isiPad;
+      },
     isMobile: function () {
       let check = false;
       (function (a) { if (/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i.test(a) || /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(a.substr(0, 4))) check = true; })(navigator.userAgent || navigator.vendor || window.opera);
@@ -1151,20 +1115,99 @@ var Gofast = (function($) {
 
       if (event.target.tagName != "A") { location.href = jQuery("#edit-saml-sp-drupal-login-links > a").attr("href"); event.preventDefault()};
     },
-    HidePrintButton: function () {
-      if($("#pdf_frame").contents().find("#print.toolbarButton").hasClass("hideprint_processed") || $("#pdf_frame").contents().find("#print.toolbarButton").length == 0){
-          return;
+    callToasterMessages : function () {
+      // Convert messages to toaster
+      var messages = Drupal.settings.messages;
+      if(!messages) return;
+      if(messages.error !== undefined){
+        messages.error.forEach((message,key) => {
+          Gofast.toast(Drupal.t(message), 'error');
+        });
       }
-      $("#pdf_frame").contents().find("#print.toolbarButton").addClass("hideprint_processed");
-      var is_internal = Gofast.isInternal();
-      var is_confidential = Gofast.isConfidential();
-      if ($('#pdf_frame').length > 0 && $("#pdf_frame").contents().find("#print.toolbarButton").length > 0 && ( is_internal == true ||  is_confidential == true)) {
-        $("#pdf_frame").contents().find("#print.toolbarButton").addClass('gofastHideButton');
-      } else if ($('#pdf_frame').length > 0 && $("#pdf_frame").contents().find("#print.gofastHideButton").length > 0 && is_internal == false && is_confidential == false) {
-        $("#pdf_frame").contents().find("#print.toolbarButton").removeClass('gofastHideButton');
-      };
-    }
-  }; // Gofast._
+      if(messages.status !== undefined){
+        messages.status.forEach((message,key) => {
+          Gofast.toast(Drupal.t(message), 'info');
+        });
+      }
+      if(messages.warning !== undefined){
+        messages.warning.forEach((message,key) => {
+          Gofast.toast(Drupal.t(message), 'warning');
+        });
+      }
+    },
+    waitForTreeAsyncCall: async function(tId) {
+      return await new Promise(resolve => {
+        const interval = setInterval(() => {
+            if ($('#' + tId + '_ul')[0].style.overflow === "hidden") {
+                clearInterval(interval);
+                resolve();
+            }
+        }, 250);
+      });
+    },
+    expandTargetLinkNode: async function (emplacement, isAsync = false) {
+      let parentNodeNames = emplacement.split("/").reduce((acc, curr, idx) => {
+          acc.push(idx > 0 ? acc[idx - 1] + "/" + curr : curr);
+          return acc;
+      }, []);
+
+      let zTreeObj = $.fn.zTree.getZTreeObj("ztree_component_content");
+      let treeNode = {};
+
+      for (let i = 0; i < parentNodeNames.length; i++) {
+          treeNode = zTreeObj.getNodeByParam("ename", parentNodeNames[i], null);
+          if (!treeNode) {
+              continue;
+          }
+          zTreeObj.expandNode(treeNode, true, true, true);
+          if (isAsync &&  i > 2 && $('#' + treeNode.tId + '_ul')[0].style.display !== "block") {
+              await Gofast.waitForTreeAsyncCall(treeNode.tId);
+          }
+          if (i == parentNodeNames.length - 1) {
+              $("#" + treeNode.tId + "_check").click();
+              // zTreeObj.selectNode(treeNode);
+              // zTreeObj.checkNode(treeNode);
+          }
+      }
+    },
+    incrementMetadataEditCounter: function() {
+      // prevent lock poll refresh breaking the select
+      Drupal.settings.gofast.metadataEditCount = typeof Drupal.settings.gofast.metadataEditCount == "undefined" ? 1 : (Drupal.settings.gofast.metadataEditCount + 1); // do not use ++ operator: it will not work with advagg
+      Gofast.Poll.abort();
+    },
+    decrementMetadataEditCounter: function() {
+      Drupal.settings.gofast.metadataEditCount =  typeof Drupal.settings.gofast.metadataEditCount == "undefined" ?  0 : (Drupal.settings.gofast.metadataEditCount - 1); // do not use -- operator: it will not work with advagg
+      if (Drupal.settings.gofast.metadataEditCount == 0) {
+        Gofast.Poll.run();
+      }
+    },
+    initCollapsibleMetadataPanel: function(e) {
+      const target = e.currentTarget;
+      if (target.classList.contains("open")) {
+        target.classList.remove("open");
+        target.querySelector("i").classList.remove("fa-chevron-right");
+        target.querySelector("i").classList.add("fa-chevron-left");
+        $(".mainContent.gofast-content--collapsible-side .gofast-content__node").css("gridTemplateColumns", "97% 3%");
+        $(target).parent().parent().find(".card-body").css("visibility", "hidden");
+        // if metadata panel is collapsed, there is not enough room anymore for the contextual submenu to be shown on the right
+        $(".gofastDropdown > .dropdown-menu").addClass("dropleft");
+        // don't forget to update the "More" icon as well
+        $(".gofastDropdown > .navi-link  .navi-icon").remove();
+        $(".gofastDropdown > .navi-link").prepend("<span class=\"navi-icon\"><i class=\"fas fa-arrow-left\"></i></span>")
+        $('.sideContent .gofastTab .nav-item .nav-link .nav-text').hide();             
+        return;
+      }
+      target.classList.add("open");
+      target.querySelector("i").classList.add("fa-chevron-right");
+      target.querySelector("i").classList.remove("fa-chevron-left");
+      $(".mainContent.gofast-content--collapsible-side .gofast-content__node").css("gridTemplateColumns", "67% 33%");
+      $(target).parent().parent().find(".card-body").css("visibility", "visible");
+      $(".gofastDropdown > .dropdown-menu").removeClass("dropleft");
+      $(".gofastDropdown > .navi-link  .navi-icon").remove();
+      $(".gofastDropdown > .navi-link").append("<span class=\"navi-icon\"><i class=\"fas fa-arrow-right\"></i></span>")
+      $('.sideContent .gofastTab .nav-item .nav-link .nav-text').show();
+    },
+  };
 })(jQuery);
 
 Gofast.Collection = function (name, db) {
@@ -1442,6 +1485,15 @@ Drupal.behaviors._gofastInit = {
       }
     });
   }
+
+  /**
+   * Works like replaceWith method except that it returns back the new element
+   */
+  $.fn.replaceWithPush = function(a) {
+    var $a = $(a);
+    this.replaceWith($a);
+    return $a;
+  };
 
   /**
    * Center matched element on the screen (relative to the viewport : position

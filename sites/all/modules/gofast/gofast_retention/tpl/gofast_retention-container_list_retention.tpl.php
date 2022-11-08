@@ -42,7 +42,7 @@
     var matrice = Drupal.settings.gofast_retention.retention_matrice;
     var retention_period_obj = matrice[uuid];
     
-    modalContentClose();
+    Drupal.CTools.Modal.dismiss();
     Gofast.addLoading();
     
     jQuery.post(location.origin + "/retention/apply?", {retention_obj : retention_period_obj, category: cat_name}, function(response){

@@ -1,4 +1,8 @@
 <?php
+
+module_load_include('inc', 'gofast_riot', 'gofast_riot.api');
+
+
 /**
 * Implementation of hook_permission().
 */
@@ -10,19 +14,19 @@ function gofast_riot_permission() {
 
 function gofast_riot_cronapi($op, $job = NULL) {
   $items = [];
-  
+
   $items['gofast_riot_cron_check_install'] = array(
     'description' => 'Check if Riot/Matrix is up',
-    'rule' => '*/3 * * * *', // runs every 3 minute 
+    'rule' => '*/3 * * * *', // runs every 3 minute
     'callback' => 'gofast_riot_cron_check_install',
   );
-  
+
   $items['gofast_riot_cron_fix_memberships'] = array(
     'description' => 'Rebuild user memberships in all rooms according to the corresponding Gofast space memberships',
     'rule' => '15 23 * * 0', // runs at 23:15 on Sunday
     'callback' => 'gofast_riot_fix_rooms_memberships',
   );
-  
+
   return $items;
 }
 
@@ -34,7 +38,7 @@ function gofast_riot_cron_check_install() {
     global $conf;
 
     //Check if Synapse is ready
-    $url = "https://" . $conf['gofast-comm_domain'] . "/_matrix/client/versions";
+    $url = "https://internal-" . $conf['gofast-comm_domain'] . "/_matrix/client/versions";
 
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_HEADER, 0);
@@ -88,11 +92,11 @@ function gofast_riot_user_login(&$edit, $account) {
     //Generate token
     $uuid = gofast_generate_uuid();
     $tokenRiot = base64_encode($uuid);
-    
+
     //Generate end timestamp
     $timestamp = time() + 36000;
-    
-    //Store the token   
+
+    //Store the token
     db_merge('gofast_riot_token')
         ->insertFields(array(
             'uid' => $user->uid,
@@ -105,25 +109,21 @@ function gofast_riot_user_login(&$edit, $account) {
         ))
         ->key(array('uid' => $user->uid))
         ->execute();
-    
+
     gofast_riot_get_tech_token();
 }
 
 function gofast_riot_user_logout($account) {
     global $conf;
-    
-    //$url = "https://".$conf['gofast-comm_domain']."/_matrix/client/r0/logout?access_token=".$_SESSION['TOKEN_RIOT'];                                                                                
-    $url = "https://".$conf['gofast-comm_domain']."/_matrix/client/r0/logout?access_token=".$_SESSION['TOKEN_RIOT'];
-    
-    $ch = curl_init();   
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");                                                                                                                                    
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);  
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, array(                                                                          
-        'Content-Type: application/json',                                                                                
-        'Content-Length:'. strlen($data_string))                                                                       
+
+    //$url = "https://internal-".$conf['gofast-comm_domain']."/_matrix/client/r0/logout?access_token=".$_SESSION['TOKEN_RIOT'];
+    $url = "https://internal-".$conf['gofast-comm_domain']."/_matrix/client/r0/logout?access_token=".$_SESSION['TOKEN_RIOT'];
+
+    $ch = curl_init();
+    gofast_riot_set_post_curl_parameters($ch, $url);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+        'Content-Type: application/json',
+        'Content-Length:'. strlen($data_string))
     );
     curl_exec($ch);
 
@@ -135,71 +135,48 @@ function gofast_riot_preprocess_page(&$variables) {
   global $conf;
   global $base_url;
   
+  $params['GOFAST_COMM'] = $conf['gofast-comm_domain'];
+
   if ($user->uid != 0) {
     $tokenRiot = goFast_riot_GetToken($user->name);
-    $params['GOFAST_COMM'] = $conf['gofast-comm_domain'];
-    $params['TOKEN_RIOT'] = $tokenRiot; 
-    drupal_add_js($params, 'setting');
+    $params['TOKEN_RIOT'] = $tokenRiot;
 
-    $firstConnection = variable_get('firstConnection_' . $user->uid, TRUE);
-    if ($firstConnection) {
-      watchdog('debug_avanhove_matrix_firstconnection', $firstConnection);
-      setcookie("firstConnection", 1, 0, '/', "",TRUE);
-      variable_set('firstConnection_' . $user->uid, FALSE);
-    }
-    else {
-      setcookie('firstConnection', 0, 0, '/',"",TRUE);
-    }
-    
     $path = drupal_get_path('module', 'gofast_riot');
-    drupal_add_css($base_url . '/' . $path . '/css/gofast_riot.css', ['group' => CSS_THEME + 10]);    
+    drupal_add_css($base_url . '/' . $path . '/css/gofast_riot.css', ['group' => CSS_THEME + 10]);
     drupal_add_js($base_url . '/' . $path . '/gofast_riot.js', [
       'scope' => 'footer',
       'group' => JS_THEME,
       'weight' => 20
     ]);
-    
-    // Check if a new avatar has been set (ie. by a manager).
-    if (!empty($user->data['riot_avatar_url'])) {
-      // Pass avatarUrl to the frontend to sync avatar via matrix api. 
-      drupal_add_js(['gofast_riot' => [
-        'avatarUrl' => $user->data['riot_avatar_url']
-      ]], 'setting');
-      $account = user_load($user->uid);
-      unset ($account->data['riot_avatar_url']);
-      user_save($account);
-    }
   }
+  
+  drupal_add_js($params, 'setting');
 }
 
 function gofast_riot_get_tech_token(){
     global $conf;
-    
+
     //Generate token
     $uuid = gofast_generate_uuid();
     $tokenRiot = base64_encode($uuid);
-    
+
     variable_set("gofast_riot_tech_token", $tokenRiot);
-    
-    $param = array('user'=>'chatroom.active','password'=>$tokenRiot,'type'=>"m.login.password");  
-    $url = "https://".$conf['gofast-comm_domain']."/_matrix/client/r0/login";
-    $data_string = json_encode($param);                                                                                   
-    $ch = curl_init();   
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");                                                                     
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);                                                                  
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);  
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, array(                                                                          
-        'Content-Type: application/json',                                                                                
+
+    $param = array('user'=>'chatroom.active','password'=>$tokenRiot,'type'=>"m.login.password");
+    $url = "https://internal-".$conf['gofast-comm_domain']."/_matrix/client/r0/login";
+    $data_string = json_encode($param);
+    $ch = curl_init();
+    gofast_riot_set_post_curl_parameters($ch, $url);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+        'Content-Type: application/json',
         'Content-Length:'. strlen($data_string))
     );
     $result = curl_exec($ch);
     $resultDecode= json_decode($result);
     $TokenRiotAdmin = $resultDecode->access_token;
     variable_set('riot_token_admin', $TokenRiotAdmin);
-    
+
     return $TokenRiotAdmin;
 }
 
@@ -212,15 +189,7 @@ function gofast_riot_block_view($delta = '') {
 
   switch ($delta) {
     case 'gofast_riot_chat':
-      $src = $base_url . '/sites/all/libraries/riot/index.html?v=5';
-      $spinner = '<img src="' . $base_url . '/sites/all/libraries/riot/img/spinner.0b29ec9.gif" '
-        . 'width="32" height="32" alt="' . t('loading...') . '">';
-      $content = '<div id="conteneurIframe">'
-              . '<iframe id="IframeRiotBloc" title="Frame Riot" src="' . $src . '"></iframe>'
-              . '<div id="animateRiot"> <i class="fa fa-comment-o"></i></div>'
-              . '<div id="blocConnexionRiot"><p>' . $spinner . '</p></div>'
-              . '</div>';
-      $block['content'] = $content ;
+      $block['content'] = theme("gofast_riot_block");
       break;
     }
   return $block;
@@ -228,14 +197,14 @@ function gofast_riot_block_view($delta = '') {
 
 /**
  * Implements hook_node_presave
- * 
- * When creating an organisation, automatically create the corresponding room. 
+ *
+ * When creating an organisation, automatically create the corresponding room.
  */
 function gofast_riot_node_presave($node) {
   if (isset($node->nid) || $node->type !== 'organisation') {
     return;
   }
-  
+
   global $conf;
   $ancestors = gofast_og_get_ancestors($node, FALSE, true);
 
@@ -243,15 +212,11 @@ function gofast_riot_node_presave($node) {
     $topic = $node->field_description['und'][0]['value'];
     $name = strtoupper(substr($node->type, 0, 3)) . ' - ' . $node->title;
     $param = array('name' => $name, 'preset' => "private_chat", 'topic' => $topic);
-    $url = "https://" . $conf['gofast-comm_domain'] . "/_matrix/client/api/v1/createRoom?access_token=" . variable_get('riot_token_admin');
+    $url = "https://internal-" . $conf['gofast-comm_domain'] . "/_matrix/client/api/v1/createRoom?access_token=" . variable_get('riot_token_admin');
     $data_string = json_encode($param);
     $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+    gofast_riot_set_post_curl_parameters($ch, $url);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
     curl_setopt($ch, CURLOPT_HTTPHEADER, array(
       'Content-Type: application/json',
       'Content-Length:' . strlen($data_string))
@@ -265,7 +230,7 @@ function gofast_riot_node_presave($node) {
     //Inform other hooks of the riot ID in case they are not already aware
     $_POST["riot_room_identifier"] = $result['room_id'];
     watchdog("gofast_riot", "Saved identifier is " . $result['room_id']);
-    
+
     //Insert creator in the room
     gofast_riot_UpdateUserRiotRoom('invite', $result['room_id'], gofast_user_get_login($node->uid));
   }
@@ -273,12 +238,12 @@ function gofast_riot_node_presave($node) {
 
 /**
  * Implements hook_node_delete
- * 
- * If Deleting a space associated with a room, kick everybody from the room and 
- * delete room alias. 
- * 
+ *
+ * If Deleting a space associated with a room, kick everybody from the room and
+ * delete room alias.
+ *
  * We can't just delete the room !
- * 
+ *
  * @todo check for room content (uploads).
  * @see https://github.com/vector-im/riot-web/issues/6978
  */
@@ -287,7 +252,7 @@ function gofast_riot_node_delete($node) {
   global $conf;
 
   if ($node->field_riot_identifier[LANGUAGE_NONE][0]['value'] != '') {
-    // First kick every body except the current user (is admin of that space/room). 
+    // First kick every body except the current user (is admin of that space/room).
     foreach (gofast_og_get_members_userlist_included($node) as $member) {
       if ($member != $user->uid) {
         $name = user_load($member)->name;
@@ -296,10 +261,10 @@ function gofast_riot_node_delete($node) {
     }
     gofast_riot_UpdateUserRiotRoom('kick', $node, strtolower($user->name));
 
-    // Delete room alias. 
+    // Delete room alias.
     $roomAlias = '#' . $node->nid . ':' . $conf['gofast-comm_domain'];
     $roomAlias = urlencode($roomAlias);
-    $url = "https://" . $conf['gofast-comm_domain'] . "_matrix/client/r0/directory/room/" . $roomAlias . "?access_token=" . variable_get('riot_token_admin');
+    $url = "https://internal-" . $conf['gofast-comm_domain'] . "_matrix/client/r0/directory/room/" . $roomAlias . "?access_token=" . variable_get('riot_token_admin');
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "DELETE");
@@ -312,10 +277,10 @@ function gofast_riot_node_delete($node) {
       'Content-Length:' . strlen($data_string))
     );
     $result = curl_exec($ch);
-    
-    // We can now kick the admin and left the room empty. 
+
+    // We can now kick the admin and left the room empty.
     gofast_riot_UpdateUserRiotRoom('kick', $node, 'chatroom.active');
-    
+
     // Remember the nid/roomID link in case we have to sync user memberships.
     $deleted = variable_get('gofast_riot_deleted_rooms', []);
     $deleted[$nid] = $node->field_riot_identifier[LANGUAGE_NONE][0]['value'];
@@ -330,7 +295,7 @@ function gofast_riot_node_update($node){
   if ($node->field_riot_identifier[LANGUAGE_NONE][0]['value'] !=''){
     $idRoom = gofast_riot_get_RoomId($node);
 
-    $url = "https://" . $conf['gofast-comm_domain'] . "/_matrix/client/r0/rooms/" . $idRoom . "/state/m.room.name?access_token=" . variable_get('riot_token_admin');
+    $url = "https://internal-" . $conf['gofast-comm_domain'] . "/_matrix/client/r0/rooms/" . $idRoom . "/state/m.room.name?access_token=" . variable_get('riot_token_admin');
     $name = strtoupper(substr($node->type, 0, 3)).' - '.$node->title;
     $param = array('name'=>$name);
 
@@ -363,42 +328,80 @@ function gofast_riot_node_update($node){
   }
 }
 
+function gofast_riot_get_all_room_ids_by_gids($gids) {
+  return db_select("field_revision_field_riot_identifier", "ri")
+    ->fields("ri", array("field_riot_identifier_value"))
+    ->condition("entity_id", $gids, "IN")
+    ->condition("field_riot_identifier_value", NULL, "NOT")
+    ->execute()->fetchCol();
+}
+
+function gofast_riot_synapse_api_kick_user($account){
+  global $conf;
+  $username = "@" . strtolower($account->name) . ":" . $conf['gofast-comm_domain'];
+  
+  $path = '/_synapse/admin/v1/reset_password/'.$username;
+  $data = [
+     "new_password"=> "fake",
+     "logout_devices"=> true,
+    ];
+  $data = json_encode($data );
+  $url = 'https://internal-' . $conf['gofast-comm_domain'] . $path;
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_URL, $url);
+  curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
+  curl_setopt($ch, CURLOPT_POST, 1);
+  curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+  curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+  curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+  curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'Authorization: Bearer ' . variable_get('riot_token_admin')
+  ]);
+  $result = curl_exec($ch);
+  $result = json_decode($result, TRUE);
+  
+  return $result;
+}
+
+/**
+ * Implements hook leave_user
+ */
+function gofast_riot_gofast_user_leave_user(&$account) {
+  gofast_riot_synapse_api_kick_user($account);
+}
+
+function gofast_riot_user_update(&$edit, $account, $category) {
+  // Check if the user was blocked
+  if ($account->original->status != $account->status && $account->status == 0) {
+    gofast_riot_synapse_api_kick_user($account);
+  }
+}
+
 function gofast_riot_synchronize_permissions($node, $roomId) {
   global $conf;
-  
+
   $admins = gofast_userlist_og_get_node_members_by_role($node->nid, array(OG_STATE_ACTIVE), "administrator member");
-  $members = gofast_userlist_og_get_node_members_by_role($node->nid, array(OG_STATE_ACTIVE), "group contributor");
-  $readonly_members = gofast_userlist_og_get_node_members_by_role($node->nid, array(OG_STATE_ACTIVE), "read only member");
-  
+  $members = array_merge(gofast_userlist_og_get_node_members_by_role($node->nid, array(OG_STATE_ACTIVE), "group contributor"), gofast_userlist_og_get_node_members_by_role($node->nid, array(OG_STATE_ACTIVE), "read only member"));
   $users = array();
-  
-  foreach ($readonly_members as $member) {
-    if ($member->entity_type == "userlist") {
-      $ulid = $member->etid;
-      $ul_members = array_keys(gofast_userlist_get_members($ulid));
-      foreach ($ul_members as $ul_member) {
-        $uname = gofast_user_get_login($ul_member);
-        $users["@" . strtolower($uname) . ":" . $conf['gofast-comm_domain']] = -1;
-      }
-    }
-    else {
-      $uid = $member->etid;
-      $uname = gofast_user_get_login($uid);
-      $users["@" . strtolower($uname) . ":" . $conf['gofast-comm_domain']] = -1;
-    }
-  }
   
   foreach ($members as $member) {
     if ($member->entity_type == "userlist") {
       $ulid = $member->etid;
       $ul_members = array_keys(gofast_userlist_get_members($ulid));
       foreach ($ul_members as $ul_member) {
+        if (gofast_user_is_left($ul_member)) {
+          continue;
+        }
         $uname = gofast_user_get_login($ul_member);
         $users["@" . strtolower($uname) . ":" . $conf['gofast-comm_domain']] = 0;
       }
     }
     else {
       $uid = $member->etid;
+      if (gofast_user_is_left($uid)) {
+        continue;
+      }
       $uname = gofast_user_get_login($uid);
       $users["@" . strtolower($uname) . ":" . $conf['gofast-comm_domain']] = 0;
     }
@@ -409,12 +412,18 @@ function gofast_riot_synchronize_permissions($node, $roomId) {
       $ulid = $admin->etid;
       $ul_members = array_keys(gofast_userlist_get_members($ulid));
       foreach ($ul_members as $ul_member) {
+        if (gofast_user_is_left($ul_member)) {
+          continue;
+        }
         $uname = gofast_user_get_login($ul_member);
         $users["@" . strtolower($uname) . ":" . $conf['gofast-comm_domain']] = 50;
       }
     }
     else {
       $uid = $admin->etid;
+      if (gofast_user_is_left($uid)) {
+        continue;
+      }
       $uname = gofast_user_get_login($uid);
       $users["@" . strtolower($uname) . ":" . $conf['gofast-comm_domain']] = 50;
     }
@@ -445,7 +454,7 @@ function gofast_riot_synchronize_permissions($node, $roomId) {
     "users_default" => 0
   );
 
-  $url = "https://" . $conf['gofast-comm_domain'] . "/_matrix/client/r0/rooms/" . $roomId . "/state/m.room.power_levels?access_token=" . variable_get('riot_token_admin');
+  $url = "https://internal-" . $conf['gofast-comm_domain'] . "/_matrix/client/r0/rooms/" . $roomId . "/state/m.room.power_levels?access_token=" . variable_get('riot_token_admin');
 
   $data_string = json_encode($param);
   $ch = curl_init();
@@ -476,13 +485,13 @@ function gofast_riot_synchronize_permissions($node, $roomId) {
 }
 
 function gofast_riot_verify_max_level_parent($node, $maxLevel){
-    
+
     $nodeIdParent = $node->og_group_ref['und'][0]['target_id'];
     $nodeParent = node_load($nodeIdParent);
     $i=1;
     $result=false;
     while($i<=$maxLevel){
-        
+
         if ($nodeParent->title =='Groups' || $nodeParent->title =='organisation' || $nodeParent->title =='extranet'){
             $result= true;
             break;
@@ -493,7 +502,7 @@ function gofast_riot_verify_max_level_parent($node, $maxLevel){
             $i++;
         }
     }
-    
+
     return $result;
 }
 
@@ -501,15 +510,15 @@ function gofast_riot_og_membership_insert(OgMembership $og_membership) {
 //    watchdog('RIOT', 'OG_MEMBERSHIP_INSERT');
 //    watchdog('RIOT', $og_membership->entity_type);
 //    watchdog('RIOT', $og_membership->etid);
-      
+
   if ($og_membership->state != OG_STATE_ACTIVE) {
     return;
   }
-  
+
   $node = node_load($og_membership->gid);
 
-  // If the space is an organisation or if explicitly required, automatically 
-  // invite the new member in the corresponding room. 
+  // If the space is an organisation or if explicitly required, automatically
+  // invite the new member in the corresponding room.
   if ($node->field_riot_identifier[LANGUAGE_NONE][0]['value'] != '') {
     if (isset($_POST["riot_room_identifier"])) {
       $node->field_riot_identifier[LANGUAGE_NONE][0]['value'] = $_POST["riot_room_identifier"];
@@ -551,12 +560,12 @@ function gofast_riot_og_membership_insert(OgMembership $og_membership) {
 function gofast_riot_og_membership_update(OgMembership $og_membership){
     //Users can be updated from pending to active
     gofast_riot_og_membership_insert($og_membership);
-    
+
     $node = node_load($og_membership->gid);
-    
+
     if ($node->field_riot_identifier[LANGUAGE_NONE][0]['value'] !=''){
         $idRoom = gofast_riot_get_RoomId($node);
-        gofast_riot_synchronize_permissions($node, $idRoom);   
+        gofast_riot_synchronize_permissions($node, $idRoom);
     }
 
 }
@@ -568,7 +577,7 @@ function gofast_riot_og_membership_update(OgMembership $og_membership){
 function gofast_riot_og_role_grant($entity_type, $gid, $uid, $rid) {
   if ($entity_type != 'node') return;
   $node = node_load($gid);
-  
+
   if ($node->field_riot_identifier[LANGUAGE_NONE][0]['value'] !=''){
       $idRoom = gofast_riot_get_RoomId($node);
       gofast_riot_synchronize_permissions($node, $idRoom);
@@ -581,7 +590,7 @@ function gofast_riot_og_role_grant($entity_type, $gid, $uid, $rid) {
  */
 function gofast_riot_userlist_og_role_grant($entity_type, $gid, $ulid, $rid) {
   $node = node_load($gid);
-  
+
   if ($node->field_riot_identifier[LANGUAGE_NONE][0]['value'] !=''){
       $idRoom = gofast_riot_get_RoomId($node);
       gofast_riot_synchronize_permissions($node, $idRoom);
@@ -632,7 +641,7 @@ function gofast_riot_og_membership_delete(OgMembership $og_membership) {
   }
 }
 
-function gofast_riot_get_RoomId($node){ 
+function gofast_riot_get_RoomId($node){
   return $node->field_riot_identifier[LANGUAGE_NONE][0]['value'];
 }
 
@@ -642,7 +651,7 @@ function gofast_riot_get_RoomId($node){
  */
 function gofast_riot_UpdateUserRiotRoom($action, $node_or_roomID, $userName, $userList = false, $arrayUserId = false) {
   global $conf;
-  
+
   if (!empty($node_or_roomID->nid)) {
     $node = $node_or_roomID;
     $roomID = gofast_riot_get_RoomId($node);
@@ -651,36 +660,35 @@ function gofast_riot_UpdateUserRiotRoom($action, $node_or_roomID, $userName, $us
     $node = NULL;
     $roomID = $node_or_roomID;
   }
-  
+
   if ($userList) {
     foreach ($arrayUserId as $userId) {
+      if (gofast_user_is_left($userId)) {
+        continue;
+      }
 //      watchdog(' RIOT ', $action . ':' . $userId);
       $account = user_load($userId);
       $user = "@" . strtolower($account->name) . ":" . $conf['gofast-comm_domain'];
       $param = array('user_id' => $user);
       $path = '/_matrix/client/r0/rooms/' . urlencode($roomID) . '/' . $action;
       $query = '?access_token=' . variable_get('riot_token_admin');
-      $url = 'https://' . $conf['gofast-comm_domain'] . $path . $query;      
+      $url = 'https://internal-' . $conf['gofast-comm_domain'] . $path . $query;
       $data_string = json_encode($param);
       $ch = curl_init();
-      curl_setopt($ch, CURLOPT_URL, $url);
-      curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+      gofast_riot_set_post_curl_parameters($ch, $url);
       curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
-      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-      curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
-      curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
       curl_setopt($ch, CURLOPT_HTTPHEADER, array(
         'Content-Type: application/json',
         'Content-Length:' . strlen($data_string))
       );
       $res = curl_exec($ch);
       $res = json_decode($res, TRUE);
-      
+
 //      while (isset($res['errcode']) && $res['errcode'] === 'M_LIMIT_EXCEEDED') {
 //        $delay = !empty($res['retry_after_ms']) ? $res['retry_after_ms'] : 500;
-//        
+//
 //        usleep($delay);
-//        
+//
 //        $res = curl_exec($ch);
 //        $res = json_decode($res, TRUE);
 //      }
@@ -688,20 +696,20 @@ function gofast_riot_UpdateUserRiotRoom($action, $node_or_roomID, $userName, $us
     }
   }
   else {
+    $userId = gofast_user_get_uid_by_login($userName);
+    if (gofast_user_is_left($userId)) {
+      return;
+    }
 //    watchdog(' RIOT ', $action . ':' . $userName);
     $user = "@" . strtolower($userName) . ":" . $conf['gofast-comm_domain'];
     $param = array('user_id' => $user);
     $path = '/_matrix/client/r0/rooms/' . urlencode($roomID) . '/' . $action;
     $query = '?access_token=' . variable_get('riot_token_admin');
-    $url = 'https://' . $conf['gofast-comm_domain'] . $path . $query;
+    $url = 'https://internal-' . $conf['gofast-comm_domain'] . $path . $query;
     $data_string = json_encode($param);
     $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+    gofast_riot_set_post_curl_parameters($ch, $url);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
     curl_setopt($ch, CURLOPT_HTTPHEADER, array(
       'Content-Type: application/json',
       'Content-Length:' . strlen($data_string))
@@ -754,13 +762,13 @@ function gofast_riot_menu() {
     'access arguments' => array('access content'),
     'type' => MENU_CALLBACK,
   );
-  
+
   return $items;
 }
 
-function gofast_riot_conversation(){         
+function gofast_riot_conversation(){
     global $base_url;
-    return theme("gofast_riot_conversation_page");   
+    return theme("gofast_riot_conversation_page");
 }
 
 /**
@@ -770,6 +778,15 @@ function gofast_riot_theme() {
   $themes = array();
   $themes['gofast_riot_conversation_page'] = array(
     'template' => 'tpl/gofast-riot-conversation-page'
+  );
+  $themes['gofast_riot_logout_page'] = array(
+    'template' => 'tpl/gofast-riot-logout-page'
+  );
+  $themes['gofast_riot_block'] = array(
+    'template' => 'tpl/gofast-riot-block',
+    'variables' => array(
+      'src' => NULL, 
+    )
   );
 
   return $themes;
@@ -811,13 +828,14 @@ function goFast_riot_SaveRiotToken() {
   if (isset($_POST['token'])) {
     $_SESSION['TOKEN_RIOT'] = $_POST['token'];
     gofast_riot_accept_all_invite_room();
+    gofast_riot_change_username();
   }
 }
 
 function gofast_riot_accept_all_invite_room() {
   global $conf;
 
-  $url = "https://" . $conf['gofast-comm_domain'] . "/_matrix/client/r0/sync?filter=0&timeout=0&access_token=" . $_SESSION['TOKEN_RIOT'];
+  $url = "https://internal-" . $conf['gofast-comm_domain'] . "/_matrix/client/r0/sync?filter=0&timeout=0&access_token=" . $_SESSION['TOKEN_RIOT'];
   $ch = curl_init();
   curl_setopt($ch, CURLOPT_URL, $url);
   curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
@@ -829,91 +847,133 @@ function gofast_riot_accept_all_invite_room() {
   $result = json_decode($result);
 
   foreach ($result->rooms->leave as $key => $value) {
-    $url = "https://" . $conf['gofast-comm_domain'] . "_matrix/client/r0/rooms/" . urlencode($key) . "/forget?access_token=" . $_SESSION['TOKEN_RIOT'];
+    $url = "https://internal-" . $conf['gofast-comm_domain'] . "_matrix/client/r0/rooms/" . urlencode($key) . "/forget?access_token=" . $_SESSION['TOKEN_RIOT'];
     $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+    gofast_riot_set_post_curl_parameters($ch, $url);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
     curl_setopt($ch, CURLOPT_HTTPHEADER, array(
       'Content-Type: application/json',
       'Content-Length:' . strlen($data_string))
     );
     $res = curl_exec($ch);
     $res = json_decode($res, TRUE);
-
-//    while (isset($res['errcode']) && $res['errcode'] === 'M_LIMIT_EXCEEDED') {
-//      $delay = !empty($res['retry_after_ms']) ? $res['retry_after_ms'] : 500;
-//
-//      usleep($delay);
-//
-//      $res = curl_exec($ch);
-//      $res = json_decode($res, TRUE);
-//    }
   }
 
   foreach ($result->rooms->invite as $key => $value) {
-    $url = "https://" . $conf['gofast-comm_domain'] . "/_matrix/client/r0/join/" . urlencode($key) . "?access_token=" . $_SESSION['TOKEN_RIOT'];
+    $url = "https://internal-" . $conf['gofast-comm_domain'] . "/_matrix/client/r0/join/" . urlencode($key) . "?access_token=" . $_SESSION['TOKEN_RIOT'];
     $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+    gofast_riot_set_post_curl_parameters($ch, $url);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
     curl_setopt($ch, CURLOPT_HTTPHEADER, array(
       'Content-Type: application/json',
       'Content-Length:' . strlen($data_string))
     );
     $res = curl_exec($ch);
     $res = json_decode($res, TRUE);
-
-//    while (isset($res['errcode']) && $res['errcode'] === 'M_LIMIT_EXCEEDED') {
-//      $delay = !empty($res['retry_after_ms']) ? $res['retry_after_ms'] : 500;
-//
-//      usleep($delay);
-//
-//      $res = curl_exec($ch);
-//      $res = json_decode($res, TRUE);
-//    }
   }
 
   return $result;
 }
 
+function gofast_riot_change_username() {
+  global $conf;
+  global $user;
+  
+  $username = "@" . strtolower($user->name) . ":" . $conf['gofast-comm_domain'];
+  $url = "https://internal-" . $conf['gofast-comm_domain'] . "/_matrix/client/r0/profile/" . $username . "/displayname?access_token=" . $_SESSION['TOKEN_RIOT'];
+  $data_string = json_encode(["displayname" => gofast_user_display_name()]);
+  
+  $ch = curl_init();
+  gofast_riot_set_post_curl_parameters($ch, $url);
+  curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+  curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+  curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+    'Content-Type: application/json',
+    'Content-Length:' . strlen($data_string)
+  ));
+
+  curl_exec($ch);
+}
+
+function gofast_riot_change_avatar($picture){
+  global $conf;
+  global $user;
+  
+  //Retrieve picture of the current user
+  $full_user = user_load($user->uid);
+  $url = file_create_url($picture->uri);
+  $file = file_get_contents($url);
+  $filename = end(explode('/', $url));
+  $filetype = gofast_get_mime_content_type($filename);
+  $url = "https://internal-" . $conf['gofast-comm_domain'] . "/_matrix/media/r0/upload?filename=" . $filename;
+  
+  $ch = curl_init();
+  gofast_riot_set_post_curl_parameters($ch, $url);
+  curl_setopt($ch, CURLOPT_POSTFIELDS, $file);
+  curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+    'Content-Type: ' . $filetype,
+    'Content-Length:' . strlen($file),
+    'Authorization: Bearer ' . $_SESSION['TOKEN_RIOT']
+  ));
+
+  $result = curl_exec($ch);
+  $avatar_uri = json_decode($result, TRUE)['content_uri'];
+  curl_close($ch);
+  
+  //Upload the avatar
+  $username = "@" . strtolower($user->name) . ":" . $conf['gofast-comm_domain'];
+  $url = "https://internal-" . $conf['gofast-comm_domain'] . "/_matrix/client/r0/profile/" . $username . '/avatar_url?access_token=' . $_SESSION['TOKEN_RIOT'];
+  $data_string = json_encode(["avatar_url" => $avatar_uri]);
+  
+  $ch = curl_init();
+  gofast_riot_set_post_curl_parameters($ch, $url);
+  curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+  curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+  curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+    'Content-Type: application/json',
+    'Content-Length:' . strlen($data_string),
+  ));
+
+  $result = curl_exec($ch);
+}
+
+function gofast_riot_set_post_curl_parameters(&$ch, $endpoint) {
+  curl_setopt($ch, CURLOPT_URL, $endpoint);
+  curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+  curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+  curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+}
+
 function gofast_riot_creatRoomRiot($nodeId) {
   global $conf;
-  
+
   if (empty($nodeId)) {
     watchdog('gofast_riot', 'missing node id', [], WATCHDOG_ERROR);
     return FALSE;
   }
-  
+
   $node = node_load($nodeId);
   $name = strtoupper(substr($node->type, 0, 3)) . ' - ' . $node->title;
+
+  $url = "https://internal-" . $conf['gofast-comm_domain'] . "/_matrix/client/api/v1/createRoom?access_token=" . variable_get('riot_token_admin');
   $param = array('name' => $name, 'preset' => "private_chat");
-  $url = "https://" . $conf['gofast-comm_domain'] . "/_matrix/client/api/v1/createRoom?access_token=" . variable_get('riot_token_admin');
+
   $data_string = json_encode($param);
   $ch = curl_init();
-  curl_setopt($ch, CURLOPT_URL, $url);
-  curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+  gofast_riot_set_post_curl_parameters($ch, $url);
   curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
-  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-  curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
-  curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
   curl_setopt($ch, CURLOPT_HTTPHEADER, array(
     'Content-Type: application/json',
     'Content-Length:' . strlen($data_string))
   );
-  
+
   $response = curl_exec($ch);
   if (curl_errno($ch)) {
     watchdog('gofast_riot', 'Erreur Curl : ' . curl_error($ch) . ' num : ' . curl_errno($ch), [], WATCHDOG_ERROR);
     return FALSE;
   }
-  
+
   $res = json_decode($response, TRUE);
 
 //    while (isset($res['errcode']) && $res['errcode'] === 'M_LIMIT_EXCEEDED') {
@@ -924,16 +984,23 @@ function gofast_riot_creatRoomRiot($nodeId) {
 //      $res = curl_exec($ch);
 //      $res = json_decode($res, TRUE);
 //    }
-  
+
   if (empty($res['room_id'])) {
     $errcode = !empty($res['errcode']) ? $res['errcode'] : 'none';
     watchdog('gofast_riot', 'Could not create room for node=' . $node->nid . ' | errcode=' . $errcode, [], WATCHDOG_ERROR);
     return FALSE;
   }
-  
+
+  // GOFAST-6366 - Add the space logo to the room
+  if (isset($node->field_logo_uri[LANGUAGE_NONE][0]['value'])) {
+    $room_avatar_url = file_create_url($node->field_logo_uri[LANGUAGE_NONE][0]['value']);
+    $room_avatar_upload_response = gofast_riot_api_upload_file($room_avatar_url);
+    gofast_riot_api_change_room_avatar($res['room_id'], $room_avatar_upload_response['content_uri']);
+  }
+
   // Store room identifier in node
   $node->field_riot_identifier[LANGUAGE_NONE][0]['value'] = $res['room_id'];
-  node_save($node);  
+  node_save($node);
   entity_get_controller('node')->resetCache([$node->nid]);
 
   watchdog('gofast_riot', 'Created room for node=' . $node->nid . ' | room_id=' . $res['room_id']);
@@ -942,43 +1009,43 @@ function gofast_riot_creatRoomRiot($nodeId) {
 }
 
 /**
- * Implements hook_entity_update() 
+ * Implements hook_entity_update()
  *  runs once the entity storage has been updated.
- * 
- * Invites / kicks off userlist members to/from affected rooms. 
+ *
+ * Invites / kicks off userlist members to/from affected rooms.
  */
 function gofast_riot_entity_update($entity, $type) {
   if ($type !== 'userlist') {
     return;
   }
-  
+
   $affected_og = $entity->og_userlist_node[LANGUAGE_NONE];
   if (empty($affected_og)) {
     // Does not affect any related spaces/rooms, nothing to do.
     return;
   }
-  
+
   $old_members = array_map(function($item) {
     return $item['value'];
-  }, $entity->original->field_userlist_members[LANGUAGE_NONE]); 
-  
+  }, $entity->original->field_userlist_members[LANGUAGE_NONE]);
+
   $members = array_map(function($item) {
     return $item['value'];
   }, $entity->field_userlist_members[LANGUAGE_NONE]);
-  
+
   $added = array_diff($members, $old_members);
   $removed = array_diff($old_members, $members);
-  
+
   foreach ($affected_og as $key => $v) {
     $og_node = node_load($v['target_id']);
-    
+
     if (empty($og_node->field_riot_identifier[LANGUAGE_NONE][0]['value']))
       continue;
-    
+
     // Invite all new members regardless of their existing memberships (safe).
     gofast_riot_UpdateUserRiotRoom('invite', $og_node, NULL, TRUE, $added);
-    
-    // Kick removed members only if they haven't any other kind of memberships 
+
+    // Kick removed members only if they haven't any other kind of memberships
     // to this OG (eg. via another userlist or via direct membership).
     $og_members = gofast_og_get_members_userlist_included($og_node, 'active');
     if ($og_removed = array_diff($removed, $og_members)) {
@@ -991,7 +1058,7 @@ function gofast_riot_entity_update($entity, $type) {
  * Implements gofast_api_ressource_action
  * @ressource : matrix
  * @action : login
- * 
+ *
  * Handles Matrix impersonation requests
  */
 function gofast_api_matrix_login($params){
@@ -999,16 +1066,26 @@ function gofast_api_matrix_login($params){
     if(strpos($params['Content-Type'], "application/json") === FALSE){
         return gofast_api_not_implemented("This Content-Type");
     }
-    
+
     //Check method
     if($params['method'] != "POST"){
         gofast_api_not_implemented("This method");
     }
-    $token = goFast_riot_GetToken($params['auth']['localpart']);
     
+      //check if user is disabled before to test token
+      $user_check = user_load_by_name($params['auth']['localpart']);
+      if($user_check->status == 0 && $params['auth']['localpart'] !== "chatroom.active"){      
+        $response = new stdClass();
+        $response->auth->success = false;
+        gofast_api_success($response);
+        exit;
+      }
+    
+    $token = goFast_riot_GetToken($params['auth']['localpart']);
+
     if($token !== null && $token == $params['auth']['password']){ //Try token authentication
         $response = new stdClass();
-    
+
         $response->auth->success = true;
         $response->auth->id->type = "localpart";
         $response->auth->id->value = $params['auth']['localpart'];
@@ -1018,10 +1095,10 @@ function gofast_api_matrix_login($params){
         gofast_api_success($response);
     }else{
         $user_check = user_load_by_name($params['auth']['localpart']);
-        
+
         if($user_check !== FALSE){
             usurp($user_check->uid);
-            
+
             $LdapServer = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
             $LdapServer->connectAndBindIfNotAlready();
 
@@ -1036,20 +1113,23 @@ function gofast_api_matrix_login($params){
               gofast_api_success($response);
           }
           usurp(FALSE);
-          
+
         }
     }
-    
+
     //Authentication failed
-          
+
     $response = new stdClass();
     $response->auth->success = false;
 
     gofast_api_success($response);
 
 }
+
+
 function gofast_api_matrix_search($params){
     global $user;
+    global $conf;
     
     if(strpos($params['Content-Type'], "application/json") === FALSE){
         return gofast_api_not_implemented("This Content-Type");
@@ -1059,58 +1139,83 @@ function gofast_api_matrix_search($params){
     if($params['method'] != "POST"){
         gofast_api_not_implemented("This method");
     }
-    
+
     $response = new stdClass();
-    
+
     $response->limited = false;
     $response->result = array();
     /*$userReponse->display_name = '' ;
         $userReponse->user_id = "UserIdLocalpart ";
 
     $response->results[] = $userReponse;*/
-    
+
     if(isset($params['search_term'])){
         $str = $params['search_term'];
     }else{
         gofast_api_mandatory_parameter("str");
     }
-    
+
     //Check if the request is coming from the associated GoFAST COMM
     global $conf;
-    if(gethostbyname($conf['gofast-comm_domain']) != $_SERVER['REMOTE_ADDR']){
+    if(gethostbyname($conf['gofast-comm_domain']) != $_SERVER['HTTP_X_REAL_IP']){
         gofast_api_forbidden("This API is only accessible from the GoFAST COMM");
     }
-    
+
     if(strlen($str) < 1){
         gofast_api_success(array());
     }
-    
+
     //Check if we are not partitionned
     $visibility = variable_get('gofast_user_partitioning', GOFAST_USER_PARTITIONING_DEFAULT);
     if($visibility != GOFAST_USER_PARTITIONING_OFF){
-        gofast_api_success(array());
+        //FIXME => Disabled by GOFAST-7874
+        //gofast_api_success(array());
     }
-    
+
     //Do the query as admin
     usurp(1);
-    
+
     $options_ac_user = array(
       'format_key_callback' => 'gofast_user_api_autocomplete_format_key',
       'format_value_callback' => 'gofast_user_api_autocomplete_format_value'
     );
-
+    
     $outputs = gofast_ac_query($str, 'user', $options_ac_user);
     usurp(FALSE);
-    
+
     foreach ($outputs as $output){
         $userReponse = new stdClass();
-        
+        $userReponse->avatar_url = gofast_riot_api_get_avatar_uri("@" . strtolower($output['login'] . ":" . $conf['gofast-comm_domain']));
         $userReponse->display_name = $output['displayname'];
-        $userReponse->user_id = $output['login'];
+        $userReponse->user_id = strtolower($output['login']);
         $response->results[] = $userReponse;
     }
 
     gofast_api_success($response);
+}
+
+function gofast_riot_api_get_avatar_uri($matrix_user_id){
+  global $conf;
+  
+  $matrix_user_id_encode = urlencode($matrix_user_id);
+  $path = "/_matrix/client/r0/profile/${matrix_user_id_encode}/avatar_url";
+  
+    
+  $url = 'https://' . $conf['gofast-comm_domain'] . $path . '?access_token=' . variable_get("riot_token_admin");
+  $ch = curl_init();   
+  curl_setopt($ch, CURLOPT_URL, $url);
+  curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);  
+  curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+  curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+  curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+      'Content-Type: application/json'
+  ));
+  
+  $result = curl_exec($ch);
+  $result = json_decode($result, TRUE);
+  
+  return $result['avatar_url'];
 }
 
 function gofast_api_matrix_displayname($params){
@@ -1120,35 +1225,35 @@ function gofast_api_matrix_displayname($params){
     if(strpos($params['Content-Type'], "application/json") === FALSE){
         return gofast_api_not_implemented("This Content-Type");
     }
-    
+
     //Check method
     if($params['method'] != "POST"){
         gofast_api_not_implemented("This method");
     }
-    
+
      $response = new stdClass();
-    
+
     $response->profile->display_name = $user->displayName;
     $threepids=array();
     $threepids[0]->medium = 'email';
     $threepids[0]->address = $user->mail;
     $response->profile->threepids = $threepids;
 
-    gofast_api_success($response);  
+    gofast_api_success($response);
 
 }
 
 function gofast_riot_can_add_room($node){
     if ($node->field_riot_identifier[LANGUAGE_NONE][0]['value'] !='')
         return false;
-    else 
+    else
         return true;
 }
 
 function gofast_riot_can_remove_room($node){
     if ($node->field_riot_identifier[LANGUAGE_NONE][0]['value'] !='')
         return true;
-    else 
+    else
         return false;
 }
 
@@ -1156,11 +1261,11 @@ function gofast_riot_can_remove_room($node){
  * Rebuild user memberships in all rooms according to the corresponding Gofast
  * space memberships, ie. invite all OG members (silent if user already joined)
  * and kick riot members off a room if not a space member.
- * 
- * @param boolean $rebuild_premissions 
- *  If TRUE, rebuild user permissions as well (costly). 
- * 
- * @return array $log 
+ *
+ * @param boolean $rebuild_premissions
+ *  If TRUE, rebuild user permissions as well (costly).
+ *
+ * @return array $log
  *  Debug informations.
  */
 function gofast_riot_fix_rooms_memberships($rebuild_premissions = FALSE) {
@@ -1175,39 +1280,39 @@ function gofast_riot_fix_rooms_memberships($rebuild_premissions = FALSE) {
 
   $nodes = node_load_multiple(array_keys($ids['node']));
   $log = [];
-  
+
   foreach ($nodes as $nid => $node) {
     $og_members = gofast_og_get_members_userlist_included($node);
-    
+
     // Check the room memberships and kick users that should not be there.
     $roomID = $node->field_riot_identifier[LANGUAGE_NONE][0]['value'];
     $room_members = gofast_riot_get_room_members($roomID);
-    
+
     $ids = [];
     if (!empty($room_members)) {
-      // Got username, need to compare ids. 
+      // Got username, need to compare ids.
       $EFQ = new EntityFieldQuery();
       $EFQ->entityCondition('entity_type', 'user')
           ->propertyCondition('name', $room_members, 'IN');
       $ids = $EFQ->execute();
     }
-    
+
     $room_members = empty($ids['user']) ? [] : array_keys($ids['user']);
-    
+
     $to_remove = array_diff($room_members, $og_members);
     $to_invite = array_diff($og_members, $room_members);
-    
+
 //    watchdog('Gofast Riot', 'sync room | nid:' . $nid );
 //    watchdog('Gofast Riot', ' - invited :' . implode(', ', $to_invite));
 //    watchdog('Gofast Riot', ' -  kicked :' . implode(', ', $to_remove));
-    
+
     gofast_riot_UpdateUserRiotRoom('kick', $node, NULL, TRUE, $to_remove);
     gofast_riot_UpdateUserRiotRoom('invite', $node, NULL, TRUE, $to_invite);
 
-//    if ($rebuild_premissions === TRUE) {
-//      $perm = gofast_riot_synchronize_permissions($node, $roomID);
-//    }
-    
+    if ($rebuild_premissions === TRUE) {
+      $perm = gofast_riot_synchronize_permissions($node, $roomID);
+    }
+
     $log[$nid] = [
       'space' => $node->title,
       'added' => $to_invite,
@@ -1215,7 +1320,7 @@ function gofast_riot_fix_rooms_memberships($rebuild_premissions = FALSE) {
 //      'perm' => $perm
     ];
   }
-  
+
   // Check for deleted space/rooms
   $deleted = variable_get('gofast_riot_deleted_rooms', []);
   if (!empty($deleted)) {
@@ -1243,101 +1348,136 @@ function gofast_riot_fix_rooms_memberships($rebuild_premissions = FALSE) {
 }
 
 /**
- * Returns all room members (as drupal username) given a $roomID. 
+ * Returns all room members (as drupal username) given a $roomID.
  */
-function gofast_riot_get_room_members($roomID) {  
+function gofast_riot_get_room_members($roomID) {
   global $conf;
-  
+
   $roomID = urlencode($roomID);
   $path = "/_matrix/client/r0/rooms/{$roomID}/members";
-  
+
   $query = http_build_query([
     'access_token' => variable_get('riot_token_admin'),
-//    'membership' => 'join,invite' 
+//    'membership' => 'join,invite'
   ]);
-    
-  $url = 'https://' . $conf['gofast-comm_domain'] . $path . '?' . $query;
-  
-  $ch = curl_init();   
+
+  $url = 'https://internal-' . $conf['gofast-comm_domain'] . $path . '?' . $query;
+
+  $ch = curl_init();
   curl_setopt($ch, CURLOPT_URL, $url);
   curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
-  curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);  
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
   curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
   curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
   curl_setopt($ch, CURLOPT_HTTPHEADER, array(
       'Content-Type: application/json'
   ));
-  
+
   $result = curl_exec($ch);
   $result = json_decode($result, TRUE);
-  
+
   if (empty($result['chunk'])) {
     return [];
   }
-  
+
   $members = [];
   foreach ($result['chunk'] as $key => $chunk) {
-    if (!in_array($chunk['content']['membership'], ['join', 'invite'])) 
+    if (!in_array($chunk['content']['membership'], ['join', 'invite']))
       continue; // skip 'leave', 'ban' memberships
-    
+
     // state_key contains the user_id this membership event relates to.
     list ($username,) = explode(':', $chunk['state_key']);
     $username = ltrim($username, '@');
     if ($username === 'chatroom.active')
       continue; // not a real user
-    
+
     $members[] = $username;
   }
-  
+
   return $members;
 }
 
-function gofast_riot_user_presave(&$edit, $account, $category) {
-  global $user;
-  
-  $pic_fid = $account->picture->fid ?? FALSE;
-  $pic_fid_orig = $account->original->picture->fid ?? FALSE;
-  
-  if ($pic_fid !== $pic_fid_orig) {
-    if ($pic_fid && isset($account->picture->uri)) {
-      $url = file_create_url($account->picture->uri);
-      // If owner of the account 
-      if ($user->uid === $account->uid) {
-        // Pass avatarUrl to the frontend to sync avatar via matrix api. 
-        drupal_add_js(['gofast_riot' => [
-          'avatarUrl' => $url
-        ]], 'setting');
-      }
-      else {
-        // Otherwise set a flag into the saved account so that the owner then
-        // can do the sync (only him can do).
-        $edit['data']['riot_avatar_url'] = $url;
+
+
+function gofast_riot_get_chatroom_id($target_id){
+  global $base_url;
+  global $conf;
+
+  // Check if room with chatroom already exist
+  $target = user_load($target_id, TRUE);
+  $chatroom_id = $target->field_chatroom_id[LANGUAGE_NONE][0]['value'];
+  if(empty($chatroom_id)){
+    $chatroom_id = gofast_riot_api_create_room('Notifications', [$target->uid])['room_id'];
+
+    $notifications_img = $base_url . "/sites/all/modules/gofast/gofast_riot/img/notifications.jpeg";
+    $content_uri = gofast_riot_api_upload_file($notifications_img)['content_uri'];
+
+    $room_id = str_replace(":" . $conf['gofast-comm_domain'], '', $chatroom_id);
+    $avatar = gofast_riot_api_change_room_avatar($room_id,$content_uri);
+
+    // Create the room with chatroom
+    $target->field_chatroom_id[LANGUAGE_NONE][0]['value'] = $chatroom_id;
+    user_save($target);
+  }else{
+
+    // Check if all members are present (chatroom and target)
+    $members = gofast_riot_api_check_members($chatroom_id);
+    foreach($members['chunk'] as $member){
+      $membership = $member['content']['membership'];
+      $sender = $member['sender'];
+
+      $matrix_name ="@".strtolower($target->name).":".$conf['gofast-comm_domain'];
+
+      // If anybody leave
+      if($matrix_name == $sender && $membership == "leave"){
+        $target->field_chatroom_id = "";
+        user_save($target);
+
+        $target = user_load($target->uid, TRUE);
+
+        // Create new room by recursively call
+        return gofast_riot_get_chatroom_id($target->uid);
       }
     }
+  }
+
+  // Return the matrix room id
+  return $chatroom_id;
+}
+
+
+function gofast_riot_user_presave(&$edit, $account, $category) {
+  global $user;
+
+  $pic_fid = $account->picture->fid ?? FALSE;
+  $pic_fid_orig = $account->original->picture->fid ?? FALSE;
+
+  if ($pic_fid !== $pic_fid_orig) {
+    gofast_riot_change_avatar($account->picture);
   }
 }
 
 function gofast_riot_upload_content($filename, $filepath, $content_type) {
   global $conf;
-  
+
   $path = '/_matrix/media/r0/upload?';
   $query = http_build_query([
     'filename' => $filename
   ]);
-  
-  $url = 'https://' . $conf['gofast-comm_domain'] . $path . $query;
-  
-  // Matrix API expects a POST resquest, but using CURLOPT_POSTFIELDS won't 
-  // work here, we actually need CURLOPT_PUT and CURLOPT_INFILE to upload the 
-  // file without data boundary appended to the Content-Type header. Still we 
+
+  $url = 'https://internal-' . $conf['gofast-comm_domain'] . $path . $query;
+
+  // Matrix API expects a POST resquest, but using CURLOPT_POSTFIELDS won't
+  // work here, we actually need CURLOPT_PUT and CURLOPT_INFILE to upload the
+  // file without data boundary appended to the Content-Type header. Still we
   // can set CURLOPT_POST for the API to accept the request.
   /*$data = [
-    'name' => $filename, 
+    'name' => $filename,
     'file' => '@' . $filepath
   ];*/
-  
+
   $file = fopen($filepath, 'r');
-  
+
   $ch = curl_init();
   curl_setopt($ch, CURLOPT_URL, $url);
   curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
@@ -1347,54 +1487,54 @@ function gofast_riot_upload_content($filename, $filepath, $content_type) {
   curl_setopt($ch, CURLOPT_INFILESIZE, filesize($filepath));
   curl_setopt($ch, CURLOPT_INFILE, $file);
   curl_setopt($ch, CURLOPT_SAFE_UPLOAD, FALSE);
-  curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);  
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
   curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
   curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
   curl_setopt($ch, CURLOPT_HTTPHEADER, [
     'Content-Type: ' . $content_type,
     'Authorization: Bearer ' . variable_get('riot_token_admin')
   ]);
-  
+
   $result = curl_exec($ch);
   $result = json_decode($result, TRUE);
-  
+
   return $result;
 }
 
 
-function _gofast_riot_sync_user_avatar() {  
+function _gofast_riot_sync_user_avatar() {
   $info = [];
   $output = '';
-  
+
   $mx_id = variable_get('gofast_riot_avatar_sync_mx_id', FALSE);
   if ($mx_id) {
     return [$mx_id, ['mx_avatar.info' => ['Use mx_content_id stored in database.']]];
   }
-  
+
   foreach (user_load_multiple(FALSE) as $uid => $account) {
     $pic_fid = $account->picture->fid ?? FALSE;
-    
+
     if (!$pic_fid || empty($account->picture->uri))
       continue;
-    
+
     // Grab user picture file info
     $url = file_create_url($account->picture->uri);
     $filepath = drupal_realpath($account->picture->uri);
     $filename = basename($filepath);
     $type = $account->picture->filemime;
-    
+
     // Upload avatar to matrix
     $res = gofast_riot_upload_content($filename, $filepath, $type);
     $info[$account->name] = $res;
-    
+
     if (empty($res['content_uri']))
       continue;
-    
+
     // Remember the corresponding mx content uri for that user.
     $output .= "{$account->name} {$res['content_uri']}\n";
   }
 
-  // Write the output to a file. 
+  // Write the output to a file.
   $path = DRUPAL_ROOT . '/' . variable_get('file_public_path', conf_path() . '/files');
   $filename = 'mx_avatar.info';
   $filepath = $path . '/' . $filename;
@@ -1402,12 +1542,12 @@ function _gofast_riot_sync_user_avatar() {
   $file = fopen($filepath, 'w');
   fwrite($file, $output);
   fclose($file);
-  
+
   // Upload that file to matrix as well so that we have user avatar informations
-  // available on gofast-comm server (ie. to be applied in synapse database). 
+  // available on gofast-comm server (ie. to be applied in synapse database).
   $res = gofast_riot_upload_content($filename, $filepath, $type);
   $info[$filename] = $res;
-  
+
   if (empty($res['content_uri'])) {
     watchdog('Gofast Riot', 'user avatar sync file failed to upload!', [], WATCHDOG_ERROR);
     return [NULL, $info];
@@ -1415,23 +1555,23 @@ function _gofast_riot_sync_user_avatar() {
 
   $uri = $res['content_uri'];
   $mx_content_id = basename($uri);
-  
-  // Store the corresponding content id so we can retrieve it later without 
-  // having to reupload all images. 
+
+  // Store the corresponding content id so we can retrieve it later without
+  // having to reupload all images.
   variable_set('gofast_riot_avatar_sync_mx_id', $mx_content_id);
-  
+
   return [$mx_content_id, $info];
 }
 
 /**
  * Implements gofast_api_RESSOURCE_ACTION
- * 
+ *
  * Expose the matrix content id used for synchronizing gofast avatars so that
- * comm update script can populate synapse db accordingly. 
+ * comm update script can populate synapse db accordingly.
  */
 function gofast_api_riot_get_mx_content_id() {
   $mx_id = variable_get('gofast_riot_avatar_sync_mx_id', FALSE);
   $output = ['mx_id' => $mx_id];
-  
+
   gofast_api_success($output);
 }

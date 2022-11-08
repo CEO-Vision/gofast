@@ -1,0 +1,58 @@
+.fivestar-summary.fivestar-summary-average-count{
+    display: none !important;
+}
+/* default not focus */
+/* .metadata-node:not(:focus) {
+    background-color: transparent;
+    border-color: transparent;
+    cursor: default;
+} */
+
+/* on hover */
+/* .metadata-node:hover:not(.metadata-focus){
+    background-color: #dfe1e6;
+} */
+
+/* .metadata-node:hover:focus {
+     background-color: transparent !important;
+} */
+
+/* on focus*/
+/* .metadata-node:focus {
+     border-color: #3595f6;
+     background-color: transparent !important;
+} */
+
+/* 
+.metadata-node-disable {
+    background-color: transparent  !important;
+    border-color: transparent  !important;
+    cursor: default  !important;
+}
+
+.select2-results__option[aria-selected=true] { display: none;} */
+
+.select2-dropdown.select2-dropdown--above,
+.select2-dropdown.select2-dropdown--below {
+    min-width: 200px;
+}
+
+#gofast-node-metatadata-links .document__editable--label {
+    width: 100%;
+    text-align: left;
+    position: absolute;
+    z-index: 1;
+}
+
+.document__editable--field {
+    min-height: 28px;
+}
+
+.tag-wrapper > div > a {
+    display: inline-block;
+    width: 50%;
+}
+
+.tag-wrapper > div > a:not(.text-secondary) {
+    text-align: right;
+}

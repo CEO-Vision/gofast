@@ -163,7 +163,9 @@ function bootstrap_bootstrap_cdn_provider_jsdelivr_alter(array &$provider, \stdC
     $data = ['name' => $package, 'assets' => []];
     $latest = '0.0.0';
     $versions = [];
-    $packageJson = _bootstrap_cdn_provider_request_json("https://data.jsdelivr.com/v1/package/npm/$package") + ['versions' => []];
+    //$packageJson = _bootstrap_cdn_provider_request_json("https://data.jsdelivr.com/v1/package/npm/$package") + ['versions' => []];
+    $packageJson = [];
+
     foreach ($packageJson['versions'] as $key => $version) {
       // Skip irrelevant versions.
       if (!preg_match('/^' . substr(BOOTSTRAP_VERSION, 0, 1) . '\.\d+\.\d+$/', $version)) {

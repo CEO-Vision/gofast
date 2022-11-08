@@ -1,0 +1,34 @@
+<?php
+function gofast_book_update_4005() {
+    // create books for spaces that don't have one but have contents inside their /Wikis folder
+    gofast_bookify_spaces();
+    // move non-multifiled articles outside a /Wikis folder to a /Wikis folder and add them to their matching space book
+    gofast_book_handle_orphans();
+}
+
+// update taxonomy name
+function gofast_book_update_4006() {
+    $term = taxonomy_get_term_by_name("Web Page");
+    $term = reset($term);
+    $term->name = "Wiki article";
+    $term->description = "A Wiki page";
+    taxonomy_term_save($term);
+}
+
+function gofast_book_update_7000() {
+    // move articles outside their space books to their space books
+    gofast_book_sync_spaces_to_books();
+    // log every multifiled articles
+    gofast_book_log_multifiled_articles();
+}
+
+
+function gofast_book_update_7001() {
+    // following "/Wikis" orphans and "outsider book" orphans handling, recreate books for spaces that don't have one but have contents inside their /Wikis folder
+    gofast_bookify_spaces();
+}
+
+// ensure translation for "Wiki article" taxo even if the uuid difers
+function gofast_book_update_7002() {
+    gofast_taxonomy_add_translation_by_term_name("Wiki article", "fr", "Article wiki", "Une page wiki");
+}

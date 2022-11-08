@@ -270,6 +270,12 @@ function gofast_api_node_preview_link($params){
     }else{
         gofast_api_mandatory_parameter("nid");
     }
+    
+    if(isset($params['zoom'])){
+        $zoom = "#zoom=" . $params['zoom'];
+    }else{
+        $zoom = "#zoom=auto";
+    }
 
     $node = node_load($nid);
 
@@ -293,15 +299,21 @@ function gofast_api_node_preview_link($params){
       gofast_api_not_found("Alfresco content not found for an unpublished node");
     }
 
+    $url = gofast_cmis_node_get_pdf_link($node);
+    
+    //Get the extension of the document and use it to know from where we should retrieve the document
+    $extension = strtolower(gofast_cmis_node_get_extension($node));
+    
+    if(!in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'svg', 'bmp'])){
+        $url_object = json_decode(gofast_cmis_webservice_item_generate_onlyoffice_preview($node->nid));
 
-    global $base_url;
-    $url = $base_url . gofast_cmis_node_get_pdf_link($node);
-
-    $url_object = json_decode(gofast_cmis_webservice_item_generate_onlyoffice_preview($node->nid));
-
-    if(isset($url_object->FileUrl)){
-        $url = "/sites/all/libraries/pdf/web/viewer_gofast.html?v=226&file=".$url_object->FileUrl;
+        if(isset($url_object->FileUrl)){
+            $url = "/sites/all/libraries/pdf/web/viewer_gofast.html?v=230&file=".$url_object->FileUrl . $zoom;
+        }else{
+            $url = "/sites/all/libraries/pdf/web/viewer_gofast.html?v=230&file=".$url . $zoom;
+        }
     }
+    
      gofast_api_success(array(
         'link' => $url,
     ));

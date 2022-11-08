@@ -57,19 +57,18 @@ function checkState(){
 }
 
 function stateChecked(state){
-    var icon = $("#archive_step_" + state).find(".icon");
-    var loader = $("#archive_step_" + state).find(".loader-deleting");
+    var icon = jQuery("#archive_step_" + state).find(".icon");
+    var loader = jQuery("#archive_step_" + state).find(".loader-deleting");
     
     icon.addClass("fa-check");
     loader.addClass("gofast_display_none");
 }
 
 function stateLoading(state){
-    var loader = $("#archive_step_" + state).find(".loader-deleting");
+    var loader = jQuery("#archive_step_" + state).find(".loader-deleting");
     
     loader.removeClass("gofast_display_none");
 }
 
 checkState();
-modalContentResize();
 </script>

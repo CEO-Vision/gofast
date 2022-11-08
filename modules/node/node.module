@@ -1052,7 +1052,10 @@ function node_validate($node, $form, &$form_state) {
 function node_submit($node) {
   // A user might assign the node author by entering a user name in the node
   // form, which we then need to translate to a user ID.
-  if (isset($node->name)) {
+//CEO-Vision Patch
+  //if (isset($node->name)) {
+  if (!empty($node->name)) {
+//@CEO-Vision Patch
     if ($account = user_load_by_name($node->name)) {
       $node->uid = $account->uid;
     }
@@ -1076,7 +1079,7 @@ function node_submit($node) {
  */
 function node_save($node) {
   $transaction = db_transaction();
-
+  
   try {
     // Load the stored entity, if any.
     if (!empty($node->nid) && !isset($node->original)) {

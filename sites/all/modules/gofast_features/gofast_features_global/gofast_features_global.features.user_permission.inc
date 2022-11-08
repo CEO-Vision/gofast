@@ -10,11 +10,13 @@
 function gofast_features_global_user_default_permissions() {
   $permissions = array();
 
-  // Exported permission: 'access administration pages'.
-  $permissions['access administration pages'] = array(
-    'name' => 'access administration pages',
-    'roles' => array(),
-    'module' => 'system',
+  // Exported permission: 'access audit'.
+  $permissions['access audit'] = array(
+    'name' => 'access audit',
+    'roles' => array(
+      'business administrator' => 'business administrator',
+    ),
+    'module' => 'gofast_audit',
   );
 
   // Exported permission: 'access all views'.
@@ -160,29 +162,22 @@ function gofast_features_global_user_default_permissions() {
     'module' => 'book',
   );
 
-  // Exported permission: 'access send by email'.
-  $permissions['access send by email'] = array(
-    'name' => 'access send by email',
+  // Exported permission: 'access space info not member'.
+  $permissions['access space info not member'] = array(
+    'name' => 'access space info not member',
     'roles' => array(
-      'administrator' => 'administrator',
-      'authenticated user' => 'authenticated user',
-      'contributor' => 'contributor',
+      'business administrator' => 'business administrator',
     ),
-    'module' => 'print_mail',
+    'module' => 'gofast_og',
   );
 
-  // Exported permission: 'access site in maintenance mode'.
-  $permissions['access site in maintenance mode'] = array(
-    'name' => 'access site in maintenance mode',
-    'roles' => array(),
-    'module' => 'system',
-  );
-
-  // Exported permission: 'access site reports'.
-  $permissions['access site reports'] = array(
-    'name' => 'access site reports',
-    'roles' => array(),
-    'module' => 'system',
+  // Exported permission: 'access statistics'.
+  $permissions['access statistics'] = array(
+    'name' => 'access statistics',
+    'roles' => array(
+      'business administrator' => 'business administrator',
+    ),
+    'module' => 'gofast',
   );
 
   // Exported permission: 'access toolbar'.
@@ -263,6 +258,15 @@ function gofast_features_global_user_default_permissions() {
     'module' => 'book',
   );
 
+  // Exported permission: 'administer categories configuration'.
+  $permissions['administer categories configuration'] = array(
+    'name' => 'administer categories configuration',
+    'roles' => array(
+      'business administrator' => 'business administrator',
+    ),
+    'module' => 'gofast',
+  );
+
   // Exported permission: 'administer ckeditor'.
   $permissions['administer ckeditor'] = array(
     'name' => 'administer ckeditor',
@@ -296,6 +300,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'administer content translations',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'i18n_node',
@@ -306,6 +311,24 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'administer content types',
     'roles' => array(),
     'module' => 'node',
+  );
+
+  // Exported permission: 'administer custom link configuration'.
+  $permissions['administer custom link configuration'] = array(
+    'name' => 'administer custom link configuration',
+    'roles' => array(
+      'business administrator' => 'business administrator',
+    ),
+    'module' => 'gofast',
+  );
+
+  // Exported permission: 'administer documents configuration'.
+  $permissions['administer documents configuration'] = array(
+    'name' => 'administer documents configuration',
+    'roles' => array(
+      'administrator' => 'administrator',
+    ),
+    'module' => 'gofast',
   );
 
   // Exported permission: 'administer elysia_cron'.
@@ -357,6 +380,15 @@ function gofast_features_global_user_default_permissions() {
     'module' => 'forum',
   );
 
+  // Exported permission: 'administer general configuration'.
+  $permissions['administer general configuration'] = array(
+    'name' => 'administer general configuration',
+    'roles' => array(
+      'administrator' => 'administrator',
+    ),
+    'module' => 'gofast',
+  );
+
   // Exported permission: 'administer group'.
   $permissions['administer group'] = array(
     'name' => 'administer group',
@@ -378,11 +410,47 @@ function gofast_features_global_user_default_permissions() {
     'module' => 'image',
   );
 
+  // Exported permission: 'administer import ldap'.
+  $permissions['administer import ldap'] = array(
+    'name' => 'administer import ldap',
+    'roles' => array(
+      'business administrator' => 'business administrator',
+    ),
+    'module' => 'gofast',
+  );
+
+  // Exported permission: 'administer index configuration'.
+  $permissions['administer index configuration'] = array(
+    'name' => 'administer index configuration',
+    'roles' => array(
+      'administrator' => 'administrator',
+    ),
+    'module' => 'gofast',
+  );
+
+  // Exported permission: 'administer integrity configuration'.
+  $permissions['administer integrity configuration'] = array(
+    'name' => 'administer integrity configuration',
+    'roles' => array(
+      'administrator' => 'administrator',
+    ),
+    'module' => 'gofast',
+  );
+
   // Exported permission: 'administer languages'.
   $permissions['administer languages'] = array(
     'name' => 'administer languages',
     'roles' => array(),
     'module' => 'locale',
+  );
+
+  // Exported permission: 'administer ldap configuration'.
+  $permissions['administer ldap configuration'] = array(
+    'name' => 'administer ldap configuration',
+    'roles' => array(
+      'administrator' => 'administrator',
+    ),
+    'module' => 'gofast',
   );
 
   // Exported permission: 'administer mailsystem'.
@@ -420,6 +488,15 @@ function gofast_features_global_user_default_permissions() {
     'module' => 'node',
   );
 
+  // Exported permission: 'administer pastell configuration'.
+  $permissions['administer pastell configuration'] = array(
+    'name' => 'administer pastell configuration',
+    'roles' => array(
+      'administrator' => 'administrator',
+    ),
+    'module' => 'gofast',
+  );
+
   // Exported permission: 'administer permissions'.
   $permissions['administer permissions'] = array(
     'name' => 'administer permissions',
@@ -455,6 +532,15 @@ function gofast_features_global_user_default_permissions() {
     'module' => 'radioactivity',
   );
 
+  // Exported permission: 'administer retention configuration'.
+  $permissions['administer retention configuration'] = array(
+    'name' => 'administer retention configuration',
+    'roles' => array(
+      'business administrator' => 'business administrator',
+    ),
+    'module' => 'gofast',
+  );
+
   // Exported permission: 'administer revisions'.
   $permissions['administer revisions'] = array(
     'name' => 'administer revisions',
@@ -471,8 +557,18 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'administer roles',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
     ),
     'module' => 'gofast_user',
+  );
+
+  // Exported permission: 'administer rss configuration'.
+  $permissions['administer rss configuration'] = array(
+    'name' => 'administer rss configuration',
+    'roles' => array(
+      'administrator' => 'administrator',
+    ),
+    'module' => 'gofast',
   );
 
   // Exported permission: 'administer search'.
@@ -489,9 +585,28 @@ function gofast_features_global_user_default_permissions() {
     'module' => 'shortcut',
   );
 
+  // Exported permission: 'administer signature configuration'.
+  $permissions['administer signature configuration'] = array(
+    'name' => 'administer signature configuration',
+    'roles' => array(
+      'administrator' => 'administrator',
+    ),
+    'module' => 'gofast',
+  );
+
   // Exported permission: 'administer site configuration'.
   $permissions['administer site configuration'] = array(
     'name' => 'administer site configuration',
+    'roles' => array(
+      'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
+    ),
+    'module' => 'gofast',
+  );
+
+  // Exported permission: 'administer smtp configuration'.
+  $permissions['administer smtp configuration'] = array(
+    'name' => 'administer smtp configuration',
     'roles' => array(
       'administrator' => 'administrator',
     ),
@@ -512,9 +627,28 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'administer spaces',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'manager' => 'manager',
     ),
     'module' => 'gofast_og',
+  );
+
+  // Exported permission: 'administer spaces configuration'.
+  $permissions['administer spaces configuration'] = array(
+    'name' => 'administer spaces configuration',
+    'roles' => array(
+      'administrator' => 'administrator',
+    ),
+    'module' => 'gofast',
+  );
+
+  // Exported permission: 'administer sso configuration'.
+  $permissions['administer sso configuration'] = array(
+    'name' => 'administer sso configuration',
+    'roles' => array(
+      'administrator' => 'administrator',
+    ),
+    'module' => 'gofast',
   );
 
   // Exported permission: 'administer themes'.
@@ -529,6 +663,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'administer user relationships',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
     ),
     'module' => 'user_relationships',
   );
@@ -545,9 +680,19 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'administer users',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'manager' => 'manager',
     ),
     'module' => 'user',
+  );
+
+  // Exported permission: 'administer users configuration'.
+  $permissions['administer users configuration'] = array(
+    'name' => 'administer users configuration',
+    'roles' => array(
+      'administrator' => 'administrator',
+    ),
+    'module' => 'gofast',
   );
 
   // Exported permission: 'administer views'.
@@ -555,6 +700,15 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'administer views',
     'roles' => array(),
     'module' => 'views',
+  );
+
+  // Exported permission: 'administer visibility configuration'.
+  $permissions['administer visibility configuration'] = array(
+    'name' => 'administer visibility configuration',
+    'roles' => array(
+      'business administrator' => 'business administrator',
+    ),
+    'module' => 'gofast',
   );
 
   // Exported permission: 'administer vote up/down'.
@@ -604,6 +758,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'archive space',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'manager' => 'manager',
     ),
     'module' => 'gofast_og',
@@ -632,36 +787,13 @@ function gofast_features_global_user_default_permissions() {
     'module' => 'node',
   );
 
-  // Exported permission: 'can have relation relationships'.
-  $permissions['can have relation relationships'] = array(
-    'name' => 'can have relation relationships',
+  // Exported permission: 'contact administrators'.
+  $permissions['contact administrators'] = array(
+    'name' => 'contact administrators',
     'roles' => array(
-      'authenticated user' => 'authenticated user',
+      'business administrator' => 'business administrator',
     ),
-    'module' => 'user_relationships',
-  );
-
-  // Exported permission: 'can request relation relationships'.
-  $permissions['can request relation relationships'] = array(
-    'name' => 'can request relation relationships',
-    'roles' => array(
-      'authenticated user' => 'authenticated user',
-    ),
-    'module' => 'user_relationships',
-  );
-
-  // Exported permission: 'cancel account'.
-  $permissions['cancel account'] = array(
-    'name' => 'cancel account',
-    'roles' => array(),
-    'module' => 'user',
-  );
-
-  // Exported permission: 'change own username'.
-  $permissions['change own username'] = array(
-    'name' => 'change own username',
-    'roles' => array(),
-    'module' => 'user',
+    'module' => 'gofast_og',
   );
 
   // Exported permission: 'create alfresco_item content'.
@@ -669,6 +801,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'create alfresco_item content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
       'manager' => 'manager',
     ),
@@ -680,6 +813,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'create article content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
       'manager' => 'manager',
     ),
@@ -691,6 +825,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'create book content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -710,6 +845,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'create contact content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
       'manager' => 'manager',
     ),
@@ -721,6 +857,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'create extranet content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -731,6 +868,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'create forum content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
       'manager' => 'manager',
     ),
@@ -742,6 +880,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'create group content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -772,6 +911,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'create organisation content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -782,6 +922,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'create page content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -799,6 +940,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'create public content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -809,6 +951,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'create task content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
       'manager' => 'manager',
     ),
@@ -820,6 +963,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'create userlist content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'manager' => 'manager',
     ),
     'module' => 'node',
@@ -830,6 +974,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'create webform content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -854,6 +999,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'delete all webform submissions',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
     ),
     'module' => 'webform',
   );
@@ -870,36 +1016,28 @@ function gofast_features_global_user_default_permissions() {
   // Exported permission: 'delete any article content'.
   $permissions['delete any article content'] = array(
     'name' => 'delete any article content',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
+    'roles' => array(),
     'module' => 'node',
   );
 
   // Exported permission: 'delete any book content'.
   $permissions['delete any book content'] = array(
     'name' => 'delete any book content',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
+    'roles' => array(),
     'module' => 'node',
   );
 
   // Exported permission: 'delete any conference content'.
   $permissions['delete any conference content'] = array(
     'name' => 'delete any conference content',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
+    'roles' => array(),
     'module' => 'node',
   );
 
   // Exported permission: 'delete any contact content'.
   $permissions['delete any contact content'] = array(
     'name' => 'delete any contact content',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
+    'roles' => array(),
     'module' => 'node',
   );
 
@@ -915,9 +1053,7 @@ function gofast_features_global_user_default_permissions() {
   // Exported permission: 'delete any forum content'.
   $permissions['delete any forum content'] = array(
     'name' => 'delete any forum content',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
+    'roles' => array(),
     'module' => 'node',
   );
 
@@ -951,9 +1087,7 @@ function gofast_features_global_user_default_permissions() {
   // Exported permission: 'delete any page content'.
   $permissions['delete any page content'] = array(
     'name' => 'delete any page content',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
+    'roles' => array(),
     'module' => 'node',
   );
 
@@ -967,18 +1101,14 @@ function gofast_features_global_user_default_permissions() {
   // Exported permission: 'delete any public content'.
   $permissions['delete any public content'] = array(
     'name' => 'delete any public content',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
+    'roles' => array(),
     'module' => 'node',
   );
 
   // Exported permission: 'delete any task content'.
   $permissions['delete any task content'] = array(
     'name' => 'delete any task content',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
+    'roles' => array(),
     'module' => 'node',
   );
 
@@ -992,9 +1122,7 @@ function gofast_features_global_user_default_permissions() {
   // Exported permission: 'delete any webform content'.
   $permissions['delete any webform content'] = array(
     'name' => 'delete any webform content',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
+    'roles' => array(),
     'module' => 'node',
   );
 
@@ -1010,6 +1138,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'delete own alfresco_item content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
       'manager' => 'manager',
     ),
@@ -1021,6 +1150,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'delete own article content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
       'manager' => 'manager',
     ),
@@ -1032,6 +1162,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'delete own book content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -1051,6 +1182,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'delete own contact content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
       'manager' => 'manager',
     ),
@@ -1062,6 +1194,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'delete own extranet content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -1072,6 +1205,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'delete own forum content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
       'manager' => 'manager',
     ),
@@ -1083,6 +1217,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'delete own group content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -1103,6 +1238,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'delete own organisation content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -1113,6 +1249,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'delete own page content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -1130,6 +1267,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'delete own public content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -1140,6 +1278,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'delete own task content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
       'manager' => 'manager',
     ),
@@ -1158,6 +1297,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'delete own webform content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -1204,6 +1344,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'delete terms in criticity',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
     ),
     'module' => 'taxonomy',
   );
@@ -1234,6 +1375,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit all webform submissions',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
     ),
     'module' => 'webform',
   );
@@ -1270,9 +1412,7 @@ function gofast_features_global_user_default_permissions() {
   // Exported permission: 'edit any conference content'.
   $permissions['edit any conference content'] = array(
     'name' => 'edit any conference content',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
+    'roles' => array(),
     'module' => 'node',
   );
 
@@ -1300,6 +1440,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit any forum content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'manager' => 'manager',
     ),
     'module' => 'node',
@@ -1336,9 +1477,7 @@ function gofast_features_global_user_default_permissions() {
   // Exported permission: 'edit any page content'.
   $permissions['edit any page content'] = array(
     'name' => 'edit any page content',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
+    'roles' => array(),
     'module' => 'node',
   );
 
@@ -1352,9 +1491,7 @@ function gofast_features_global_user_default_permissions() {
   // Exported permission: 'edit any public content'.
   $permissions['edit any public content'] = array(
     'name' => 'edit any public content',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
+    'roles' => array(),
     'module' => 'node',
   );
 
@@ -1396,6 +1533,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit own alfresco_item content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
       'manager' => 'manager',
     ),
@@ -1407,6 +1545,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit own article content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
       'manager' => 'manager',
     ),
@@ -1418,6 +1557,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit own book content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -1446,6 +1586,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit own contact content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
       'manager' => 'manager',
     ),
@@ -1457,6 +1598,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit own extranet content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -1467,6 +1609,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit own forum content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
       'manager' => 'manager',
     ),
@@ -1478,6 +1621,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit own group content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -1498,6 +1642,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit own organisation content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -1508,6 +1653,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit own page content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -1518,6 +1664,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit own private_space content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -1528,6 +1675,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit own public content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -1538,6 +1686,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit own task content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
       'manager' => 'manager',
     ),
@@ -1549,6 +1698,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit own userlist content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'manager' => 'manager',
     ),
     'module' => 'node',
@@ -1559,6 +1709,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit own webform content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'node',
@@ -1586,6 +1737,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'edit terms in criticity',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
     ),
     'module' => 'taxonomy',
   );
@@ -1706,6 +1858,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'gofast administer users',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
     ),
     'module' => 'gofast_user',
   );
@@ -1757,6 +1910,15 @@ function gofast_features_global_user_default_permissions() {
     'module' => 'comment',
   );
 
+  // Exported permission: 'pre add members'.
+  $permissions['pre add members'] = array(
+    'name' => 'pre add members',
+    'roles' => array(
+      'business administrator' => 'business administrator',
+    ),
+    'module' => 'gofast_og',
+  );
+
   // Exported permission: 'rate content'.
   $permissions['rate content'] = array(
     'name' => 'rate content',
@@ -1770,9 +1932,7 @@ function gofast_features_global_user_default_permissions() {
   // Exported permission: 'read all private messages'.
   $permissions['read all private messages'] = array(
     'name' => 'read all private messages',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
+    'roles' => array(),
     'module' => 'privatemsg',
   );
 
@@ -1868,9 +2028,7 @@ function gofast_features_global_user_default_permissions() {
   // Exported permission: 'send unlimited emails'.
   $permissions['send unlimited emails'] = array(
     'name' => 'send unlimited emails',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
+    'roles' => array(),
     'module' => 'print_mail',
   );
 
@@ -1903,6 +2061,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'translate content',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
       'contributor' => 'contributor',
     ),
     'module' => 'translation',

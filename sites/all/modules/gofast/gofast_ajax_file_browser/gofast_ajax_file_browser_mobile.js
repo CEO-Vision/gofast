@@ -32,20 +32,55 @@
      * @param {type} unfloadPath
      * @ {unresolved}
      */
+    memorizedPath : null,
+    
     getPathIfUnfload : function (unfloadPath){
       reservedPath = encodeURI(decodeURIComponent(unfloadPath));
     },
 
     selectedTitle : "",
+    
+    gofast_book_refresh_file_browser : function() {
+      //Ajax query possible changes in the explorer for forums and books views
+      setTimeout(function(){
+        if($("#explorer-wiki").hasClass("active") && $("#explorer-toggle").hasClass("open")){ 
+            $.get(window.origin + "/gofast/book/explorer")
+            .done(function(data){
+                $("#wiki").html(data);
+                Gofast.selectCurrentWikiArticle();
+            });
+            }
+        }, 5000);
+    },
 
+    gofast_forum_refresh_file_browser : function() {
+      //Ajax query possible changes in the explorer for forums and books views
+      setTimeout(function(){
+          const urlParam = window.location.pathname.split('/')[2] || "-1";
+         if($("#expl-forum").hasClass("active") && $("#explorer-toggle").hasClass("open")){
+            $.get(window.origin + "/gofast/forum/explorer/" + urlParam)
+            .done(function(data){
+                $("#expl-forum").html(data);
+            });
+          }else{            
+              Gofast.lastUrlForumTab =  urlParam;
+          }
+        }, 5000);
+    },
+    
     /*
      * Navigate to a path
      * If no params are provided or if the path is not accessible, will back to
      * Sites folder
      */
     navigate: function (path) {
+          if(( !$("#explorer-file-browser").hasClass("active") || !$("#explorer-toggle").hasClass("open") ) && !$("#gofastMobileHomeContentPanel").length){
+               Gofast.ITHitMobile.memorizedPath = path;
+               return;
+          }
       //Make sure the path is well encoded
       path = encodeURI(decodeURIComponent(path));
+      Gofast.ITHitMobile.gofast_forum_refresh_file_browser();
 
       if(path.indexOf('/alfresco/webdav') !== 0){
         path = "/alfresco/webdav" + path;
@@ -60,7 +95,10 @@
         //Try later
         setTimeout(Gofast.ITHitMobile.navigate, 1000, path);
       } else { //Ready to navigate
+          //A tab refresh triggers refresh for all, so all will have the laoding icon
         $('#file_browser_mobile_tooolbar_refresh').html("<div class='loader-mobile-filebrowser'></div>");
+        $('#file_browser_books_mobile_tooolbar_refresh').html("<div class='loader-mobile-filebrowser'></div>");
+        $('#file_browser_forums_mobile_tooolbar_refresh').html("<div class='loader-mobile-filebrowser'></div>");
         //Start the graphic processing of the queue at the 1st navigation
         if(!Gofast.ITHitMobile.queueProcessing){
           Gofast.ITHitMobile.queueProcessing = true;
@@ -90,9 +128,10 @@
                       $('#file_browser_mobile_container').replaceWith('<div style="text-align: center;font-size: 25px;"><i style="color: #dc3545;" class="fa fa-exclamation" aria-hidden="true"></i> ' + Drupal.t("Sorry, we are not able to load the file browser", {}, {context:'gofast:ajax_file_browser'}) + "</div>");
                     }
                     $('#file_browser_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
+                    $('#file_browser_books_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
+                    $('#file_browser_forums_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
                     return;
                   }
-
                   var folder = asyncResult.Result;
                   folder.GetChildrenAsync(false, null,
                       function (asyncResult) {
@@ -110,7 +149,9 @@
                             path = path.join('/') + "/";
                             Gofast.ITHitMobile.navigate(path);
                           }
-                          $('#file_browser_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
+                            $('#file_browser_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
+                            $('#file_browser_books_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
+                            $('#file_browser_forums_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
                           return;
                         }
 
@@ -138,6 +179,8 @@
                           Gofast.ITHitMobile.selectedTitle = "";
                         }
                         $('#file_browser_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
+                        $('#file_browser_books_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
+                        $('#file_browser_forums_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
                       }
                   );
                 }
@@ -359,8 +402,8 @@
      */
     updateBreadcrumb: function(path){
       //Remove breadcrumb
-      $('#file_browser_mobile_header_breadcrumb').find('ul').html('');
-      $("#file_browser_mobile_header_breadcrumb").css('float', 'none');
+      const breadcrumbEl = $('#file_browser_mobile_header_breadcrumb').find('ul');
+      breadcrumbEl.html("");
       //First, remove '/alfresco/webdav/' from path and remove / at the end
       if(path.substr(0, 17) === "/alfresco/webdav/"){
         path = path.substring(17, path.length);
@@ -386,8 +429,13 @@
           domItem.find('li').last().attr('title', path.slice(0, k+1).join('/'));
         }
       });
-      if ($("#file_browser_mobile_header_breadcrumb").prop('scrollWidth') > $("#file_browser_mobile_header_breadcrumb").width()){
-        $("#file_browser_mobile_header_breadcrumb").css('float','right');
+      let scrollableWidth = 0;
+      breadcrumbEl.find('li').each((i, e) => scrollableWidth += e.clientWidth);
+      if (breadcrumbEl.width() < scrollableWidth){
+        breadcrumbEl.css({position: 'relative', overflowX: 'scroll'});
+        const breadcrumbStr = breadcrumbEl.find('li:nth-last-of-type(2)').attr('title');
+        breadcrumbEl.find('li:last-of-type')[0].scrollIntoView();
+        breadcrumbEl.tooltip({title: breadcrumbStr, placement: "bottom"});
       }
     },
     /*
@@ -434,10 +482,13 @@
       //Sort items
       items = Gofast.ITHit.sort(items, true);
 
+
       for (var i = 0; i < items.length; i++) {
         //Format the item
         itemHTML = "";
         var item = items[i];
+
+        
         var itemHTML = Gofast.ITHitMobile._formatItem(item);
 
         //Add the item to the list
@@ -457,10 +508,6 @@
         //Attach event handlers to the processed item
         Gofast.ITHitMobile._attachEvents(item, processedItem, null, mobile);
 
-        //Configure custom scrollbar to replace the legacy
-        $("#file_browser_mobile_files_table").mCustomScrollbar({
-          theme: "dark-thin"
-        });
       }
     },
     /*
@@ -613,8 +660,12 @@
       //dynamically the menu
       var menu = $('<div class="gofast-node-actions"><ul class="dropdown-menu gofast-dropdown-menu" role="menu"><li><div class="loader-activity-menu-active"></div></li></ul></div>').insertAfter("#ithit-toggle");
 
+      if(!$(menu).length) {
+        menu = $('<div class="dropdown-menu dropdown-menu-md py-5"><ul class="navi navi-hover navi-link-rounded-lg px-1" role="menu"><li><div class="loader-activity-menu-active"></div></li></ul></div>').insertAfter("#main-ajax-file-browser");
+      }
+
       //Show the menu and position it
-      menu.addClass('open');
+      menu.addClass('open, show');
       menu.css('position', 'fixed');
       menu.css('left', e.clientX);
       menu.css('top', e.clientY);
@@ -650,12 +701,17 @@
         data = data.replace(/Gofast.ITHit.downloadSelected/g, 'Gofast.ITHitMobile.downloadSelected');
         data = data.replace(/Gofast.ITHit.deleteSelected/g, 'Gofast.ITHitMobile.deleteSelected');
         data = data.replace(/Gofast.ITHit.bulkSelected/g, 'Gofast.ITHitMobile.bulkSelected');
-
+        
         $(menu).find("ul").html($(data).find('ul').html());
+        
+        var duplicate_link = $(menu).find('a.gf-filebrowser-full-only').parent();
+        $(duplicate_link).next().remove();
+        $(duplicate_link).remove();
+              
         Drupal.attachBehaviors();
 
         //Check if the menu is out of the window, reposition it if needed
-        var bottom = menu[0].getBoundingClientRect().top + menu[0].scrollHeight;
+        var bottom = $(menu)[0].getBoundingClientRect().top + menu[0].scrollHeight;
         if(window.innerHeight < bottom){
           var diff = bottom - window.innerHeight;
           $(menu).css('top', parseInt($(menu).css("top")) - diff);
@@ -724,7 +780,7 @@
               $('.bulk_mail_sharing').click();
             }else if($(element[0]).hasClass('bulk-archive') || $(element[0]).parentsUntil('ul').hasClass('bulk-archive')){
               $('.bulk_archive').click();
-	    }else{
+	          }else{
               $('.bulk_add_to_cart').click();
             }
           });
@@ -781,18 +837,20 @@
           }else{
             var color="#3498db";
           }
-          itemHTML += "<span class='fa "+icon+"' style='color:"+color+"'></span>";
+          itemHTML += "<span class='fas "+icon+"' style='color:"+color+"'></span>";
         }else{ //It's a document, use mapping to find the proper icon
           //Get extension
           var ext = item.DisplayName.split('.').pop();
 
           //Get font
           var font = Drupal.settings.ext_map[ext];
-
-          if(typeof font !== "undefined"){ //Known
-            itemHTML += "<span class='fa " + font + "'></span>";
-          }else{ //Unknown
-            itemHTML += "<span class='fa fa-file-o file-other'></span>";
+          var typeForArticle = Gofast.ITHit._getTypeFromRessourceType(item.DisplayName, item.Href, item.ResourceType, item.ContentType);
+          if(typeForArticle === "Article") { //Article icon
+              itemHTML += "<span class='far fa-ballot'></span>";
+          }else if(typeof font !== "undefined"){ //Known
+                itemHTML += "<span class='fa " + font + "'></span>";
+          }else {
+              itemHTML += "<span class='fa fa-file-o file-other'></span>";
           }
         }
       itemHTML += "</td>";
@@ -905,9 +963,18 @@
      * Attach mobile browser events
      */
     attachBrowserEvents: function(mobile){
-      $('#file_browser_mobile_tooolbar_refresh').click(function(){
+      $('html').on('click', '#file_browser_mobile_tooolbar_refresh', function(){
         Gofast.ITHitMobile.reload();
       });
+      $('html').on('click', '#file_browser_books_mobile_tooolbar_refresh', function(){
+        // GOFAST-8125 - empty wiki filter input before reload
+        $("#file_browser_mobile_toolbar_search_input").val("");
+        Gofast.ITHitMobile.reload();
+      });
+      $('html').on('click', '#file_browser_forums_mobile_tooolbar_refresh', function(){
+        Gofast.ITHitMobile.reload();
+      });
+
 
       $('#ithit-toggle').click(function(){
 
@@ -943,7 +1010,13 @@
           }
 
           if(typeof params.path !== "undefined" && params.path !== ""){
-             Gofast.ITHitMobile.navigate(params.path, true);
+             //trigger the navigation only if the 2 hashes are the same. If not it means that we just change bootstrap tab  
+             var new_param_path = location.search.replace("?&path=", "");
+             var old_param_path = oldLocation.params.path;
+           // if(location.hash == oldLocation.hash && new_param_path != old_param_path){
+            if(location.hash == oldLocation.hash){
+                 Gofast.ITHit.navigate('/alfresco/webdav' + params.path, null, null, true);
+            }
           }
         });
      });
@@ -971,6 +1044,24 @@
         clearTimeout(Gofast.ITHitMobile.searchProcess);
         Gofast.ITHitMobile.searchProcess = setTimeout(function(){
           Gofast.ITHitMobile.search($('#file_browser_mobile_toolbar_search_input').val());
+        }, 300);
+      });
+      
+      //Same block but we filter forums in the explorer tab
+      $("html").on('keyup', '#forum_explorer_toolbar_search_input', function(e){
+        //We set timeout to prevent JS engine overload (and we clear the timeout each time a key is pressed)
+        clearTimeout(Gofast.ITHitMobile.searchProcess);
+        Gofast.ITHitMobile.searchProcess = setTimeout(function(){
+          Gofast.ITHitMobile.search($('#forum_explorer_toolbar_search_input').val(), true);
+        }, 300);
+      });
+
+      //Same block but we filter books in the explorer tab
+      $("html").on('keyup', '#book_explorer_toolbar_search_input', function(e){
+        //We set timeout to prevent JS engine overload (and we clear the timeout each time a key is pressed)
+        clearTimeout(Gofast.ITHitMobile.searchProcess);
+        Gofast.ITHitMobile.searchProcess = setTimeout(function(){
+          Gofast.ITHitMobile.search($('#book_explorer_toolbar_search_input').val(), false, true);
         }, 300);
       });
 
@@ -1038,44 +1129,54 @@
     /*
      * Search a string in displayed items
      */
-    search: function(pattern){
+    search: function(pattern, for_forums=false, for_books=false){
       if($("#rename-form").length !== 0){
         return;
       }
-      var elements = $(".file_browser_mobile_files_element").not('#file_browser_mobile_back_button');
+      var elements = (for_forums) ? $(".forum-explorer-element") : (for_books) ? $('.book-explorer-element') : $(".file_browser_mobile_files_element").not('#file_browser_mobile_back_button');
+      
+        if(pattern === ""){
+            elements.removeClass('search-hidden');
+            elements.css('display', 'block');
 
-      if(pattern === ""){
-        elements.removeClass('search-hidden');
-        elements.css('display', 'block');
+            //Remove bold
+            $.each(elements.find('.item-name'), function(k, elem){
+             $(elem).text($(elem).text());
+            });
+        }else{
+            $.each(elements, function(k, element){
+            if($(element).find('.item-name').text().toLowerCase().indexOf(pattern.toLowerCase()) === -1){
+                $(element).addClass('search-hidden');
+                setTimeout(function(){
+                $(element).css('display', 'none');
+             }, 300);
+             
+              $(element).find('.item-name').text($(element).find('.item-name').text());
+            }else{
+             $(element).removeClass('search-hidden');
+             $(element).css('display', 'block');
 
-        //Remove bold
-        $.each(elements.find('.item-name'), function(k, elem){
-          $(elem).text($(elem).text());
+             //Add bold
+             $(element).find('.item-name').text($(element).find('.item-name').text());
+              var name = $(element).find('.item-name').text()
+              var indexStart = $(element).find('.item-name').text().toLowerCase().indexOf(pattern.toLowerCase());
+              var indexEnd = indexStart + pattern.toLowerCase().length;
+
+              var newHtml = name.substring(0, indexStart) + "<span class='search-bold'>" + name.substring(indexStart, indexEnd) + "</span>" + name.substring(indexEnd);
+             $(element).find('.item-name').html(newHtml);
+             }
+            });
+         }
+         if(for_forums) Gofast.ITHitMobile.display_forums();
+    },
+    display_forums: function() {
+        var elements = $(".forum-explorer-element-table");
+        $.each(elements, function(k, elem) {
+            setTimeout(function() {
+                var s = $(elem).children().children().length > 0 ? "block" : "none";
+                $(elem).css('display', s);
+            },300)
         });
-      }else{
-        $.each(elements, function(k, element){
-          if($(element).find('.item-name').text().toLowerCase().indexOf(pattern.toLowerCase()) === -1){
-            $(element).addClass('search-hidden');
-            setTimeout(function(){
-              $(element).css('display', 'none');
-            }, 300);
-
-            $(element).find('.item-name').text($(element).find('.item-name').text());
-          }else{
-            $(element).removeClass('search-hidden');
-            $(element).css('display', 'block');
-
-            //Add bold
-            $(element).find('.item-name').text($(element).find('.item-name').text());
-            var name = $(element).find('.item-name').text()
-            var indexStart = $(element).find('.item-name').text().toLowerCase().indexOf(pattern.toLowerCase());
-            var indexEnd = indexStart + pattern.toLowerCase().length;
-
-            var newHtml = name.substring(0, indexStart) + "<span class='search-bold'>" + name.substring(indexStart, indexEnd) + "</span>" + name.substring(indexEnd);
-            $(element).find('.item-name').html(newHtml);
-          }
-        });
-      }
     },
     toggle: function(state){
       if(state === "show" && $("#ithit-toggle").hasClass('shown')){
@@ -1111,6 +1212,8 @@
     }
   }
 
+  Gofast.ITHitMobile.gofast_book_refresh_file_browser();
+
    Drupal.behaviors.marginContainer = {
     attach: function(context, settings) {
       if (window.innerWidth < 1600){
@@ -1138,9 +1241,14 @@
     // $(document).ready(function(){
     $(window).resize(function(){
       //Handle resize event to resize the mobile file browser
-      $('#file_browser_mobile_files_table').height(window.innerHeight-117-jQuery("#file_browser_mobile_queue").outerHeight())
+      $('#file_browser_mobile_files_table').height(jQuery("#content-main-container").outerHeight()-180-jQuery("#file_browser_mobile_queue").outerHeight());
+      $('#forum_explorer_body').height(jQuery("#content-main-container").outerHeight()-180);
+      $('#book_explorer_body').height(jQuery("#content-main-container").outerHeight()-180);
     });
-    $('#file_browser_mobile_files_table').height(window.innerHeight-117-jQuery("#file_browser_mobile_queue").outerHeight())
+    $('#file_browser_mobile_files_table').height(jQuery("#content-main-container").outerHeight()-180-jQuery("#file_browser_mobile_queue").outerHeight());
+    $('#forum_explorer_body').height(jQuery("#content-main-container").outerHeight()-180);
+    $('#book_explorer_body').height(jQuery("#content-main-container").outerHeight()-180);
     }
   };
+  
 })(jQuery, Gofast, Drupal);

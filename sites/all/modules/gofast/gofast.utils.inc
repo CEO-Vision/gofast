@@ -205,6 +205,7 @@ function gofast_make_tooltip($tip = NULL, $tag = 'i', $placement = 'left') {
     'title' => $tip,
     'data-original-title' => $tip,
     'data-toggle' => 'tooltip',
+    'data-trigger' => 'hover',
     'data-placement' => $placement
   );
 
@@ -912,7 +913,7 @@ function gofast_button($label, $path = '', $btn_cls = '', $glyph_class = '', $at
     unset($attr['class'][$key]);
   }
 
-  $button = '<button' . drupal_attributes($attr) . '">';
+  $button = '<a' . drupal_attributes($attr) . '">';
 
   if (!empty($glyph_class)) {
     $button .= '<span class="glyphicon ' . $glyph_class . '"></span>';
@@ -924,12 +925,13 @@ function gofast_button($label, $path = '', $btn_cls = '', $glyph_class = '', $at
     $options = array('html' => TRUE);
     if ($modal) {
       $options['attributes'] = array('class' => array('ctools-use-modal'));
+      $options['attributes']['class'] = array_merge( $options['attributes']['class'], $btn_cls);
     }
-    $button .= '</button>';
-    $button = l($button, $path, $options);
+    $button .= '</a>';
+    $button = l($label, $path, $options);
   }
   else {
-    $button .= '</button>';
+    $button .= '</a>';
   }
 
   return $button;
@@ -1240,12 +1242,13 @@ function gofast_context_fallback() {
  * @param string $type [optional]
  *  The type of toast message to display. Defaults to 'info'.
  */
-function gofast_command_toast_message($message, $type = 'info', $title = NULL) {
+function gofast_command_toast_message($message, $type = 'info', $title = NULL, $options = array()) {
   return array(
     'command' => 'toast',
     'message' => $message,
     'type' => $type,
-    'title' => $title
+    'title' => $title,
+    'options' => $options
   );
 }
 
@@ -1377,7 +1380,7 @@ function gofast_get_node_title($nid, $bundles=array(), $rename_private = FALSE){
       }
    }
 
-  return $og_label;
+  return empty($og_label) ? "" : $og_label;
 }
 
 function gofast_get_node_title_multiple($nids, $bundles=array(), $rename_private = FALSE){
@@ -1717,15 +1720,14 @@ function gofast_change_time_zone($dateString, $timeZoneSource = null, $timeZoneT
   return $dt->format("Y-m-d H:i:s");
 }
 
-
 function gofast_api_get_render_all_comments($node){
-    $comment_default_per_page = variable_get('comment_default_per_page_' . $node->type, 50);
     variable_set('comment_default_per_page_' . $node->type, 9999999);
+    $node->from_comments_render = TRUE;
     $node_view = node_view($node);
     $node_view['comments'] = comment_node_page_additions($node);
-    $comment_render = drupal_render($node_view['comments']);
+
     variable_set('comment_default_per_page_' . $node->type, 1);
-    print $comment_render;
+    return  $node_view;
 }
 
 function gofast_get_reverse_url_alias($path){
@@ -1874,6 +1876,11 @@ function gofast_resynchro_ldap_membership_one_user($account){
               $role_manager = user_role_load_by_name(GOFAST_ROLE_MANAGER);
               user_multiple_role_edit(array($account->uid), 'remove_role', $role_manager->rid);
         }
+    }
+    
+    
+    if(gofast_user_is_business_admin($account) || gofast_user_is_adm($account)){
+          gofast_og_user_rebuild_base_memberships($account, true);
     }
 }
 
@@ -2081,7 +2088,8 @@ function _gofast_remove_admin_and_userslists_ldap_members_integrity_check($membe
 }
 
 
-function gofast_block_users_massively($block = array(), $pass = array(), $exceptions = array("", "adm", "admin")){
+function gofast_block_users_massively($block = array(), $pass = array(), $exceptions = array()){
+  if (empty($exceptions)) $exceptions = array("", variable_get("gofast_user_adm_username", "adm"), "admin");
   set_time_limit(0);
 
   foreach (entity_load('user') as $user) { //Fetch into users
@@ -2797,7 +2805,7 @@ function gofast_get_node_type($nid){
       $return_type = "Public";
       break;
     case 'private_space':
-      $return_type = "Private Space";
+      $return_type = "Personal Space";
       break;
     default:
       $return_type = $result->type;
@@ -2819,6 +2827,152 @@ function gofast_admin_get_space_defaults(){
   return variable_get("spaces_defaults", $default_spaces_configuration);
 }
 
+
+function gofast_node_get_icon($node){
+  $type = $node->type;
+  switch ($type) {
+    case 'group':
+      $icon_class = "fas fa-users";
+      break;
+    case 'organisation':
+      $icon_class = "fas fa-sitemap";
+      break;
+    case 'extranet':
+      $icon_class = "fas fa-globe";
+      break;
+    case 'public':
+      $icon_class = "fas fa-share-alt";
+      break;
+    case 'private_space':
+      $icon_class = "fas fa-home";
+      break;
+    case 'alfresco_item':
+      $icon_class = "fas ";
+      if (isset($node->field_format['und'][0]['tid'])) {
+        $term_id = $node->field_format['und'][0]['tid'];
+        $icons = gofast_taxonomy_load_icons();
+        $icon = isset($icons[$term_id]) ? $icons[$term_id] : '';
+        $icon_class .= empty($icon) ? 'fa-file' : $icon;
+      } else {
+        $icon_class .= "fa-file";
+      }     
+      $icon_class = gofast_utils_transform_to_fa5_icone($icon);   
+      break;
+    case 'task':
+    case 'kanban':
+      $icon_class = "fab fa-trello";
+      break;
+    case 'userlist':
+      $icon_class = "fas fa-user-friends userlist" ;
+      break;
+    case 'article':
+      $icon_class = "far fa-ballot";
+      break;
+    default:
+      $icon_class = $type;
+      break;
+  }
+  return $icon_class;
+}
+
+/**
+ * Temp function to return the version 5 FA from a FA4 icone
+ * to be removed in 4.0.0_R3
+ * T@param type $fa4_icon
+ * T@return string
+ */
+function gofast_utils_transform_to_fa5_icone($fa4_icon=''){
+  $src .= empty($fa4_icon) ? 'fa-file' : $fa4_icon;
+    switch ($fa4_icon){
+      case 'fa-trello':
+       $src = 'fab fa-trello';
+        break;
+
+      case 'fa-file-o file-other':
+        $src = 'fas fa-file file-other';
+        break;
+      
+      case 'fa-file-text-o':
+        $src = 'fas fa-file-alt';
+        break;
+      
+      case 'fa-comments-o':
+        $src = 'fas fa-comments forums';
+        break;
+      
+      case 'fa-id-card-o':
+        $src = 'fas fa-id-card';
+        break;
+      
+      case 'fa-file-o file-cao' :
+        $src= 'fas fa-file file-cao';
+        break;
+      
+      case 'fa-envelope-o file-mail' :
+        $src = 'fas fa-envelope file-mail';
+        break;
+      
+      case 'fa-file-text-o file-odg' :
+        $src = 'fas fa-file-alt file-odg';
+        break;
+      
+      case 'fa-file-o file-visio':
+        $src= 'fas fa-file file-visio';
+        break;
+      
+      case 'fa-file-excel-o':
+        $src= 'fas fa-file-excel';
+        break;
+      
+      case 'fa-file-word-o':
+        $src= 'fas fa-file-word';
+        break;
+      
+      case 'fa-file-pdf-o':
+        $src= 'fas fa-file-pdf';
+        break;
+      
+      case 'fa-file-powerpoint-o':
+        $src= 'fas fa-file-powerpoint';
+        break;
+      
+      case 'fa-file-pdf pdf-image':
+        $src= 'fas fa-file-pdf pdf-image';
+        break;
+      
+      case 'fa-file-sound-o':
+        $src= 'fas fa-file-audio';
+        break;
+      
+      case 'fa-file-video-o':
+        $src= 'fas fa-file-video';
+        break;
+      
+      case 'fa-file-image-o':
+        $src= 'fas fa-file-image';
+        break;
+      
+      case 'fa-video-camera':
+        $src= 'fas fa-video';
+        break;
+      
+      case 'fa-newspaper-o':
+        $src= 'far fa-ballot';
+        break;
+
+      case 'fa-users userlist':
+        $src= 'fas fa-user-friends userlist';
+        break;
+
+      
+      default:
+        $src = 'fas '.$fa4_icon;
+        break;
+    }
+    
+    return $src;
+}
+
 /**
  * Returns the caller of this function caller.
  */
@@ -2826,7 +2980,6 @@ function gofast_get_caller($full = FALSE) {
   list(,, $caller) = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3);
   return $full ? $caller : $caller['function'];
 }
-
 
 // ----------------- BEGIN Codeigniter XSS_CLEAR -----------------
 // codeigniter cleanup from cross-site XSS xss_clean
@@ -3078,10 +3231,9 @@ function gofast_xss_clean($str, $is_image = FALSE)
   unset($original);
 
   // Remove evil attributes such as style, onclick and xmlns
-
+  $js_events = ["onclick", "onblur", "oncanplay", "onafterprint", "onbeforeprint", "onbeforeonload", "oncanplaythrough", "oncontextmenu", "onchange", "ondblclick", "ondragover", "ondragleave", "ondragenter", "ondragend", "ondrag", "onended", "onemptied", "ondurationchange", "ondragstart", "ondrop", "onerror", "onformchange", "onfocus", "onforminput", "oninvalid", "oninput", "onhaschange", "onkeypress", "onkeydown", "onloadeddata", "onmouseout", "onmousedown", "onmousemove", "onmessage", "onloadstart", "onmouseup", "onplaying", "onplay", "onpopstate", "onratechange", "onprogress", "onreadystatechange", "onstorage", "onstalled", "onseeking", "onscroll", "onseeked", "onresize", "onredo", "onsuspend", "onundo", "onwaiting", "ontimeupdate", "onvolumechange"];
   // All javascript event handlers (e.g. onload, onclick, onmouseover), style, and xmlns
-  $evil_attributes = array('on\w*', 'style', 'xmlns', 'formaction');
-
+  $evil_attributes = array(...$js_events, 'xmlns', 'formaction');
   if ($is_image === TRUE) {
     /*
 		 * Adobe Photoshop puts XML metadata into JFIF images,
@@ -3125,7 +3277,7 @@ function gofast_xss_clean($str, $is_image = FALSE)
 	 * So this: <blink>
 	 * Becomes: <blink>
 	 */
-  $naughty = 'alert|applet|audio|basefont|base|behavior|bgsound|blink|body|embed|expression|form|frameset|frame|head|html|ilayer|iframe|input|isindex|layer|link|meta|object|plaintext|style|script|textarea|title|video|xml|xss';
+  $naughty = 'alert|applet|audio|basefont|base|behavior|bgsound|blink|body|embed|expression|form|frameset|frame|head|html|ilayer|iframe|input|isindex|layer|link|meta|object|plaintext|script|textarea|title|video|xml|xss';
   $str = preg_replace_callback('#<(/*\s*)(' . $naughty . ')([^><]*)([><]*)#is', '_sanitize_naughty_html', $str);
 
   /*
@@ -3169,7 +3321,165 @@ function gofast_xss_clean($str, $is_image = FALSE)
   return $str;
 }
 
-// ----------------- END Codeigniter XSS_CLEAR -----------------
+/*
+ * Used to get the link to display in CDEL dashboard and meeting notifications
+ */
+function gofast_get_first_document_in_path($path){
+    $reference = gofast_ajax_file_browser_get_reference_from_href($path);
 
+    //Query Alfresco to retrieve the first document in path
+    $query = "SELECT * "
+            . "FROM cmis:document "
+            . "WHERE IN_FOLDER('" . $reference . "')";
 
+    module_load_include('api.inc', 'cmis');
 
+    $query = urlencode($query);
+    $query = urldecode($query);
+
+    try {
+      $repository = cmisapi_getRepositoryInfo();
+      $repoId = !empty($repository->repositoryId) ? $repository->repositoryId : 'default';
+      $options = array(
+          "skipCount" => 0,
+          "maxItems" => 1,
+      );
+      $result = cmisapi_query($repoId, $query, $options)->objectList;
+
+      if(count($result) > 0){
+          $file_ref = $result[0]->properties["alfcmis:nodeRef"];
+          $item = gofast_cmis_item_get($file_ref);
+
+          return $item->properties['gofast:nid'];
+      }
+    }
+    catch (CMISException $e) {
+      cmis_error_handler('cmis_query', $e);
+    }
+}
+
+/**
+ * Check if $date is a timestamp
+ *
+ * @param string $timestamp
+ * @return bool
+ */
+function isValidTimeStamp($timestamp){
+    return ((string) (int) $timestamp === $timestamp)
+        && ($timestamp <= PHP_INT_MAX)
+        && ($timestamp >= ~PHP_INT_MAX);
+}
+
+function array_map_recursive($callback, $array){
+  $func = function ($item) use (&$func, &$callback) {
+    return is_array($item) ? array_map($func, $item) : call_user_func($callback, $item);
+  };
+
+  return array_map($func, $array);
+}
+
+/**
+ * Get query active users
+ *
+ * @return array $results
+ */
+function gofast_query_get_active_users(){
+  $filters = $_GET['query'];
+
+  $query = db_select('users', 'u');
+  $query->leftJoin('field_data_ldap_user_displayname','udn', 'udn.entity_id=u.uid');
+  $query->addField('u', 'uid');
+  $query->addField('udn', 'ldap_user_displayname_value', 'displayName');
+
+  if(isset($filters['generalSearch'])){
+    $query->condition('udn.ldap_user_displayname_value', '%'.$filters['generalSearch'].'%', 'LIKE');
+
+  }
+
+  $users = $query->execute()->fetchAll();
+
+  return $users;
+}
+
+/** get MIME type from filename _or_ infer extension from MIME type if $flip is set to true */
+function gofast_get_mime_content_type($filename, $flip = FALSE) {
+
+  $mime_types = array(
+    'txt' => 'text/plain',
+    'htm' => 'text/html',
+    'php' => 'text/html',
+    'html' => 'text/html',
+    'css' => 'text/css',
+    'js' => 'application/javascript',
+    'json' => 'application/json',
+    'xml' => 'application/xml',
+    'swf' => 'application/x-shockwave-flash',
+    'flv' => 'video/x-flv',
+    // images
+    'png' => 'image/png',
+    'jpe' => 'image/jpeg',
+    'jpeg' => 'image/jpeg',
+    'jpg' => 'image/jpeg',
+    'gif' => 'image/gif',
+    'bmp' => 'image/bmp',
+    'ico' => 'image/vnd.microsoft.icon',
+    'tiff' => 'image/tiff',
+    'tif' => 'image/tiff',
+    'svg' => 'image/svg+xml',
+    'svgz' => 'image/svg+xml',
+    // archives
+    'zip' => 'application/zip',
+    'rar' => 'application/x-rar-compressed',
+    'exe' => 'application/x-msdownload',
+    'msi' => 'application/x-msdownload',
+    'cab' => 'application/vnd.ms-cab-compressed',
+    // audio/video
+    'mp3' => 'audio/mpeg',
+    'qt' => 'video/quicktime',
+    'mov' => 'video/quicktime',
+    // adobe
+    'pdf' => 'application/pdf',
+    'psd' => 'image/vnd.adobe.photoshop',
+    'ai' => 'application/postscript',
+    'eps' => 'application/postscript',
+    'ps' => 'application/postscript',
+    // ms office
+    'doc' => 'application/msword',
+    'rtf' => 'application/rtf',
+    'xls' => 'application/vnd.ms-excel',
+    'ppt' => 'application/vnd.ms-powerpoint',
+    // open office
+    'odt' => 'application/vnd.oasis.opendocument.text',
+    'ods' => 'application/vnd.oasis.opendocument.spreadsheet',
+  );
+
+  // in case we want extension from mime rather than mime from filename
+  if ($flip) {
+    $mime_types = array_flip($mime_types);
+    return $mime_types[$filename];
+  }
+
+  $ext = strtolower(array_pop(explode('.', $filename)));
+  if (array_key_exists($ext, $mime_types)) {
+    return $mime_types[$ext];
+  }
+  elseif (function_exists('finfo_open')) {
+    $finfo = finfo_open(FILEINFO_MIME);
+    $mimetype = finfo_file($finfo, $filename);
+    finfo_close($finfo);
+    return $mimetype;
+  }
+  else {
+    return 'application/octet-stream';
+  }
+}
+
+/** check if a user is blocked because of too much flood */
+function gofast_user_is_flood_blocked($uid) {
+  $userFlood = db_select('flood', 'f')
+    ->fields('f')
+    ->condition('f.event', 'failed_login_attempt_user')
+    ->condition('f.identifier', db_like($uid . "-") . "%", 'LIKE')
+    ->execute();
+  return $userFlood->rowCount() >= 5;
+}

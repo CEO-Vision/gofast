@@ -150,7 +150,8 @@ function gofast_community_menu(){
       'page callback' => 'gofast_community_rapiddashboard',
       'page arguments' => array(),
       'type' => MENU_CALLBACK,
-      'access callback' => TRUE
+      'access callback' => 'user_access',
+      'access arguments' => array('access content'),
   );
   return $items;
   

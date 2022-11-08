@@ -14,6 +14,11 @@
 		console.log('test');
 	    });
 	}
+    },
+    downloadSelected: function (path) { // downloadSelected for audit
+      $.post(location.origin + "/gofast/audit/downloadSelected", { file_path: path }).done(function (data) {
+        console.log('test downloadSelected');
+        });
     }
   };
 })(jQuery, Gofast, Drupal);

@@ -1,12 +1,12 @@
 <?php
-
+    
 /**
  * @file
  * 
  * Gofast configuration callbacks.
  * Admin interface for Gofast LDAP settings
  */
-
+     
 /**
  * Helper, returns minimal LDAP form fields set to expose to adms. Values for 
  * the other fields will be derived from defaults according to the server type.
@@ -20,20 +20,20 @@ function gofast_ldap_settings_form_fields() {
     // ... add any other fields brought by LDAP modules 
   ));
 }
-
+    
 /**
  * Creates a GoFast LDAP server configuration used for user data provisioning.
  */
 function gofast_ldap_server_create($sid = GOFAST_LDAP_INT_SERVER, $silent = FALSE) {
   ldap_servers_module_load_include('php', 'ldap_servers', 'LdapServerAdmin.class');
   module_load_include('inc', 'gofast_ldap', 'gofast_ldap.settings');
-
+      
   if (!ldap_servers_ldap_extension_loaded()) {
     drupal_set_message(t('PHP LDAP Extension is not loaded.'), 'warning');
   }
-
+      
   $server = new LdapServerAdmin($sid);
-
+      
   if ($server->sid !== $sid) {
     $server->drupalFormSubmit('add', gofast_ldap_server_defaults($sid));
     if ($server->hasError() == FALSE) {
@@ -52,18 +52,18 @@ function gofast_ldap_server_create($sid = GOFAST_LDAP_INT_SERVER, $silent = FALS
     //drupal_set_message(t('Gofast LDAP : The server configuration already exists, or another uses the same machine name.'), 'warning');
   }
 }
-
+    
 /**
  * LDAP server default instances management. Form builder
  */
 function gofast_ldap_server_settings_form() {
   ldap_servers_module_load_include('inc', 'ldap_servers', 'ldap_servers.functions');
   module_load_include('inc', 'gofast_ldap', 'gofast_ldap.settings');
-
+      
   if (!ldap_servers_ldap_extension_loaded()) {
     drupal_set_message(t('PHP LDAP Extension is not loaded.'), 'warning');
   }
-
+      
   foreach (gofast_ldap_server_default_names() as $sid => $label) {
     $form[$sid] = array(
       '#type' => 'fieldset',
@@ -74,10 +74,10 @@ function gofast_ldap_server_settings_form() {
             'If no server configuration is found, automatically create and load server configuration.',
             "If a configuration named '{$sid}' already exists, delete safely via the LDAP servers administration page, then recreate.")))),
     );
-
+        
     $info = $description = '';
     $server = gofast_ldap_server_load($sid);
-
+        
     if ($server_exists = $server->sid === $sid) {
       $info = t('Server %conf is already configured.', array('%conf' => $sid), array('context' => 'gofast:gofast_ldap'));
       $description = array_to_html(get_object_vars($server), TRUE);
@@ -86,13 +86,13 @@ function gofast_ldap_server_settings_form() {
       $info = t('Server %conf is not configured or does not exist. You can create it based on predefined defaults settings.', 
                 array('%conf' => $sid), array('context' => 'gofast:gofast_ldap'));
     }
-
+        
     $form[$sid]['status'] = array(
       '#type' => 'item',
       '#markup' => $info,
       '#description' => $description
     );
-
+        
     $form[$sid][$sid] = array(
       '#type' => 'submit',
       '#name' => 'op',
@@ -100,10 +100,10 @@ function gofast_ldap_server_settings_form() {
       '#access' => !$server_exists
     );
   }
-
+      
   return $form;
 }
-
+    
 /**
  * Submit callback for LDAP admin (default instances management) form
  */
@@ -113,7 +113,146 @@ function gofast_ldap_server_settings_form_submit($form, &$form_state) {
     gofast_ldap_server_create($sid);
   }
 }
+    
+function gofast_ldap_admin_entries_display() {
+    $form = drupal_get_form('gofast_ldap_admin_entries');
+    $render = drupal_render($form);
+    return gofast_create_page_content($render);
+}
+    
+function gofast_ldap_fetch_entries() {
+    
+    $sid = GOFAST_LDAP_EXT_SERVER;
+    $server = gofast_ldap_server_load($sid);
+        
+    $pagination = $_GET['pagination'];
+    $sort = $_GET['sort'];
+    $filters = $_GET['query'];
+        
+    $entries = [];
+                
+    $defaults = array(
+        'attributes' => array_keys(gofast_ldap_server_attributes($sid, FALSE, FALSE)),
+        'ou' => NULL,
+    );
+                
+    //Filters
+    if (isset($filters) && $filters != "") {
+        $key = key($filters);
+        $defaults['filters'] = array(
+            array(
+                'attr' => $key,
+                'value' => '*' . $filters[$key] . '*',
+            ),
+        );
+    } else {
+        $defaults['filters'] = array(
+            array(
+                'attr' => 'sn',
+                'value' => '*',
+            ),
+        );
+    }
+             
+    //Pagination - Doesn't work and is made client-side
+    if ($pagination) {
+        $defaults['ipp'] = $pagination;
+    } else {
+        $defaults['ipp'] = 20;
+    }
+ 
+    //Query opt
+    $query_opt = filter_input(INPUT_GET, '_ldap_opt', FILTER_DEFAULT, array(
+        'flags' => FILTER_REQUIRE_ARRAY,
+        'options' => array(
+            'default' => array()
+        )
+    ));
+        
+    //Options merging
+    $options = $query_opt + $defaults;
+        
+    //Fetch entries and format
+    $entries = gofast_ldap_admin_query($server, $options);       
+    $formatted_entries = gofast_ldap_admin_entries_format($entries, $server, $sid);
+        
+    print $formatted_entries;
+}
+    
+function gofast_ldap_admin_entries_format($entries, $server, $sid) {
+    $formatted_entries = array();
+    $attributes = array_keys(gofast_ldap_server_attributes($sid, FALSE, FALSE));
+    
+    for($key=0;$key<$entries['count'];$key++) {
+        
+        foreach($attributes as $attr) {
+            $formatted_entries[$key][$attr] = $entries[$key][$attr][0];
+        }
+                     
+        if(!isset($entries[$key][$server->user_attr][0])) {
+            continue;
+        }
+        $user_id = ($uid_attr_exists = isset($entries[$key][$server->user_attr][0])) ? $entries[$key][$server->user_attr][0] : $key;
+        $imported_string = "";
+        $user_exists = false;
+        if(!$uid_attr_exists || $user_exists = user_load_by_name($user_id)) {
+            $imported_string = '<i class="d-flex justify-content-center mr-6 fas fa-check gofastImported"></i>';
+        }
+        $formatted_entries[$key]['imported'] = $imported_string;
+            
+    }
+    return json_encode($formatted_entries);
+}
+    
+function gofast_ldap_admin_entries_import_selected() {
 
+  $sid = GOFAST_LDAP_EXT_SERVER;
+  $server = gofast_ldap_server_load($sid);
+  
+  $mapping = array_filter(gofast_ldap_prov_mapping($sid));
+  
+  $roles = gofast_user_roles();
+  $role_name = GOFAST_ROLE_CONTRIBUTOR;
+  $data = array(
+    "ldap_user_manager" => 4,
+    "ldap_user_ou" => null,
+  );
+
+  $all_users = $_POST["users"];
+  $selected = $_POST["selected"];
+  $ret = array();
+  foreach ($all_users as $user) {
+    $username = $user[$server->user_attr];
+    if (in_array($username, $selected)) {
+
+      foreach ($mapping as $entry => $remote) {
+        if (empty($remote)) {
+          continue;
+        }
+        switch ($entry) {
+          case "ldap_user_manager":
+          case "ldap_user_ou":
+            break;
+          case "ldap_user_displayname":
+            $data[$entry] = (empty($user[$remote])) ? $user["cn"] : $user[$remote];
+            break;
+          default:
+            $data[$entry] = $user[$remote];
+            break;
+        }
+      }
+      $ret[$username] = gofast_user_create($username, $role_name, $data);
+    }
+
+    // Alter drupal messages queue to make it more readable.
+    $created = array_keys(array_filter($ret));
+    $msg = t('Following accounts have been created successfully : !list', array('!list' => theme('item_list', array('items' => $created))), array('context' => 'gofast:gofast_ldap'));
+    drupal_get_messages($type = 'status', TRUE);
+    drupal_set_message($msg, 'status');
+  }
+}
+      
+      
 /**
  * Page callback for LDAP administration tools.
  */
@@ -121,23 +260,25 @@ function gofast_ldap_admin_entries($form, &$form_state) {
   module_load_include('inc', 'gofast_ldap', 'gofast_ldap.settings');
   $sid = GOFAST_LDAP_EXT_SERVER;
   $server = gofast_ldap_server_load($sid);
-  
+      
   $opt_key = __FUNCTION__ . '_search_options';
   $options = isset($form_state[$opt_key]) ? $form_state[$opt_key] : gofast_ldap_admin_options_default($sid);
   gofast_ldap_admin_entries_import_options($form_state, $options);
   $attributes = gofast_ldap_server_attributes($sid, TRUE, TRUE);
-  
+      
   $form['sid'] = array(
     '#type' => 'hidden',
     '#value' => $sid
   );
-
+      
   $form['options'] = array(
     '#title' => t('Search Options', array(), array('context' => 'gofast:gofast_ldap')),
     '#type' => 'fieldset',
-    '#collapsible' => FALSE
+    '#collapsible' => FALSE,
+    '#prefix' => '<div class="card"><div class="card-header">',
+    '#suffix' => '</div>',
   );
-  
+      
   foreach ($options['filters'] as $key => $filter) {
     $form['options']['filter_' . $key] = array(
       '#title' => t('Filter', array(), array('context' => 'gofast')) . ' ' . ($key + 1),
@@ -146,7 +287,7 @@ function gofast_ldap_admin_entries($form, &$form_state) {
       '#default_value' => $filter['attr'],
       '#prefix' => $key ? '<td>' : '<table><tr><td>'
     );
-    
+        
     $form['options']['filter_value_' . $key] = array(
       '#type' => 'textfield',
       '#default_value' => $filter['value'],
@@ -154,7 +295,7 @@ function gofast_ldap_admin_entries($form, &$form_state) {
       '#size' => 11
     );
   }
-  
+      
   $form['options']['sort_by'] = array(
     '#title' => t('Sort by', array(), array('context' => 'gofast')),
     '#type' => 'select',
@@ -168,7 +309,7 @@ function gofast_ldap_admin_entries($form, &$form_state) {
     '#default_value' => $options['sort_dir'],
     '#suffix' => '</td>'
   );
-
+      
   $col_num = count($options['filters']) + 2; // filters, sorting & pagination/submit.
   $ltd_width = (100 / $col_num) . '%';
   $form['options']['ipp'] = array(
@@ -178,22 +319,22 @@ function gofast_ldap_admin_entries($form, &$form_state) {
     '#default_value' => $options['ipp'],
     '#prefix' => "<td style='width:{$ltd_width};text-align:right;'>"
   );
-
+      
   $form['options']['submit-search'] = array(
     '#name' => 'op',
     '#type' => 'submit',
     '#value' => t('Search', array(), array('context' => 'gofast')),
     '#prefix' => '<div class="form-item form-group" style="padding:2px;">',
-    '#suffix' => '</div></td></tr></table><script>jQuery("[id^=gofast-ldap-admin-entries]").attr("action", "/admin/config/gofast/ldap/manage")</script><style>.breadcrumb-gofast{display:none;}</style',
+    '#suffix' => '</div></td></tr></table><script>jQuery("[id^=gofast-ldap-admin-entries]").attr("action", "/admin/config/gofast/ldap/manage")</script><style>.breadcrumb-gofast{display:none;}</style>',
     '#submit' => array('gofast_ldap_admin_entries_search')
   );
-
+      
   // Prepare several options to be selected in a second step when importing user
   // entries : organisation unit, manager, and roles. 
   $root_spaces = gofast_og_get_root_spaces(FALSE, TRUE);
   $org = gofast_og_get_spaces_by_bundle(array('organisation'));
   $organisations = array_diff_key($org, $root_spaces)/* +  array('_none' => t('- None -'))*/;
-  
+      
   foreach ($organisations as $gid => &$org) {
     $org = $org->title;
   }
@@ -203,10 +344,10 @@ function gofast_ldap_admin_entries($form, &$form_state) {
     '#options' => NULL,
     '#prefix' => '<div class="gofast-ldap-admin-import-options">'
   );
-  
+      
   $managed_gids = gofast_og_get_managed_spaces();
   gofast_og_form_field_filter_by_id($form, array('import_opt', 'ou'), $managed_gids, FALSE, FALSE);  
-  
+      
   $managers = gofast_user_load_multiple_by_roles(array('administrator', 'manager'));
   foreach ($managers as $uid => &$account) {
     $account = gofast_user_display_name($account);
@@ -216,15 +357,15 @@ function gofast_ldap_admin_entries($form, &$form_state) {
     '#type' => 'select',
     '#options' => $managers,
   );
-  
+      
   $roles = gofast_user_roles();
   $form['import_opt']['roles'] = array(
-    '#title' => t('Roles', array(), array('context' => 'gofast')),
+    '#title' => t('Profiles', array(), array('context' => 'gofast')),
     '#type' => 'checkboxes',
     '#options' => $roles,
     '#default_value' => array_keys($roles, GOFAST_ROLE_CONTRIBUTOR),
   );
-  
+      
   $btn = array(
     gofast_button(t('Save'), NULL, 'btn-success', NULL, array('op' => 'save')),
     gofast_button(t('Cancel'), NULL, 'btn-danger', NULL, array('op' => 'cancel'))
@@ -233,30 +374,31 @@ function gofast_ldap_admin_entries($form, &$form_state) {
     '#markup' => implode('&nbsp;', $btn),
     '#suffix' => '</div>'
   );
-
+      
   // Execute LDAP search query.
   $results = gofast_ldap_admin_query($server, $options);
-
+      
   // Gather some informations to display.
   $count = isset($results['count']) ? $results['count'] : 0;
   $count_msg = format_plural($count, '1 ' . t('result', array(), array('context' => 'gofast')), '@count ' . t('results', array(), array('context' => 'gofast')));
-   
+      
   if ($count >= $server->searchPageSize) {
     $msg = t('Warning : Your LDAP directory is set to return at most :size entries, some results could not be displayed.', 
             array(':size' => $server->searchPageSize), array('context' => 'gofast:gofast_ldap'));
     drupal_set_message($msg, 'warning');
   }
-  
+      
   if (isset($results['error'])) {
     drupal_set_message($results['error'], 'error');
   }
-  
+      
   $form['results'] = array(
     '#title' => t('Search Results', array(), array('context' => 'gofast')) . '<span style="float:right;"> ' . $count_msg . '</span>',
     '#type' => 'fieldset',
-    '#collapsible' => FALSE
+    '#collapsible' => FALSE,
+    '#prefix' => '<div class="card-body">',
   );
-  
+      
   $selected = 0; 
   $form['results']['submit-import'] = array(
     '#name' => 'op',
@@ -280,14 +422,14 @@ function gofast_ldap_admin_entries($form, &$form_state) {
       )
     )
   );
-  
+      
   // Build the header.
   $colNames = array_keys(gofast_ldap_server_attributes($sid, FALSE, TRUE));
   $header = array_diff_key(array_combine($colNames, $colNames) + array('_imported' => t('Imported', array(), array('context' => 'gofast'))), array('_none' => NULL));
-  
+      
   // Remove _none option from attribute array so we can iterate over attributes.
   unset ($attributes['_none']);
-  
+      
   // Process results before rendering.
   $processed_results = $rows = $disabled = array();
   for ($i = 0; $i < $count; $i++) {
@@ -324,17 +466,17 @@ function gofast_ldap_admin_entries($form, &$form_state) {
       $processed_results[$user_id] = $results[$i];
     }
   }
-  
+      
   // Pagination settings.
   $limit = $options['ipp'];
   $page = pager_default_initialize(count($rows), $limit);
   $offset = $limit * $page;
   // Split results into page sized chunks.
   $p_rows = array_slice($rows, $offset, $limit, TRUE);
-  
+      
   // Transport form state options through the pager's parameters.
   $params = array_diff_key($options, array('attributes' => 0));
-  
+      
   $form['results']['selection'] = array(
     '#type' => 'tableselect',
     '#header' => $header,
@@ -342,24 +484,26 @@ function gofast_ldap_admin_entries($form, &$form_state) {
     '#multiple' => TRUE,
     '#validated' => TRUE,
   );
-  
+      
   foreach($disabled as $d_key => $d_value){
       if(isset($form['results']['selection']['#options'][$d_key])){
           $form['results']['selection'][$d_key]['#disabled'] = TRUE;
       }
   }
-  
+      
   $form['results']['pager'] = array(
     '#theme' => 'pager',
-    '#parameters' => array('_ldap_opt' => $params)
+    '#parameters' => array('_ldap_opt' => $params),
+    '#prefix' => '<div class="align-items-center card-footer d-flex justify-content-center">',
+    '#suffix' => '</div>',
   );
-  
+      
   // Make processed results available in submit callback.
   $form_state[__FUNCTION__ . '_search_results'] = $processed_results;
-  
+      
   return $form;
 }
-
+    
 /**
  * Permforms an LDAP search query given the set of parameters.
  * 
@@ -378,17 +522,17 @@ function gofast_ldap_admin_query(LdapServer $LdapServer, $options) {
   $filters = array_filter($options['filters'], function ($item) {
     return $item['attr'] !== '_none'; 
   });
-  
+      
   if (empty($filters)) {
     $filters[] = array(
       'attr' => 'objectClass',
       'value' => '*'
     );
   }
-  
+      
   $_filters = array();
   $__filter = "";
-  
+      
   foreach ($filters as $key => $_filter) {
     // Escape meta characters except wildcard char, this allows user to take 
     // advantage of the corresponding operator. User is still able to escape 
@@ -397,11 +541,11 @@ function gofast_ldap_admin_query(LdapServer $LdapServer, $options) {
     if (empty($value) && $value !== "0") {
       $value = '*';
     }
-
+        
     $__filter = $attribute . '=' . $value;
     array_push($_filters, $__filter); // array("filter1", "filter2", "filter3" ...)
   }
-  
+      
   foreach ($_filters as $key => $__filter) {
     if (empty($value) && $value !== "0") {
       $value = '*';
@@ -442,12 +586,12 @@ function gofast_ldap_admin_query(LdapServer $LdapServer, $options) {
         }
     }
 }
-  
+    
   $attributes = $options['attributes'];
-  
+      
   return $LdapServer->searchAllBaseDns($filter, $attributes);
 }
-
+    
 /**
  * Form submit handler for LDAP managed entries.
  * 
@@ -458,11 +602,11 @@ function gofast_ldap_admin_entries_search($form, &$form_state) {
   if ($form_state['values']['op'] !== t('Search', array(), array('context' => 'gofast'))) {
     return;
   }
-   
+      
   $values = $form_state['values'];
   $filter_attr = $filter_val = array();
   $options = gofast_ldap_admin_options_default($values['sid']);
-  
+      
   foreach ($values as $name => $value) {
     if (strpos($name, 'filter_value_') === 0) {
       $filter_val[] = $value;
@@ -474,24 +618,24 @@ function gofast_ldap_admin_entries_search($form, &$form_state) {
     }
     $options[$name] = $value;
   }
-  
+      
   foreach ($filter_attr as $key => $filter) {
     $options['filters'][$key] = array(
       'attr' => $filter,
       'value' => $filter_val[$key]
     );
   }
-  
+      
   $form_state[__FUNCTION__ . '_options'] = $options;
   $form_state['rebuild'] = TRUE;
 }
-
+    
 function gofast_ldap_admin_entries_import_options($form_state, &$options) {
   module_load_include('inc', 'gofast_ldap', 'gofast_ldap.settings');
-   
+      
   $values = $_POST;
   $filter_attr = $filter_val = array();
-  
+      
   foreach ($values as $name => $value) {
     if (strpos($name, 'filter_value_') === 0) {
       $filter_val[] = $value;
@@ -502,7 +646,7 @@ function gofast_ldap_admin_entries_import_options($form_state, &$options) {
       continue;
     }
   }
-  
+      
   foreach ($filter_attr as $key => $filter) {
     $options['filters'][$key] = array(
       'attr' => $filter,
@@ -510,7 +654,7 @@ function gofast_ldap_admin_entries_import_options($form_state, &$options) {
     );
   }  
 }
-
+    
 /**
  * Form validate handler for LDAP managed entries.
  */
@@ -519,13 +663,13 @@ function gofast_ldap_admin_entries_validate($form, &$form_state) {
   if ($form_state['values']['op'] !== t('Import Selection', array(), array('context' => 'gofast'))) {
     return;
   }
-  
+      
   $rid = reset((array_filter($form_state['values']['roles'])));
   if (!array_key_exists($rid, $form['import_opt']['roles']['#options'])) {
-    form_set_error('roles', t('The selected role is not part of the authorized options.', array(), array('context' => 'gofast:gofast_ldap')));
+    form_set_error('roles', t('The selected profile is not part of the authorized options.', array(), array('context' => 'gofast:gofast_ldap')));
   }
 }
-
+    
 /**
  * Form submit handler for LDAP managed entries.
  * 
@@ -537,44 +681,44 @@ function gofast_ldap_admin_entries_import($form, &$form_state) {
   if ($form_state['values']['op'] !== t('Import Selection', array(), array('context' => 'gofast'))) {
     return;
   }
-  
+      
   $val = $form_state['values'];
-  
+      
   $sid = $val['sid'];
   $form_id = $form_state['build_info']['form_id'];
   $results = $form_state[$form_id . '_search_results'];
-
+      
   $mapping = array_filter(gofast_ldap_prov_mapping($sid));
-
+      
   $selected = array_filter($val['selection']);
   $defaults = array('ldap_user_manager' => $val['manager'], 'ldap_user_ou' => $val['ou']);
-  
-  
+      
+      
   $rid = reset((array_filter($val['roles'])));
   $role_name = $form['import_opt']['roles']['#options'][$rid];
-  
+      
   $ret = $errors = array();
   foreach ($selected as $username) {
     $entry = $results[$username] + array('__name' => $username);
-    
+        
     $prov = array_map(function($attr) use ($entry, $sid) {
       return isset($entry[$attr][0]) ? $entry[$attr][0] : _ldap_prov_fallback($attr, $entry, $sid); 
     }, $mapping);
-    
+        
     $data = $defaults + array_filter($prov);
     $ret[$username] = gofast_user_create($username, $role_name, $data);
     $errors[$username] = $ret[$username] ? FALSE : form_get_errors();
   }
-  
+      
   // Alter drupal messages queue to make it more readable.
   $created = array_keys(array_filter($ret));  
   $msg = t('Following accounts have been created successfully : !list', array('!list' => theme('item_list', array('items' => $created))), array('context' => 'gofast:gofast_ldap'));  
   drupal_get_messages($type = 'status', TRUE);
   drupal_set_message($msg, 'status');
-  
+      
 //  _dump(array($sid, 'ret' => $ret, '$errors' => $errors), 'fs');
 }
-
+    
 /**
  * Ajax callback for testing LDAP server connection, given the submitted POST
  * parameters.
@@ -582,10 +726,10 @@ function gofast_ldap_admin_entries_import($form, &$form_state) {
 function gofast_ldap_admin_test_connection($options = NULL, $ajax = TRUE) {
   ldap_servers_module_load_include('php', 'ldap_servers', 'LdapServerAdmin.class');
   module_load_include('inc', 'gofast_ldap', 'gofast_ldap.settings');
-  
+      
   $status = FALSE;
   $settings = $options ? $options : filter_input(INPUT_POST, 'ldapConnectionTest', FILTER_DEFAULT , FILTER_REQUIRE_ARRAY);
-  
+      
   if (empty($settings)) {
     watchdog('Gofast LDAP', 'Error while testing connection, no server settings received.', array(), WATCHDOG_ERROR);
   }
@@ -599,7 +743,7 @@ function gofast_ldap_admin_test_connection($options = NULL, $ajax = TRUE) {
     else {
       // Get field mapping (bindpw is protected).
       $map = $server::field_to_properties_map() + array('bindpw' => 'bindpw');
-
+          
       // Override saved configuration with submitted settings.
       foreach ($settings as $setting => $value) {
         if (array_key_exists($setting, $map)) {
@@ -607,25 +751,25 @@ function gofast_ldap_admin_test_connection($options = NULL, $ajax = TRUE) {
           $server->$property = $value;
         }
       }
-
+          
       // Test server connection.
       $server->disconnect();
       $server->connect();
       $binding = $server->bind();
-      
+          
       $status = $binding === LDAP_SUCCESS;
       watchdog('Gofast LDAP', 'LDAP Server binding attempt - Server ID: :sid - status: :status.', array(':sid' => $sid, ':status' => $status ? 'success' : 'fail'), WATCHDOG_ERROR);
     } 
   }
-  
+      
   if ($ajax) {
     drupal_json_output(array('connectionStatus' => $status));
     exit;
   }
-  
+      
   return $status;
 }
-
+    
 /**
  * Helper that switches SASL Authentication flags, either global or for a 
  * specific account if $account is set.
@@ -640,7 +784,7 @@ function gofast_ldap_sasl_auth_switch($toggle = NULL, $account = NULL) {
   }
   return $toggle ? gofast_ldap_sasl_auth_on($account) : gofast_ldap_sasl_auth_off($account);
 }
-
+    
 /**
  * Helper that switches SASL Authentication flags, either global or for a 
  * specific account if $account is set.
@@ -650,11 +794,11 @@ function gofast_ldap_sasl_auth_switch($toggle = NULL, $account = NULL) {
 function gofast_ldap_sasl_auth_switch_async($toggle = NULL, $account = NULL) {
     set_time_limit(0);
     fastcgi_finish_request();
-    
+        
     variable_set("gofast_sasl_switching", TRUE);
     gofast_ldap_sasl_auth_switch($toggle, $account);
 }
-
+    
 /**
  * Helper that returns a list of all users that COULD be affected by delegated
  * authentication. Drupal admin, Gofast primary adm, and extranet users are 
@@ -673,10 +817,10 @@ function gofast_ldap_sasl_get_users() {
           ->condition('u.status', 1)
           ->execute()
           ->fetchAllAssoc('name');
-  
+              
   return array_map(function($item){ return $item->uid; }, $res);
 }
-
+    
 /**
  * Enables SASL delegated authentication.
  * 
@@ -705,24 +849,24 @@ function gofast_ldap_sasl_get_users() {
  */
 function gofast_ldap_sasl_auth_on($account = NULL) {
    watchdog('Gofast LDAP', 'Activating SASL authentication');
-  
+       
   // Load GoFast internal & external server.
   $server = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
   $ext_server = gofast_ldap_server_load(GOFAST_LDAP_EXT_SERVER);
-  
+      
   // Try binding to servers.
   $bindings = TRUE;
   foreach (array($server, $ext_server) as $_server) {
     $bindings = $bindings & gofast_ldap_bind_or_warn($_server);
   }
-  
+      
   if (!$bindings) {
     variable_set("gofast_sasl_switching", FALSE);
     return FALSE;
   }
-  
+      
   $single = isset($account->uid) && isset($account->name);
-  
+      
   // List all 'SASL users' so we can match accounts with LDAP entries.
   if ($single) {
     $uids = array($account->name => $account->uid);
@@ -732,15 +876,15 @@ function gofast_ldap_sasl_auth_on($account = NULL) {
     $uids = gofast_ldap_sasl_get_users();
     $users = entity_load('user', $uids);
   }
-  
+      
   // External server domain components.
   $basedn = is_array($ext_server->basedn) ? reset($ext_server->basedn) : $ext_server->basedn;
   $dc_string = substr($basedn, strpos($basedn, 'dc='));
   $domain = str_replace(array('dc=', ',', 'DC='), array('', '.',''), $dc_string);
-
+      
   global $base_url;
   $success = $fail = array();
-  
+      
   foreach ($users as $uid => $_account) {
     watchdog('jle', "Setting SASL on for " . $uid);
     // Check if the account is registered in the targeted server.
@@ -754,7 +898,7 @@ function gofast_ldap_sasl_auth_on($account = NULL) {
       gofast_ldap_sasl_update_field($_account, 0);
       continue;
     }
-    
+        
     // Process userPassword attribute (internal).
     $dn = gofast_ldap_user_dn($uid);
     $userPassword = "{SASL}{$_account->name}@{$domain}";
@@ -766,13 +910,13 @@ function gofast_ldap_sasl_auth_on($account = NULL) {
       gofast_ldap_sasl_update_field($_account, 0);
       continue;
     }
-    
+        
     $success[$_account->uid] = t('SASL authentication activated successfully : !pw', array('!pw' => $userPassword), array('context' => 'gofast:gofast_ldap'));
     watchdog('Gofast LDAP', $success[$_account->uid]);
-    
+        
     // Save status.
     gofast_ldap_sasl_update_field($_account, 1);
-    
+        
     // Notify user that his password is now managed by its company's directory.
     $subject = t('GoFast - SASL Authentication ON', array(), array('langcode' => $_account->language, 'context' => 'gofast:gofast_ldap'));
     $content = t('Your !site account credentials are now managed by your company\'s directory.',
@@ -784,28 +928,28 @@ function gofast_ldap_sasl_auth_on($account = NULL) {
       array(), array('langcode' => $_account->language ,'context' => 'gofast:gofast_ldap'));
 //    gofast_send_immediate_notifications($_account, $subject, $content, array(), 'phpmailer');
   }
-  
+      
   if (!$single) {
     watchdog('Gofast LDAP', t('SASL authentication - success: !count', array('!count' => count($success)), array('context' => 'gofast:gofast_ldap')));
     watchdog('Gofast LDAP', t('SASL authentication - error: !count', array('!count' => count($fail)), array('context' => 'gofast:gofast_ldap')));    
   }
-  
+      
   $log = array(
     'sasl_auth_on' => $success,
     'sasl_auth_off' => $fail,
     'all_users' => $uids
   );
-  
+      
   // Save SASL auth state.
   variable_set('gofast_sasl_auth', TRUE);
-  
+      
   // Reset cache.
   entity_get_controller('user')->resetCache($uids);
-  
+      
   variable_set("gofast_sasl_switching", FALSE);
   return $log;
 }
-
+    
 /**
  * Disables SASL delegated authentication.
  * 
@@ -828,27 +972,27 @@ function gofast_ldap_sasl_auth_off($account = NULL) {
   // we could rely on user entity's field sasl_auth, but it is safer to read 
   // directly from LDAP (operation reset passwords). Then we can safely update
   // sasl_auth field for every users returned by gofast_ldap_sasl_get_users().
-
+      
   // Init GoFast Internal LDAP directory.
   $server = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
   if (!gofast_ldap_bind_or_warn($server)) {
     variable_set("gofast_sasl_switching", FALSE);
     return FALSE;
   }
-  
+      
   $single = isset($account->uid) && isset($account->name);
-  
+      
   // We have to check the encoding scheme for each user entries (we have to list 
   // attribute values because substr rules (like applying "userPassword={SASL}*" 
   // are not allowed with this attribute (however, we can still read from it!).
   $filter = $single ? ($server->user_attr . '=' . $account->name) : 'objectClass=person';
   $entries = $server->search(GOFAST_LDAP_INT_REALM_USERS, $filter, array('uid','userPassword'));  
-
+      
   if (!isset($entries['count']) || !$entries['count']) {
     variable_set("gofast_sasl_switching", FALSE);
     return FALSE;
   }
-  
+      
   // List all 'SASL users' so we can match accounts with LDAP entries.
   if ($single) {
     $uids = array($account->name => $account->uid);
@@ -858,11 +1002,11 @@ function gofast_ldap_sasl_auth_off($account = NULL) {
     $uids = gofast_ldap_sasl_get_users();
     $users = entity_load('user', $uids);
   }
-  
+      
   unset ($entries['count']);
   global $base_url;
   $success = $fail = array();
-  
+      
   foreach($entries as $key => $entry) {
     // Check userPassword presence, abort if fails or if user is drupal admin.
     if (!isset($entry['userpassword'][0]) || $entry['uid'][0] === 'admin') continue;
@@ -876,7 +1020,7 @@ function gofast_ldap_sasl_auth_off($account = NULL) {
      * Here a custom md5 encryption to be tested : '{md5}'. base64_encode(pack('H*', md5($pw)));
      */
     $pw = substr(gofast_encrypt(time(), $name), 0, 8);
-   
+        
     // Update userPassword attribute.
     if (!$server->modifyLdapEntry($entry['dn'], array('userPassword' => $pw))) {
       $msg = 'Could not modify !user entry in directory.';
@@ -884,10 +1028,10 @@ function gofast_ldap_sasl_auth_off($account = NULL) {
       $fail[$_account->uid] = $msg;
       continue;
     }
-    
+        
     $success[$_account->uid] = t('SASL authentication deactivated successfully for !user', array('!user' => $name), array('context' => 'gofast:gofast_ldap'));
     watchdog('Gofast LDAP', $success[$_account->uid]);
-    
+        
     // Notify user that his password is now managed by Gofast.
     $subject = t('GoFast - SASL Authentication OFF', array(), array('langcode' => $_account->language, 'context'=> 'gofast:gofast_ldap'));
     $profile_page = l(t('profile page', array(), array('langcode' => $_account->language, 'context' => 'gofast:gofast_ldap')), $base_url . '/user');
@@ -900,33 +1044,33 @@ function gofast_ldap_sasl_auth_off($account = NULL) {
     );
 //    gofast_send_immediate_notifications($_account, $subject, $content, array(), 'phpmailer');
   }
-  
+      
   // Now we can safely update sasl_auth field for every 'SASL users'.
   foreach ($users as $uid => $_account) {
     gofast_ldap_sasl_update_field($_account, 0);
   }
-  
+      
   // Save SASL auth state only if the operation doesn't focus on a single account.
   if (!$single) {
     variable_set('gofast_sasl_auth', FALSE);
     watchdog('Gofast LDAP', t('SASL authentication - success: !count', array('!count' => count($success), array('context' => 'gofast:gofast_ldap'))));
     watchdog('Gofast LDAP', t('SASL authentication - error: !count', array('!count' => count($fail)), array('context' => 'gofast:gofast_ldap')));    
   }
-  
+      
   // Reset cache.
   entity_get_controller('user')->resetCache($uids);  
-
+      
   $log = array(
     'sasl_auth_on' => $fail,
     'sasl_auth_off' => $success,
     'all_users' => $uids
   );
-  
+      
   variable_set("gofast_sasl_switching", FALSE);
-
+      
   return $log;
 }
-
+    
 /**
  * Helper that updates SASL field on the given entity.
  * 
@@ -938,23 +1082,23 @@ function gofast_ldap_sasl_update_field($account, $value) {
   field_attach_presave('user', $account);
   field_attach_update('user', $account);
 }
-
+    
 /**
  * Account Sync form builder - Search a user entry in LDAP and provision
  * data into a drupal account. 
  */
 function gofast_ldap_sync_form() {
   $form = array();
-  
+      
   unset($_SESSION['gofast_ldap_user_synched_data']);
-  
+      
   // Hidden field to store data in (can't use 'storage')
   $form['ldap_data'] = array(
     '#type' => 'textarea',
     '#resizable' => FALSE,
     '#attributes' => array('style' => array('display:none'))
   );
-  
+      
   $form['ldap_search'] = array(
     '#title' => t('Search', array(), array('context' => 'gofast')),
     '#type' => 'textfield',
@@ -962,15 +1106,15 @@ function gofast_ldap_sync_form() {
     '#autocomplete_path'  => 'admin/config/gofast/ldap/search-autocomplete',
     '#description' => t('Search by first-name, last-name or id, select a suggestion then hit "Grab data"', array(), array('context' => 'gofast:gofast_ldap'))
   );
-  
+      
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Grab data', array(), array('context' => 'gofast'))
   );
-  
+      
   return $form;
 }
-
+    
 /**
  * Modal page callback - Account Sync
  */
@@ -981,20 +1125,20 @@ function gofast_ldap_sync_form_modal($js) {
   }
   ctools_include('modal');
   ctools_include('ajax');
-  
+      
   $form_state = array(
     'ajax' => TRUE,
     'title' => t('Search', array(), array('context' => 'gofast'))
   );
   //if($isSASL){
     $commands = ctools_modal_form_wrapper('gofast_ldap_sync_form', $form_state);
-
+        
     if ($form_state['submitted']) {
       $html_form = gofast_normalize_string_from_ajaxifying(drupal_render(drupal_get_form('user_register_form')));      
       $commands = array(
         ctools_modal_command_dismiss(),         
         ajax_command_replace('#user-register-form', $html_form),
-             
+            
       ); 
       if(isset($_SESSION['gofast_ldap_user_synched_data_messages'])){
           $commands[] = gofast_command_toast_message($_SESSION['gofast_ldap_user_synched_data_messages'], 'error') ; 
@@ -1007,41 +1151,41 @@ function gofast_ldap_sync_form_modal($js) {
       gofast_command_toast_message(t("This plateform is not associated with an external LDAP. Please contact your administrator.", array(), array('context' => 'gofast:ldap')), 'error')
     );
   }*/
-
+      
   print ajax_render($commands);
 }
-
+    
 /**
  * Account Sync - Validate callback 
  */
 function gofast_ldap_sync_form_validate(&$form, &$form_state) {
   module_load_include('inc', 'gofast_ldap', 'gofast_ldap.settings');
   $LdapServer = gofast_ldap_server_load(GOFAST_LDAP_EXT_SERVER);
-  
+      
   if (!gofast_ldap_bind_or_warn($LdapServer)) {
     form_set_error('ldap_search', t('Unable to prefill form, LDAP Directory seems to be unavailable.', array(), array('context' => 'gofast:gofast_ldap')));
     return; // unable togo further.
   }
-  
+      
   // Get matched user identifier.
   if (!preg_match('/.*\((.*)\)$/', $form_state['values']['ldap_search'], $match)) {
     form_set_error('ldap_search', t('Selection does not match a .', array(), array('context' => 'gofast:gofast_ldap')));
     return; // unable togo further.
   }
-
+      
   // Check if a user with the same identifier already exists.
   $username = $match[1];
   if (user_load_by_name($username)) {
     $_SESSION['gofast_ldap_user_synched_data_messages'] = t('A user account with the same identifier "%user" already exists.', array('%user' => $username)); 
     form_set_error('ldap_search', t('A user account with the same identifier "%user" already exists.', array('%user' => $username), array('context' => 'gofast:gofast_ldap')));
   }
-  
+      
   $_f = array('attr' => $LdapServer->user_attr, 'value' => $username);
   list ($attribute, $value) = gofast_ldap_escape_filter($_f);
   $filter = $attribute . '=' . $value;
   $attributes = array_keys(gofast_ldap_server_attributes($LdapServer->sid, FALSE, FALSE));
   $base_dn = reset($LdapServer->basedn);
-  
+      
   $result = $LdapServer->search($base_dn, $filter, $attributes);
   if (!isset($result['count']) || !$result['count']) {
     form_set_error('ldap_search', t('No data found for user %user', array('%user' => $username), array('context' => 'gofast:gofast_ldap')));
@@ -1051,7 +1195,7 @@ function gofast_ldap_sync_form_validate(&$form, &$form_state) {
     unset($form_state['storage']);
   }
 }
-
+    
 /**
  * Account Sync - Submit callback 
  */
@@ -1060,7 +1204,7 @@ function gofast_ldap_sync_form_submit(&$form, &$form_state) {
   $_SESSION['gofast_ldap_user_synched_data'] = $form_state['values']['ldap_data'];
   $form_state['redirect'] = 'admin/people/create';
 }
-
+    
 /**
  * Autocomplete callback : LDAP Search external directory for user entries.
  */
@@ -1069,29 +1213,29 @@ function gofast_ldap_search_autocomplete($str) {
   if (!gofast_ldap_bind_or_warn($LdapServer)) {
     return;
   }
-  
+      
   $matches = array();
-  
+      
   // Left trim input string and right trim for wildcard/escape char, then append
   // wildcard character.
   $str = ltrim($str);
   $str = rtrim($str, '*\\') . '*';
-  
+      
   if ($str === '') {
     drupal_json_output(array());
     exit;
   }
-
+      
   // Person objectclass requires cn to be set, we can safely require it too.
   $attributes = array($LdapServer->user_attr, 'cn', 'givenname', 'sn'); 
-  
+      
   // Filter based on input.
   $filters = array(
     array('attr' => $LdapServer->user_attr, 'value' => $str),
     array('attr' => 'sn', 'value' => $str),
     array('attr' => 'cn', 'value' => $str)
   );
-
+      
   // Default filter string. 
   $default = '(objectClass=organizationalPerson)';
   $filter = '';
@@ -1099,15 +1243,15 @@ function gofast_ldap_search_autocomplete($str) {
     list ($attribute, $value) = gofast_ldap_escape_filter($_filter);
     $filter .= '(' . $attribute . '=' . $value . ')';
   }
-  
+      
   $filter = "(&{$default}(|$filter))";
   $base_dn = reset($LdapServer->basedn);
   $entries = $LdapServer->search($base_dn, $filter, $attributes);
-  
+      
   for ($i=0, $j=min(array($entries['count'],10)); $i<$j; $i++) {
     $matches[$m = "{$entries[$i]['cn'][0]} ({$entries[$i][$LdapServer->user_attr][0]})"] = $m;
   }
-  
+      
   drupal_json_output($matches);
   exit;
 }

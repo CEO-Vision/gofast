@@ -13,7 +13,7 @@ function gofast_kanban_board_column_add($kanban_nid) {
   $timer_start = microtime(true);
 //watchdog('gofast_kanban', '%name() START : nid=[%nid] ', array('%name' => __FUNCTION__, '%nid' => $kanban_nid), WATCHDOG_DEBUG);
 
-  $newColumnName = filter_xss(filter_input(INPUT_POST, 'name'));
+  $newColumnName = filter_xss(filter_input(INPUT_POST, 'label'));
   $key = 10; // Should be higher than default column
   $newColumnId = gofast_kanban_column_create($newColumnName, $key);
   
@@ -21,6 +21,8 @@ function gofast_kanban_board_column_add($kanban_nid) {
   $kanban = node_load($kanban_nid);
   $kanban->field_board_columns[LANGUAGE_NONE][]= array('tid' => $newColumnId);
   node_save($kanban);
+
+  print json_encode(['label' => $newColumnName, 'id' => $newColumnId]);
 
   $timer_stop = microtime(true);
 //watchdog('gofast_kanban', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_DEBUG);
@@ -35,36 +37,36 @@ function gofast_kanban_board_column_add($kanban_nid) {
  */
 function gofast_kanban_board_column_update($kanban_nid, $column_id) {
   
+
   $timer_start = microtime(true);
-//watchdog('gofast_kanban', '%name() START : nid=[%nid] $column_id=[%column_id]', array('%name' => __FUNCTION__, '%nid' => $kanban_nid, '%column_id' => $column_id), WATCHDOG_DEBUG);
+  //watchdog('gofast_kanban', '%name() START : nid=[%nid] $column_id=[%column_id]', array('%name' => __FUNCTION__, '%nid' => $kanban_nid, '%column_id' => $column_id), WATCHDOG_DEBUG);
 
   $newColumnName = filter_xss(filter_input(INPUT_POST, 'label'));
-  
-  if(gofast_kanban_is_default_column($column_id) == TRUE){
-    //Should create a brand new column to avoid overriding the default one
-    
-    //Get the position of the current column in Kanban
-    $key = gofast_kanban_board_get_column_index($kanban_nid, $column_id); 
-    
-    $newColumnId = gofast_kanban_column_create($newColumnName, $key);
 
+  if (gofast_kanban_is_default_column($column_id) === TRUE) {
+    //Should create a brand new column to avoid overriding the default one
+    //Get the position of the current column in Kanban
+    $key = gofast_kanban_board_get_column_index($kanban_nid, $column_id);
+
+    $newColumnId = gofast_kanban_column_create($newColumnName, $key);
     //add the newly created column to Kanban
     $kanban = node_load($kanban_nid);
-    $kanban->field_board_columns[LANGUAGE_NONE][$key]= array('tid' => $newColumnId);
+    $kanban->field_board_columns[LANGUAGE_NONE][$key] = array('tid' => $newColumnId);
     node_save($kanban);
-    
+
     //Then move all tasks to the new column
     gofast_kanban_board_column_move_all_tasks($kanban, $column_id, $newColumnId);
-    
-  }else{
+  } else {
     //Simply rename the taxonomy term
     $term = taxonomy_term_load($column_id);
     $term->name = $newColumnName;
     taxonomy_term_save($term);
-    
   }
-
+  
   $timer_stop = microtime(true);
+  
+  drupal_json_output(['newColumnName' => $newColumnName, 'newColumnId' => isset($newColumnId) ? strval($newColumnId) : FALSE]);
+
 //watchdog('gofast_kanban', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_DEBUG);
   
   
@@ -77,27 +79,41 @@ function gofast_kanban_board_column_update($kanban_nid, $column_id) {
  * @param type $newPosition
  */
 function gofast_kanban_board_column_move($kanban_nid, $column_id, $newPosition) {
+
+  
   
   $timer_start = microtime(true);
 //watchdog('gofast_kanban', '%name() START : nid=[%nid] ', array('%name' => __FUNCTION__, '%nid' => $kanban_nid), WATCHDOG_DEBUG);
 
-  $oldPosition = filter_input(INPUT_POST, 'old_index');
+  // $oldPosition = filter_input(INPUT_POST, 'old_index');
   
   $kanban = node_load($kanban_nid);
   $node_wrapper = entity_metadata_wrapper('node', $kanban);
   $columns = $node_wrapper->field_board_columns->value();
+
+  $column_to_move;
+  $column_to_move_index;
+  
+  foreach($columns as $key => $col){
+    if($col->tid == $column_id){
+      $column_to_move = $col;
+      $column_to_move_index = $key;
+    }
+  }
   
   //keep column to move
-  $column_to_move= $columns[$oldPosition];
+  // $column_to_move= $columns[$oldPosition];
   
   //build new column array
   $new_columns = array();
-  $new_columns[$newPosition] = $column_to_move;
+  // newPosision min value is 1 from kanban plugin 
+  $new_columns[$newPosition - 1 ] = $column_to_move;
   
-  unset($columns[$oldPosition]);
+  // unset($columns[$oldPosition]);
+  unset($columns[$column_to_move_index]);
   $reordered_columns = array_values($columns);
   foreach($reordered_columns as $key => $column){
-    if($key < $newPosition){
+    if($key < $newPosition - 1){
       $new_columns[$key] = $column;
     }else{
        $new_columns[$key+1] = $column;
@@ -108,6 +124,9 @@ function gofast_kanban_board_column_move($kanban_nid, $column_id, $newPosition) 
   $node_wrapper->save();
 
   $timer_stop = microtime(true);
+
+// return $new_columns;
+
 //watchdog('gofast_kanban', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_DEBUG);
   
 }
@@ -175,8 +194,8 @@ function gofast_kanban_board_column_move_all_tasks($kanban, $column_id, $new_col
 
   //get all task
   $tasks_nids = gofast_kanban_get_tasks($kanban, array(0 => array('id' => $column_id)), FALSE);
-   
-  if(! empty($tasks_nids)){
+
+  if(! empty($tasks_nids[$column_id])){
     $update_query = db_update('field_data_field_task_column');
     $update_query->expression('field_task_column_tid', $new_column_id);
     $update_query->condition('entity_type', 'node')

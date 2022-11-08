@@ -13,6 +13,12 @@
     case 'field_tags':
       $field_display = t("the tags", array(), array('context' => 'gofast:taxonomy'));
       break;
+    case 'field_date':
+      $field_display = t("the deadline", array(), array('context' => 'gofast:taxonomy'));
+      break;
+    case 'field_criticity':
+      $field_display = t("the criticity", array(), array('context' => 'gofast:taxonomy'));
+      break;
   }
 ?>
 
@@ -34,7 +40,7 @@
       </ul>
     <span id="value" style="display:none"><?php echo implode(",", $tags); ?></span>
     <?php
-      }else if($field == 'language'){
+      }else if($field == 'language' || $field == 'field_date'){
         print $value;
     ?>
       <span id="value" style="display:none"><?php echo $value ?></span>
@@ -46,7 +52,7 @@
       <?php
       }
     ?>
-    <div class="manage-locations-info" style="position: absolute; right: 100px; margin-top: -5px;"><i class='fa fa-clock-o' style='color:orange' aria-hidden='true'></i> <?php echo t('Pending...', array(), array('context' => 'gofast')) ?></div>
+    <div class="manage-locations-info" style="position: absolute; right: 100px; margin-top: -1.5rem;"><i class='fa fa-clock-o' style='color:orange' aria-hidden='true'></i> <?php echo t('Pending...', array(), array('context' => 'gofast')) ?></div>
     <span id="nid" style="display:none"><?php echo $nid; ?></span>
     <span id="vid" style="display:none"><?php echo $vid; ?></span>
     <span id="field" style="display:none"><?php echo $field; ?></span>

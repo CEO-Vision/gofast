@@ -56,7 +56,8 @@ function gofast_ztree_menu() {
     'description' => "Render and return ztree location widget content",
     'page callback' => 'gofast_ztree_get_ztree_location_content',
     'page arguments' => array(2, 3),
-    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
     'type' => MENU_CALLBACK,
     'delivery callback' => 'gofast_ajax_delivery',
   );
@@ -65,7 +66,7 @@ function gofast_ztree_menu() {
     'page callback' => 'gofast_ztree_templates_build_async',
     'type' => MENU_CALLBACK,
     'access arguments' => array('access content'),
-    'access callback' => TRUE,
+    'access callback' => 'user_access'
   );
 
   $items['ztree_location/async'] = array(
@@ -73,7 +74,8 @@ function gofast_ztree_menu() {
     'description' => "Render and return ztree location widget content",
     'page callback' => 'gofast_ztree_async_json',
     'page arguments' => array(),
-    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
     'type' => MENU_CALLBACK,
     'delivery callback' => 'gofast_ajax_delivery',
   );
@@ -83,7 +85,8 @@ function gofast_ztree_menu() {
     'description' => "Render and return ztree location and members widget content",
     'page callback' => 'gofast_ztree_async_json',
     'page arguments' => array(),
-    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
     'type' => MENU_CALLBACK,
     'delivery callback' => 'gofast_ajax_delivery',
   );
@@ -92,7 +95,8 @@ function gofast_ztree_menu() {
     'title' => 'Get ztree values async',
     'page callback' => 'gofast_ztree_values_async_json',
     'page arguments' => array(2),
-    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
     'type' => MENU_CALLBACK,
   );
 
@@ -189,13 +193,6 @@ function gofast_ztree_normalize_list($list) {
  * @return array the generated block
  */
 function gofast_ztree_block_content($id, $array_paths = array(), $options = array(), $path_options = array(), $async = false) {
-    $encode = array(
-        'id' => $id,
-        "array_paths" => $array_paths,
-        "options" => $options,
-        "path_options" => $path_options,
-        "async" => $async
-    );
   global $user;
   $content = array();
 
@@ -269,8 +266,9 @@ function gofast_ztree_block_content($id, $array_paths = array(), $options = arra
   $my_settings = array('data_tree' => $content_widget_alfresco_emplacement, "ztree_options" => $options, "async" => $async);
 
   $widget_addons = array();
+  $is_single = isset($options["single_location"]) && $options["single_location"] === true;
   if (isset($options["widget_locations"]) && $options["widget_locations"] === "true") {
-    $widget_addons[] = '<div class="ui-selected-locations"></div>';
+    $widget_addons[] = '<div class="ui-selected-locations' . ($is_single ? ' ui-single-location' : '') . '"></div>';
   }
 
 
@@ -279,17 +277,28 @@ function gofast_ztree_block_content($id, $array_paths = array(), $options = arra
        //If the user is broadcaster, he can publish to location where he is not a member of.
       global $user;
       $mynode = node_load($options["form"]["id"]);
-      if (gofast_user_is_broadcaster($user) && $mynode->type == "alfresco_item") {
-      $form['broadcast_og'] = array(
-        '#title' => "",
-        '#type' => 'textfield',
-        '#size' => 62,
-        '#default_value' => '',
-        '#description' => "<p class='text-danger bg-warning'>".t("Warning : if you choose only a broadcast's location, you will not be able to access this document after creation", array(), array('context' => 'gofast'))."</p>",
-        '#maxlength' => '', // no maxlength
-        '#autocomplete_path' => 'gofast_user_space_broadcast_autocomplete',
-        '#attributes' => array("name" => array("broadcast[]"), 'class' => array('labelize-autocomplete'), "id" => "broadcast_og")
-      );
+      if (gofast_user_is_broadcaster($user) && ($mynode->type == "alfresco_item" || $mynode->type == "article")) {
+        $attributes = [
+          'class' => [' form-control-tags js-tagify'],
+          //'data-enforce'=>'', //  Comment : Do not allow putting data that dose not exist | Decomment : allow putting data that dose not exist
+          'data-user' => '', // show ac users
+          'data-node' => '', // show ac node
+          //'data-userlist' => '', // show ac userlist
+          // 'data-taxonomy_term' => '' // show ac taxonomy term
+          'data-broadcast' => '', //Caution : Override all permissions to allow broadcasting
+        ];
+        
+        $form['broadcast_og'] = array(
+         '#title' => t("Broadcast : Share this document to a space you're not in"),
+         '#type' => 'textfield',
+         '#name' => 'ac-list-tags-broadcast',
+         '#maxlength' => '', // no maxlength
+         '#default_value' => '',
+         '#prefix' => "<div style='clear:both;'>",
+         '#suffix' => "</div>",
+         '#description' => "<p class='text-muted'>" . t("Start typing the name of a space or a user"),
+         '#attributes' => $attributes
+        );
 
         $html_form = "<div id='broadcast_xeditable' style='float:left;margin-top:30px;'><h4>".t("Broadcast", array(), array('context' => 'gofast'))."</h4>".drupal_render($form)."</div>";
       }else{
@@ -387,7 +396,7 @@ function gofast_ztree_get_ztree_location_content($nid) {
   $node = node_load($nid);
   $wrapper = entity_metadata_wrapper('node', $node);
 
-  if ($node->type === "alfresco_item") {
+  if ($node->type === "alfresco_item" || $node->type === "article") {
     $visible_paths = gofast_ztree_get_paths();
     $selected_paths = $wrapper->{GOFAST_CMIS_LOCATIONS_FIELD}->value();
     $ztree_options = array("widget_locations" => "true",
@@ -475,6 +484,7 @@ class ztree_node extends ztree_tree {
   public $last_depth;
   public $obfuscated;
   public $is_template;
+  public $is_mirror;
   public $non_member;
   public $isHidden;
   public $showLine;
@@ -502,6 +512,7 @@ class ztree_node extends ztree_tree {
     $this->non_member = FALSE;
     $this->isHidden = FALSE;
     $this->is_template = FALSE;
+    $this->is_mirror = FALSE;
     $this->showLine = TRUE;
 
     switch ($name) {
@@ -585,7 +596,7 @@ class ztree_node extends ztree_tree {
         'fa-file-code-o' => 'code.png',
         'fa-file-image-o' => 'image.png',
         'fa-sitemap' => 'sitemap.png',
-        'fa-newspaper' => 'newspaper.png',
+        'fa-newspaper' => 'ballot.png',
         'fa-file-pdf-o pdf-image' => 'pdf-image.png',
         'fa-file-pdf-o' => 'pdf.png',
         'fa-share-alt' => 'share.png',
@@ -619,26 +630,32 @@ class ztree_node extends ztree_tree {
   public function update_icon_template() {
     $type = '';
     $spaces = array('Groups', 'Organisations', 'Public', 'Extranet');
+    $path_tail =  array_pop(explode("/", $this->crumb));
+
+    // TEMPLATES folder
     if (!$this->is_template && !in_array($this->ename, $spaces) && strpos($this->ename, TEMPLATES_FOLDER_NAME) !== FALSE) {
       $type = 'folder';
+    // SPACE
+    }elseif(!$this->is_template && (in_array($this->ename, $spaces) || $path_tail[0] == "_")) {
+      $type = $this->get_icon_space();
+    // FOLDER
+    }elseif(!$this->is_template) {
+      $type = 'folder';
+    // FILE
+    }elseif ($this->is_template && $this->last_depth && $this->name !== 'None') {
+      $extension = pathinfo($this->name)['extension'];
+      $term_id = gofast_taxonomy_get_taxo_id_from_extension($extension);
+      $icons = gofast_taxonomy_load_icons();
+      $fa_icon = isset($icons[$term_id]) ? $icons[$term_id] : 'fa-file-o';
+      $icon =  '/'.drupal_get_path('module', 'gofast_mail_queue').'/icon/'.$this->convert_fa_to_img($fa_icon);
+      $this->icon = str_replace(' ', '%20', $icon);
+      $this->isParent = 0;
+      return;
+    // FALLBACK
+    } else {
+      $type = $this->get_icon_space();
     }
-    else {
-      if ($this->is_template && $this->last_depth) {
-        if ($this->name !== 'None') {
-          $extension = pathinfo($this->name)['extension'];
-          $term_id = gofast_taxonomy_get_taxo_id_from_extension($extension);
-          $icons = gofast_taxonomy_load_icons();
-          $fa_icon = isset($icons[$term_id]) ? $icons[$term_id] : 'fa-file-o';
-          $icon =  '/'.drupal_get_path('module', 'gofast_mail_queue').'/icon/'.$this->convert_fa_to_img($fa_icon);
-          $this->icon = str_replace(' ', '%20', $icon);
-          $this->isParent = 0;
-          return;
-        }
-      }
-      else {
-        $type = $this->get_icon_space();
-      }
-    }
+
     $this->icon = str_replace(' ', '%20',gofast_ztree_get_node_icon($type));
   }
 
@@ -656,7 +673,11 @@ class ztree_node extends ztree_tree {
    public function update_icon_async() {
     $type = '';
     if (intval($this->gid) === 0) {
-      $type = 'folder';
+      if($this->is_mirror){
+        $type = 'mirror';
+      }else{
+        $type = 'folder';
+      }
     }
     else {
       $type = $this->get_icon_space_async();
@@ -771,7 +792,6 @@ function gofast_ztree_array_path_to_nested_objects_async($array_path = array(), 
             }
           }
         }
-
         if( strlen($part) > 0 ){ //avoid creation of empty node
           $node->addChild($node = new ztree_node($part, $origine."".$computed_path, $gid, $last_depth));
 
@@ -826,7 +846,7 @@ function gofast_ztree_array_path_to_nested_objects_async($array_path = array(), 
             if (!gofast_og_is_root_space(node_load($node->gid))){
               $node->open = FALSE;
               if(gofast_group_is_archive(node_load($node->gid))){
-                  $node->icon = '/'.drupal_get_path('module', 'gofast_mail_queue').'/icon/folder-archive.png';
+                  $node->icon = '/'.drupal_get_path('module', 'gofast_mail_queue').'/icon/folder-archive-primary.png';
               }else{
                   //$node->icon = '/'.drupal_get_path('module', 'gofast_mail_queue').'/icon/ban.png';
               }
@@ -861,7 +881,7 @@ function gofast_ztree_array_path_to_nested_objects_async($array_path = array(), 
       //Manage readonly selected spaces/folders
       foreach ($selected_paths as $selected_id => $path) {
 
-        if ($current_node->type !== 'alfresco-item') {
+        if ($current_node->type !== 'alfresco-item' && $current_node->type !== 'article') {
           // Note : perms are the same for all node => explains the usage of alfresco_item for testing access
           if (is_int($selected_id) && !og_user_access("node", $selected_id, "create alfresco_item content")) {
             $check_disabled_paths[$selected_id] = $path;
@@ -902,28 +922,6 @@ function gofast_ztree_array_path_to_nested_objects_async($array_path = array(), 
     }
     }
   }
-
- /* foreach ($templates_paths as $gid => $templates_path) {
-    $node = $tree;
-    $computed_path = '';
-    if (substr($templates_path, 0, 1) === '/') {
-      $parts = explode($delimiter, substr($templates_path, 1));
-    }
-    else {
-      $parts = explode($delimiter, $templates_path);
-    }
-    foreach ($parts as $part) {
-      $computed_path .= '/' . $part;
-      $node = $node->getChild($part);
-      $node->nocheck = TRUE;
-      $node->open = TRUE;
-      if (isset($node) && $templates_path === $computed_path) {
-        $node->is_template = TRUE;
-        $node->nocheck = FALSE;
-      }
-      $node->update_icon_template();
-    }
-  } */
   return $tree;
 }
 
@@ -1052,7 +1050,7 @@ function gofast_ztree_array_path_to_nested_objects($array_path = array(), $array
             $node->nocheck = TRUE;
             if (!gofast_og_is_root_space(node_load($node->gid)) && og_user_access('node', $node->gid, 'create alfresco_item content')){
               if(gofast_group_is_archive(node_load($node->gid))){
-                  $node->icon = '/'.drupal_get_path('module', 'gofast_mail_queue').'/icon/folder-archive.png';
+                  $node->icon = '/'.drupal_get_path('module', 'gofast_mail_queue').'/icon/folder-archive-primary.png';
               }else{
                   //$node->icon = '/'.drupal_get_path('module', 'gofast_mail_queue').'/icon/ban.png';
               }
@@ -1100,18 +1098,23 @@ function gofast_ztree_array_path_to_nested_objects($array_path = array(), $array
     }
   }
 
-  foreach ($templates_paths as $gid => $templates_path) {
+  foreach ($templates_paths as $path_with_group_prefix => $templates_path) {
     $node = $tree;
     $computed_path = '';
+    $path_with_group_prefix = str_replace("/Sites", "", $path_with_group_prefix);
     if (substr($templates_path, 0, 1) === '/') {
       $parts = explode($delimiter, substr($templates_path, 1));
+      $parts_with_group_prefix = explode($delimiter, substr($path_with_group_prefix, 1));
     }
     else {
       $parts = explode($delimiter, $templates_path);
+      $parts_with_group_prefix = explode($delimiter, $path_with_group_prefix);
     }
-    foreach ($parts as $part) {
+
+    foreach ($parts as $index => $part) {
       $computed_path .= '/' . $part;
       $node = $node->getChild($part);
+      $node->crumb = $parts_with_group_prefix[$index];
       $node->nocheck = TRUE;
       $node->open = TRUE;
       if (isset($node) && $templates_path === $computed_path) {
@@ -1165,9 +1168,7 @@ function gofast_ztree_add_node_members(&$node, $gid, $state=NULL, $options=array
 
   $group_entity = node_load($gid, null, TRUE);
   $members_uid = gofast_og_get_members($group_entity, $state);
-  if(count($members_uid) == 0){
-    return;
-  }
+
   $query = db_select('users', 'u');
   $query->fields('u', array('uid','name'));
   $query->join('field_data_ldap_user_givenname', 'a', 'a.entity_id = u.uid');
@@ -1184,7 +1185,7 @@ function gofast_ztree_add_node_members(&$node, $gid, $state=NULL, $options=array
   if ($results->rowCount() > 0) {
 
       $ztree_node_member = new ztree_node(t('Members', array(), array('context' => 'gofast')), '', $gid.'_all', 0);
-      $ztree_node_member->icon = '/'.drupal_get_path('module', 'gofast_mail_queue').'/icon/users-members.png';
+      $ztree_node_member->icon = '/'.drupal_get_path('module', 'gofast_mail_queue').'/icon/users-members-primary.png';
       if ($options['chkDisabled'] == TRUE) {
         $ztree_node_member->chkDisabled = TRUE;
         $ztree_node_member->nocheck = TRUE;
@@ -1235,23 +1236,25 @@ function gofast_ztree_get_node_icon($type) {
 
   switch ($type) {
     case 'root':
-      return '/sites/default/files/icons/parallel_tasks-16.png';
+      return '/sites/default/files/icons/parallel_tasks-16-primary.png';
     case 'Private_space':
-      return $icon_home.'/home.png';
+      return $icon_home.'/home-primary.png';
     case 'Groups':
-      return $icon_home.'/users.png';
+      return $icon_home.'/users-primary.png';
     case 'Organisations':
-      return $icon_home.'/sitemap.png';
+      return $icon_home.'/sitemap-primary.png';
     case 'Extranet':
-      return $icon_home.'/globe.png';
+      return $icon_home.'/globe-primary.png';
     case 'Public':
-      return $icon_home.'/share.png';
+      return $icon_home.'/share-primary.png';
     case 'folder':
-      return  $icon_home.'/folder.png';
+      return  $icon_home.'/folder-primary.png';
+    case 'mirror':
+      return  $icon_home.'/folders-primary.svg';
     case 'user' :
-      return  $icon_home.'/user.png';
+      return  $icon_home.'/user-primary.png';
     default:
-      return $icon_home.'/other.png';
+      return $icon_home.'/other-primary.png';
   }
 }
 
@@ -1274,6 +1277,7 @@ function gofast_ztree_get_eligible_forms() {
     'user_profile_form' => GOFAST_OG_USER_MEMBERSHIP_FIELD,
     'gofast_cmis_node_publish_form' => GOFAST_CMIS_LOCATIONS_FIELD,
     'gofast_taxonomy_add_locations_form' => GOFAST_CMIS_LOCATIONS_FIELD,
+    'gofast_taxonomy_manage_folder_locations_form' => GOFAST_CMIS_LOCATIONS_FIELD,
     'gofast_taxonomy_manage_locations_form' => GOFAST_CMIS_LOCATIONS_FIELD,
     'gofast_cmis_manage_publications_form' => GOFAST_CMIS_LOCATIONS_FIELD,
     'gofast_dashboard_add_folder_form' => GOFAST_CMIS_LOCATIONS_FIELD,
@@ -1322,7 +1326,7 @@ function gofast_ztree_after_build($form, &$form_state) {
   $form_field = $form[$ztree_field];
   $form_id = $form_state['build_info']['form_id'];
 
-  if($form_id === 'gofast_taxonomy_add_locations_form' ||  $form_id === 'gofast_taxonomy_manage_locations_form' || $form_id === 'gofast_dashboard_add_folder_form' || $form_id === 'gofast_stats_list_docs_form'){
+  if($form_id === 'gofast_taxonomy_add_locations_form' ||  $form_id === 'gofast_taxonomy_manage_locations_form' || $form_id === "gofast_taxonomy_manage_folder_locations_form" || $form_id === 'gofast_dashboard_add_folder_form' || $form_id === 'gofast_stats_list_docs_form'){
       $ztree_field = GOFAST_CMIS_LOCATIONS_FIELD;
       $form_field = $form[GOFAST_CMIS_LOCATIONS_FIELD];
       $nids = "";
@@ -1360,7 +1364,7 @@ function gofast_ztree_after_build($form, &$form_state) {
     case GOFAST_OG_CONTENT_MEMBERSHIP_FIELD:
       $type = 'content';
       $ztree_options = array("widget_locations" => "true");
-      if ($form_id === 'alfresco_item_node_form') {
+      if ($form_id === 'alfresco_item_node_form' /*|| $form_id === 'article_node_form'*/) {
         $ztree_options += array("alfresco_document" => "true");
       }
       break;
@@ -1377,6 +1381,9 @@ function gofast_ztree_after_build($form, &$form_state) {
       $ztree_options = array("widget_locations" => "true");
       if(isset($nids)){
         $ztree_options["form"]['id'] = $nids;
+      }
+      if ($form_id === 'gofast_dashboard_add_folder_form') {
+        $ztree_options["disable_mirror_check"] = "true";
       }
       break;
     case 'spaces':
@@ -1399,6 +1406,10 @@ function gofast_ztree_after_build($form, &$form_state) {
       break;
   }
 
+  if (isset($form['#ztree_options'])) {
+    $ztree_options += $form['#ztree_options'];
+  }
+
   if (in_array($type, array('user', 'content', 'locations'))) {
     if (in_array($form_id, array('alfresco_item_node_form'))) {
       $field = $form[GOFAST_CMIS_LOCATIONS_FIELD][LANGUAGE_NONE];
@@ -1417,7 +1428,7 @@ function gofast_ztree_after_build($form, &$form_state) {
       }
       $paths = $field['#options'];
     }
-    else if ($form_id === 'gofast_taxonomy_manage_locations_form' || $form_id === 'gofast_cmis_node_publish_form' || $form_id === 'gofast_taxonomy_add_locations_form' || $form_id == 'gofast_cmis_manage_publications_form' || $form_id == 'gofast_dashboard_add_folder_form' || $form_id == "gofast_stats_list_docs_form" || $form_id === "conference_node_form") {
+    else if ($form_id === 'gofast_taxonomy_manage_locations_form' || $form_id === "gofast_taxonomy_manage_folder_locations_form" || $form_id === 'gofast_cmis_node_publish_form' || $form_id === 'gofast_taxonomy_add_locations_form' || $form_id === 'gofast_taxonomy_manage_folder_locations_form' || $form_id == 'gofast_cmis_manage_publications_form' || $form_id == 'gofast_dashboard_add_folder_form' || $form_id == "gofast_stats_list_docs_form" || $form_id === "conference_node_form") {
       $field = $form[GOFAST_CMIS_LOCATIONS_FIELD];
       if (isset($form_state['values'][GOFAST_CMIS_LOCATIONS_FIELD]) && count($form_state['values'][GOFAST_CMIS_LOCATIONS_FIELD]) > 0) {
         foreach ($form_state['values'][GOFAST_CMIS_LOCATIONS_FIELD] as $selected_location) {
@@ -1432,7 +1443,7 @@ function gofast_ztree_after_build($form, &$form_state) {
       }
       $paths = $field['#options'];
     }
-    elseif($form_id === 'article_node_form' || $form_id === 'forum_node_form'){
+    elseif($form_id === 'forum_node_form' || $form_id === 'article_node_form'){
 
 
       $field = $form_field[LANGUAGE_NONE];
@@ -1498,7 +1509,7 @@ function gofast_ztree_after_build($form, &$form_state) {
           $disabled_paths[$key] = $value;
         }
       }
-      if ($form_id === 'alfresco_item_node_form' || $form_id === 'gofast_taxonomy_add_locations_form' || $form_id === 'gofast_taxonomy_manage_locations_form' || $form_id === 'gofast_dashboard_add_folder_form' || $form_id === "conference_node_form" || $form_id == "gofast_stats_list_docs_form") {
+      if ($form_id === 'article_node_form' || $form_id === 'alfresco_item_node_form' || $form_id === 'gofast_taxonomy_add_locations_form' || $form_id === 'gofast_taxonomy_manage_locations_form' || $form_id === "gofast_taxonomy_manage_folder_locations_form" || $form_id === 'gofast_dashboard_add_folder_form' || $form_id === "conference_node_form" || $form_id == "gofast_stats_list_docs_form") {
         if (in_array($value, $selected)) {
           unset($selected[array_search($key, $selected)]);
           $nid_selected_options = $node->og_group_content_ref['und'][$key]['target_id'];
@@ -1644,7 +1655,7 @@ function gofast_ztree_after_build($form, &$form_state) {
   global $user;
   $request_field_archived = db_query("SELECT * FROM {field_data_field_archive} where field_archive_value = 1");
   $fields_archived = $request_field_archived->fetchAll();
-       if ($form_id === 'alfresco_item_node_form' || $form_id === 'gofast_taxonomy_add_locations_form' || $form_id === 'gofast_taxonomy_manage_locations_form'
+       if ($form_id === 'alfresco_item_node_form' || $form_id === 'gofast_taxonomy_add_locations_form' || $form_id === 'gofast_taxonomy_manage_locations_form' || $form_id === "gofast_taxonomy_manage_folder_locations_form"
            || $form_id === 'gofast_og_space_admin_add_members_form' || $form_id === 'gofast_og_space_admin_edit_members_form'
            || $form_id == "gofast_chat_join_space_room_form"
            || $form_id == "gofast_dashboard_add_space_shortcut_form") {
@@ -1881,6 +1892,7 @@ function gofast_ztree_async_json($print = true){
         }
     }else{
         $node = new stdClass();
+        //TODO Conditionning to swap to article node type
         $node->type = "alfresco_item";
         $node->nid = NULL;
     }
@@ -1958,18 +1970,20 @@ function gofast_ztree_async_json($print = true){
       $path_options['spaces_members']['display'] = TRUE;
       $path_options['spaces_members']['chkDisabled'] = FALSE;
       if (isset($_REQUEST["chkDisabled"]) && $_REQUEST["chkDisabled"] == 1) {
-        $path_options['spaces_members']['chkDisabled'] = TRUE;
-      }
-      $path_options['spaces_members']['displayUserRole'] = TRUE;
+          $path_options['spaces_members']['chkDisabled'] = TRUE;
+        }
+        $path_options['spaces_members']['displayUserRole'] = TRUE;
     }else{
         if(is_object($node) && $node->type === "conference"){
-            unset($path_options["selected_paths"]);
-            foreach($node->field_linked_folders[LANGUAGE_NONE] as $selected_folder){
-                $path_options['selected_paths'][$selected_folder['value']] = $selected_folder['value'];
-            }
+          
+          unset($path_options["selected_paths"]);
+          foreach($node->field_linked_folders[LANGUAGE_NONE] as $selected_folder){
+            $path_options['selected_paths'][$selected_folder['value']] = $selected_folder['value'];
+          }
             $path_options = gofast_get_node_locations_async($node, $origine, $template , $browser_path, $ispublication, $node->field_linked_folders[LANGUAGE_NONE]);
         }else{
-            $path_options = gofast_get_node_locations_async($node, $origine, $template , $browser_path,$ispublication, NULL, $is_confidential, $is_internal);
+            
+            $path_options = gofast_get_node_locations_async($node, $origine, $template, $browser_path, $ispublication, NULL, $is_confidential, $is_internal);
         }
     }
   }
@@ -1990,16 +2004,10 @@ function gofast_ztree_async_json($print = true){
   if (!$origine) {
     foreach ($path_options['selected_paths'] as $key => $selected_location) {
         if (!in_array(html_entity_decode($selected_location), $array_paths)) {
-            if (is_int($key)) {
-                $gid = $key;
-            }
-            else{
-                //$gid = gofast_og_get_group_id_from_title_2(html_entity_decode($selected_location), TRUE);
-                $gid = $key;
-            }
+          $gid = $key;
         }
-            $path_options['selected_paths'][$key] = $selected_location;
-            $selected_and_selectable_og[$gid !== FALSE ? $gid : count($selected_and_selectable_og) + 1] = html_entity_decode($selected_location);
+        $path_options['selected_paths'][$key] = $selected_location;
+        $selected_and_selectable_og[$gid !== FALSE ? $gid : count($selected_and_selectable_og) + 1] = html_entity_decode($selected_location);
     }
   }
 
@@ -2009,9 +2017,13 @@ function gofast_ztree_async_json($print = true){
   }
 
   // Then, we prepare the Json to be used by the ztree component
-   // Then, we prepare the Json to be used by the ztree component
   if(count($path_options["selected_paths"]) > 0){
       foreach($path_options["selected_paths"] as $key=>$path){
+          // /Sites is auto selected on creation, remove it from paths if selected at any moment to avoid unwanted locations
+          if($path === "/Sites") {
+              unset($path_options["selected_paths"][array_search($path, $path_options["selected_paths"])]);
+              continue;
+          }
           $decoded_path = html_entity_decode($path);
           if($decoded_path != $path){
               unset($path_options["selected_paths"][$key]);
@@ -2050,6 +2062,15 @@ function gofast_ztree_async_json($print = true){
       }
   }
   $tree = gofast_ztree_array_path_to_nested_objects_async($selected_and_selectable_og, $path_options, '/', $origine, $node->nid , $ispublication);
+
+  //Fix GF4.0, /Sites checkbox appeared for some reason when selecting a space during Article creation so we make it impossible to check, and desactivate it.
+  if(!$origine){
+    $tree->{'children'}[0]->{"chkDisabled"} = TRUE;
+    $tree->{'children'}[0]->{"nocheck"} = TRUE;
+  }
+  if (isset($_REQUEST["path_warnings"])) {
+    $tree->{'children'}[0]->{"path_warnings"} = $_REQUEST["path_warnings"];
+  }
 
   $json = $tree->__toString();
 

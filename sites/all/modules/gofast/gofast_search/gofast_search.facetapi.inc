@@ -531,8 +531,9 @@ function gofast_facet_check_query_type($facet_name, $query_type = '') {
 /**
  * Implements hook_block_view_alter().
  */
-function gofast_search_block_view_alter($data, $block) {
+function gofast_search_block_view_alter(&$data, $block) {
   if (isset($data['content']['#facet'])) {
+    // $data['content']['#attributes']['class'][] = 'navi';
     $settings = $data['content']['#settings'];
     if (is_object($settings) && isset($settings->settings) && $settings->settings['widget'] === 'gofast_facetapi_links') {
       gofast_facetapi_static_block($block->delta);
@@ -541,8 +542,16 @@ function gofast_search_block_view_alter($data, $block) {
 }
 
 /**
+ * Ugly workaround to get the array of facetapi block deltas working in an ajaxified navigation context
+ */
+function gofast_facetapi_get_deltas_from_db() {
+  return db_query('SELECT delta FROM {block} WHERE module = \'facetapi\' AND theme = \'bootstrap_keen\' AND status = 1 ORDER BY weight')->fetchCol();
+}
+
+/**
  * Function that manages a static array of the block deltas that contain
  * collapsible facets.
+ * @warning as of GoFAST 4, this doesn't seem to work anymore
  */
 function gofast_facetapi_static_block($delta = NULL) {
   $facetapi_collapsible = &drupal_static(__FUNCTION__, array());
@@ -557,10 +566,19 @@ function gofast_facetapi_static_block($delta = NULL) {
  * Implements hook_preprocess_block().
  */
 function gofast_search_preprocess_block(&$variables) {
-  $collapsible_facets = gofast_facetapi_static_block();
+  $collapsible_facets = gofast_facetapi_get_deltas_from_db();
   if (in_array($variables['block']->delta, $collapsible_facets)) {
     $variables['classes_array'][] = 'facetapi-collapsible';
+    $variables['collapsible_id'] = $variables["elements"]["#attributes"]["id"];
   }
+  // fixes an issue with the "card" class displayed on basic blocks messing around with the Apache SORL "Sort by" fields
+  // if ($variables['block']->module == "apachesolr_search" && $variables['block']->delta == "sort") {
+  //   $variables['classes_array'][] = 'border-0';
+  //   drupal_add_css("." . implode(".", $variables['classes_array']) . " > ul {
+  //     margin-top: 1rem;
+  //     transform: translateX(-3rem);
+  //   }", "inline");
+  // }
 }
 
 /**
@@ -618,7 +636,7 @@ function gofast_search_block_view_current_search_gofast_current_search_block_alt
  */
 function gofast_search_block_view_apachesolr_search_sort_alter(&$data,$block){
     $data['content'] .= "<script type='text/javascript'>"
-            . "jQuery('section[id^=\"block-apachesolr-search-sort\"]').find('li').addClass('btn btn-sm btn-default').find('a').css('color', 'inherit');"
+            . "jQuery('section[id^=\"block-apachesolr-search-sort\"]').find('li').addClass('btn btn-sm btn-default text-truncate').find('a').css('color', 'inherit');"
             . "jQuery('.breadcrumb-gofast').hide();"
             . "jQuery('section[id^=\"block-apachesolr-search-sort\"]').find('li').each(function(k, elem){"
                 . "var href = jQuery(elem).find('a').prop('href');"
@@ -627,7 +645,7 @@ function gofast_search_block_view_apachesolr_search_sort_alter(&$data,$block){
             . "})"
             . "</script>";
 
-    $data['content'] = str_replace('<ul>', '<ul><div class="btn-group" role="group">', $data['content']);
+    $data['content'] = str_replace('<ul>', '<ul class="p-0 m-0"><div class="btn-group" role="group">', $data['content']);
     $data['content'] = str_replace('</ul>', '</div></ul>', $data['content']);
 }
 
@@ -669,13 +687,8 @@ function gofast_facetapi_get_facet_icon($field, $value) {
 function gofast_facetapi_icon_map() {
   return array(
      /** @todo: use gofast theme format when usable */
-    'im_field_format' => function ($tid) {
-      $icons = gofast_taxonomy_load_icons();
-      $icon = '';
-      if (isset($icons[$tid])) {
-        $icon = "<span class=\"fa ".$icons[$tid]."\" ></span>";
-      }
-      return $icon;
+    'im_field_format' => function ($tid) {   
+      return '<span class="navi-icon">'.theme('gofast_type_icon_format', array('tid' => $tid)).'</span>';
     }
   );
 }
@@ -700,6 +713,9 @@ function gofast_search_theme_registry_alter(&$theme_registry) {
     $theme_registry['gofast_' . $theme_function . '_original'] = $theme_registry[$theme_function];
     $theme_registry[$theme_function]['function'] = 'gofast_' . $theme_function;
   }
+  // This overrides the default implementation of apachesolr_search_noresults
+  // in order to make sure the filters sidebar still shows when the search yields no results
+  $theme_registry['apachesolr_search_noresults'] = $theme_registry['search_results'];
 }
 
 /**
@@ -738,7 +754,15 @@ function gofast_facetapi_link_inactive($variables) {
   if ($field && $value) {
     // Try to map the facet with an icon.
     $icon = gofast_facetapi_get_facet_icon($field, $value);
-    $variables['text'] = $icon . '&nbsp;' . $variables['text'];
+    // Adds bullet and keen styling to link
+    if (empty($icon)) {
+      $variables['text'] = '<span class="navi-bullet">
+        <i class="bullet"></i>
+      </span>
+      <span class="navi-text">' .  $variables['text'] . '</span>';
+    } else {
+      $variables['text'] = $icon . '&nbsp;<span class="navi-text">' . $variables['text'] . '</span>';
+    }
   }
 
   // Adds count to link if one was passed.
@@ -750,6 +774,7 @@ function gofast_facetapi_link_inactive($variables) {
   // link text and are providing additional markup for accessibility.
   $variables['text'] .= $accessible_markup;
   $variables['options']['html'] = TRUE;
+  $variables['options']['attributes']['class'][] = 'navi-link';
 
   return '<div class="facetapi-facet facetapi-inactive">'. theme_link($variables) .'</div>';
 }
@@ -773,7 +798,15 @@ function gofast_facetapi_link_active($variables) {
   if ($field && $value) {
     // Try to map the facet with an icon.
     $icon = gofast_facetapi_get_facet_icon($field, $value);
-    $link_text = $icon . '&nbsp;' . $link_text;
+    // Adds bullet and keen styling to link
+    if (empty($icon)) {
+      $link_text = '<span class="navi-bullet">
+        <i class="bullet"></i>
+      </span>
+      <span class="navi-text">' .  $link_text . '</span>';
+    } else {
+      $link_text = $icon . '&nbsp;<span class="navi-text">' . $link_text . '</span>';
+    }
   }
 
   // Builds link, passes through t() which gives us the ability to change the
@@ -784,6 +817,7 @@ function gofast_facetapi_link_active($variables) {
   );
   $variables['text'] = t('!facetapi_deactivate_widget !facetapi_accessible_markup', $replacements, array('context' => 'gofast:gofast_search'));
   $variables['options']['html'] = TRUE;
+  $variables['options']['attributes']['class'][] = 'navi-link';
 
   return '<div class="facetapi-facet facetapi-active">' . theme_link($variables) . $link_text . '</div>';
 }

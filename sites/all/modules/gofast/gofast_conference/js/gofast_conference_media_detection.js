@@ -8,9 +8,9 @@
 		
 			function checkMedia(selector, result) {
 			  if (result) {
-				$(selector + ' .result_icon').addClass('glyphicon glyphicon-ok supported');
+				$(selector + ' .result_icon').addClass('fas fa-check text-success');
 			  } else {
-				$(selector + ' .result_icon').addClass('glyphicon glyphicon-alert non_supported');
+				$(selector + ' .result_icon').addClass('fas fa-exclamation-triangle text-warning');
 			  }
 			}
 			
@@ -25,14 +25,14 @@
 			}
 			
 			function summariseOthers() {
-			  $('#others .panel-body').append('<div class="row"><div class="col-md-12">' +Drupal.t('Display resolution : !resolution', {'!resolution' : DetectRTC.displayResolution}, {'context' : 'gofast:gofast_conference'}) + '</div></div>');
-			  $('#others .panel-body').append('<div class="row"><div class="col-md-12">' +Drupal.t('Browser : !browser', {'!browser' : DetectRTC.browser.name}, {'context' : 'gofast:gofast_conference'}) + '</div></div>');
-			  $('#others .panel-body').append('<div class="row"><div class="col-md-12">' +Drupal.t("Browser's version : !version", {'!version' : DetectRTC.browser.fullVersion}, {'context' : 'gofast:gofast_conference'}) + '</div></div>');
+			  $('#report_result_others ul').append("<li>" + Drupal.t("Display resolution : !resolution", { "!resolution": DetectRTC.displayResolution }, { context: "gofast:gofast_conference" }) + "</li>");
+			  $('#report_result_others ul').append("<li>" + Drupal.t("Browser : !browser", { "!browser": DetectRTC.browser.name }, { context: "gofast:gofast_conference" }) + "</li>");
+			  $('#report_result_others ul').append("<li>" + Drupal.t("Browser's version : !version", { "!version": DetectRTC.browser.fullVersion }, { context: "gofast:gofast_conference" }) + "</li>");
 			}
 			
 			//$('#report_detection_media').html('');
 			$('#report_detection_media').addClass('text-center');
-			$('#report_detection_media').append('<div class="fa fa-spinner fa-spin" style="font-size: 24px;"></div>');
+			$('#report_detection_media').append('<div class="fa fa-spinner fa-spin" style="font-size: 24px;"></div>');  
 			setTimeout(function () {
 			  $('#report_detection_media > .fa-spinner').remove();
 			  $('#report_detection_media').removeClass('text-center');
@@ -66,16 +66,9 @@
                 $("#conference-pc-link-display").click(function(){
                   $("#conference-pc-link").show();
                 });
-                //Click on copy link
-                $("#conference-pc-link-copy").click(function(){
-                  var link = $("#conference-pc-link-raw").attr("href");
-                  var $temp = $("<input>");
-                  $("body").append($temp);
-                  $temp.val(link).select();
-                  document.execCommand("copy");
-                  $temp.remove();
-                  Gofast.toast(Drupal.t('Link copied to clipboard !', {}, {'context':'gofast:conference'}));
-                });
+				$("#conference-pc-link").click(function(){
+				  $("#conference-pc-link").hide();
+				})
               });
 			  
 			  setTimeout(function () {

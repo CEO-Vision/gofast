@@ -67,12 +67,12 @@ function gofast_kanban_build($nid, $filter = NULL){
  * @param type $kanban
  * @return type
  */
-function gofast_kanban_get_columns($kanban) {  
+function gofast_kanban_get_columns($kanban) {
   $kanban_columns = array();
   foreach ($kanban->field_board_columns['und'] as $key => $tid) {
     $tid = $tid['tid'];
     $kanban_columns[$tid] = array(
-          'title' => taxonomy_term_load($tid)->name,
+          'title' => i18n_taxonomy_localize_terms(taxonomy_term_load($tid))->name,
           'id' => $tid,
           'order' => $key
         );
@@ -106,32 +106,28 @@ function gofast_kanban_get_tasks($kanban, $columns = NULL, $full = TRUE, $filter
         ->propertyCondition('status', 1)
         ->fieldCondition('field_task_column', 'tid', $id)
         ->fieldCondition('field_board', 'target_id', $kanban->nid);
-    
+     
     if(isset($filter)){
-      $query->propertyCondition('title', '%'.$filter.'%' , 'like');
+      $query->propertyCondition('title', '%'.$filter.'%' , 'like');        
     }
-        
     $query->fieldOrderBy('field_column_index', 'value');
-    
     $results = $query->execute();
-    
     if(isset($results)){
       $tasks_nids = array_keys($results['node']);
-      
-      if($full == FALSE){
-        return $tasks_nids;
+      if($full){
+        $tasks_nodes = node_load_multiple($tasks_nids);
+        foreach($tasks_nodes as $task){
+          $tasks[$id][] = gofast_kanban_get_task_details($task);
+        }
       }
-      
-      $tasks_nodes = node_load_multiple($tasks_nids);
-      
-      foreach($tasks_nodes as $task){
-        $tasks[$id][] = gofast_kanban_get_task_details($task);
+      else{
+         $tasks[$id]=is_array($tasks_nids) ? $tasks_nids : array();
       }
     }
   }
-  
   return $tasks;
 }
+
 
 /**
  * Return a class decorator for the deadline
@@ -160,6 +156,7 @@ function gofast_kanban_get_task_deadline_decorator($deadline_date, $card_status)
 
 
 function gofast_kanban_get_task_details($task) {
+  global $user;
   $task_details = array();
 
   $task_details['title'] = $task->title;
@@ -172,14 +169,41 @@ function gofast_kanban_get_task_details($task) {
   
   $task_details['deadline'] = '';
   $task_details['deadline_color_indicator'] = '';
+  $task_details['checklist_deadline'] = (gofast_kanban_get_user_checklist_item_with_nearest_deadline($task->nid, $user->uid))->deadline;
+
+  $deadline_date_cklist = null;
+  if ($task_details['checklist_deadline'] && is_numeric($task_details['checklist_deadline'])) {
+    $deadline_date_cklist = new DateTime();
+    $deadline_date_cklist->setTimestamp($task_details['checklist_deadline']);
+    $task_status = taxonomy_term_load($task->field_state[LANGUAGE_NONE][0]['tid'])->name;
+    $task_details['checklist_deadline'] = format_date($task_details['checklist_deadline'],  'short_without_hours');
+    $task_details['checklist_deadline_color_indicator'] = gofast_kanban_get_task_deadline_decorator($deadline_date_cklist, $task_status );
+  }
+
+  $deadline_date = null;
   if (!empty($task->field_date[LANGUAGE_NONE][0]['value'])) {
     $deadline_date = new DateTime($task->field_date[LANGUAGE_NONE][0]['value']);
     $task_status = taxonomy_term_load($task->field_state[LANGUAGE_NONE][0]['tid'])->name;
     $task_details['deadline'] = format_date($deadline_date->getTimestamp(),  'short_without_hours');
     $task_details['deadline_color_indicator']= gofast_kanban_get_task_deadline_decorator($deadline_date, $task_status );
-    $task_details['dueDate'] = format_date($deadline_date->getTimestamp(), 'custom', "Y-m-d") . " 00:00:00.000";
   }
-  
+
+  //Get the closest deadline
+  $task_details['closest_deadline'] = "";
+  if ($deadline_date_cklist != null){
+    $task_details['closest_deadline_timestamp'] = $deadline_date_cklist->getTimestamp();
+    $task_details['closest_deadline'] = $task_details['checklist_deadline'];
+    $task_details['closest_deadline_color_indicator'] = $task_details['checklist_deadline_color_indicator'];
+  }else{
+    $task_details['closest_deadline_timestamp'] = ($deadline_date!= null) ? $deadline_date->getTimestamp(): "";
+    $task_details['closest_deadline'] = $task_details['deadline'];
+    $task_details['closest_deadline_color_indicator'] = $task_details['deadline_color_indicator'];
+  }
+
+  if($task_details['closest_deadline'] != ""){
+     $task_details['dueDate'] = format_date($task_details['closest_deadline_timestamp'], 'custom', "Y-m-d") . " 00:00:00.000";
+  }
+
   $checklist_details = gofast_kanban_get_task_checklists($task->nid);
   
   $task_details['progress'] = $checklist_details[0]['progress'];
@@ -265,7 +289,7 @@ function gofast_kanban_get_user_checklist_item_with_nearest_deadline($task_nid, 
           'operator' => '='
       ),
       1 => array(
-          'name' => 'status',
+          'name' => 'ci.status',
           'value' => '0', //uncompleted
           'operator' => '='
       ),
@@ -291,21 +315,28 @@ function gofast_kanban_get_user_checklist_item_with_nearest_deadline($task_nid, 
 }
 
 
-function gofast_kanban_get_task_activities($nid, $activity_types = array('ALL')){
+function gofast_kanban_get_task_activities($nid, $activity_types = array('ALL'),  $JSONFormat = FALSE){
 
   // ACTIVITY TYPE : COMMENT, 
   $activities = array();
+  global $base_url;
   
   if(in_array('COMMENT', $activity_types) || in_array('ALL', $activity_types)){
     $comments = gofast_kanban_get_task_comments($nid, TRUE);
 
-    foreach($comments as $comment){   
+    foreach($comments as $comment){  
+      
+      $who = user_load($comment->uid);     
       $comment_wrapper = entity_metadata_wrapper('comment', $comment);    
       $activities[] = array(
           'event_type' => 'COMMENT',
           'event_timestamp' => isset($comment->changed)? $comment->changed : $comment->created,
           'event_details' => array(
-              'who' => array('uid' => $comment->uid, 'name' => gofast_user_get_display_name_sql($comment->uid)),
+              'who' => array(
+                'uid' => $comment->uid, 
+                'name' => gofast_user_get_display_name_sql($comment->uid), 
+                'picture' => ($dataReturn['creator_picture'] = $who->picture->uri == null ? $base_url . '/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png' : file_create_url($who->picture->uri))
+              ),
               'what' => array(
                   'comment_body' => $comment_wrapper->comment_body->value()['value'],
                   'comment_id' =>  $comment->cid
@@ -331,8 +362,28 @@ function gofast_kanban_get_task_activities($nid, $activity_types = array('ALL'))
   //Sort by date DESC
   usort($activities, '_gofast_kanban_sort_activities');
   
-  return $activities;
+  if($JSONFormat){
+     print_r(json_encode($activities));
+  }else{
+    return $activities;
+  }  
+}
+
+/**
+ * Return activities on given task 
+ * @param type $nid
+ * @return String HTML
+ */
+function gofast_kanban_render_task_activities($nid, $async = FALSE){
   
+  $task_activities = gofast_kanban_get_task_activities($nid, array("EVENT"));
+  
+  $container = theme('kanban_activities', array('activities' => $task_activities));
+  if($async){
+    return  $container;
+  }else{
+    print $container;
+  }
 }
 
 function _gofast_kanban_sort_activities($a, $b){
@@ -390,9 +441,16 @@ function gofast_kanban_format_activity_event($event, $nid){
 //watchdog('gofast_kanban', '%name() START : task_nid=[%nid] ', array('%name' => __FUNCTION__, '%nid' => $nid), WATCHDOG_DEBUG);
   
   $activity = array();
+  global $base_url;
+  
+  $who = user_load($event->uid);
   
   $activity['event_timestamp'] = $event->timestamp;
-  $activity['event_details']['who'] = array('uid' => $event->uid, 'name' => gofast_user_get_display_name_sql($event->uid));
+  $activity['event_details']['who'] = array(
+      'uid' => $event->uid, 
+      'name' => gofast_user_get_display_name_sql($event->uid),
+      'picture' => ( $who->picture->uri == null ? $base_url . '/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png' : file_create_url($who->picture->uri))
+    );
   $activity['event_task_nid'] = $nid;
 
   // Format event
@@ -573,11 +631,11 @@ function gofast_kanban_format_activity_event($event, $nid){
       }else if(array_key_exists('body', $event_details)){
         $field_updated = 'body';
         if (trim($event_details[$field_updated]['removed']) == '') {
-          $action = 'added a description : <br> !new_column ';
+          $action = 'added a description : <br><div class="action-details"> !new_column </div>';
         } else if (trim($event_details[$field_updated]['current']) == '') {
           $action = 'removed the card description';
         } else {
-          $action =  'changed the card description to <br> !new_column'; 
+          $action =  'changed the card description to <br><div class="action-details"> !new_column </div>'; 
         }
         $old =  urldecode(trim($event_details[$field_updated]['removed']));
         $new =  urldecode(trim($event_details[$field_updated]['current']));
@@ -798,10 +856,10 @@ function gofast_kanban_get_default_board_columns(){
 }
 
 /**
- * 
+ * @param boolean $JSONFormat if TRUE, return a list of status JSON formatted (default FALSE)
  * @return type
  */
-function gofast_kanban_get_available_status(){
+function gofast_kanban_get_available_status( $JSONFormat = FALSE){
   $timer_start = microtime(true);
 //watchdog('gofast_kanban', '%name() START ', array('%name' => __FUNCTION__), WATCHDOG_DEBUG);
   $available_status = array();
@@ -809,13 +867,19 @@ function gofast_kanban_get_available_status(){
   $status = array('To Do', 'In Progress', 'Done'); //and Archived in futur version
   foreach($status as $status_label){
     $term = array_shift(taxonomy_get_term_by_name($status_label, 'state'));
-    $available_status[] = array('tid' => $term->tid, 'label' => $term->name);
+    $available_status[] = array('tid' => $term->tid, 'label' => t($term->name));
   }
   
   $timer_stop = microtime(true);
 //watchdog('gofast_kanban', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_DEBUG);
   
-  return $available_status;
+  if($JSONFormat){
+    print_r(json_encode($available_status));
+  }else{
+    return $available_status;
+  }
+  
+  
 }
 
 
@@ -898,7 +962,11 @@ function gofast_kanban_board_get_column_index($kanban_nid, $column_id){
  * @return array() $items
  */
 function gofast_kanban_get_user_checklistItems($uid = false, $full = FALSE, $filters = array()){
-  
+    global $user;
+    if($user->uid == 0){
+        return array();
+    }
+
   $timer_start = microtime(true);
 //watchdog('gofast_kanban', '%name() START : uid=[%uid] ', array('%name' => __FUNCTION__, '%uid' => $uid), WATCHDOG_DEBUG);
   
@@ -906,14 +974,16 @@ function gofast_kanban_get_user_checklistItems($uid = false, $full = FALSE, $fil
   
   $query = db_select('gofast_kanban_checklist_item', 'ci')
      ->fields('ci', array('ciid', 'cid', 'label', 'deadline', 'uid', 'status'));
-  
+
+  //Do not include tasks from Card  wiwth "Done" status
   if($full){
     $query->leftJoin('gofast_kanban_checklist', 'c', 'ci.cid = c.cid');
+//    $query->leftJoin('field_data_field_state', 's', "s.entity_id = c.task_nid AND s.entity_type = 'node' ");
     $query->fields('c', array('task_nid', 'label'));
   }
      
   if($uid){
-    $query->condition('uid', $uid, '=');
+    $query->condition('ci.uid', $uid, '=');
   }
   
   //Add filters if not empty
@@ -1001,7 +1071,11 @@ function gofast_kanban_get_user_tasks($uid, $full = FALSE){
   }
   
   // Retreive tasks for which the user is assigned to checklist item
-  $filters = array(0 => array('name' => 'status', 'value' => 0, 'operator' => '='));
+  $filters = array(
+    0 => array('name' => 'ci.status', 'value' => 0, 'operator' => '=')
+  );
+
+
   $checklist_for_user = gofast_kanban_get_user_checklistItems($uid, TRUE, $filters );
   if (!empty($checklist_for_user)) {
     

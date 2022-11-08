@@ -1,0 +1,100 @@
+.EditableInput {
+    position: relative;
+
+    &__value {
+        padding: 0.5rem;
+        border-radius: 0.42rem !important;
+        &.editable {
+            transition: all 0.15s ease;
+            cursor: pointer;
+            &:hover {
+                transition: all 0.15s ease;
+                background-color: #F3F6F9 !important;
+            }
+        }
+
+    }
+
+    &__input {
+        .input-control {
+            display: block;
+            width: 100%;
+            font-weight: 400;
+            color: #3F4254;
+            background-color: #ffffff;
+            background-clip: padding-box;
+            border: 1px solid #E4E6EF;
+            box-shadow: none;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+            height: calc(1.35em + 1.1rem + 2px);
+            padding: 0.55rem 0.75rem;
+            font-size: 0.925rem;
+            line-height: 1.35;
+            border-radius: 0.28rem;
+
+            &.datetime {
+                width: auto !important;
+            }
+
+            &.tagify {
+                height: auto !important;
+            }
+            
+        }
+
+        & input {
+            border: none;
+            &:invalid {
+                border: 1px solid red;
+            }
+        }
+        
+        .select2-container {
+            width: 100%;
+            max-width: 260px;
+        }
+    }
+
+    &__loader {
+
+        position: absolute;
+        top: 50%;
+        left: 0;
+        height: max-content;
+        width: max-content;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.42rem !important;
+        background-color: rgba(243,246,249, 0.5);
+
+    
+        &.loading {
+            display: flex;
+        }
+    }
+
+}
+
+/* padding on editable inputs messes up breadcrumb alignment */
+.breadcrumb-item .EditableInput {
+    &__value {
+        padding: 0;
+    }
+    &__input {
+        & .input-control {
+            padding: 0;
+            height: 100%;
+        }
+    }
+}
+
+/* homogenize display of input whether it is editable or not */
+.gofastArticleContent {
+    & .EditableInput__value > div > p {
+        margin: 0;
+    }
+    & .ck-editor i {
+        font-size: 1rem;
+    }
+}

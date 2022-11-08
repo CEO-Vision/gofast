@@ -1,4 +1,4 @@
-
+<?php /** @warning after sufficient testing, this file will be entirely obsolete */ ?>
 <!-- GoFast Notifications - Digest Template -->
 <tr>
     <td align="center" valign="top" style="border-collapse: collapse;">

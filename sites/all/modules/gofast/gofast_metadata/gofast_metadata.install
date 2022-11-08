@@ -1,0 +1,14 @@
+<?php
+function gofast_metadata_install() {
+  gofast_metadata_add_date_format();
+}
+
+function gofast_metadata_update_4000() {
+}
+
+/**
+ * GOFAST-8811 - Make sure all date formats are deployed
+ */
+function gofast_metadata_update_7000() {
+  gofast_metadata_add_date_format();
+}

@@ -68,7 +68,7 @@ function gofast_onlyoffice_menu() {
     'type' => MENU_CALLBACK,
     'page arguments' => array(2),
     'access arguments' => array('access content'),
-    'access callback' => TRUE,
+    'access callback' => 'user_access',
     'delivery callback' => 'gofast_ajax_delivery',
   );
 
@@ -77,7 +77,7 @@ function gofast_onlyoffice_menu() {
     'page callback' => 'gofast_onlyoffice_callback',
     'type' => MENU_CALLBACK,
     'page arguments' => array(2,3,4),
-    'access callback' => TRUE,
+    'access callback' => true,
     'delivery callback' => 'gofast_ajax_delivery',
   );
 
@@ -99,6 +99,13 @@ function gofast_onlyoffice_callback($nid, $node_ref, $alfresco_ticket) {
   $complete_node_ref = 'workspace://SpacesStore/' . $node_ref;
 
   $onlyoffice_callback_values = file_get_contents("php://input");
+  
+  //Change OnlyOffice callback URL to use an internal URL
+  //Needed to have nginx understand it should relay the request to OnlyOffice
+  global $conf;
+  
+  $onlyoffice_callback_values = str_replace($conf['gofast-comm_domain'], "internal-" . $conf['gofast-comm_domain'], $onlyoffice_callback_values);
+  
   $decoded_values = json_decode($onlyoffice_callback_values, TRUE);
 
   if(isset($decoded_values['status'])) {

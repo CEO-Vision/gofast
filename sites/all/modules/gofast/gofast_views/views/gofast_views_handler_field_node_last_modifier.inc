@@ -130,7 +130,7 @@ class gofast_views_handler_field_node_last_modifier extends views_handler_field_
     $uid = $user_loaded->uid;
     $account = user_load($uid);
     if ($account) {
-      $output .= theme('user_picture', array('account' => $account));
+      $output .= theme('user_picture', array('account' => $account, 'dimensions' => 40));
     }
 
     return $output;

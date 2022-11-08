@@ -70,6 +70,9 @@
         }
         $('.navigation_simplified_processed a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
           var location_parts = $(e.target).attr('href').split('#');
+          if (location_parts[1] == "navBrowser") {
+            Gofast.ITHit.reset_full_browser_size();
+          }
           $('html, body').scrollTop(0);
           return location.hash = location_parts[1];
         });
@@ -98,15 +101,19 @@
 
   Drupal.behaviors.kanbanChange = {
     attach: function () {
-        $(".gf_kanban_simplfied:not(.kanban_processed)").addClass("kanban_processed").each(function () {
+       $(".gf_kanban_simplified:not(.kanban_processed)").addClass("kanban_processed").each(function () {
           $('select#select-gid-kanban').change(function(e){
             var mobile_nid = $(this).children("option:selected").val();
             Gofast.Poll.abort(); // stop pool to reset our context
             Gofast._settings.gofast.context.mobile_nid = mobile_nid;
-            $('.gf_kanban_simplfied').attr('src', '/kanban/' + mobile_nid);
+
+            $('.gf_kanban_simplified').data('kid', mobile_nid);
+            $('#gofastKanban').data('kid', mobile_nid);
+            Gofast.reInitKanban(mobile_nid);
             Gofast.Poll.run();
           });
           Gofast._settings.gofast.context.mobile_nid = jQuery("#select-gid-kanban").val();
+          //Gofast.reloadKanbanFromPolling(mobile_nid);
         });
       }
     }
@@ -116,6 +123,20 @@
       $('.navigation_simplified .nav a').on('shown.bs.tab', function () {
         $(window).scrollTop(0);
       })
+    }
+  }
+
+  // Show sidebar with filters / meta block.
+  Drupal.behaviors.toogleSideContent = {
+    attach: function () {
+        $("[id^='side-content-toggle']").once().on('click', function () {
+          var mobile = $('.is-mobile');
+          if (mobile.hasClass('open')) {
+            mobile.removeClass('open');
+          } else {
+            mobile.addClass('open');
+          }
+        })
     }
   }
 

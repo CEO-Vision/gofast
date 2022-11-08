@@ -9,4 +9,4 @@ dependencies[] = ldap_servers
 dependencies[] = ldap_user
 dependencies[] = og
 configure=admin/config/gofast/ldap
-version = "7.x-3.10.0_r2"
+version = "7.x-4.0.0_r3"

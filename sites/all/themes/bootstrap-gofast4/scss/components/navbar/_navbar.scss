@@ -1,0 +1,16 @@
+.navbar {
+    height: 56px;
+    transition: background-color 200ms ease-in;
+
+    &.sticky {
+        position: sticky;
+        top: 0;
+        background-color: #fff;
+        box-shadow: 0 0 5px rgba($color: #000000, $alpha: .1);
+        z-index: 1001;
+    }
+
+    ul{
+        display: flex;
+    }
+}

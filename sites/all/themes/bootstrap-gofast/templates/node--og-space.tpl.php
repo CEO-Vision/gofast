@@ -24,7 +24,9 @@
       <div>
         <ul class="nav nav-tabs nav-justified" role="tablist">
           <li role="presentation" class="active"><a id="ogtab_home" href="#oghome" aria-controls="oghome" role="tab" data-toggle="tab"><?php print t("Home"); ?></a></li>
-          <li role="presentation"><a href="#ogactivity" aria-controls="ogactivity" role="tab" data-toggle="tab" id="tab_ogactivity"><?php print t("Activity"); ?></a></li>
+          <?php if(FALSE):?> 
+            <li role="presentation"><a href="#ogactivity" aria-controls="ogactivity" role="tab" data-toggle="tab" id="tab_ogactivity"><?php print t("Activity"); ?></a></li>
+          <?php endif; ?> 
           <li role="presentation"><a href="#ogstats" aria-controls="ogstats" role="tab" data-toggle="tab" id="tab_ogstats"><?php print t("Statistics"); ?></a></li>
           <?php $node_path = gofast_cmis_space_get_webdav_path_node_page($node->nid); ?>
           <span style='display:none;' id='webdav_path'><?php print $node_path; ?></span>
@@ -53,9 +55,11 @@
           <div role="tabpanel" class="tab-pane active" id="oghome">
               <span></span>
           </div>
-          <div role="tabpanel" class="tab-pane" id="ogactivity">
-              <div class="loader-blog"></div>
-          </div>
+          <?php if(FALSE):?>
+            <div role="tabpanel" class="tab-pane" id="ogactivity">
+                <div class="loader-blog"></div>
+            </div>
+          <?php endif; ?>
           <div role="tabpanel" class="tab-pane" id="ogstats">
 
           </div>

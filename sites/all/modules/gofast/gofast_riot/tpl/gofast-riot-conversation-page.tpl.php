@@ -24,18 +24,21 @@
 </iframe>
 
 <script>
-    function riotIframeHeightSize(){
-        // Get width and height of the window excluding scrollbars
-        var h = document.documentElement.clientHeight;
-        // add height to frame
-        document.querySelector('#IframeRiot').setAttribute('height', (h-100) + 'px'); 
-    }
-    // Attaching the event listener function to window's resize event
-    window.addEventListener("resize", riotIframeHeightSize);
-    riotIframeHeightSize();
-    setTimeout(function(){
-        jQuery("#gofast_over_content").removeClass("col-lg-8");
-        jQuery("#gofast_over_content").addClass("col-lg-12");
-    }, 200);
+    jQuery(document).ready(function() {
+        function riotIframeHeightSize(){
+            // Get width and height of the window excluding scrollbars
+            var h = document.documentElement.clientHeight;
+            // add height to frame
+            document.querySelector('#IframeRiot').setAttribute('height', (h-100) + 'px'); 
+        }
+        // Attaching the event listener function to window's resize event
+        window.addEventListener("resize", riotIframeHeightSize);
+        riotIframeHeightSize();
+        setTimeout(function(){
+            jQuery("#gofast_over_content").removeClass("col-lg-8");
+            jQuery("#gofast_over_content").addClass("col-lg-12");
+            Gofast.Riot.initFetchEvent('#IframeRiot');
+        }, 200);
+    });
 </script>
 

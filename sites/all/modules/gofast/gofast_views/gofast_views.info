@@ -3,7 +3,7 @@ description = Gofast views handler
 package = Gofast
 core = "7.x"
 
-version = "7.x-3.10.0_r2"
+version = "7.x-4.0.0_r3"
 
 files[] = views/gofast_views_handler_field_node_download_link.inc
 files[] = views/gofast_views_handler_field_node_link_delete_modal.inc

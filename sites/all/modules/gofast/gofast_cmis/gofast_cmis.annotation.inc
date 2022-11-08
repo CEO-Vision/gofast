@@ -1,6 +1,6 @@
 <?php
 
-function gofast_cmis_get_annotations($nid) {
+function gofast_cmis_get_annotations($nid, $return = FALSE) {
   global $user;
   $at_last_one_too_old = false;
   $annotations = variable_get("gofast_annotations", array());
@@ -15,7 +15,7 @@ function gofast_cmis_get_annotations($nid) {
     $timestamp_document =  strtotime($infos[0]->createdDate);
     foreach ($annotations[$nid] as $id => $annotation) {
       $annotation_php_object = json_decode($annotation);
-      $uid = db_query("select uid from comment where cid=" . $annotation_php_object->cid)->fetchAll()[0]->uid;
+      $uid = db_query("select uid from comment where cid=:cid", array(":cid" => $annotation_php_object->cid))->fetchAll()[0]->uid;
       $annotation_php_object->permissions->admin = array($annotation_php_object->user);
       $annotation = json_encode($annotation_php_object);
 
@@ -56,7 +56,11 @@ function gofast_cmis_get_annotations($nid) {
   if ($at_last_one_too_old == true) {
     $annotation_object = "[]";
   }
-  print $annotation_object;
+  if($return){
+    return $annotation_object;
+  }else{
+    print $annotation_object;
+  }
 }
 
 function gofast_cmis_create_annotations($nid) {
@@ -73,12 +77,12 @@ function gofast_cmis_create_annotations($nid) {
   $data_json_annotation_decoded->id = $random;
   $data_json_annotation_decoded->timestamp = time();
 
-  if(isset($data_json_annotation_decoded->ranges[0]->start)){
-    $correctPage = substr($data_json_annotation_decoded->ranges[0]->start, 5, 1);
-    if($correctPage){
-      $data_json_annotation_decoded->currentPage = $correctPage;
-    }
-  }
+  // if(isset($data_json_annotation_decoded->ranges[0]->start)){
+  //   $correctPage = substr($data_json_annotation_decoded->ranges[0]->start, 5, 1);
+  //   if($correctPage){
+  //     $data_json_annotation_decoded->currentPage = $correctPage;
+  //   }
+  // }
 
   //on créer un commentaire qui contient l'annotation
   $cid_comment_annotation = gofast_cmis_create_comment_annotation($nid, $data_json_annotation_decoded);
@@ -136,12 +140,20 @@ function gofast_cmis_update_annotation($nid) {
 
   $id_annotation = $data_json_annotation_decoded->id;
 
+  if (isset($data_json_annotation_decoded->ranges[0]->start)) {
+    $correctPage = substr($data_json_annotation_decoded->ranges[0]->start, 5, 1);
+    if ($correctPage) {
+      $data_json_annotation_decoded->currentPage = $correctPage;
+    }
+  }
+
   $annotations = variable_get("gofast_annotations", array());
   if (isset($annotations[$nid][$id_annotation])) {
     $annotations[$nid][$id_annotation] = json_encode($data_json_annotation_decoded);
     variable_set("gofast_annotations", $annotations);
     //on modifie le commentaire associé
-    $body = "' <i>" . $data_json_annotation_decoded->quote . "</i>'<br /> => " . $data_json_annotation_decoded->text;
+    $page_text = t("Page %page", array('%page' => $data_json_annotation_decoded->currentPage));
+    $body =  $page_text . " - ' <i>" . $data_json_annotation_decoded->quote . "</i>'<br /> => " . $data_json_annotation_decoded->text;
     $isPrivate = $data_json_annotation_decoded->private ? "1" : "0";
     $isPrivate = gofast_user_is_comment_restricted() ? "1" : $isPrivate;
     $original_comment = comment_load($data_json_annotation_decoded->cid);

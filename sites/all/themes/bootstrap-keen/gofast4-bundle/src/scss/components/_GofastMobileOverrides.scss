@@ -1,0 +1,68 @@
+.user-logged.is-mobile {
+  height: 100% !important;
+}
+
+.is-mobile {
+  @media (max-width: 992px) {
+    .GofastForm {
+      &__Conference {
+        .GofastForm__CardContainer {
+          & > .card-body {
+            display: flex;
+            flex-wrap: wrap;
+          }
+
+          .Conference__Field {
+            width: 100%;
+
+            .date-no-float {
+
+              .date-padding {
+                float: none;
+              }
+            }
+          }
+        }
+      }
+    }
+    .GofastUserProfile__detail {
+      display: none;
+    }
+    .content-main-contianer {
+      padding-right: 0;
+    }
+  }
+  @media (max-width: 768px) {
+    .GofastForm__Conference #cke_1_top,
+    .conferenceContainer .card-body > .row > .mx-4 {
+      display: none;
+    }
+  }
+  @media (max-width: 575.98px) {
+    #gofastDirectoryUsersTable {
+      table.datatable-table {
+        height: 88%;
+      }
+
+      .datatable.datatable-default > .datatable-pager {
+        justify-content: center;
+      }
+    }
+  }
+  @media (max-width: 425px) {
+    .row.conference_about .col {
+      flex-basis: unset;
+      width: 50%;
+      margin-top: 1rem;
+
+      &:nth-child(odd) {
+        border-left: none !important;
+      }
+    }
+  }
+  @media (max-width: 375px) {
+    .conferenceContainer .mx-4 {
+      display: none;
+    }
+  }
+}

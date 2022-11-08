@@ -1,0 +1,110 @@
+<mjml>
+  <mj-head>
+    <mj-style>
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 400;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-Regular.otf") format("opentype");
+      }
+
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 600;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-SemiBold.otf") format("opentype");
+      }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#EAF1F7" width="992px">
+    <mj-raw>
+      <!-- SubHeader -->
+    </mj-raw>
+    <mj-section padding-left="10px" padding-top="10px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%">
+        <mj-text padding-left="0" font-size="18px" font-weight="600">
+          Hello User Name,
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" background-color="white">
+      <mj-column width="90%" background-color="#F3F6F9" border-radius="5px">
+        <mj-text color="#3699ff" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/scroll-solid-primary.png" alt="Information Icon" width="18" />
+                </td>
+                <td><span style="color: #3699ff; font-size: 18px; font-weight: 600;">&nbsp;Message</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%" vertical-align="middle">
+        <mj-text font-size="14px" font-weight="400">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" style="padding-right: 5px;" width="25">
+                </td>
+                <td><a href="mailto:test@test.com" style="color: 3699ff; text-decoration: none;">Username</a> downloaded your file
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-left="10px" padding-top="0px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%" background-color="#de6502" border-radius="5px">
+        <mj-text color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/other-white.png" alt="Information Icon" width="18" />
+                </td>
+                <td><span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;Files</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" background-color="white">
+      <mj-column width="90%" vertical-align="middle">
+        <mj-text padding-top="0" padding-bottom="10px" font-size="14px" font-weight="400">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/word.png" width="14" />
+                </td>
+                <td><a href="#" style="color: #337ab7; text-decoration: none;">&nbsp;Filename</a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+        <mj-text padding-top="0" padding-bottom="10px" font-size="14px" font-weight="400">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/word.png" width="14" />
+                </td>
+                <td><a href="#" style="color: #337ab7; text-decoration: none;">&nbsp;Filename</a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

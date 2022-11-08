@@ -1,0 +1,7 @@
+
+<webscript>
+  <shortname>Remove multifile folder</shortname>
+  <description>Remove multifile folder</description>
+  <url>/removemultifilefolder?folder_source={folder_source}&amp;parent={parent}</url>
+  <authentication>user</authentication>
+</webscript>

@@ -1,0 +1,893 @@
+<?php
+global $conf;
+
+/**
+ * Implements hook_init()
+ */
+function gofast_metadata_init(){
+  drupal_add_library('gofast_metadata', 'gofast_metadata_lib', TRUE);
+}
+
+
+/**
+ * Hook theme
+ */
+function gofast_metadata_theme()
+{
+
+  $themes['gofast_metadata_node_link'] = array(
+    "template" => "tpl/gofast-metadata-node-link",
+    "variables" => [
+      "icon" => NULL,
+      "link" => NULL,
+      "title" => NULL
+    ]
+  );
+
+  $themes['node_infos'] = array(
+    'template' => 'tpl/node_infos',
+  );
+
+  return $themes;
+}
+
+
+/**
+ * Implements hook_library()
+ *  Registers JavaScript/CSS libraries associated with Gofast metadata.
+ *
+ * @see https://api.drupal.org/api/drupal/modules%21system%21system.api.php/function/hook_library/7
+ */
+function gofast_metadata_library(){
+
+  $lib = 'sites/all/modules/gofast/gofast_metadata';
+  $libraries['gofast_metadata_lib'] = array(
+    'title' => 'Gofast metadata Library',
+    'version' => '1.0',
+    'js' => array(
+      $lib . '/js/gofast_metadata.js' => array(
+        'group' => JS_LIBRARY,
+        'every_page' => TRUE,
+        'weight' => 1
+      )
+    ),
+     'css' => array(
+      $lib . '/css/gofast_metadata.css' => array(
+        'type' => 'file',
+        'media' => 'screen',
+        'group' => CSS_DEFAULT,
+        'weight' => 1
+      )
+    )
+  );
+  return $libraries;
+}
+
+/**
+ * Implements hook_menu()
+ */
+function gofast_metadata_menu() {
+
+  $items = array();
+  $items['gofast/metadata/node/%/load'] = array(
+    'page callback' => 'gofast_metadata_load_node',
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'page arguments'=> array(3),
+  );
+
+  $items['gofast/node-info/%'] = array(
+    'page callback' => 'gofast_metadata_get_node_infos_async',
+    'page arguments' => array(2, TRUE),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access'
+  );
+
+  return $items;
+}
+
+function gofast_metadata_get_node_infos($node, $async = false) {
+  if($async){
+    return theme('node_infos', array('nid' => $node->nid));
+  }else{
+    return gofast_metadata_get_node_infos_async($node->nid, $async);
+  }
+}
+
+function gofast_metadata_get_node_infos_async($nid, $asyncr = true) {
+  $node = node_load($nid);
+  global $user;
+
+  if ($node->status == 0) {
+    switch ($node->type) {
+      case 'forum':
+        $info['delete_message'] = t("The forum was deleted, you can't read infos", array(), array('context' => 'gofast'));
+        break;
+      case 'article':
+        $info['delete_message'] = t("The article was deleted, you can't read infos", array(), array('context' => 'gofast'));
+        break;
+      case 'webform':
+        $info['delete_message'] = t("The webform was deleted, you can't read infos", array(), array('context' => 'gofast'));
+        break;
+      default:
+        $info['delete_message'] = t("The document was deleted, you can't read infos", array(), array('context' => 'gofast'));
+        break;
+    }
+    // if the node is unavailable, no need to get further infos
+    $output = theme('gofast_node_metadatas', ['node_infos' => $info]);
+    $commands[] = ajax_command_html("#document__infotab", $output);
+    if($asyncr){
+      $commands = array();
+      $commands[] = ajax_command_html("#document__infotab", $output);
+  
+      print ajax_render($commands);
+      exit;
+    }else{
+      return $output;
+    }
+  }
+
+  $temps_o_debut = microtime(true);
+  if (($node->type == 'alfresco_item'  || $node->type == "article") && $node->status != 0) {
+    $infos = gofast_cmis_alfresco_get_infos($node);
+  }
+  else {
+    $infos = false;
+  }
+  $temps_o_fin = microtime(true);
+  watchdog('CMIS get infos LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
+
+
+  ## check if the document is locked
+  if ($node->type === 'alfresco_item'  || $node->type == "article") {
+    $lock_state = isset($node->cmis_lock_owner) ? $node->cmis_lock_owner : gofast_cmis_webservice_execute_request("getlocked", gofast_cmis_node_get_item_id($node));
+  }
+  else {
+    $lock_state = 'nolocked';
+  }
+  ## check if the current user can edit the document
+  $canEdit = node_access("update", $node) && $lock_state === "nolocked";
+
+  // Insert node nid on $info array
+  $info['node_nid'] = $node->nid;
+  
+  $temps_o_debut = microtime(true);
+  // Initialization of variables to show in the page
+  $wrapper = entity_metadata_wrapper("node", $node);
+  $category = $wrapper->{'field_category'}->value();
+  $category_value = $category ? i18n_taxonomy_localize_terms($category)->name : '';
+  $info['node_category']['title'] = t('Category', [], ['context' => 'gofast']);
+  $info['node_category']['span_value'] = $category_value == "" || $category_value == null ? t('None') : $category_value;
+  $info['node_category']['info'] = $category_value == "" || $category_value == null ? t('None') : $category_value;
+  $info['node_category']['type'] = 'select';
+  $info['node_category']['order'] = '2';
+
+
+ $tags = $wrapper->{'field_tags'}->value();
+ if ($canEdit &&
+      (!module_exists('gofast_retention') || ( module_exists('gofast_retention') && $info['retention_end_date'] == NULL )
+      )
+  ) {
+    $tags_values = array_map(function($element) {
+      if(isset($element->name)){ //We parse names and IDs of tags
+        return htmlspecialchars($element->name)."[GOFAST_TAG_SEPARATOR]".$element->tid;
+      }
+      return NULL;
+    }, $tags);
+    $info['node_keywords'] = is_array($tags) ? implode(', ', $tags_values) : '';
+ }
+ else{
+    $node_keywords_value = '<ul class="select2-tags">';
+    $tags_values = array_map(function ($element) {
+      if (isset($element->name)) { //We parse names and IDs of tags
+        return '<li class="gofast-tags-noedit" data-name="' . $element->name . '" data-id="' . $element->tid . '">' . $element->name . '</li>';
+      }
+      return NULL;
+    }, $tags);
+    $node_keywords_value .= is_array($tags) ? implode('', $tags_values) : '';
+    $node_keywords_value .= '</ul>';
+    $info['node_keywords'] = $node_keywords_value;
+ }
+
+  ## Keywords metadata
+  $info['node_keywords'] = is_array($tags) ? implode(', ', $tags_values) : '';
+
+  foreach($tags as $tag){
+    $json_tag = gofast_ac_format_value_json('taxonomy_term', $tag,null,['subButton'=>true]);
+    $json_tag["nid"] = $nid;
+    $info['json_node_keywords'][] = $json_tag;
+  }
+
+  if ($canEdit) {
+    $info['node_keywords_info']['node_keywords_vid'] = GOFAST_VID_TAGS;
+    $info['node_keywords_info']['node_keywords_pk'] = $nid;
+    $info['node_keywords_info']['json_tags'] = json_encode($info['json_node_keywords']);
+  }else{
+    foreach($info['json_node_keywords'] as $key => $node_keyword){
+      $info['json_node_keywords'][$key]['flag_html'] = gofast_ac_get_subscribe_term_link($node_keyword['value'], false);
+    }
+    $info['node_keywords_info']['array_tags'] = $info['json_node_keywords'];
+  }
+
+  ## State metadata (doesn't exist for forum)
+  if ($node->type !== 'forum') {
+    $state = $wrapper->{'field_state'}->value();
+    $state_value = $state ? i18n_taxonomy_localize_terms($state)->name : '';
+    $info['node_state']['title'] = t('State', [], ['context' => 'gofast']);
+    $info['node_state']['span_value'] = $state_value == "" || $state_value == "null" ? t('None') : $state_value;
+    $info['node_state']['info'] = $state_value == "" || $state_value == "null" ? t('None') : $state_value;
+    $info['node_state']['type'] = 'select';
+    $info['node_state']['order'] = '3';
+  }
+
+  ## Criticity metadata
+  $criticity = isset($wrapper->{'field_criticity'}) ? $wrapper->{'field_criticity'}->value() : FALSE;
+  $criticity_value = $criticity ? i18n_taxonomy_localize_terms($criticity)->name : '';
+  $info['node_criticity']['title'] = t('Criticity', [], ['context' => 'gofast']);
+  $info['node_criticity']['span_value'] = $criticity_value == "" || $criticity_value == "null" ? t('None') : $criticity_value;
+  $info['node_criticity']['info'] = $criticity_value == "" || $criticity_value == "null" ? t('None') : $criticity_value;
+  $info['node_criticity']['type'] = 'select';
+  $info['node_criticity']['order'] = '9';
+
+
+  ## Deadline metadata
+  $deadline = $wrapper->{'field_date'}->value();
+  $date_format = $user->language === 'fr' ? 'd/m/Y' :  'm/d/Y';
+  $deadline_value = $deadline ? date($date_format, $deadline) : '';
+  $info['node_deadline']['span_value'] = $deadline_value == "" || $deadline_value == null ? t('None') : $deadline_value;
+  $info['node_deadline']['info'] = $deadline_value == "" || $deadline_value == null ? t('None') : $deadline_value;
+  $info['node_deadline']['type'] = 'input';
+  $info['node_deadline']['class'] = 'editableField__datapiker';
+
+  ## Retention date
+  if(($node->type === "alfresco_item"  || $node->type === "article") && module_exists('gofast_retention') ){
+    $date_format_retention = 'm/d/Y h:i';
+    if($node->field_retention_end[LANGUAGE_NONE][0]['value'] !== NULL){
+      $retention_end_date = new DateObject();
+      $retention_end_date->setTimestamp($node->field_retention_end[LANGUAGE_NONE][0]['value']);
+
+      $info['retention_end_date'] = $retention_end_date->format($date_format_retention);
+    }
+  }
+
+  $node_locations_paths = array();
+
+  if (isset($node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE])) {
+    $node_locations_paths = array_map(function($element) {
+      return $element['value'];
+    }, $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE]);
+  }
+  $info['has_extranet_location'] = gofast_og_has_extranet_location($node_locations_paths);
+  
+  $temps_o_fin = microtime(true);
+  watchdog('CMIS widget render LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
+
+  ## Links to
+  $temps_o_debut = microtime(true);
+  ## We retrieve the current node entity links
+  $target_nodes = isset($wrapper->{'field_target_link'}) ? $wrapper->{'field_target_link'}->value() : array();
+  $target_links = array_map(function($element) {
+      if($element->status == "1"){
+        $element_icon = gofast_node_get_icon($element);
+        $element_link = '/node/'.$element->nid;
+        $element_title = $element->title;
+        return theme('gofast_metadata_node_link', array('icon' => $element_icon, 'link' => $element_link,'title' => $element_title));
+      }else{
+        return;
+      }
+  }, $target_nodes);
+
+  $info['node_target_links']['existe_link_tpl'] = !empty($target_nodes) ? implode('', $target_links) : '';
+  $info['node_target_links']['title'] = t('Links to', array(), array('context' => 'gofast'));
+  gofast_node_info_attachments($info, $wrapper);
+  
+   gofast_node_info_links($info, $wrapper);
+
+  ## External links
+  ## We retrieve node external links
+  $external_page_url = isset($wrapper->{'field_external_page_url'}) ? $wrapper->{'field_external_page_url'}->value() : array();
+  $values_page_url = implode(',', $external_page_url);
+  if ($values_page_url != "" && $values_page_url != null) {
+    $values_page_url = "<ul class='list-unstyled pl-3 pt-1 text-left'>";
+    foreach ($external_page_url as $external_link) {
+      if (preg_match('/^https?:\/\//', $external_link)) {
+        $external_link_url = preg_replace('/^https?:\/\//', "https://", $external_link );
+      } else {
+        $external_link_url = "https://" . $external_link;
+      }
+      $info['node_external_page_url']['linksValues'][] = [ 'label' => $external_link, 'url' => $external_link_url];
+      $values_page_url .= '<li> <a class="text-dark text-hover-primary text-truncate font-size-sm" href="' . $external_link_url . '" > <i class="fas fa-external-link-square-alt mr-2"></i> ' . $external_link . '</a> </li>';
+    }
+    $values_page_url .= '</ul>';
+  } else {
+    $values_page_url = t('None');
+  }
+
+  $info['node_external_page_url']['span_value'] = $values_page_url;
+  $info['node_external_page_url']['title'] = t("External links", [], ['context'=>'gofast']) ;
+
+
+  ## Popularity
+  $popularity = $wrapper->{'field_popularity'}->value();
+  $info['node_popularity']['title'] = t('Popularity/Views', [], ['context' => 'gofast']);
+  $info['node_popularity']['info'] = isset($popularity) ? $popularity : 0;
+  $info['node_popularity']['order'] = 5;
+  if(isset($popularity)){
+        $info['node_popularity']['info'] .= '  <a title="'.t("Display popularity history", array(), array("context" => "gofast")).'" class="ctools-use-modal" href="/gofast/nojs/radioactivity/graphic/'.$node->nid.'"><i class="fa fa-question-circle" style=" color: #777;"></i></a>  ';
+  }
+  $info['node_view_count'] = isset(nodeviewcountcount_count_node_views($node, NULL, TRUE)[0]) ? nodeviewcountcount_count_node_views($node, NULL, TRUE)[0]->expression : 0;
+
+
+  ## Book (case of article)
+  $is_book = isset($node->book) && $node->book['bid'] !== 0;
+  if ($is_book) {
+    // Book is main page
+    if ($node->nid === $node->book['bid']) {
+      $info['node_book'] = t('This is the main page of a book', array(), array('context'=> 'gofast:gofast_book'));
+    }else {
+      $main_page_node = node_load($node->book['bid']);
+      $uri = entity_uri('node', $main_page_node);
+      $info['node_book'] = l($main_page_node->title, url($uri['path'], $uri['options']), array('attributes' => array(), 'html' => TRUE));
+    }
+      if (node_access('update', $node)) {
+        $form_id = 'article_node_form';
+        $_POST['is_popover'] = TRUE;
+        $article_form = drupal_get_form($form_id,$node);
+        $book_block_output = drupal_render($article_form);
+        $options_book = array(
+          'popup_variables' => array(
+            'container_id' => 'popup_block_book_' . $node->nid,
+            'container_class' => NULL,
+            'title' => t('Edit book', array(), array('context' => 'gofast')),
+            'link_text' => '</br>' . $info['node_book'],
+            'link_class' => 'editable-click',
+            'type' => 'a',
+            'emptytext' => t('None', array(), array('context' => 'gofast')),
+            'delegated' => 'true',
+            'placement' => 'left',
+            'context' => $node->type,
+            'content' => htmlentities($book_block_output) ,
+          )
+        );
+
+        $info['node_book'] = theme('popup_content', $options_book);
+      }
+  }else{
+       if (node_access('update', $node)) {
+        $form_id = 'article_node_form';
+        $_POST['is_popover'] = TRUE;
+      }
+  }
+  
+  
+  if ($node->type !== "alfresco_item" && $node->type !== "article") {
+    $author_value = user_load($node->uid)->name;
+  } else {
+    $author_value = $infos['document_author'];
+    $document_reference_value = $infos['document_reference'];
+    $info['document_reference']['title'] = variable_get("document_reference_label", t('Doc. Ref.', [], ['context' => 'gofast']));
+    $info['document_reference']['span_value'] = $document_reference_value == "" || $document_reference_value == null ? t('None') : $document_reference_value;
+    $info['document_reference']['info'] = $document_reference_value == "" || $document_reference_value == null ? t('None') : $document_reference_value;
+    $info['document_reference']['type'] = 'input';
+    $info['document_reference']['class'] = '';
+    $info['document_reference']['order'] = 6;
+    $info['alias'] = $node->field_alias[LANGUAGE_NONE][0]["value"];
+  }
+  $info['document_author']['title'] =  t('Author', [], ['context' => 'gofast']);
+  $info['document_author']['span_value'] = $author_value == "" || $author_value == "null" ? t('None') : $author_value;
+  $info['document_author']['info'] = $author_value == "" || $author_value == "null" ? t('None') : $author_value;
+  $info['document_author']['type'] = 'auth';
+
+  ## Publication node
+  $publication = gofast_cmis_node_is_published($node);
+  $publication_node = $publication !== FALSE ? node_load($publication) : NULL;
+  $publication_icon = theme('gofast_node_icon_format', array('node' => $publication_node));
+  $info['node_publication']['title'] = t('Publication', [], ['context' => 'gofast']);
+  $info['node_publication']['value'] = isset($publication_node) && $publication_node !== FALSE ? l($publication_icon . "<div class='d-block text-truncate' title='" . $publication_node->title . "'>" . $publication_node->title . "</div>", '/node/' . $publication_node->nid, array('attributes' => array('class' => 'btn btn-link d-flex align-items-center w-100 text-truncate'), 'html' => TRUE)) : '';
+
+  ## Publication source node
+  $publication_source = gofast_cmis_get_publication_source($node);
+  $publication_source_node = $publication_source !== FALSE ? node_load($publication_source) : NULL;
+  $publication_source_icon = theme('gofast_node_icon_format', array('node' => $publication_source_node));
+  $info['node_publication_source']['title'] = t('Publication source', [], ['context' => 'gofast']);
+  $info['node_publication_source']['value'] = $publication_source_node !== NULL ? l($publication_source_icon . "<div class='d-block text-truncate' title='" . $publication_source_node->title . "'>" . $publication_source_node->title . "</div>", '/node/' . $publication_source_node->nid, array('attributes' => array('class' => 'btn btn-link d-flex align-items-center w-100 text-truncate'), 'html' => TRUE)) : '';
+
+  $info['message'] = "";
+  foreach (module_implements("node_specific_informations") as $module) {
+    $info['message'] .= call_user_func($module . "_node_specific_informations", $node);
+  }
+  
+  if ($publication_source !== FALSE) {
+    $info['message'] .=  t("This document is a publication", array(), array('context' => 'gofast')).'</br>';
+  }
+
+  if(!$canEdit) {
+    if($lock_state !== 'nolocked'){
+      $info['message'] .= t("The document is being edited, you can't change its metadatas", array(), array('context' => 'gofast')) . '</br>';
+    }
+    else {
+      $info['message'] .= t("You have read-only permission on this document", array(), array('context' => 'gofast')).'</br>';
+    }
+   }
+  else if (module_exists('gofast_retention') && isset($info['retention_end_date']) ) {
+    $formated_expiration_date = format_date($node->field_retention_end[LANGUAGE_NONE][0]['value'], "short_without_hours");
+    $info['message'] .= t("Pre-archived document with Duration of Administrative Use in progress until @expiration. If you are a Space administrator, you can change the status to remove the DUA", array("@expiration" => $formated_expiration_date), array('context' => 'gofast:gofast_retention')) . '</br>';
+  }elseif(node_access("delete", $node) && gofast_get_content_state_archived($node)){
+    $info['message'] .=t("This document is archived, you can't change it content", array(), array('context' => 'gofast:gofast_retention')) . '</br>';
+  }
+
+  $is_confidential = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Confidential Data";
+  if($is_confidential){
+    $info['message'] .= t("This document is confidential: you can't download and share it", array(), array('context' => 'gofast:gofast_cmis'));
+  }
+
+  $is_internal = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Internal Distribution";
+  if ($is_internal) {
+    $info['message'] .= t("Document for Internal Distribution: downloading and sharing in Extranet Spaces forbidden", array(), array('context' => 'gofast:gofast_cmis'));
+  }
+
+  $temps_o_fin = microtime(true);
+  watchdog('CMIS other data processing LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
+  $temps_o_debut = microtime(true);
+
+  // If the user has the rights, update shown fields to display x-editable
+  if ($canEdit) {
+    // Field category of the node
+    if($info['retention_end_date'] == NULL){
+        $info['node_category']['fields']  =  gofast_xeditable_vocabulary_to_select_items(GOFAST_VID_CATEGORY, $node);
+        $info['node_category']['node_pk'] = $node->nid;
+        $info['node_category']['vid'] = GOFAST_VID_CATEGORY;
+        $info['node_category']['name'] = 'field_category';
+        $info['node_category']['value'] = $category_value;
+        $info['node_category']['order'] = '2';
+    }
+
+    $info['node_keywords'] = !empty($tags_values) ? '<ul><li>' . implode('</li><li>', $tags_values) . '</li></ul>' : '';
+
+    $field_node_keywords = array(
+      'pk' => $node->nid,
+      'type' => 'select2',
+      'placement' => 'left',
+      'showbuttons' => 'bottom',
+      'mode' => 'popup',
+      'url' => '/update_node_field',
+      'inputclass' => 'input-extra-large',
+      'name' => 'ac-list-tags-field-keywords',
+      'value' => implode(',', $tags_values),
+      'data' => array('tags' => !empty($tags_values) ? $tags_values : null),
+      'source' => '/gofast/tag_autocomplete',
+      'title' => t('Node keywords', array(), array('context' => 'gofast')),
+      'emptytext' => t('None', array(), array('context' => 'gofast')),
+      'params' => ['vid' => GOFAST_VID_TAGS],
+      'delegated' => 'true',
+      'wrapper_class' => array(
+        'node-info-keywords js-tagify',
+      )
+    );
+    $info['node_keywords'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_node_keywords));
+
+    if ($node->type !== 'forum') {      // Field state of the node
+       //TODO prevent edit this field if node is in retention mode, except for admin and doc author( must be after change of criteria to fire retention mode )
+     if($info['retention_end_date'] == NULL || ($info['retention_end_date'] !== NULL && node_access("delete", $node))){
+        $info['node_state']['fields']  = gofast_xeditable_vocabulary_to_select_items(GOFAST_VID_STATE, $node);
+        $info['node_state']['fields'][] = [
+          "id" => '',
+          "text" => '',
+          "database_name" => ''
+        ];
+        $info['node_state']['node_pk'] = $node->nid;
+        $info['node_state']['vid'] = GOFAST_VID_STATE;
+        $info['node_state']['name'] = 'field_state';
+        $info['node_state']['value'] = $state_value;
+     }
+    }
+
+    // Field criticity of the node
+      if((!$is_confidential && !$is_internal) || node_access("delete", $node)){
+        $info['node_criticity']['fields']  = gofast_xeditable_sort_criticity(gofast_xeditable_vocabulary_to_select_items(GOFAST_VID_CRITICITY, $node));
+        $info['node_criticity']['fields'][] = [
+          "id" => '',
+          "text" => '',
+          "database_name" => ''
+        ];
+        $info['node_criticity']['node_pk'] = $node->nid;
+        $info['node_criticity']['vid'] = GOFAST_VID_CRITICITY;
+        $info['node_criticity']['name'] = 'field_criticity';
+        $info['node_criticity']['value'] = $criticity_value;
+      }
+
+    // Field deadline of the node
+    $info['node_deadline']['title'] = t('Deadline', [], ['context' => 'gofast']);
+    $info['node_deadline']['node_pk'] = $node->nid;
+    $info['node_deadline']['name'] = 'field_date';
+    $info['node_deadline']['value'] = $deadline_value;
+    $info['node_deadline']['order'] = 7;
+    $info['node_deadline']['class'] = "gofastDatepicker";
+
+    $info['node_target_links']['value'] = array('links' => !empty($target_links) ? $target_links : t('None', array(), array('context' => 'gofast')));
+
+    foreach($target_nodes as $node_link){
+      $json_target_links = gofast_ac_format_value_json('node', $node_link, null);
+      $array_data[] = $json_target_links;
+    }
+
+      $info['node_target_links']['node_pk'] = $node->nid;
+      $info['node_target_links']['name'] = 'field_target_link';
+      $info['node_target_links']['json_target_links_tags'] = json_encode($array_data, JSON_HEX_APOS);
+
+
+      $info['node_external_page_url']['node_pk'] = $node->nid;
+      $info['node_external_page_url']['name'] = 'field_external_page_url';
+      $info['node_external_page_url']['value'] = $external_page_url;
+      
+    if ($node->type === "alfresco_item" || $node->type === "article") {
+        $info['document_author']['node_pk'] = $node->nid;
+        $info['document_author']['name'] = GOFAST_CMIS_DOCUMENT_AUTHOR_FIELD;
+        $info['document_author']['value'] = $author_value;
+        $info['document_author']['order'] = 8;
+    }
+    if ($node->type === "alfresco_item"  || $node->type === "article") {
+      $info['document_reference']['node_pk'] = $node->nid;
+      $info['document_reference']['name'] = 'field_document_reference';
+      $info['document_reference']['value'] = $document_reference_value;
+    }
+  }else{
+    if (($node->type === "alfresco_item"  || $node->type === "article") && module_exists('gofast_retention') && isset($info['retention_end_date'])
+       && (node_access("update", $node) && $lock_state === "nolocked" && !gofast_get_content_state_archived($node))
+    ) {
+
+      // Field category of the node
+      $info['node_category']['fields']  =  gofast_xeditable_vocabulary_to_select_items(GOFAST_VID_CATEGORY, $node);
+      $info['node_category']['node_pk'] = $node->nid;
+      $info['node_category']['vid'] = GOFAST_VID_CATEGORY;
+      $info['node_category']['name'] = 'field_category';
+      $info['node_category']['value'] = $category_value;
+      $info['node_category']['order'] = '2';
+    }
+  }
+
+  if ($canEdit) {
+    drupal_add_js(drupal_get_path('module', 'gofast') . '/js/gofast_xeditable.js', array('type' => 'file', 'weight' => 5));
+  }
+
+  // These following fields cannot be edited
+  $format = $wrapper->{'field_format'}->value();
+  $format_value = theme('gofast_node_icon_format', array('node' => $node));
+  $format_value .= $format ? i18n_taxonomy_localize_terms($format)->name : NULL;
+  
+  $info['field_filename']['title'] = t('Type', [], ['context' => 'gofast']);
+  $info['field_filename']['info'] = $format_value;
+  $info['field_filename']['order'] = '0';
+  //$type = $format_value;
+
+  $created_date =  str_replace("- ", "", format_date($node->created, 'extra_short'));
+  $info['field_created_date']['title'] = t('Created', [], ['context' => 'gofast:gofast_metadata']);
+  $info['field_created_date']['info'] = $created_date;
+  $info['field_created_date']['order'] = 9;
+  
+  $creator = user_load($node->uid);
+  $info['field_created_by']['title'] = t('Created by', [], ['context' => 'gofast:gofast_metadata']);
+  $info['field_created_by']['info'] = $creator->name;
+  $info['field_created_by']['more'] = gofast_user_display_name($creator);
+  $info['field_created_by']['type'] = 'image';
+  $info['field_created_by']['order'] = 10;
+  $info['field_created_by']['picture'] = theme('user_picture', array('account' => $creator, 'dimensions' => '20', 'popup' => FALSE));
+
+  // Alfresco returns a contentStreamLength of 1 on HTML files, so for now we display a words count on articles
+  if ($node->type === "article") {
+    $article_words_count = count(explode(" ", strip_tags($node->body[LANGUAGE_NONE][0]['value'])));
+    $infos["size"] = $article_words_count . " " . format_plural($article_words_count, 'word', 'words', [], ['context' => 'gofast']);
+  }
+  
+  if ($node->type === "alfresco_item" || $node->type === "article") {
+    $info['file_size']['title'] = t('Ext./Size', [], ['context' => 'gofast']);
+    $info['file_size']['info']=  $infos["extension"] . ' / ' . $infos["size"];
+    $info['file_size']['order']= 1;
+  }
+
+  $votes = fivestar_get_votes('node', $node->nid, 'vote');
+  $values = array(
+    'user' => empty($votes['user']['value']) ? 0 : $votes['user']['value'],
+    'average' => empty($votes['average']['value']) ? 0 : $votes['average']['value'],
+    'count' => empty($votes['count']['value']) ? 0 : $votes['count']['value'],
+  );
+
+  $settings = array(
+    'stars' => 5,
+    'allow_clear' => TRUE,
+    'allow_revote' => TRUE,
+    'allow_ownvote' => TRUE,
+    'description' => '',
+    'widget' => array('name' => 'minimal', 'css' => 'sites/all/modules/fivestar/widgets/minimal/minimal.css'),
+    'style' => 'average', //'smart'
+    'text' => 'average', //'dual'
+    'content_type' => 'node',
+    'content_id' => $node->nid,
+    'tag' => 'vote',
+    'autosubmit' => TRUE,
+    'title' => FALSE,
+    'feedback_enable' => FALSE, //FALSE,
+    'labels_enable' => FALSE, //FALSE,
+    'labels' => array(),
+    'microdata' => array(),
+    'field_name' => 'field_fivestar',
+    'langcode' => LANGUAGE_NONE,
+    'entity_type' => 'node',
+    'entity_id' => $node->nid,
+  );
+  $fivestar = drupal_get_form('fivestar_custom_widget', $values, $settings);
+
+  $info['rating']['rating'] = drupal_render($fivestar);
+  $info['rating']['title'] = t('Rating', [], ['context' => 'gofast']);
+  $info['rating']['node_pk'] = 'rating';
+  $info['rating']['type'] = 'rating';
+  $info['rating']['order'] = 4;
+
+  $temps_o_fin = microtime(true);
+  watchdog('CMIS xeditable processing LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
+  $temps_o_debut = microtime(true);
+
+  $node_language = $wrapper->language->value();
+  $info['node_language']['title']  = t('Language', [], ['context' => 'gofast']);
+  $info['node_language']['type']  = 'language';
+  $info['node_language']['value'] = $node_language;
+  $info['node_language']['flag'] =  gofast_get_flag_icon($node_language);
+
+  $translatable_languages = i18n_node_language_list($node);
+  $translated_languages = translation_node_get_translations($node->tnid);
+  $available_languages = array_map(function ($lang_key) use ($translatable_languages, $translated_languages) {
+    $item = array('id' => $lang_key, 'text' => $translatable_languages[$lang_key], 'icon' => gofast_get_flag_icon($lang_key));
+    if (isset($translated_languages[$lang_key])) {
+      $item['disabled'] = TRUE;
+    }
+    return $item;
+  }, array_keys($translatable_languages));
+
+  if ($canEdit) {
+    $info['node_language']['fields']  = $available_languages;
+    $info['node_language']['node_pk'] = $node->nid;
+    $info['node_language']['name'] = 'language';
+  }
+
+  $node_translations = translation_node_get_translations($node->tnid);
+  $available_translations = array();
+  if (!empty($node_translations)) {
+    unset($node_translations[$wrapper->language->value()]);
+    foreach ($node_translations as $lang_key => $node_translation) {
+      $lang_link = '/node/' . $node_translation->nid;
+      $title = $translatable_languages[$lang_key] . ' - ' . $node_translation->title;
+      $icon = gofast_get_flag_icon($lang_key);
+      $link= '<a href="' . $lang_link . '" title="' . $title . '">
+              <span class="symbol symbol-20 mr-3">
+                <img class="h-20px w-20px rounded-sm" src="' . $icon . '" alt="flag_' . $lang_key . '">
+              </span>
+            </a>';
+      $available_translations[$lang_key] =  $link;
+      $available_translations['translations'][] = ['href' => $lang_link, 'title' => $title, 'icon' => $icon, 'key' => $lang_key];
+
+    }
+    $info['node_language']['have_translate'] = $available_translations;
+  }
+
+  $temps_o_fin = microtime(true);
+  watchdog('CMIS translation processing LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
+  $temps_o_debut = microtime(true);
+
+
+  $temps_o_fin = microtime(true);
+  watchdog('CMIS history processing LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
+  $temps_o_debut = microtime(true);
+
+  $revisions_content = '';
+
+  if ($node->type === 'alfresco_item' || $node->type === "article") {
+    //$revisions_content .= gofast_cmis_get_block_versions($node, $infos);
+    gofast_cmis_set_context("node", "version", $infos["last_version"]);
+
+    //get the field_publication_history content, to get the mapping between versions doc and versions publication
+    $publication_history = $node->field_publication_history[LANGUAGE_NONE][0]["value"];
+    $publication_history = json_decode($publication_history, true);
+    if(!empty($infos['last_version'])){  
+      $revisions_content = ' (' . $infos["last_version"] . ')';
+    }else{
+      $revisions_content = '';
+    }
+  } else {
+    $revisions_content = "";
+  }
+
+  $translations_zone = '<span class="translations">' . implode(' ', $available_translations) . '</span>';
+
+  $info['node_language']['translations_zone'] = $translations_zone;
+
+  // some kinds of nodes such as webforms don't exist Alfresco-side: in this case, we show the last user who modified the node according to Drupal
+  if ($infos['last_modified_by'] == null) {
+    $editor = user_load($node->revision_uid);
+  } else {
+    $editor = user_load_by_name($infos['last_modified_by']);
+  }
+
+  $edited_date = $infos["last_modified"] ?? str_replace("- ", "", format_date($node->changed, 'extra_short'));
+  $info['last_version']['title'] = t('Edit', [], ['context' => 'gofast:gofast_metadata']);
+  $info['last_version']['info'] = $revisions_content . " " . $edited_date;
+  $info['last_version']['order'] = 10;
+  if ($infos["last_created_comment"] > 0) {
+    $info['last_version']['more'] = t('This is the last document update. The last comment was published on', [], ['context' => 'gofast:gofast_metadata']) . " " . $infos["last_created_comment"];
+  } else {
+    $info['last_version']['more'] = t('This is the last document update.', [], ['context' => 'gofast:gofast_metadata']);
+  }
+
+  $info['last_version_by']['title'] = t('Edit. by', [], ['context' => 'gofast']);
+  $info['last_version_by']['info'] = $editor->name;
+  $info['last_version_by']['more'] = gofast_user_display_name($editor);
+  $info['last_version_by']['type'] = 'image';
+  $info['last_version_by']['order'] = 11;
+  $info['last_version_by']['picture'] = theme('user_picture', array('account' => $editor, 'dimensions' => '20', 'popup' => FALSE));;
+  
+
+  $output = theme('gofast_node_metadatas', ['node_infos' => $info]);
+  $commands = array();
+  $commands[] = ajax_command_html("#document__infotab", $output);
+
+  $temps_o_fin = microtime(true);
+  watchdog('CMIS revisions processing LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
+  $temps_o_debut = microtime(true);
+
+  if($asyncr){
+    $commands = array();
+    $commands[] = ajax_command_html("#document__infotab", $output);
+
+    print ajax_render($commands);
+    exit;
+  }else{
+    return $output;
+  }
+}
+
+function gofast_metadata_load_node($nid) {
+  $node = node_load(intval($nid), NULL, TRUE);
+  if (!node_access("view", $node)) {
+    return FALSE;
+  }
+  if ($_GET["icon"] == "true") {
+    $node->icon = gofast_node_get_icon($node);
+  }
+  $node->flag = gofast_get_flag_icon($node->language);
+  print json_encode($node);
+  exit();
+}
+
+/*
+ * Create param means that we create the term if it not exists
+ */
+function gofast_metadata_terms_get_from_array($vid, $list_terms, $create = TRUE)
+{
+  $new_terms = [];
+  $existing_terms_name = [];
+  $existing_terms = taxonomy_get_tree($vid, 0, NULL, TRUE);
+
+  foreach($existing_terms as $existing_term){
+     $existing_terms_name[] = trim($existing_term->name);
+  }
+
+  foreach ($list_terms as $term) {
+
+    if ($vid === GOFAST_VID_TAGS) {
+      $und_language_term = trim($term);
+    } else {
+      $und_language_term = trim(gofast_xeditable_translate_back($term, array(), 'en', 'taxonomy', $vid));
+    }
+
+    if (!in_array($und_language_term, $existing_terms_name, TRUE)) {
+      if ($term !== '' && $create) {
+        /** @todo : Need to show message about ask Admin to create new one. */
+        $new_terms[] = gofast_taxonomy_vocabulary_add_term($vid, $term);
+      }
+    } else {
+      $taxonomy_term = array_filter($existing_terms, function ($element) use ($und_language_term) {
+        return $und_language_term === $element->name;
+      });
+      $new_terms[] = reset($taxonomy_term);
+    }
+  }
+
+  return $new_terms;
+}
+
+/**
+ * Create a new date format_type for metadata and mail usage
+ * @return type
+ */
+function gofast_metadata_add_date_format(){
+  // make sure the "short" date format is localized
+  $localized_short_formats = ["fr" => "d/m/Y - H:i", "nl" => "m/d/Y - H:i"];
+  foreach($localized_short_formats as $locale => $format) {
+    $result = db_select('date_format_locale', 'l')
+    ->fields('l', array('type', 'language'))
+    ->condition('type', 'short')
+    ->condition('language', $locale)
+    ->execute();
+  
+    // we insert the localized "short" date format only if it's not already localized
+    if ($result->rowCount() == 0) {
+      db_insert('date_format_locale')
+      ->fields(array(
+          'type' => 'short',
+          'format' => $format,
+          'language' => $locale,
+      ))
+      ->execute();
+    }
+  }  
+
+  $result = db_select('date_format_type', 'a')
+    ->fields('a', array('type'))
+    ->condition('type', 'extra_short')
+    ->execute();
+
+  //If already exist, do not create
+  if ($result->rowCount() > 0) {
+    return;
+  }
+
+  /**
+   * Create the date format.
+   */
+  db_insert('date_formats')
+      ->fields(array(
+          'format' => 'd/m/y - H:i',
+          'type' => 'custom',
+          'locked' => 0,
+      ))
+      ->execute();
+
+  db_insert('date_formats')
+      ->fields(array(
+          'format' => 'm/d/y - H:i',
+          'type' => 'custom',
+          'locked' => 0,
+      ))
+      ->execute();
+
+  /**
+   * Create the date type.
+   */
+  db_insert('date_format_type')
+      ->fields(array(
+          'type' => 'extra_short',
+          'title' => 'extra short',
+          'locked' => 0,
+      ))
+      ->execute();
+
+  /**
+   * Create the date type translation
+   */
+  db_insert('date_format_locale')
+      ->fields(array(
+          'type' => 'extra_short',
+          'format' => 'm/d/y - H:i',
+          'language' => 'en',
+      ))
+      ->execute();
+
+  db_insert('date_format_locale')
+      ->fields(array(
+          'type' => 'extra_short',
+          'format' => 'd/m/y - H:i',
+          'language' => 'fr',
+      ))
+      ->execute();
+
+  db_insert('date_format_locale')
+      ->fields(array(
+          'type' => 'extra_short',
+          'format' => 'm/d/y - H:i',
+          'language' => 'nl',
+      ))
+      ->execute();
+
+  // Variable name is date_format_MACHINENAME from previous insert
+  variable_set('date_format_extra_short', 'm/d/y - H:i');
+}

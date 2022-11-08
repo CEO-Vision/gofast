@@ -1,33 +1,57 @@
-<?php if(!$ajax){ 
-    print theme('gofast_dashboard_dashboard_breadcrumb', array("activity" => TRUE));
+<?php if(!$ajax){
+    //print theme('gofast_dashboard_dashboard_breadcrumb', array("activity" => TRUE));
 ?>
-<div id="activity-feed-container" class="panel panel-default">
-  <div id="gofast-blog-container"></div>
-<?php } ?>
-  <div id="activity-feed" class="panel-body">
-    <table id="activity-feed-table" class="table">
-      <tr>
-        <th></th>
-        <th><?php echo t('Last event', array(), array('context' => 'gofast')); ?></th>
-        <th><?php echo t('Title', array(), array('context' => 'gofast')); ?></th>
-        <th><?php echo t('Spaces', array(), array('context' => 'gofast')); ?></th>
-        <th><?php echo t('Popularity', array(), array('context' => 'gofast')); ?></th>
-        <th><?php echo t('State', array(), array('context' => 'gofast')); ?></th>
-      </tr>
-      <!-- Fill the table -->
-      <?php echo $table_content; ?>
-    </table>
-    <hr />
-    <?php if(!empty($table_content) || !$ajax){ ?>
-    <div class="loader-activity-feed"></div>
-    <?php }else{
-        print "<center>" . t("The activity feed is empty with these filters", array(), array('context' => "gofast")) . "<center><br />";
-    } ?>
-    <ul id="activity-feed-pagination" class="pagination" style="display: none; margin: 0 auto; display: table;">
-    </ul>
-  </div>
+<?php $user_is_admin = array_intersect([
+  'administrator',
+  'business administrator',
+], $user->roles); ?>
+
+<div class="card card-custom card-stretch p-2">
+    <!--begin::Header-->
+    <div class="card-header border-0 py-0 px-5 min-h-auto">
+        <div class="card-toolbar w-100 d-flex justify-content-center">
+          <?php if ($user_is_admin) : ?>
+              <div id="gofast-blog-container"></div>
+          <?php endif; ?>
+        </div>
+    </div>
+    <!--end::Header-->
+
+    <!--begin::Body-->
+    <div id="activity-feed-container" class="card-body pt-0 pb-4 px-4 h-100  position-relative " >
+
+    <?php } ?>
+        <div id="activity-feed" class="table-responsive GofastActivityFeed">
+            <div class="GofastActivityFeed__table">
+                <table id="activity-feed-table" class="table table-vertical-center table-head-custom ">
+                    <tbody>
+                    <tr>
+                        <th></th>
+                        <th><?php echo t('Title', array(), array('context' => 'gofast')); ?></th>
+                        <th><?php echo t('Spaces', array(), array('context' => 'gofast')); ?></th>
+                    </tr>
+                    <?php echo $table_content; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php if(!empty($table_content) || !$ajax){ ?>
+            <div class="GofastActivityFeed__loader">
+            <div class="spinner spinner-track spinner-primary d-inline-flex gofast-spinner-xxl"></div>
+            </div>
+            <?php }else{
+                print "<center>" . t("The activity feed is empty with these filters", array(), array('context' => "gofast")) . "<center><br />";
+            } ?>
+            <div class="d-flex justify-content-center align-items-center flex-wrap mb-2 GofastActivityFeed__pagination">
+                <div id="activity-feed-pagination" class="d-flex flex-wrap py-2 mr-3">
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <span id="activity-feed-page" style="display: none;"><?php echo $page; ?></span>
+
 </div>
-<span id="activity-feed-page" style="display: none;"><?php echo $page; ?></span>
+
 
 
 <?php if(gofast_mobile_is_mobile_domain()){ ?>
@@ -40,3 +64,12 @@
 </style>
 
 <?php } ?>
+
+<script>
+    jQuery(document).ready(function(){
+        Gofast.removeLoading();
+        if($(".GofastActivityFeed__loader").length > 0){
+            Gofast.reload_activity_feed();
+        }
+    });
+</script>

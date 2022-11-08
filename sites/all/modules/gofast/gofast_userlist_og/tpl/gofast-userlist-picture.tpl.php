@@ -17,5 +17,5 @@
       <!-- ajax load profile popup -->
     </div>
   </div>
-  <span class="fa fa-users userlist fa-3x"></span>
+  <span class="fas fa-user-friends userlist fa-3x"></span>
 </div>

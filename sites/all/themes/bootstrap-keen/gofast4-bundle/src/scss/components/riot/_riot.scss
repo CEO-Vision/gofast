@@ -1,0 +1,60 @@
+.gofastRiotReload {
+    display: flex;
+    height: 100%;
+    & > a {
+        background-color: #0DBD8B !important;
+        border-color: black !important;
+        position: relative;
+        margin-block: auto;
+        left: 240px;
+        transform: translateX(-50%);
+        &:hover {
+            background-color: #0BA176 !important;
+        }
+        & > img {
+            width: 30px;
+        }
+    }
+}
+
+// .riot {
+    
+//     top: 0;
+//     right: 0;
+//     position: fixed;
+//     height: 100vh;
+//     background-image: url('../img/riot-open.png');
+//     width: 48px;
+//     transition: width 350ms ease-in;
+//     z-index: 1100;
+
+    
+//     &.open {
+//         width: 480px;
+        
+//     }
+
+//     #riot-toggle {
+//         position: absolute;
+//         left: -10px;
+//         bottom: 100px;
+//         border-radius: 50%;
+//         padding: 0;
+//         display: flex;
+//         width: 20px;
+//         height: 20px;
+//         align-items: center;
+//         justify-content: center;
+//         font-size: 10px;
+        
+//         i {
+//             height: 10px;
+//             width: 10px;
+            
+//         }
+
+//         &.open {
+//             transform: rotate(180deg);;
+//         }
+//     }
+// }

@@ -12,4 +12,4 @@ files[] = views/gofast_og_handler_field_og_membership_link_edit.inc
 files[] = views/gofast_og_handler_field_og_membership_link_delete.inc
 
 ;scripts[] = gofast_og.js
-version = "7.x-3.10.0_r2"
+version = "7.x-4.0.0_r3"

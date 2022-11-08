@@ -1,0 +1,24 @@
+.sidebar {
+    width: 68px;
+    padding: 0 4px;
+
+    .sidebar-brand{
+        height: 56px;
+        flex: 0 0 auto;
+
+        img{
+            height: 100%;
+        }
+    }
+    .sidebar-content{
+        flex: 1 1 auto;
+    }
+    .nav-link {
+        i{
+            font-size: 2rem;
+        }
+        span{
+            font-size: 0.5rem;
+        }
+    }
+}

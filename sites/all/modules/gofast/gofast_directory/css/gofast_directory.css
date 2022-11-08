@@ -1,0 +1,59 @@
+.adminPopover{
+  max-height: 400px !important;
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+
+#gofastDirectoryUsersTable table.datatable-table,
+#gofastDirectoryUserlistsTable table.datatable-table,
+#gofastAdminLDAPTable table.datatable-table,
+#gofastDirectorySpacesTable table.datatable-table,
+#gofastDirectoryContactListingTable table.datatable-table
+{
+  height: 100%;
+}
+
+@media (max-width: 1199px) {
+  #gofastDirectoryUsersTable div.datatable-pager-nav,
+  #gofastDirectoryUserlistsTable div.datatable-pager-nav,
+  #gofastAdminLDAPTable div.datatable-pager-nav,
+  #gofastDirectorySpacesTable div.datatable-pager-nav,
+  #gofastDirectoryContactListingTable div.datatable-pager-nav
+  {
+    width: 60%;
+  }
+  #gofastDirectoryUsersTable div.datatable-pager-info,
+  #gofastDirectoryUserlistsTable div.datatable-pager-info,
+  #gofastAdminLDAPTable div.datatable-pager-info,
+  #gofastDirectorySpacesTable div.datatable-pager-info,
+  #gofastDirectoryContactListingTable div.datatable-pager-info
+  {
+    width: 40%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;  
+  }
+  
+  #gofastDirectoryUsersTable div.datatable-pager-info .datatable-pager-detail,
+  #gofastDirectoryUserlistsTable div.datatable-pager-info .datatable-pager-detail,
+  #gofastAdminLDAPTable div.datatable-pager-info .datatable-pager-detail,
+  #gofastDirectorySpacesTable div.datatable-pager-info .datatable-pager-detail,
+  #gofastDirectoryContactListingTable div.datatable-pager-info .datatable-pager-detail
+  {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;  
+  }
+}
+
+.datatable-pager {
+  align-items: end !important;
+}
+
+.datatable-head .gofast-node-actions .navi-item .dropdown.gofastDropdown{
+  display: block !important;
+}
+
+.datatable-head .datatable-cell-sort .btn.btn-icon i{
+  font-size: 1.3rem !important;
+}

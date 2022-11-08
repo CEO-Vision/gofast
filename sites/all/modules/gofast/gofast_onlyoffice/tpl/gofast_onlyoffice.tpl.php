@@ -273,22 +273,22 @@
     </script>
     <script>
         window.addEventListener('online',  function(){
-            $("#connection-lost").remove();
+            jQuery("#connection-lost").remove();
         });
         window.addEventListener('offline', function(){
             if(window.lang == "fr"){
-                $("#connection-lost").remove();
-                $("body").append('<div id="connection-lost" style="position:fixed;width:100%;height:100%;z-index:99999;background-color:rgba(200,200,200,0.4);top:0px;left:0px;"></div>');
-                $("#connection-lost").append('<div class="oo-popup"><div class="oo-popup-header">Enregistrez votre travail</div><div class="oo-popup-body">Vous avez été déconnecté suite à un problème réseau.<br /><br />Si le réseau est rétabli rapidement, vous retrouverez votre session de travail.<br /><br />Néanmoins, veuillez enregistrer votre travail pour ne rien perdre et contacter votre administrateur.<br /><br /><button id="oo-close-button" class="oo-button">Fermer</button></div></div>');
-                $("#oo-close-button").click(function(){
-                    $("#connection-lost").remove();
+                jQuery("#connection-lost").remove();
+                jQuery("body").append('<div id="connection-lost" style="position:fixed;width:100%;height:100%;z-index:99999;background-color:rgba(200,200,200,0.4);top:0px;left:0px;"></div>');
+                jQuery("#connection-lost").append('<div class="oo-popup"><div class="oo-popup-header">Enregistrez votre travail</div><div class="oo-popup-body">Vous avez été déconnecté suite à un problème réseau.<br /><br />Si le réseau est rétabli rapidement, vous retrouverez votre session de travail.<br /><br />Néanmoins, veuillez enregistrer votre travail pour ne rien perdre et contacter votre administrateur.<br /><br /><button id="oo-close-button" class="oo-button">Fermer</button></div></div>');
+                jQuery("#oo-close-button").click(function(){
+                    jQuery("#connection-lost").remove();
                 });
             }else{
-                $("#connection-lost").remove();
-                $("body").append('<div id="connection-lost" style="position:fixed;width:100%;height:100%;z-index:99999;background-color:rgba(200,200,200,0.4);top:0px;left:0px;"></div>');
-                $("#connection-lost").append('<div class="oo-popup"><div class="oo-popup-header">Save your work</div><div class="oo-popup-body">You have been disconnected because of a network issue.<br /><br />If the interruption is short, you will recover your work session.<br /><br />However, please save your work and contact your system administrator.<br /><br /><button id="oo-close-button" class="oo-button">Close</button></div></div>');
-                $("#oo-close-button").click(function(){
-                    $("#connection-lost").remove();
+                jQuery("#connection-lost").remove();
+                jQuery("body").append('<div id="connection-lost" style="position:fixed;width:100%;height:100%;z-index:99999;background-color:rgba(200,200,200,0.4);top:0px;left:0px;"></div>');
+                jQuery("#connection-lost").append('<div class="oo-popup"><div class="oo-popup-header">Save your work</div><div class="oo-popup-body">You have been disconnected because of a network issue.<br /><br />If the interruption is short, you will recover your work session.<br /><br />However, please save your work and contact your system administrator.<br /><br /><button id="oo-close-button" class="oo-button">Close</button></div></div>');
+                jQuery("#oo-close-button").click(function(){
+                    jQuery("#connection-lost").remove();
                 });
             }
         });

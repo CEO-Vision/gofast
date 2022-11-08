@@ -12,7 +12,7 @@ define('GOFAST_MAX_PAGES_ON_ACTIVITY_FEED', variable_get("gofast_max_pages_on_fe
  */
 function gofast_activity_feed_menu(){
   $items['activity'] = array(
-    'page callback' => 'gofast_activity_feed_display',
+    'page callback' => 'gofast_activity_feed_display_test',
     'access arguments' => array('access content'),
     'access callback' => 'user_access',
     'type' => MENU_NORMAL_ITEM
@@ -48,6 +48,23 @@ function gofast_activity_feed_menu(){
     'page arguments' => array(4),
     'type' => MENU_NORMAL_ITEM
   );
+
+  $items['activity/ajax/espaces/%'] = array(
+    'page callback' => 'gofast_activity_feed_get_espaces',
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'page arguments' => array(3),
+    'type' => MENU_NORMAL_ITEM
+  );
+
+  $items['activity/async/get_actors'] = array(
+    'page callback' => 'gofast_activity_feed_get_actors',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(2),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
   return $items;
 }
 
@@ -56,12 +73,52 @@ function gofast_activity_feed_menu(){
  */
 function gofast_activity_feed_init() {
   $activity_path = drupal_get_path('module', 'gofast_activity_feed');
-  if(module_exists('gofast_mobile')){
+  if(module_exists('gofast_mobile')) {
+    drupal_add_js($activity_path . '/js/gofast_activity_stream_filters.js');
     drupal_add_js($activity_path . "/js/gofast_activity_feed.js");
   }
 
   $params['activity_feed']['items_per_page'] = variable_get("gofast_max_items_on_feed", 16);
   drupal_add_js($params,'setting');
+  
+  if(isset($_SESSION['last_activity_timestamp_must_calculated']) && current_path() == "gofast/poll"){      
+        $filters2 = gofast_activity_feed_get_filters();
+        //Prepare the query
+        $query2 = new EntityFieldQuery();
+
+        //Select entity types to retrieve
+        $query2->entityCondition('entity_type', 'node')
+                ->propertyCondition('type', $filters2['types'], 'IN');
+        //Bypass for admin
+        if($user->uid !== 1){
+          $query2->propertyCondition('status', 1);
+        }
+
+        //Order the activity feed
+        $query2->propertyOrderBy('sticky', 'DESC');
+        $query2->propertyOrderBy('changed', 'DESC');
+
+        //Filter by space (Bypass for technical Admin)
+        if($user->uid != 1){
+          $query2->fieldCondition('og_group_content_ref', 'og_group_content_ref_target_id', $filters2['spaces'], 'IN');
+        }
+
+        //Filter by state if needed
+        if(count($filters2['states']) > 0){
+          $query2->fieldCondition('field_state', 'tid', $filters2['states'], 'IN');
+        }
+
+        $query2->range((GOFAST_MAX_PAGES_ON_ACTIVITY_FEED * GOFAST_MAX_ITEMS_ON_FEED), 1);
+
+        $result2 = $query2->execute()['node'];
+
+        if(count($result2) == 1){
+            $nid = array_keys($result2)[0];
+            $node = node_load($nid);
+            $_SESSION['last_activity_timestamp'] = $node->changed; 
+            unset($_SESSION['last_activity_timestamp_must_calculated']);
+        }               
+  }
 }
 
 /*
@@ -85,11 +142,11 @@ function gofast_activity_feed_display($ajax = FALSE, $mobile = FALSE){
   //Retrieve the filters
   $filters = gofast_activity_feed_get_filters();
   //Generate the rows corresponding to the content
-  if($mobile == TRUE){
-    $table = theme("gofast_activity_table_content_mobile", array('items' => $content, 'ajax' => $ajax));
-  }else{
+//  if($mobile == TRUE){
+//    $table = theme("gofast_activity_table_content_mobile", array('items' => $content, 'ajax' => $ajax));
+//  }else{
     $table = theme("gofast_activity_table_content", array('items' => $content, 'ajax' => $ajax));
-  }
+//  }
 
   //Display it into the activity feed theme
   $page .= theme("gofast_activity_main", array('table_content' => $table, 'page' => $filters['page'], 'ajax' => $ajax));
@@ -99,6 +156,223 @@ function gofast_activity_feed_display($ajax = FALSE, $mobile = FALSE){
   } else{
     print $page;
   }
+}
+
+function gofast_activity_feed_display_test(){
+
+  $page = "";
+
+  //Default behavior : At the 1st display of the page, we want to display blog activity
+  if(!$ajax) {$_POST['display_blog'] = 1;}
+  if($_POST['mobile'] == 0){
+    $mobile = FALSE;
+  }else{
+    $mobile = TRUE;
+  }
+  //Get the activity feed's current page content
+  if($ajax == TRUE){ //Sync call disabled GOFAST-3831
+    $content = json_decode(gofast_activity_feed_ajax(FALSE), TRUE);
+  }
+
+  //Retrieve the filters
+  $filters = gofast_activity_feed_get_filters();
+  //Generate the rows corresponding to the content
+  if($mobile == TRUE){
+    $table = theme("gofast_activity_table_content_mobile", array('items' => $content, 'ajax' => $ajax));
+  }else{
+    $table = theme("gofast_activity_table_content", array('items' => $content, 'ajax' => $ajax));
+  }
+
+  $list = theme('gofast_activity_main_list', ['items' => $content, 'ajax' => $ajax]);
+
+  //Display it into the activity feed theme
+  $page .= theme("gofast_activity_main", array('table_content' => $table, 'page' => $filters['page'], 'ajax' => $ajax));
+  if(!$ajax){
+    drupal_add_js(drupal_get_path('module', 'gofast_message_ext') . '/gofast_message_ext.js');
+  } else{
+    print $page;
+  }
+
+
+  $sideContent = theme('gofast_activity_stream_filter');
+
+  $subheader = theme('gofast_menu_header_subheader');
+
+  $pageContent = gofast_create_page_content($page, 'content-block-right', $sideContent);
+
+  return $pageContent;
+}
+
+function gofast_create_activity_stream_filter(){
+
+  $filters = [];
+
+  global $user;
+  $account = user_load($user->uid);
+
+  //recuperer la liste des id des groupes et organisation
+  $user_og = array();
+  $orgs = NULL;
+  $groups = NULL;
+  $public = NULL;
+  $extranet = NULL;
+  if (isset($account->og_user_node[LANGUAGE_NONE])) {
+    $user_og = $account->og_user_node[LANGUAGE_NONE];
+    foreach ($user_og as $key => &$value) {
+      $value = $value['target_id'];
+    }
+  }
+
+  //get membership from user's userlists
+  $groups_by_user = gofast_userlist_og_get_groups_by_user($account,'node');
+  foreach($groups_by_user as $group_id){
+     $user_og[] = $group_id;
+  }
+
+  $og = gofast_og_get_spaces_by_bundle();
+  foreach ($og['organisation'] as $id => $org) {
+    if (in_array($id, $user_og)) {
+      $orgs[$id] = $org->title;
+    }
+  }
+  foreach ($og['group'] as $id => $grp) {
+    if (in_array($id, $user_og)) {
+      $groups[$id] = $grp->title;
+    }
+  }
+
+  foreach ($og['public'] as $id => $grp) {
+    $public[$id] = $grp->title;
+  }
+
+  foreach ($og['extranet'] as $id => $grp) {
+    if (in_array($id, $user_og)) {
+      $extranet[$id] = $grp->title;
+    }
+  }
+  //        debug($groups);
+
+  //recuperer l'espace privé de l'utilisateur courant
+  $user_pog = array();
+  if (isset($account->{GOFAST_OG_USER_PRIVATE_SPACE}[LANGUAGE_NONE])) {
+    $user_pog = $account->{GOFAST_OG_USER_PRIVATE_SPACE}[LANGUAGE_NONE];
+    foreach ($user_pog as $key => &$value) {
+      $value = $value['target_id'];
+    }
+  }
+
+  $noFilter = [
+    'label' => t('No filters', array(), array('context' => 'gofast')),
+    'title' => t('Display all contents', array(), array('context' => 'gofast')),
+    'icone' => '',
+    'data_filter' => 'no_filter',
+    'class' => 'no_filter btn-hover-danger',
+    'id' => ''
+  ];
+
+  $filters['singleFilters'][] = $noFilter;
+
+  $blogFilter = [
+    'label' => t('Display blog messages', array(), array('context' => 'gofast')),
+    'title' => t('Display blog', array(), array('context' => 'gofast')),
+    'icone' => '',
+    'data_filter' => 'display_blog',
+    'class' => 'check-display-blog btn-hover-primary',
+    'id' => ''
+  ];
+
+  // if ($_COOKIE['display_blog'] == 1 || !isset($_COOKIE['display_blog'])){
+  //     $blogFilter['class'] = 'check-display-blog btn-hover-primary selected';
+  // }
+
+  $filters['singleFilters'][] = $blogFilter;
+
+
+  //générer le bouton des private contents
+  if ($user_pog) {
+    $userFilter = [
+      'label' => t('Private Contents', array(), array('context' => 'gofast')),
+      'title' => t('Display contents you have created, modified or commented', array(), array('context' => 'gofast')),
+      'icone' => '',
+      'data_filter' => 'user_filter',
+      'class' => 'private_contents_filter btn-hover-primary',
+      'id' => ''
+    ];
+
+    foreach ($og['private_space'] as $id => $orga) {
+      if (in_array($id, $user_pog)) {
+        $userFilter['id'] = $id;
+        $filters['singleFilters'][] = $userFilter;
+      }
+    }
+  }
+
+  $forumFilter = [
+    'label' => t('Forums'),
+    'title' => t('Display your forums'),
+    'icone' => '',
+    'data_filter' => 'type_filter',
+    'class' => 'type_contents_filter btn-hover-primary',
+    'id' => 'forum'
+  ];
+
+  $filters['singleFilters'][] = $forumFilter;
+
+  $confeFilter = [
+    'label' => t('Meetings'),
+    'title' => t('Display your meetings'),
+    'icone' => '',
+    'data_filter' => 'type_filter',
+    'class' => 'type_contents_filter btn-hover-primary',
+    'id' => 'conference'
+  ];
+
+  $filters['singleFilters'][] = $confeFilter;
+
+  $spaceFilter = [
+      'label' => t('Spaces', array(), array('context' => 'gofast')),
+      'title' => t('Filtering by space : ', array(), array('context' => 'gofast')),
+      'icon' => 'fas fa-share',
+      'id' => 'space',
+      'data_tree' => 'spaces',
+  ];
+
+  $filters['accordionFilter'][] = $spaceFilter;
+
+
+  //générer l'accordion des State
+
+  $stadeFilter = [
+    'label' => t('State', array(), array('context' => 'gofast')),
+    'title' => t('Filtering by status : ', array(), array('context' => 'gofast')),
+    'icon' => 'fas fa-flag',
+    'id' => 'state',
+    'states' => [],
+  ];
+
+  $states = taxonomy_get_tree(GOFAST_VID_STATE);
+  foreach ($states as $state) {
+    $newState = [
+      'id' => $state->tid,
+      'label' => i18n_taxonomy_localize_terms($state)->name,
+    ];
+    $stadeFilter['states'][] = $newState;
+    //$content6 .= '<a class="og_contents_filter state_contents_filter" ids="' . $result->tid .'" href="#"  title="' . t('Filtering by status : ', array(), array('context' => 'gofast'))  . $result->name . '">' . i18n_taxonomy_localize_terms($result)->name . '</a></br>';
+  }
+
+  $filters['accordionStateFilter'][] = $stadeFilter;
+
+  // Creator accordion
+  $creatorFilter = [
+    'label' => t('Creator', array(), array('context' => 'gofast')),
+    'title' => t('Filtering by creator : ', array(), array('context' => 'gofast')),
+    'icon' => 'fas fa-user',
+    'id' => 'creator'
+  ];
+
+  $filters['accordionActorsFilter'][] = $creatorFilter;
+
+  return $filters;
 }
 
 /*
@@ -112,6 +386,7 @@ function gofast_activity_feed_ajax($ajax = TRUE){
 
   //Retrieve the filters
   $filters = gofast_activity_feed_get_filters();
+
   //Count request ?
   $count = $filters['is_count'] == TRUE ? TRUE : FALSE;
 
@@ -135,25 +410,29 @@ function gofast_activity_feed_ajax($ajax = TRUE){
  */
 function gofast_activity_feed_get_filters(){
   $filters = array();
-
   //Max items returned by the query
   $filters['itemCount'] = GOFAST_MAX_ITEMS_BY_QUERY;
 
   //Store if a filter is selected or not
-  $filters['no_filters'] = !isset($_POST['spaces']) && !isset($_POST['states']) && !isset($_POST['types']);
+  $filters['no_filters'] = !isset($_POST['spaces']) && !isset($_POST['actors']) && !isset($_POST['states']) && !isset($_POST['types']);
 
-  //Get the spaces filter if it exists, set to user memberships otherwise
-  $filters['spaces'] = isset($_POST['spaces']) && count(json_decode($_POST['spaces'])) > 0 ? json_decode($_POST['spaces'], TRUE) : gofast_og_get_spaces_by_user();
-
+  //If the private filter is enabled, filter on content in the private space of the user
+  if(isset($_POST["private_filter"]) && $_POST["private_filter"] == true) {
+    $private_nid = gofast_og_get_user_private_space()->nid;
+    $filters['spaces'] = array($private_nid=>$private_nid);
+  }else{
+    //Get the spaces filter if it exists, set to user memberships otherwise
+    $filters['spaces'] = isset($_POST['spaces']) && count(json_decode($_POST['spaces'])) > 0 ? json_decode($_POST['spaces'], TRUE) : gofast_og_get_spaces_by_user();
+  }
   //Get the states filter if it exists, empty array otherwise
   $filters['states'] = isset($_POST['states']) && count(json_decode($_POST['states'])) > 0 ? json_decode($_POST['states'], TRUE) : array();
+
 
   //Get the types filter if it exists, base content types
   $filters['types'] = isset($_POST['types']) && count(json_decode($_POST['types'])) > 0 ? json_decode($_POST['types'], TRUE) : gofast_activity_feed_get_bundles();
 
-//  //Get the types filter if it exists, base content types
-//  $filters['users'] = isset($_POST['users']) && count(json_decode($_POST['users'])) > 0 ? json_decode($_POST['users'], TRUE) : array();
-//
+  $filters['actors'] = isset($_POST['actors']) && count(json_decode($_POST['actors'])) > 0 ? json_decode($_POST['actors'], TRUE) : array();
+
   //Display blog items if needed
   if($_POST['display_blog'] == 1 || gofast_mobile_is_mobile_domain()){
     $filters['spaces'][] = 0;
@@ -186,43 +465,8 @@ function gofast_activity_feed_get_filters(){
  */
 function gofast_activity_feed_user_login(){
     global $user;
-
-    $filters = gofast_activity_feed_get_filters();
-
-    //Prepare the query
-    $query = new EntityFieldQuery();
-
-    //Select entity types to retrieve
-    $query->entityCondition('entity_type', 'node')
-            ->propertyCondition('type', $filters['types'], 'IN');
-    //Bypass for admin
-    if($user->uid !== 1){
-      $query->propertyCondition('status', 1);
-    }
-
-    //Order the activity feed
-    $query->propertyOrderBy('sticky', 'DESC');
-    $query->propertyOrderBy('changed', 'DESC');
-
-    //Filter by space (Bypass for technical Admin)
-    if($user->uid != 1){
-      $query->fieldCondition('og_group_content_ref', 'og_group_content_ref_target_id', $filters['spaces'], 'IN');
-    }
-
-    //Filter by state if needed
-    if(count($filters['states']) > 0){
-      $query->fieldCondition('field_state', 'tid', $filters['states'], 'IN');
-    }
-
-    $query->range((GOFAST_MAX_PAGES_ON_ACTIVITY_FEED * GOFAST_MAX_ITEMS_ON_FEED), 1);
-
-    $result = $query->execute()['node'];
-    
-    if(count($result) == 1){
-        $nid = array_keys($result)[0];
-        $node = node_load($nid);
-        $_SESSION['last_activity_timestamp'] = $node->changed;
-    }
+    $_SESSION['last_activity_timestamp'] = strtotime("-2 week");
+    $_SESSION['last_activity_timestamp_must_calculated'] = true;  
 }
 
 /*
@@ -244,11 +488,11 @@ function gofast_activity_feed_get_items($filters = array(), $count = FALSE){
   //Select entity types to retrieve
   $query->entityCondition('entity_type', 'node')
           ->propertyCondition('type', $filters['types'], 'IN');
-  
+
   $query->entityCondition('entity_type', 'node')
                  ->propertyCondition("sticky", 1, "!=")
                  ->propertyCondition('status', 1);
-  
+
   $query_sticky->entityCondition('entity_type', 'node')
                  ->propertyCondition("sticky", 1, "=")
                  ->propertyCondition('status', 1);
@@ -269,6 +513,16 @@ function gofast_activity_feed_get_items($filters = array(), $count = FALSE){
   if(count($filters['states']) > 0){
     $query->fieldCondition('field_state', 'tid', $filters['states'], 'IN');
     $query_sticky->fieldCondition('field_state', 'tid', $filters['states'], 'IN');
+  }
+
+
+  //Filter by state if needed
+  if(count($filters['actors']) > 0){
+    $query->entityCondition('entity_type', 'node')
+    ->propertyCondition("uid", $filters['actors'], "IN");
+
+    $query_sticky->entityCondition('entity_type', 'node')
+    ->propertyCondition("uid", $filters['actors'], "IN");
   }
 
   //Filter by users if needed
@@ -293,6 +547,8 @@ function gofast_activity_feed_get_items($filters = array(), $count = FALSE){
     $result_query_sticky = $query_sticky->execute();
     $result_query = $query->execute();
     if(count($result_query_sticky['node']) > 0){
+        //Fixing cases where there is only sticky results : $result_query['node'] would be null which would lead to an operand error
+        $result_query['node'] = ($result_query['node'] == NULL) ? array() : $result_query['node'];
         $result = array_unique($result_query_sticky['node'] + $result_query['node'], SORT_REGULAR);
     }else{
           $result = $result_query['node'];
@@ -353,6 +609,7 @@ function gofast_activity_feed_fill_fields($items = array()){
       'last_modifier',
       'format_name',
       'field_popularity',
+      'field_criticity',
   );
 
   //Allow external modules to edit this list
@@ -368,7 +625,7 @@ function gofast_activity_feed_fill_fields($items = array()){
     if($item->type !== 'blog'){
       if(in_array('title', $fields, TRUE)){
         //Get title
-        $items[$key]->title = "<a href=/node/".$item->nid.">".gofast_get_node_title($item->nid)."</a>";
+        $items[$key]->title = "<a class='gofast_activity_feed_title text-dark text-hover-primary font-weight-bolder font-size-lg text-truncate mr-2' href=/node/".$item->nid.">".gofast_get_node_title($item->nid)."</a>";
       }
 
       //GET: nid
@@ -387,7 +644,7 @@ function gofast_activity_feed_fill_fields($items = array()){
             $event_linksharing = TRUE;
             $items[$key]->last_event = $render['last_event'];
             //Load the picture of the shareholder by mail
-            $picture_linksharing = theme('user_picture', array( 'account' => user_load($render['user_uid']), 'popup' => TRUE, ));
+            $picture_linksharing = theme('user_picture', array( 'account' => user_load($render['user_uid']), 'popup' => TRUE, 'dimensions' => 40));
         }else{
         $items[$key]->last_event = $render;
         }
@@ -434,6 +691,14 @@ function gofast_activity_feed_fill_fields($items = array()){
         $items[$key]->state = $state;
       }
 
+      if(in_array('field_criticity', $fields, TRUE)) {
+        $criticity = "";
+        if(isset($node->field_criticity[LANGUAGE_NONE][0])){ //Default value
+          $criticity = i18n_taxonomy_localize_terms(taxonomy_term_load($node->field_criticity[LANGUAGE_NONE][0]['tid']))->name;
+        }
+        $items[$key]->criticity = $criticity;
+      }
+
       //GET: Menu
       //Prepare request to custom view field
       //GOFAST-3831 : Now async
@@ -447,13 +712,14 @@ function gofast_activity_feed_fill_fields($items = array()){
         foreach($node->og_group_content_ref[LANGUAGE_NONE] as $group){
           if($count < 3){
             $gid = $group['target_id'];
+            $group_icon = gofast_taxonomy_icon_filename(node_load($gid)->field_format[LANGUAGE_NONE][0]['tid']);
             //Access is bypassed for user 1/Admin
             $node_access = (og_get_membership('node', $gid, 'user', $user->uid) != FALSE) || gofast_userlist_og_is_user_member_of_space($gid) ||$user->uid === 1;
             if($node_access){
                 $count ++;
                 $group_node_title = gofast_get_node_title($gid);
                 $spaces_list .= "<a href=/node/" . $gid . " title='" . $group_node_title . "' >" . $group_node_title . "</a><br>";
-                $spaces_list_popup .= "<li><a href=/node/" . $gid . " title='" . $group_node_title . "' >" . $group_node_title . "</a></li>";
+                $spaces_list_popup .= "<li class='navi-item'><a href=/node/" . $gid . " title='" . $group_node_title . "' class='navi-link'><span class='navi-icon'><i class='fas " . $group_icon . "'></i></span><span class='navi-text'>" . $group_node_title . "</span></a></li>";
             }
           }else{
               $gid = $group['target_id'];
@@ -462,14 +728,14 @@ function gofast_activity_feed_fill_fields($items = array()){
             if($node_access){
                 $count_more ++;
                 $group_node_title = gofast_get_node_title($gid);
-                $spaces_list_popup .= "<li><a href=/node/" . $gid . " title='" . $group_node_title . "' >" . $group_node_title . "</a></li>";
+                $spaces_list_popup .= "<li class='navi-item'><a href=/node/" . $gid . " title='" . $group_node_title . "' class='navi-link'><span class='navi-icon'><i class='fas " . $group_icon . "'></i></span><span class='navi-text'>" . $group_node_title . "</span></a></li>";
             }
           }
         }
 
         if($count_more > 0){
-            $spaces_list .= $count_more . " " . t("more", array(), array("context" => "gofast:gofast_activity_feed")) . "..." . '<div class="glyphicon glyphicon-search" onmouseover="displayLastEvent(this)" onmouseout="hideLastEvent(this)"></div>';
-            $spaces_list .= '<div style="display: none; margin-top: -2px;" onmouseover="display(this)" onmouseout="hide(this)"><div class="panel panel-primary" style="position:absolute;min-width:200px;z-index:999;"><div class="panel-heading">' . t("Spaces") . '</div><div class="panel-body"><ul>' . $spaces_list_popup . "</ul></div></div></div>";
+            $button_text = $count_more . " " . t("more", array(), array("context" => "gofast:gofast_activity_feed")) . "...";
+            $spaces_list .= theme('gofast_activity_table_more_spaces', array('popover_content' => $spaces_list_popup, 'button_text' => $button_text));
         }
         $items[$key]->spaces_list = $spaces_list;
       }
@@ -483,7 +749,21 @@ function gofast_activity_feed_fill_fields($items = array()){
 
 	if(in_array('last_event', $fields, TRUE)){
 	  //GET: Last event date
-	  $items[$key]->last_event = format_date($node->changed);
+            $timestamp = $node->changed;
+          if($timestamp< (time()-86400)){
+              $date = format_date($timestamp, 'long');
+          }else{
+              $relative_timestamp = (time()-$timestamp);
+              $hours = floor($relative_timestamp / 3600);
+              $minutes = floor(($relative_timestamp / 60) % 60);
+              if($hours == 0) {
+                  $date = t("@min min ago", array('@min' => $minutes));
+              }else{
+                  $date = t("@hour hour(s) and @min min ago", array('@hour' => $hours, '@min' => $minutes));
+              }
+          }
+          $user_name = gofast_user_display_name(user_load($node->uid));
+	  $items[$key]->last_event = t("@user posted this @date.", array('@user' => $user_name, '@date' => $date), array('context' => 'gofast'));
 	}
 
 	if(in_array('sticky', $fields, TRUE)){
@@ -531,5 +811,144 @@ function gofast_activity_feed_theme() {
     'gofast_activity_table_content_mobile' => array(
       'template' => 'tpl/gofast-activity-table-content-mobile'
     ),
+    'gofast_activity_content' => array(
+      'template' => 'tpl/gofast-activity-content'
+    ),
+    'gofast_activity_stream_filter' => array(
+      'template' => 'tpl/gofast-activity-stream-filter'
+    ),
+    'gofast_activity_main_list' => array(
+      'template' => 'tpl/list/gofast-activity-main-list'
+    ),
+    'gofast_activity_main_list_row' => array(
+      'template' => 'tpl/list/gofast-activity-main-list-row'
+    ),
+    'gofast_activity_table_content_event' => array(
+        'template' => 'tpl/gofast-activity-table-content-event',
+        'variables' => array('item' => NULL)
+    ),
+    'gofast_activity_table_more_spaces' => array(
+        'template' => 'tpl/gofast-activity-table-more-spaces',
+        'variables' => array('popover_content' => NULL, 'button_text' => NULL)
+    ),
   );
+}
+
+
+function template_preprocess_gofast_activity_stream_filter(&$variables){
+
+  $block = module_invoke('gofast_views', 'block_view', 'activity_listing_filters');
+  $content = $block['content'];
+  $filters = gofast_create_activity_stream_filter();
+
+  $columns['firstname'] = t('First name', array(), array('context' => 'gofast:gofast_directory'));
+  $columns['lastname'] = t('Last name', array(), array('context' => 'gofast:gofast_directory'));
+
+  $variables['columns'] = json_encode($columns);
+  $variables['filters'] = $filters;
+  $variables['content'] = $content;
+}
+
+function gofast_activity_feed_get_espaces($mainSpace){
+
+  header('Content-Type: application/json');
+
+  $nodes = [];
+
+  $espaceId = $_GET['id'];
+
+  if ( $espaceId === "#" ) {
+
+    $name = '';
+
+    if($mainSpace == 'spaces') {
+
+        $root_spaces = array('Groups', 'Organisations', 'Public', 'Extranet');
+        foreach($root_spaces as $r_space) {
+            $gid = gofast_og_get_group_id_from_title($r_space, 'Sites/_'.$r_space);
+
+            $node = [
+                "id" => $gid,
+                "text" => $r_space,
+                "children" => true
+            ];
+
+            $nodes[] = $node;
+        }
+
+    }else {
+        switch ($mainSpace) {
+
+        case 'group':
+            $name = 'Groups';
+            break;
+
+        case 'organisation':
+            $name = 'Organisations';
+            break;
+
+        case 'public':
+            $name = 'Public';
+            break;
+
+        case 'extranet':
+            $name = 'Extranet';
+            break;
+
+        default:
+            $name = 'Public';
+            break;
+        }
+
+        $gid = gofast_og_get_group_id_from_title($name, 'Sites/_'.$name);
+
+        $node = [
+            "id" => $gid,
+            "text" => $name,
+            "children" => true
+        ];
+
+        $nodes[] = $node;
+
+    }
+  }
+
+  else if ( $espaceId >= 0 ) {
+
+    $childrens = gofast_og_get_children($espaceId);
+
+    foreach($childrens as $child){
+
+      $nodeId = intval($child);
+
+      $haveChildrens = gofast_og_get_children($nodeId) ? TRUE : FALSE ;
+
+      $node = [
+        "id" => $nodeId,
+        "text" => gofast_get_node_title($nodeId),
+        "children" => $haveChildrens
+      ];
+
+      $nodes[] = $node;
+    }
+
+
+  }
+
+  echo json_encode( $nodes);
+}
+
+
+function gofast_activity_feed_get_actors(){
+  $active_users = gofast_query_get_active_users();
+  $users = [];
+
+  foreach($active_users as $active_user){
+    if($active_user->uid != 0){
+      $users['uid'] = $active_user->uid;
+      $users['displayname'] = $active_user->displayName;
+      $res[] = $users;
+    }
+  }
+  print json_encode($res);
 }

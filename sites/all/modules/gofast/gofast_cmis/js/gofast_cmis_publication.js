@@ -2,6 +2,9 @@
   'use strict';
   Gofast.manage_publication_process = function(){
     var panels = $(".manage-publications-panel");
+    var panelsProgressBar = $("#publications-panels-progress .progress-bar");
+    var numberOfPanels = panels.length;
+    var processedPanels = 0;
     var timeout = 0;
     
     //For each panel, process the request and check the result
@@ -74,6 +77,15 @@
                   $(slocation).html($(slocation).text() + " <i class='fa fa-plus' style='color:red' aria-hidden='true'></i>");
               });
               var success = false;
+          }
+          if (success) {
+            // update progress bar
+            processedPanels++;
+            const progressWidth = Math.round((100 / numberOfPanels) * processedPanels);
+            panelsProgressBar.css({width: progressWidth + "%"});
+            panelsProgressBar.attr("aria-valuenow", progressWidth);
+            // panelsProgressBar.html(processedPanels + " / " + numberOfPanels);
+            panelsProgressBar.html(progressWidth + "%");
           }
           if(success && type == 'no_pdf'){
             $(panel).find('.panel-body').find(".manage-publications-info").html("<i class='fa fa-warning' style='color:#ffc107' aria-hidden='true'></i> " + Drupal.t("The pdf preview of the original document doesn't exist", {}, {context: 'gofast:taxonomy'}));             

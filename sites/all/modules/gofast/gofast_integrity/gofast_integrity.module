@@ -200,6 +200,15 @@ function gofast_integrity_process_folders(){
             $invalid_folders = array_merge($invalid_folders, $permissions['invalid']);
             variable_set("gofast_integrity_invalid_folders", $invalid_folders);
         }
+
+        // watchdog('gofast_integrity', "Starting folders mirroring check");
+        // $mirrors = gofast_integrity_alfresco_identify_folders_mirrors($folders);
+        // if(count($mirrors['invalid']) != 0) {
+        //     watchdog('gofast_integrity', count($permissions['invalid']) . " invalid folders identified in mirrors check !");
+        //     $invalid_folders = variable_get("gofast_integrity_invalid_folders", array());
+        //     $invalid_folders = array_merge($invalid_folders, $mirrors['invalid']);
+        //     variable_set("gofast_integrity_invalid_folders", $invalid_folders);
+        // }
     
         watchdog('gofast_integrity', "End of folders batch, preparing folders integrity for next batch");
         variable_set('gofast_integrity_folders_skip', ($skip+GOFAST_INTEGRITY_FOLDERS_BATCH_SIZE));

@@ -60,8 +60,8 @@ class gofast_views_handler_field_user_roles extends views_handler_field_prerende
   }
 
   function document_self_tokens(&$tokens) {
-    $tokens['[' . $this->options['id'] . '-role' . ']'] = t('The name of the role.', array(), array('context' => 'gofast'));
-    $tokens['[' . $this->options['id'] . '-rid' . ']'] = t('The role ID of the role.', array(), array('context' => 'gofast'));
+    $tokens['[' . $this->options['id'] . '-role' . ']'] = t('The name of the profile.', array(), array('context' => 'gofast'));
+    $tokens['[' . $this->options['id'] . '-rid' . ']'] = t('The role ID of the profile.', array(), array('context' => 'gofast'));
   }
 
   function add_self_tokens(&$tokens, $item) {

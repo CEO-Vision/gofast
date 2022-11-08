@@ -27,7 +27,7 @@
         if($node->status == 1 && $documents_form_defaults['gofast_onlyoffice_ro_preview'] && in_array(strtolower(gofast_cmis_node_get_extension($node)), gofast_onlyoffice_viewable_document_extensions())){
             $final_content_with_iframe = gofast_onlyoffice_editor($node, TRUE);
         }else{
-            $final_content_with_iframe = gofast_cmis_replace_iframe(render($content), $node);
+            
         }
       if($final_content_with_iframe == "RELOAD"){
           print "<script>window.location.reload();</script>";

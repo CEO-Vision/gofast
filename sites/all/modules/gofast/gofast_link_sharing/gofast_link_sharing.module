@@ -47,7 +47,6 @@ function gofast_link_sharing_menu() {
     'page arguments' => array(2),
     'type' => MENU_NORMAL_ITEM,
     'access callback' => TRUE,
-    'access arguments' => array('access content'),
     'delivery callback' => 'gofast_link_sharing_delivery_callback'
   );
 
@@ -59,7 +58,6 @@ function gofast_link_sharing_menu() {
     'page arguments' => array(2),
     'type' => MENU_NORMAL_ITEM,
     'access callback' => TRUE,
-    'access arguments' => array('access content'),
     //'delivery callback' => 'gofast_link_sharing_delivery_callback'
   );
 
@@ -85,7 +83,7 @@ function gofast_link_sharing_menu() {
 
   $items['linksharing/manage_linksharing/process'] = array(
     'page callback' => 'gofast_manage_linksharing_process',
-    'access callback' => TRUE,
+    'access callback' => 'user_access',
     'access arguments' => array('access content'),
     'type' => MENU_CALLBACK,
   );
@@ -94,7 +92,7 @@ function gofast_link_sharing_menu() {
   $items['public/multi_sharing'] = array(
     'title' => 'Share',
     'description' => 'Share a link to a file',
-    'page callback' => 'drupal_get_form',
+    'page callback' => 'gofast_link_sharing_multi_link_page',
     'page arguments' => array('gofast_multi_link_sharing_form'), //put the name of the form here
     'access callback' => TRUE,
   );
@@ -110,20 +108,16 @@ function gofast_link_sharing_theme(){
     'template' => 'tpl/gofast-link-sharing-body'
   );
 
-  $theme['gofast-link-sharing-body-all-mail'] = array(
-    'template' => 'tpl/gofast-link-sharing-body-all-mail'
-  );
-
   $theme['gofast-link-sharing-file-details'] = array(
     'template' => 'tpl/gofast-link-sharing-file-details'
   );
 
-  $theme['gofast-sharing-download'] = array(
-    'template' => 'tpl/gofast-sharing-download'
+  $theme['gofast-link-sharing-multi-file-details'] = array(
+    'template' => 'tpl/gofast-link-sharing-multi-file-details'
   );
 
-  $theme['gofast-multi-sharing-download'] = array(
-    'template' => 'tpl/gofast-multi-sharing-download'
+  $theme['gofast-sharing-download'] = array(
+    'template' => 'tpl/gofast-sharing-download'
   );
 
   $theme['gofast_manage_linksharing_progression'] = array(
@@ -134,11 +128,14 @@ function gofast_link_sharing_theme(){
      'template'  => 'tpl/gofast-manage-linksharing-body'
   );
 
-  $theme['gofast_manage_linksharing_body_all_mail'] = array(
-     'template'  => 'tpl/gofast-manage-linksharing-body-all-mail'
-  );
-
   return $theme;
+}
+
+function gofast_link_sharing_multi_link_page($multi_link_form_name){
+  $multi_link_form = drupal_get_form($multi_link_form_name);
+  $content = theme('gofast-link-sharing-multi-file-details', ['form' => $multi_link_form]);
+  $pageContent = gofast_create_page_content($content);
+  return $pageContent;
 }
 
 /**
@@ -179,7 +176,7 @@ function gofast_link_sharing_form_modal($js, $node=null){
   if (!isset($commands[0])) {
     $values_sharing = json_decode($form_state['input']['edit-to-hidden-values']);
     if (!empty($form_state['input']['to'])){
-        $values_sharing[] = $form_state['input']['to'];
+      $values_sharing[] = $form_state['input']['to'];
     }
     $commands = array();
     $commands[] = ctools_modal_command_dismiss();
@@ -287,7 +284,7 @@ function gofast_link_sharing(){
  *
  */
 function gofast_sharing_download(){
-    
+
     global $base_url;
     $decrypt_datas = gofast_link_sharing_link_decrypt($_GET['hash']);
     $nid = $decrypt_datas['nid'];
@@ -308,24 +305,26 @@ function gofast_sharing_download(){
     usurp(1);
 
     $node = node_load($nid);
+    $nodes_informations[0]['title'] = $node->title;
     $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
-    $document_pic = gofast_mail_queue_fa_png($node_icon);
+    $nodes_informations[0]['icon'] =  gofast_mail_queue_fa_png($node_icon);
+    $nodes_informations[0]['url'] = $base_url .'/node/' . $nid;
+    $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
+    $message_tag = '<a href="mailto:' . $mail . '" style="color: 3699ff; text-decoration: none;">' . $nameDestinaire. '</a>';
+    $author_pic_url = gofast_get_url_picture_by_id($destinataire->uid);
+    $author_pic = '<img src="' . $author_pic_url . '" style="padding-right: 5px; border-radius; 5px;" width="25">';
 
     $l = array('langcode' => $emetteur->language, 'context' => 'gofast:gofast_link_sharing');
     $body = theme('gofast-sharing-download', array(
-          'author_pic' => theme('user_picture', array('account' => $destinataire)),
-          'author_name' => $nameDestinaire,
-          'author_mail' => $mail,
-          'recip_name' => $emetteur->mail,
-          'node_link' =>  url( $base_url.'/node/'.$node->nid ),
-          'node_title' => $node->title,
-          'version' => $version_share,
-          'l' => $l,
-          'document_pic' => $document_pic,
-         ));
+      'message' => str_replace("{tag}", $message_tag, t("{tag} downloaded your document on the GoFAST plateform", array(), array('context' => 'gofast:gofast_link_sharing'))),
+      'author_pic' => $author_pic,
+      'recip_name' => $emetteur->ldap_user_givenname[LANGUAGE_NONE][0]['value'],
+      'nodes_informations' => $nodes_informations,
+      'l' => $l,
+    ));
     usurp(false);
 
-    $subject = t("@destinaire downloaded your document on the GoFast 3 plateform",array('@destinaire' => $nameDestinaire),array('langcode' => $emetteur->language,'context' => 'sharing_dl'));
+    $subject = t("@destinaire downloaded your document on the GoFAST plateform", array('@destinaire' => $nameDestinaire), array('langcode' => $emetteur->language, 'context' => 'sharing_dl'));
     $title = t("Sharing Download",array(),array('langcode' => $emetteur->language, 'context' => 'sharing_dl'));
     $footer = t('Message sent from ', array(), $l)." ".variable_get('site_name');
     $dest_mail=array();

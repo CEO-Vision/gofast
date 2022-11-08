@@ -23,8 +23,8 @@
                                     <table width="100%" cellspacing="0" cellpadding="0" border="0" align="left" style="font-size:12px;">
                                         <tr>
                                             <td valign="top" style="color: #666666; font-family: Arial; font-size: 13px; font-weight: normal; line-height: 150%;">
-                                                <?php 
-                                                    print $is_digest ? $user_name : $user_name." <span style='color:red;'>".t('removed by %author', array('%author' => $author), $l)."</span>";
+                                                <?php
+                                                    print $is_digest ? $user_name : $user_name." <span style='color:red;'>".t('removed by %author', array('%author' => $author), $l)."</span> From ". $path;
                                                 ?>
                                               <td style="border:none; text-decoration:none; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; color:#999999; text-align:right;">
                                                 <?php print $date; ?>

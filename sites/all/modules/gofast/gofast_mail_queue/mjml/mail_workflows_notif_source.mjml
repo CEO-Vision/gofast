@@ -1,0 +1,335 @@
+<mjml>
+  <mj-head>
+    <mj-style>
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 400;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-Regular.otf") format("opentype");
+      }
+
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 600;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-SemiBold.otf") format("opentype");
+      }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#EAF1F7" width="992px">
+    <mj-raw>
+      <!-- SubHeader -->
+    </mj-raw>
+    <mj-section padding="0" padding-left="10px" padding-top="10px" background-color="white">
+      <mj-column width="90%">
+        <mj-text padding-left="0" font-size="18px" font-weight="600">
+          Hello User,
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-top="10px" background-color="white">
+      <mj-column width="90%">
+        <mj-text padding-left="0" font-size="14px" font-weight="600">
+          Please review your pending tasks below. This has a comment: <span style="color: #000000; font-size: 14x; font-weight: 400; background-color: #F3F6F9; border: 1px solid #666666; padding: 2px;">Tasks to do
+          </span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-raw>
+      <!-- Workflows -->
+    </mj-raw>
+    <mj-section padding="0" padding-left="10px" padding-top="10px" background-color="white">
+      <mj-column width="90%" background-color="#de6502" border-radius="10px 10px 0 10px">
+        <mj-text color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/cogs-solid-white.png" alt="Information Icon" width="18" />
+                </td>
+                <td>
+                  <span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">
+                    &nbsp;Tasks to do
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" background-color="white">
+      <mj-group width="90%">
+        <mj-column width="20%">
+          <mj-text padding="10px" font-size="14px" font-weight="400">
+            01/01/0000
+          </mj-text>
+        </mj-column>
+        <mj-column width="20%">
+          <mj-text padding="10px" font-size="14px" font-weight="600">
+            Responsible
+          </mj-text>
+        </mj-column>
+        <mj-column width="30%">
+          <mj-text padding="10px" font-size="14px" font-weight="400">
+            Drink responsibly
+          </mj-text>
+        </mj-column>
+        <mj-column width="30%" background-color="#159992">
+          <mj-text padding="10px" color="white" font-size="14px" font-weight="600">
+            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+              <tbody>
+                <tr>
+                  <td>
+                    <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/play-solid-white.png" alt="" width="14">
+                  </td>
+                  <td>
+                    <a href="#" style="color: #FFFFFF; font-size: 14px; font-weight: 600; text-decoration: none;">&nbsp;Execute Task</a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-top="10px" background-color="white">
+      <mj-column width="90%" background-color="#337ab7" border-radius="10px">
+        <mj-text color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/other-white.png" alt="Information Icon" width="18" />
+                </td>
+                <td><span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;Documents</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" background-color="white">
+      <mj-column width="90%" vertical-align="middle">
+        <mj-text padding="0" padding-top="10px" padding-left="10px" font-size="14px" font-weight="400">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/word-primary.png" width="14">
+                </td>
+                <td>
+                  <a href="#" style="color: #337ab7; font-size: 14px; font-weight: 400; text-decoration: none;">&nbsp;GoFAST.doc</a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+        <mj-text padding="0" padding-top="10px" padding-left="10px" font-size="14px" font-weight="400">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/word-primary.png" width="14">
+                </td>
+                <td>
+                  <a href="#" style="color: #337ab7; font-size: 14px; font-weight: 400; text-decoration: none;">&nbsp;GoFAST.doc</a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+        <mj-text padding="0" padding-top="10px" padding-left="10px" font-size="14px" font-weight="400">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/word-primary.png" width="14">
+                </td>
+                <td>
+                  <a href="#" style="color: #337ab7; font-size: 14px; font-weight: 400; text-decoration: none;">&nbsp;GoFAST.doc</a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-top="10px" background-color="white">
+      <mj-column width="90%" background-color="#337ab7" border-radius="10px 10px 0 0">
+        <mj-text color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/play-solid-white.png" alt="Information Icon" width="18" />
+                </td>
+                <td><span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;To Do</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" background-color="white">
+      <mj-group width="90%" background-color="#666666">
+        <mj-column width="20%">
+          <mj-text padding="10px" color="white" font-size="14px" font-weight="600">
+            Date
+          </mj-text>
+        </mj-column>
+        <mj-column width="20%">
+          <mj-text padding="10px" color="white" font-size="14px" font-weight="600">
+            Author
+          </mj-text>
+        </mj-column>
+        <mj-column width="30%">
+          <mj-text padding="10px" color="white" font-size="14px" font-weight="600">
+            Action
+          </mj-text>
+        </mj-column>
+        <mj-column width="30%">
+          <mj-text padding="10px" color="white" font-size="14px" font-weight="600">
+            Comment
+          </mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" background-color="white">
+      <mj-group width="90%">
+        <mj-column width="20%">
+          <mj-text padding="10px" font-size="14px" font-weight="400">
+            01/01/0000
+          </mj-text>
+        </mj-column>
+        <mj-column width="20%">
+          <mj-text padding="10px" font-size="14px" font-weight="600">
+            Author
+          </mj-text>
+        </mj-column>
+        <mj-column width="30%">
+          <mj-text padding="10px" font-size="14px" font-weight="400">
+            Drink responsibly
+          </mj-text>
+        </mj-column>
+        <mj-column width="30%">
+          <mj-text padding="10px" font-size="14px">
+            Is fine
+          </mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" background-color="white">
+      <mj-group width="90%">
+        <mj-column width="20%">
+          <mj-text padding="10px" font-size="14px" font-weight="400">
+            01/01/0000
+          </mj-text>
+        </mj-column>
+        <mj-column width="20%">
+          <mj-text padding="10px" font-size="14px" font-weight="600">
+            Author
+          </mj-text>
+        </mj-column>
+        <mj-column width="30%">
+          <mj-text padding="10px" font-size="14px" font-weight="400">
+            Drink responsibly
+          </mj-text>
+        </mj-column>
+        <mj-column width="30%">
+          <mj-text padding="10px" font-size="14px">
+            Is fine
+          </mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" background-color="white">
+      <mj-column width="90%" background-color="#337ab7" border-radius="10px 10px 0 0">
+        <mj-text color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/history-solid-white.png" alt="Information Icon" width="18" />
+                </td>
+                <td><span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;History</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" background-color="white">
+      <mj-group width="90%" background-color="#666666">
+        <mj-column width="20%">
+          <mj-text padding="10px" color="white" font-size="14px" font-weight="600">
+            Date
+          </mj-text>
+        </mj-column>
+        <mj-column width="20%">
+          <mj-text padding="10px" color="white" font-size="14px" font-weight="600">
+            Author
+          </mj-text>
+        </mj-column>
+        <mj-column width="30%">
+          <mj-text padding="10px" color="white" font-size="14px" font-weight="600">
+            Action
+          </mj-text>
+        </mj-column>
+        <mj-column width="30%">
+          <mj-text padding="10px" color="white" font-size="14px" font-weight="600">
+            Comment
+          </mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" background-color="white">
+      <mj-group width="90%">
+        <mj-column width="20%">
+          <mj-text padding="10px" font-size="14px" font-weight="400">
+            01/01/0000
+          </mj-text>
+        </mj-column>
+        <mj-column width="20%">
+          <mj-text padding="10px" font-size="14px" font-weight="600">
+            Author
+          </mj-text>
+        </mj-column>
+        <mj-column width="30%">
+          <mj-text padding="10px" font-size="14px" font-weight="400">
+            Drank responsibly
+          </mj-text>
+        </mj-column>
+        <mj-column width="30%">
+          <mj-text padding="10px" font-size="14px">
+            Was fine
+          </mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" background-color="white">
+      <mj-group width="90%">
+        <mj-column width="20%">
+          <mj-text padding="10px" font-size="14px" font-weight="400">
+            01/01/0000
+          </mj-text>
+        </mj-column>
+        <mj-column width="20%">
+          <mj-text padding="10px" font-size="14px" font-weight="600">
+            Author
+          </mj-text>
+        </mj-column>
+        <mj-column width="30%">
+          <mj-text padding="10px" font-size="14px" font-weight="400">
+            Drank responsibly
+          </mj-text>
+        </mj-column>
+        <mj-column width="30%">
+          <mj-text padding="10px" font-size="14px">
+            Was fine
+          </mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+  </mj-body>
+</mjml>

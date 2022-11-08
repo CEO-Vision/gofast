@@ -1,0 +1,19 @@
+.document__editable {
+    &--select {
+        .select2-selection__rendered{
+            line-height: 10px !important;
+        }
+        &.select-langue{
+            .select2-selection__rendered{
+                line-height: 21px !important;
+                padding: 0.25rem !important;
+            }
+        }
+        & .select2-container--default .select2-selection--multiple .select2-selection__rendered .select2-selection__choice {
+            margin: 5px 0 0 0;
+        }
+    }
+    &--input {
+        height: 31px!important;
+    }
+}

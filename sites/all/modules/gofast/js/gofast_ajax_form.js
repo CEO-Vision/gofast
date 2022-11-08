@@ -17,7 +17,7 @@
         }
 
         // Create the tab column.
-        var tab_list = $('<ul class="nav nav-tabs vertical-tabs-list"></ul>');
+        var tab_list = $('<ul id="tabs_nav" class="navi navi-hover navi-active navi-accent navi-link-rounded-lg vertical-tabs-list"></ul>');
         $(this).wrap('<div class="tabbable tabs-left vertical-tabs clearfix"></div>').before(tab_list);
 
         // Transform each fieldset into a tab.
@@ -27,6 +27,11 @@
             fieldset: $(this)
           });
           tab_list.append(vertical_tab.item);
+          $(".vertical-tab-button").addClass('navi-item');
+          vertical_tab.link.addClass('navi-link');
+          var child = vertical_tab.link[0].childNodes[0];
+          child.classList.add('navi-text');
+          vertical_tab.item.attr("onclick", "Gofast.removeActiveClassFromTabs()");
           $(this)
                   .removeClass('collapsible collapsed panel panel-default')
                   .addClass('tab-pane vertical-tabs-pane')
@@ -40,7 +45,7 @@
         
         $('> li:first', tab_list).addClass('first');
         $('> li:last', tab_list).addClass('last');
-
+        
         if (!tab_focus) {
           // If the current URL has a fragment and one of the tabs contains an
           // element that matches the URL fragment, activate that tab.
@@ -56,6 +61,10 @@
           tab_focus.data('verticalTab').focus();
         }
       });
+      var forms_location = $('.vertical-tabs-panes');
+      $('.vertical-tabs-panes').detach();
+      $('#card_forms').append(forms_location);
+      $('.form-item-logo').removeClass("checkbox");
     }
   };
 

@@ -96,10 +96,6 @@
       border-top: 1px solid #ddd;
   }
 
-  #activity-feed-table > tbody > tr:first-child{
-    display: none;
-  }
-
   #activity-feed-table > tbody > tr > td.views-field-nothing > div > div > a > ul{
     left: -178px;
   }

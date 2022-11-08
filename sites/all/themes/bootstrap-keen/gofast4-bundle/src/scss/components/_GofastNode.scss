@@ -1,0 +1,137 @@
+.GofastNode {
+
+    &__header {
+
+        &--small {
+            display: flex;
+        }
+        &--medium {
+            display: none;
+        }
+        &--large {
+            display: none;
+        }
+        &--xlarge {
+            display: none;
+        }
+        &--xxlarge {
+            display: none;
+        }
+
+        @media (min-width: $md-device) {
+            &--small {
+                display: none;
+            }
+            &--medium {
+                display: flex;
+            }
+        }
+        @media (min-width: $lg-device) {
+            &--medium {
+                display: none;
+            }
+            &--large {
+                display: flex;
+            }
+        }
+        @media (min-width: $xl-device) {
+            &--large {
+                display: none;
+            }
+            &--xlarge {
+                display: flex;
+            }
+
+        }
+        @media (min-width: $xxl-device) {
+            &--xlarge {
+                display: none;
+            }
+            &--xxlarge {
+                display: flex;
+            }
+
+        }
+    }
+
+    // widen the document/article breadcrumb
+    .breadcrumb-gofast {
+        width: 100%;
+        & .breadcrumb-item-editable {
+            flex-grow: 1;
+            & b {
+                width: 100%;
+            }
+        }
+    }
+}
+
+/* Format document links (metadata) */
+#edit-actagify-ac-list-tags-target-links + tags > tag{
+    width: 96%;
+}
+
+#edit-actagify-ac-list-tags-target-links + tags > tag > div > .tagify__tag-text{
+    width: 91%;
+}
+
+#edit-actagify-ac-list-tags-target-links + tags > tag > .tagify__tag__removeBtn{
+    position: absolute;
+    right: 0px;
+}
+
+#gofast-node-info-basic > .separator + div > div:nth-child(2) > div > ul > li > a{
+    white-space: nowrap;
+    width: 100%;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    text-align: left;
+}
+
+.gofast-node-content{
+    div{
+        div{
+            background-color: transparent !important;
+            .field-body{
+                .editable-container{
+                    div{
+                        .editableform{
+                            .control-group{
+                                width: 100%;
+                                div{
+                                    width: 100%;
+                                    .editable-buttons{
+                                        text-align: center;
+                                        margin-bottom: 10px;
+                                        margin-top: 10px;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+.document_locked{
+    color: red !important;
+}
+
+#unlock_document_span_todo{
+    border-radius: 0px;
+    border-left: 0px;
+}
+#refresh-preview:not(.disabled) > i{
+    color:red !important;
+}
+
+#block-gofast-cmis-gofast-cmis-fast-upload-file #drop_help{
+   /* position: absolute;*/
+    margin-left: auto;
+    margin-right: auto;
+   /* left: 0;
+    right: 0;*/
+    text-align: center;
+}

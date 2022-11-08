@@ -1,44 +1,68 @@
 <?php include_once 'MobileDetect.php'; ?>
-<div class="Navigation">
-  <div class="breadcrumb navigation_simplified Navigation__tabs Navigation__tabs_w_33">
-    <ul class="nav nav-tabs nav-justified ">
-      <li>
-        <a id="navigation_dashboard" class="item_navigation" aria-controls="dashboard" role="tab" data-toggle="tab" href="#navDashboard">
-          <i class="fa fa-th"></i>
-          <?php print t('Dashboard'); ?>
-        </a>
-      </li>
-      <li>
-        <a id="navigation_browser" class="item_navigation" aria-controls="browser" role="tab" data-toggle="tab" href="#navBrowser">
-          <i class="fa fa-folder-open"></i>
-          <?php print t('Spaces / Documents', array(), array('context' => 'gofast:gofast_mobile')); ?>
-        </a>
-      </li>
-      <li role="presentation" class="active">
-        <a id="navigation_activity" class="item_navigation" aria-controls="activity" role="tab" data-toggle="tab" href="#navActivity">
-          <i class="fa fa-bars"></i>
-          <?php print t('Activity'); ?>
-        </a>
-      </li>
-    </ul>
-  </div>
 
-  <div id="home_navigation_content" class="content well well-sm Navigation__content">
-    <div class="tab-content Navigation__tabsContent">
-      <div id="navActivity" role="tabpanel" class="tab-pane fade in active">
-        <?php print gofast_activity_feed_display(FALSE, TRUE); ?>
+<div id="gofast-mobile-home" class="mainContent GofastMobileHome p-3 h-100 <?php print $classes; ?> " <?php print $attributes; ?>>
+  <div class="card card-custom card-stretch GofastMobileHome__container" <?php print $content_attributes; ?>>
+    <div class="card-body d-flex p-0 flex-column">
+      <div class="w-100 px-2">
+        <ul class="nav nav-tabs nav-fill gofastTab w-100 mb-0 justify-content-end flex-nowrap navigation_simplified align-items-center" id="gofastMobileHomeNavTabs" role="tablist">
+          <?php foreach ($links as $key => $link) : ?>
+            <?php if($link['dropdown']) : ?>
+                <li class="nav-item dropdown">
+                    <a class="nav-link px-2 d-flex justify-content-center dropdown-toggle" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">
+                        <span class="nav-icon">
+                        <i class="<?php print $link['icon'] ?>"></i>
+                        </span>
+                        <span class="nav-text"><?php print $link['label']; ?></span>
+                    </a>
+                    <div class="dropdown-menu">
+                        <?php foreach ($link['dropdown-menu'] as $dropdown_link) : ?>
+                            <a class="dropdown-item" data-toggle="tab" id="<?php print $dropdown_link['id']; ?>" aria-controls="<?php print $dropdown_link['href']; ?>" href="#<?php print $dropdown_link['href']; ?>">
+                                <span class="navi-icon pr-2">
+                                    <i class="<?php print $dropdown_link['icon'] ?>"></i>
+                                </span>
+                                <span class="navi-text"><?php print $dropdown_link['label']; ?></span>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </li>
+            <?php else : ?>
+                <li class="nav-item <?php if($link['dropdown']){ echo 'dropdown'; } ?><?php if($link['disabled'] == true){ echo 'disabled'; } ?>">
+                    <a class="nav-link px-2 d-flex justify-content-center <?php if($link['disabled'] == true){ echo 'disabled'; } ?>" id="<?php print $link['id']; ?>" aria-controls="<?php print $link['href']; ?>" data-toggle="tab" href="#<?php print $link['href']; ?>">
+                        <span class="nav-icon">
+                        <i class="<?php print $link['icon'] ?>"></i>
+                        </span>
+                        <span class="nav-text"><?php print $link['label']; ?></span>
+                    </a>
+                </li>
+            <?php endif; ?>
+          <?php endforeach; ?>
+        </ul>
       </div>
-      <div id="navBrowser" role="tabpanel" class="tab-pane fade">
-        <?php $detect = new Mobile_Detect; ?>
-        <?php if ($detect->isMobile() && !$detect->isTablet()) : ?>
-          <?php print theme('gofast_mobile_ajax_file_browser'); ?>
-        <?php else : ?>
-          <?php print theme('ajax_file_browser', array('browser' => TRUE)); ?>
-        <?php endif; ?>
-      </div>
-      <div id="navDashboard" role="tabpanel" class="tab-pane fade">
-        <?php print gofast_dashboard_dashboard_page(); ?>
+      <div class="h-100 w-100 overflow-scroll" >
+        <div class="tab-content h-100 w-100" id="gofastMobileHomeContentPanel">
+          <?php foreach ($links as $key => $link) : ?>
+            <?php if($link['dropdown']) : ?>
+                <?php foreach ($link['dropdown-menu'] as $dropdown_link) : ?>
+                    <div class="tab-pane px-0 pt-0 fade h-100 w-100" id="<?php print $dropdown_link['href']; ?>" role="tabpanel" aria-labelledby="<?php print $dropdown_link['id']; ?>">
+                        <?php print $dropdown_link['content']; ?>
+                    </div>
+                <?php endforeach; ?>
+            <?php else : ?>
+                <div class="tab-pane px-0 pt-0 fade h-100 w-100" id="<?php print $link['href']; ?>" role="tabpanel" aria-labelledby="<?php print $link['id']; ?>">
+                    <?php print $link['content']; ?>
+                </div>
+            <?php endif; ?>
+          <?php endforeach; ?>
+        </div>
       </div>
     </div>
   </div>
 </div>
+<script>
+  // toggle nav based on hash to avoid having zero active tab after aside menu navigation
+  jQuery(document).ready(function() {
+    if (location.hash.length && $("[href='" + location.hash + "']").length) {
+      $("[href='" + location.hash + "']").click();
+    }
+  });
+</script>

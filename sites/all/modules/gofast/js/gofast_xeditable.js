@@ -6,26 +6,103 @@
       Gofast.loadXEditable();
     }
   };
+  
+    Drupal.behaviors.gofast_ztree_popup = {
+    update_field_css: function (xeditable) {
+      var field_width = xeditable.parent().parent().width();
+      var field_offset = xeditable.parent().parent().offset();
+      xeditable.parent().find('.xeditable-trigger').offset({top: field_offset.top});
+      //xeditable.parent().find('.xeditable-trigger-2').offset({top: field_offset.top});
+    },
+
+    update_field_css_2: function (xeditable2) {
+      var field_width2 = xeditable2.parent().parent().width();
+      var field_offset2 = xeditable2.parent().parent().offset();
+      //xeditable.parent().find('.xeditable-trigger').offset({top: field_offset.top});
+      xeditable2.parent().find('.xeditable-trigger-2').offset({top: field_offset2.top});
+    },
+
+    attach: function (context) {
+        console.log("attach");
+      // $('.gofast-og-page:not(.gofast-og-page-processed)').addClass('gofast-og-page-processed').each(function () {
+      $('a[data-toggle="popover"]:not(.xeditable_processed),button[data-toggle="popover"]:not(.xeditable_processed)').addClass("xeditable_processed").click(function (e) {
+        return false;
+        e.preventDefault();
+      });
+
+      var divPopupManual = $('div[class="xeditable-trigger-1"]');
+      if (divPopupManual !== null && divPopupManual.size() > 0) {
+
+        var func = this.update_field_css;
+        func(divPopupManual);
+        divPopupManual.parent().parent().hover(function () {
+          $(this).find('.xeditable-trigger').css('visibility', 'visible');
+          func(divPopupManual);
+        }, function () {
+          $(this).find('.xeditable-trigger').css('visibility', 'hidden');
+          //$(this).find('.xeditable-trigger-2').css('visibility', 'hidden');
+          $(this).parent().css('background-color', 'transparent');
+        });
+
+        divPopupManual.parent().find('.xeditable-trigger:not(.xeditable_processed)').addClass("xeditable_processed").click(function (e) {
+          $(this).parent().find('[data-toggle="popover"]').popover('show');
+
+          Drupal.attachBehaviors($("body"));
+        });
+//        divPopupManual.parent().find('.xeditable-trigger-2:not(.xeditable_processed)').addClass("xeditable_processed").click(function (e) {
+//          $(this).parent().find('[data-toggle="popover"]').popover('show');
+//
+//           Drupal.attachBehaviors($("body"));
+//        });
+      }
+
+
+      var divPopupManual2 = $('div[class="xeditable-trigger2"]');
+      if (divPopupManual2 !== null && divPopupManual2.size() > 0) {
+
+        var func2 = this.update_field_css_2;
+        func2(divPopupManual2);
+        divPopupManual2.parent().parent().hover(function () {
+          //$(this).find('.xeditable-trigger').css('visibility', 'visible');
+          $(this).find('.xeditable-trigger-2').css('visibility', 'visible');
+          $(this).parent().css('background-color', '#f0f0f9');
+          func2(divPopupManual2);
+        }, function () {
+          // $(this).find('.xeditable-trigger').css('visibility', 'hidden');
+          $(this).find('.xeditable-trigger-2').css('visibility', 'hidden');
+          $(this).parent().css('background-color', 'transparent');
+        });
+//
+//        divPopupManual2.parent().find('.xeditable-trigger:not(.xeditable_processed)').addClass("xeditable_processed").click(function (e) {
+//          $(this).parent().find('[data-toggle="popover"]').popover('show');
+//
+//           Drupal.attachBehaviors($("body"));
+//        });
+        divPopupManual2.parent().find('.xeditable-trigger-2:not(.xeditable_processed)').addClass("xeditable_processed").click(function (e) {
+          $(this).parent().find('[data-toggle="popover"]').popover('show');
+
+          Drupal.attachBehaviors($("body"));
+        });
+      }
+
+
+      $('[data-toggle="popover"]:not(.popup-ztree-browser-processed)').addClass('popup-ztree-browser-processed').on('shown.bs.popover', function () {
+        Drupal.behaviors.gofast_ztree.attach($(this));
+
+
+        var caller_button = $(this);
+        //TODO : replace the arrow of the popup depending the wanted placement
+        //$('.arrow').css('left', caller_button.offset().left + (caller_button.width() / 2));
+      });
+    }
+  };
 
 
   Gofast.loadXEditable = function () {
-
-    //add translation NL
-    $.fn.datetimepicker.dates['nl'] = {
-
-			days: ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"],
-			daysShort: ["zon", "maa", "din", "woe", "don", "vri", "zat", "zon"],
-			daysMin: ["zo", "ma", "di", "wo", "do", "wr", "za", "zo"],
-			months: ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"],
-			monthsShort: ["jan", "feb", "mar", "apr", "mei", "jun", "jul", "aug", "sep", "oct", "nov", "dec"],
-			meridiem: ["am", "pm"],
-			suffix: ["st", "nd", "rd", "th"],
-			today: "Vandaag"
-
-	};
-
-
     $('.xeditable-field:not(xeditable-field-processed)').addClass('xeditable-field-processed').each(function () {
+      if (!$(this).editable) {
+        return;
+      }
 
       function update_field_css(xeditable) {
         xeditable.css('visibility', 'hidden');
@@ -139,7 +216,7 @@
                 for (var item in editable.options.data.tags) {
                   if (editable.options.data.tags.hasOwnProperty(item)) {
                     $.ajax({ //Call to get subscribe button
-                      url : Drupal.settings.gofast.baseUrl+'/xeditable/get/subscribe/'+ editable.options.data.tags[item].replace("/", "*\*") + '/' + Drupal.settings.gofast.node.id,
+                      url: Drupal.settings.gofast.baseUrl +'/xeditable/get/subscribe/'+ editable.options.data.tags[item].replace("/", "*\*") + '/' + Drupal.settings.gofast.node.id,
                       type : 'GET',
                       dataType: 'html',
                       success : function(content, status){
@@ -563,16 +640,12 @@
 
           $.fn.editableform.buttons = '<button type="submit" onclick="setTimeout('
                   + timeoutMode
-                  + ');" class="btn btn-success btn-sm editable-submit">'
-                  + '<i class="glyphicon glyphicon-ok"></i>'
+                  + ');" class="btn btn-success editable-submit mr-2">'
                   + Drupal.t('Apply', {}, {'context' : 'gofast'})
                   + '</button>'
-                  + '<button type="button" class="btn btn-default btn-sm editable-cancel">'
-                  + '<i class="glyphicon glyphicon-remove"></i>'
+                  + '<button type="button" class="btn btn-danger editable-cancel">'
                   + Drupal.t('Cancel', {}, {'context' : 'gofast'})
                   + '</button>';
   });
   };
-
-
 })(jQuery, Drupal, Gofast);

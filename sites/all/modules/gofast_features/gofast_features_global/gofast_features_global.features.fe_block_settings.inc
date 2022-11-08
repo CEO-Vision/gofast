@@ -33,9 +33,438 @@ function gofast_features_global_default_fe_block_settings() {
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -19,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -5,
+      ),
       'seven' => array(
         'region' => 'dashboard_inactive',
         'status' => 1,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-92UUVWTLTPj6BCT01cxok6z1M059jUaB'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => '92UUVWTLTPj6BCT01cxok6z1M059jUaB',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '<?php
+$options = array_map(function ($item) { return $item["value"]; }, gofast_search_options());
+return isset($options["include-deleted"]) && $options["include-deleted"];
+?>',
+    'roles' => array(
+      'administrator' => 3,
+    ),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => -25,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => -24,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -25,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 2,
+  );
+
+  $export['facetapi-B5gBLZB40UdSjPP0LNE1Ulp7aeUE3YcP'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'B5gBLZB40UdSjPP0LNE1Ulp7aeUE3YcP',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => -38,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => -33,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -38,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-BHiFEIqUWHxvFsag27pIUX0buKyEvnTu'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'BHiFEIqUWHxvFsag27pIUX0buKyEvnTu',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => -43,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => -36,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -43,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-BzPECiCdVnXcCj2XLhTMisuxAuWM1mYr'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'BzPECiCdVnXcCj2XLhTMisuxAuWM1mYr',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => -32,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => -28,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -32,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-KCgvQpfl4sa74ytQpJabF1aCIiUNnvax'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'KCgvQpfl4sa74ytQpJabF1aCIiUNnvax',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => -31,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => -27,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -31,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-Nfm5rJukhKAVAfhml8Kh3sgt1rqRrJ1j'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'Nfm5rJukhKAVAfhml8Kh3sgt1rqRrJ1j',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => -35,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => -31,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -35,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-NlPTURTL0kNVgQw1QFKKPDcOQ8c1glSX'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'NlPTURTL0kNVgQw1QFKKPDcOQ8c1glSX',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => -40,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => -35,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -40,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-Tyz3B6agozQa7WmvxpF3nPi6zVqI74BA'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'Tyz3B6agozQa7WmvxpF3nPi6zVqI74BA',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => -33,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => -29,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -33,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-WIh38uN0LqAB3yTCuruCH64TWqbXV02j'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'WIh38uN0LqAB3yTCuruCH64TWqbXV02j',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => -34,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => -30,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -34,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-bLd1qxpEqn41AaDkLKGukDy4Pa58j2yf'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'bLd1qxpEqn41AaDkLKGukDy4Pa58j2yf',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => -36,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => -32,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -36,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => 'Spaces',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-fHWtNs2CwIRHzlG1amHG1tK9nWouVnuW'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'fHWtNs2CwIRHzlG1amHG1tK9nWouVnuW',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => -30,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => -26,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -30,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
         'theme' => 'seven',
         'weight' => 0,
       ),
@@ -65,6 +494,12 @@ function gofast_features_global_default_fe_block_settings() {
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 0,
       ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -42,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -76,36 +511,118 @@ function gofast_features_global_default_fe_block_settings() {
     'visibility' => 0,
   );
 
-  $export['gofast-gofast_audit_node_page'] = array(
-    'cache' => 4,
+  $export['facetapi-qbinparXldWoyR0fadV8cRwIY4reG9zO'] = array(
+    'cache' => -1,
     'custom' => 0,
-    'delta' => 'gofast_audit_node_page',
-    'module' => 'gofast',
+    'delta' => 'qbinparXldWoyR0fadV8cRwIY4reG9zO',
+    'module' => 'facetapi',
     'node_types' => array(),
-    'pages' => '<?php return TRUE; ?>',
+    'pages' => '',
     'roles' => array(),
     'themes' => array(
       'bootstrap_gofast' => array(
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast',
-        'weight' => -20,
+        'weight' => -29,
       ),
       'bootstrap_gofast_mobile' => array(
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast_mobile',
-        'weight' => -61,
+        'weight' => -25,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -29,
       ),
       'seven' => array(
         'region' => '',
         'status' => 0,
         'theme' => 'seven',
-        'weight' => -61,
+        'weight' => 0,
       ),
     ),
     'title' => '',
-    'visibility' => 2,
+    'visibility' => 0,
+  );
+
+  $export['facetapi-yAEUE2ISArAx3t6LoeCmdng5qrLkp7tN'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'yAEUE2ISArAx3t6LoeCmdng5qrLkp7tN',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => -39,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => -34,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -39,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-zajk0pGWEW0UJuM5hoXYKDVXEMpYRQv8'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'zajk0pGWEW0UJuM5hoXYKDVXEMpYRQv8',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => -45,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => -37,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -45,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
   );
 
   $export['gofast-gofast_node_actions'] = array(
@@ -128,6 +645,12 @@ function gofast_features_global_default_fe_block_settings() {
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -40,
+      ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -9,
       ),
       'seven' => array(
         'region' => '',
@@ -177,6 +700,12 @@ if( arg(0) == \'node\' and is_numeric(arg(1)) and (arg(2) == FALSE || arg(2) == 
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -25,
       ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -28,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -225,6 +754,12 @@ if( arg(0) == \'node\' && is_numeric(arg(1)) && (arg(2) == FALSE || arg(2) == "r
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -39,
       ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -43,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -257,6 +792,12 @@ if( arg(0) == \'node\' && is_numeric(arg(1)) && (arg(2) == FALSE || arg(2) == "r
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -43,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -26,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -266,6 +807,44 @@ if( arg(0) == \'node\' && is_numeric(arg(1)) && (arg(2) == FALSE || arg(2) == "r
     ),
     'title' => '',
     'visibility' => 2,
+  );
+
+  $export['gofast_ajax_file_browser-main_ajax_file_browser'] = array(
+    'cache' => 8,
+    'custom' => 0,
+    'delta' => 'main_ajax_file_browser',
+    'module' => 'gofast_ajax_file_browser',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_gofast',
+        'weight' => 0,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => 0,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'explorer',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -56,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
   );
 
   $export['gofast_book-gofast_book_group'] = array(
@@ -302,6 +881,12 @@ return false;
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -54,
       ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -53,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -334,7 +919,7 @@ return false;
       }
     }
     else {
-      if (current_path() != "" && ((drupal_is_front_page() || current_path() == "activity") && current_path() != "dashboard" && current_path() != "dashboard2")  && current_path() != "gofast/browser" && (current_path() != "dashboard" && current_path() != "dashboard2")) {
+      if (current_path() != "" && (drupal_is_front_page() && current_path() != "dashboard" && current_path() != "dashboard2")  && current_path() != "gofast/browser" && (current_path() != "dashboard" && current_path() != "dashboard2")) {
         return TRUE;
       }
       else {
@@ -356,6 +941,12 @@ return false;
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -43,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -46,
       ),
       'seven' => array(
         'region' => '',
@@ -393,6 +984,12 @@ return false;
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -42,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -42,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -424,6 +1021,12 @@ return false;
         'status' => 1,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -40,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'navigation',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -51,
       ),
       'seven' => array(
         'region' => '',
@@ -460,6 +1063,12 @@ return (arg(0) == \'users\' || (arg(0) == \'user\' && is_numeric(arg(1))) && (!a
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -43,
       ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -47,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -493,6 +1102,12 @@ users/*',
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -42,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -45,
       ),
       'seven' => array(
         'region' => '',
@@ -528,6 +1143,12 @@ users/*',
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -41,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -13,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -539,37 +1160,6 @@ users/*',
     'visibility' => 1,
   );
 
-  $export['gofast_views-activity_listing_filters'] = array(
-    'cache' => 2,
-    'custom' => 0,
-    'delta' => 'activity_listing_filters',
-    'module' => 'gofast_views',
-    'node_types' => array(),
-    'pages' => 'activity',
-    'roles' => array(),
-    'themes' => array(
-      'bootstrap_gofast' => array(
-        'region' => 'sidebar_second',
-        'status' => 1,
-        'theme' => 'bootstrap_gofast',
-        'weight' => -37,
-      ),
-      'bootstrap_gofast_mobile' => array(
-        'region' => 'sidebar_second',
-        'status' => 1,
-        'theme' => 'bootstrap_gofast_mobile',
-        'weight' => -37,
-      ),
-      'seven' => array(
-        'region' => '',
-        'status' => 0,
-        'theme' => 'seven',
-        'weight' => -37,
-      ),
-    ),
-    'title' => '',
-    'visibility' => 1,
-  );
   $export['gofast_views-activity_stream_filters'] = array(
     'cache' => 2,
     'custom' => 0,
@@ -613,6 +1203,12 @@ return FALSE;
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -24,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -27,
       ),
       'seven' => array(
         'region' => '',
@@ -661,6 +1257,12 @@ return FALSE;
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -36,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -54,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -692,6 +1294,12 @@ return FALSE;
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -23,
+      ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -27,
       ),
       'seven' => array(
         'region' => '',
@@ -725,6 +1333,12 @@ return FALSE;
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -22,
       ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -24,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -756,6 +1370,12 @@ return FALSE;
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -31,
+      ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -23,
       ),
       'seven' => array(
         'region' => '',
@@ -790,6 +1410,12 @@ return FALSE;
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 0,
+      ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -19,
       ),
       'seven' => array(
         'region' => '',
@@ -831,6 +1457,12 @@ if(drupal_is_front_page()){
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 0,
       ),
+      'bootstrap_keen' => array(
+        'region' => 'content',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -49,
+      ),
       'seven' => array(
         'region' => 'content',
         'status' => 1,
@@ -862,6 +1494,12 @@ if(drupal_is_front_page()){
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -30,
+      ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -21,
       ),
       'seven' => array(
         'region' => '',
@@ -895,6 +1533,12 @@ if(drupal_is_front_page()){
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -29,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -20,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -926,6 +1570,12 @@ if(drupal_is_front_page()){
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -24,
+      ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -12,
       ),
       'seven' => array(
         'region' => '',
@@ -959,6 +1609,12 @@ if(drupal_is_front_page()){
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -4,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => 6,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -981,8 +1637,6 @@ public/multi_sharing*
 Welcome
 Access_config
 conference/test-config
-occitanie/feedback_page
-occitanie/feedback_greatings
 not_supported',
     'roles' => array(),
     'themes' => array(
@@ -997,6 +1651,12 @@ not_supported',
         'status' => 1,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -53,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'content',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -46,
       ),
       'seven' => array(
         'region' => 'content',
@@ -1031,6 +1691,12 @@ gofast_audit/*',
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -42,
       ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -27,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -1062,6 +1728,12 @@ gofast_audit/*',
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 0,
+      ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => 26,
       ),
       'seven' => array(
         'region' => '',
@@ -1109,6 +1781,12 @@ return FALSE;
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 0,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -47,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -1140,6 +1818,12 @@ return FALSE;
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 13,
+      ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => 23,
       ),
       'seven' => array(
         'region' => '',
@@ -1173,6 +1857,12 @@ return FALSE;
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 18,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => 31,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -1205,6 +1895,12 @@ return FALSE;
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 15,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => 28,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -1236,6 +1932,12 @@ return FALSE;
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 14,
+      ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => 27,
       ),
       'seven' => array(
         'region' => '',

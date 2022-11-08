@@ -1,0 +1,39 @@
+#go-navbar{
+    height: 50px;
+    align-items: center;
+
+    .go-navbar-menu{
+        display: flex;
+    }
+
+    .go-navbar-menu-item{
+
+        position: relative;
+        margin: auto 8px;
+        font-size: $navbar-items-size;
+
+        .dropdown-toggle{
+
+            color: $navbar-items-color;
+
+            &::after{
+                display: none;
+            }
+        }
+        
+        .go-pin{
+            display: none;
+            position: absolute;
+            top: 0px;
+            right: 0px;
+        }
+
+    }
+
+}
+
+
+.go-navbar-params{
+    display: flex;
+    justify-content: space-between;
+}

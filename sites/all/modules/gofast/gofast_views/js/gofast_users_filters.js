@@ -88,6 +88,7 @@
       $('#user-last-login-date-filter, #user-created-date-filter').each(function(){
         $(this).datepicker({
           format: 'yyyy-mm-dd',
+          todayHighlight: true,
           orientation: "bottom auto",
           autoclose: true,
           clearBtn: true,

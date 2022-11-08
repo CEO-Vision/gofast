@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Update mail aspects</shortname>
+    <description>Update mail aspects using javascript API</description>
+    <url>/remove/mail_aspects?reference={reference}</url>
+    <format default="html"/>
+    <authentication>user</authentication>
+</webscript>

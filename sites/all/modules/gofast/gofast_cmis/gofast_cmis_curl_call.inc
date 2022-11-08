@@ -137,14 +137,13 @@ function gofast_cmis_webservice_generate_alfresco_ticket($username) {
  * or set "all"
  * @return type
  */
-function gofast_cmis_webservice_item_get_descendants($reference, $param_documents = "all", $async = false, $as_admin = FALSE) {
-
+function gofast_cmis_webservice_item_get_descendants($reference, $param_documents = "all", $async = false, $as_admin = FALSE, $origine = NULL) {
+  
+  global $user;
+  
   if (strpos($reference, "workspace") === false) {
     $reference = "workspace://SpacesStore/" . $reference;
   }
-  global $user;
-
-  //$ticket = gofast_cmis_get_user_ticket();
 
   if($async == true){
       $restrictdepth= "true";
@@ -153,7 +152,6 @@ function gofast_cmis_webservice_item_get_descendants($reference, $param_document
   }
 
   $url = "http://localhost:8080/alfresco/service/get/descendants/?reference=" . $reference . "&type=" . $param_documents . "&restrictdepth=".$restrictdepth;
-  watchdog("debug descendant url", $url);
 
   $ch = curl_init();
   if($as_admin == false){
@@ -168,6 +166,10 @@ function gofast_cmis_webservice_item_get_descendants($reference, $param_document
     $password = gofast_get_admin_pwd();
     curl_setopt($ch, CURLOPT_USERPWD, $username . ":" . $password);
   }
+  if($origine != NULL){
+    
+      $url = $url . "&origine=" . rawurlencode($origine);
+  }
   curl_setopt($ch, CURLOPT_HEADER, 0);
   curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
   curl_setopt($ch, CURLOPT_URL, $url);
@@ -175,8 +177,8 @@ function gofast_cmis_webservice_item_get_descendants($reference, $param_document
   $buffer = curl_exec($ch);
   $buf = strip_tags($buffer);
   $result = json_decode($buf);
-
   $descendants_final = array();
+  
   if (!empty($result)) {
     foreach ($result as $key => $descendant) {
       if (in_array($param_documents, array("documents", "templates"))) {
@@ -185,14 +187,14 @@ function gofast_cmis_webservice_item_get_descendants($reference, $param_document
       else {
         $mydescendant = str_replace("/webdav", "", $descendant->url);
         $mydescendant = rawurldecode($mydescendant);
-        $descendants_final[trim($mydescendant)] = isset($descendant->nid) ? $descendant->nid : trim($mydescendant);
+          $descendants_final[trim($mydescendant)] = isset($descendant->nid) ? $descendant->nid : trim($mydescendant);
       }
     }
-    return array_filter($descendants_final);
+    uksort($descendants_final, function($a, $b) {
+      return strcasecmp($a, $b);
+    });
   }
-  else {
-    return $descendants_final;
-  }
+  return $descendants_final;
 }
 
 
@@ -211,7 +213,7 @@ function gofast_cmis_webservice_preview_modal(){
  * This function tries to get / generate a preview for a given node reference.
  * @param int $node_id the node id
  */
-function gofast_cmis_webservice_item_generate_preview($node_id) {
+function gofast_cmis_webservice_item_generate_preview($node_id, $readfile = FALSE) {
 
   // If the file is not generated (pdf/jpg...etc.)
   $node = node_load($node_id);
@@ -228,7 +230,9 @@ function gofast_cmis_webservice_item_generate_preview($node_id) {
     } else {
       $type = 'other';
     }
-    return json_encode(array('status' => 'OK', 'type' => $type, 'link' => gofast_cmis_node_get_pdf_link($node), "title" => $node->title));
+    if(!$readfile){
+      return json_encode(array('status' => 'OK', 'type' => $type, 'link' => gofast_cmis_node_get_pdf_link($node), "title" => $node->title));
+    }
   }
 
   $excluded_previews = variable_get("gofast_soffice_preview_exclude", array());
@@ -255,8 +259,17 @@ function gofast_cmis_webservice_item_generate_preview($node_id) {
           $result = json_encode($result_object);
       }
   }
-
-  return $result;
+  
+  if($readfile){
+    $ticket = gofast_cmis_get_user_ticket();
+    $thumbnail_link = "http://localhost:8080/alfresco/service/api/node/workspace/SpacesStore/" . gofast_cmis_get_raw_item_id($reference) . "/content/thumbnails/pdf?c=force&alf_ticket=" . $ticket;
+    header('Content-Type: application/pdf');
+    header("Content-Transfer-Encoding: Binary");
+    header("Content-disposition: inline; filename=\"" . $node->title . "\"");
+    readfile($thumbnail_link);
+  }else{
+    return $result;
+  }
 }
 
 function gofast_cmis_webservice_item_get_onlyoffice_preview($cache_doc_id){
@@ -273,7 +286,7 @@ function gofast_cmis_webservice_item_get_onlyoffice_preview($cache_doc_id){
              if(file_exists($filename)){
                 header('Content-Type: application/pdf');
                 header("Content-Transfer-Encoding: Binary");
-                header("Content-disposition: attachment; filename=\"" . basename($cache_doc_id) . "\"");
+                header("Content-disposition: inline; filename=\"" . $node->title . "\"");
                 readfile($filename);
              }
 
@@ -287,25 +300,17 @@ function gofast_cmis_webservice_item_get_onlyoffice_preview($cache_doc_id){
  * This function tries to get / generate an onlyoffice preview for a given node reference.
  * @param int $node_id the node id
  */
-function gofast_cmis_webservice_item_generate_onlyoffice_preview($node_id) {
+function gofast_cmis_webservice_item_generate_onlyoffice_preview($node_id, $print_doc = FALSE) {
 
-    global $base_url;
-    // If the file is not generated (pdf/jpg...etc.)
-    $node = node_load($node_id);
-    $node_extension = gofast_cmis_node_get_extension($node);
-    $not_alfresco_generated = in_array($node_extension, array('docx','dotx','xltx','potx','pptx','ppsx','pdf'));
-    if(!$not_alfresco_generated) {
-	return json_encode(array('status' => 'FALLBACK'));
-    }
-    if(module_exists('gofast_community')){
-      return json_encode(array('status' => 'FALLBACK'));
-    }
-    $excluded_previews = variable_get("gofast_soffice_preview_exclude", array());
-    $reference = gofast_cmis_node_get_item_id(node_load($node_id));
-    if (in_array($reference, array_flip($excluded_previews))) {
-	unset($excluded_previews[$reference]);
-	variable_set("gofast_soffice_preview_exclude", $excluded_previews);
-    }
+  global $base_url;
+  // If the file is not generated (pdf/jpg...etc.)
+  $node = node_load($node_id);    
+  $excluded_previews = variable_get("gofast_soffice_preview_exclude", array());
+  $reference = gofast_cmis_node_get_item_id(node_load($node_id));
+  if (in_array($reference, array_flip($excluded_previews))) {
+    unset($excluded_previews[$reference]);
+    variable_set("gofast_soffice_preview_exclude", $excluded_previews);
+  }
 
     ## condition if onlyoffice answer
     ## call onlyoffice pdf transformer
@@ -324,7 +329,11 @@ function gofast_cmis_webservice_item_generate_onlyoffice_preview($node_id) {
     $cache_doc_id = gofast_cmis_get_raw_item_id($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']) . '_' . strtotime($doc_last_modification_date);
     if(file_exists("/var/www/d7/sites/default/files/oo_previews/".$cache_doc_id)){
         //cache file already exists ( the name contains timestamp so we are sur it's related to this version)
-        return json_encode(array('EndConvert' => 'True' , 'status' => 'OK', 'FileUrl' => $base_url.'/gofast/get_onlyoffice_preview/'.$cache_doc_id));
+        if($print_doc){
+          gofast_cmis_webservice_item_get_onlyoffice_preview($cache_doc_id);
+        }else{
+          return json_encode(array('EndConvert' => 'True' , 'status' => 'OK', 'FileUrl' => $base_url.'/gofast/get_onlyoffice_preview/'.$cache_doc_id));
+        }
     }
 
     //check if an old cache version exists ( in order to delete it)
@@ -352,6 +361,7 @@ function gofast_cmis_webservice_item_generate_onlyoffice_preview($node_id) {
 
     # api url
     $url = DOC_SERV_CONVERTER_URL;
+    $url = str_replace("https://", "https://internal-", $url);
     ## initiate cURL.
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
@@ -388,8 +398,13 @@ function gofast_cmis_webservice_item_generate_onlyoffice_preview($node_id) {
         fclose($file);
         $xml->FileUrl = $base_url.'/gofast/get_onlyoffice_preview/'.$cache_doc_id;
     }
-    $result = json_encode($xml);
-    return $result;
+    
+    if($print_doc){
+      gofast_cmis_webservice_item_get_onlyoffice_preview($cache_doc_id);
+    }else{
+      $result = json_encode($xml);
+      return $result;
+    }
 }
 
 /**
@@ -551,6 +566,22 @@ function gofast_cmis_webservice_force_alfresco_ldap_synch($full = false) {
 
 function gofast_cmis_webservice_item_assign_permissions($node_reference, $groups, $private_spaces) {
   $url_update_document_permissions = 'http://localhost:8080/alfresco/service/set/multi/?role=Standard&reference=' . $node_reference . '&spaces=' . str_replace("%5C%2C", "%2C", implode(';', $groups)) . '&private_spaces=' . implode(';', $private_spaces);
+  //watchdog("CMIS MULTIFILL", "Update node permissions : " . $url_update_document_permissions);
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_HEADER, 0);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_USERPWD, 'admin:' . gofast_get_admin_pwd());
+  curl_setopt($ch, CURLOPT_URL, $url_update_document_permissions);
+  curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+
+  $buffer = curl_exec($ch);
+  $buf = strip_tags($buffer);
+
+  return $buf;
+}
+
+function gofast_cmis_webservice_item_assign_homepage_permissions($node_reference, $groups) {
+  $url_update_document_permissions = 'http://localhost:8080/alfresco/service/set/homepage/?reference=' . $node_reference . '&spaces=' . str_replace("%5C%2C", "%2C", implode(';', $groups));
   //watchdog("CMIS MULTIFILL", "Update node permissions : " . $url_update_document_permissions);
   $ch = curl_init();
   curl_setopt($ch, CURLOPT_HEADER, 0);
@@ -787,4 +818,129 @@ function gofast_cmis_webservice_item_get_permissions($node_reference) {
 
   asort($permissions);
   return $permissions;
+}
+
+/**
+ * @package gofast_cmis
+ * This method send a request using CURL to alfresco to multifile a folder in specific spaces.
+ * @param type $folder_source_reference
+ * @param type $destination_source_reference
+ * @return string
+ */
+function gofast_cmis_webservice_multifile_folder($folder_source_reference, $destination_source_reference)
+{
+  if (empty($folder_source_reference) && empty($destination_source_reference)) {
+    return false;
+  }
+  $ch = curl_init();
+
+  curl_setopt($ch, CURLOPT_HEADER, 0);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_USERPWD, "admin" . ":" . gofast_get_admin_pwd());
+  curl_setopt($ch, CURLOPT_URL, "http://localhost:8080/alfresco/s/multifilefolder?folder_source=" . $folder_source_reference . "&destination=" . $destination_source_reference);
+  curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+  $buffer = curl_exec($ch);
+  $result = $buffer;
+
+  return $result;
+}
+
+/**
+ * @package gofast_cmis
+ * This method send a request using CURL to alfresco to remove multifile a folder in specific spaces.
+ * @param type $folder_source_reference
+ * @param type $parent_ref
+ * @return string
+ */
+function gofast_cmis_webservice_remove_multifile_folder($folder_source_reference, $parent_ref)
+{
+  if (empty($folder_source_reference) || empty($parent_ref)) {
+    return false;
+  }
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_HEADER, 0);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_USERPWD, "admin" . ":" . gofast_get_admin_pwd());
+  curl_setopt($ch, CURLOPT_URL, "http://localhost:8080/alfresco/s/removemultifilefolder?folder_source=" . $folder_source_reference . "&parent=" . $parent_ref);
+  curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+  $buffer = curl_exec($ch);
+  $result = $buffer;
+
+  return $result;
+}
+
+/**
+ * @package gofast_cmis
+ * This method send a request using CURL to alfresco to get parents of a folder (return an array of all parents reference
+ * @param type $folder_ref
+ * @return array
+ */
+function gofast_cmis_webservice_get_parents_folder_path($folder_ref)
+{
+  if (empty($folder_ref)) {
+    return false;
+  }
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_HEADER, 0);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_USERPWD, "admin" . ":" . gofast_get_admin_pwd());
+  curl_setopt($ch, CURLOPT_URL, "http://localhost:8080/alfresco/s/getparentsfolder?folder=" . $folder_ref);
+  curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+  $buffer = curl_exec($ch);
+  $result = $buffer;
+
+  $parents_ref = str_replace(' ', '', $result);
+  $parents_ref = str_replace('[', '', $parents_ref);
+  $parents_ref = str_replace(']', '', $parents_ref);
+  $result = explode(',', $parents_ref);
+  return $result;
+}
+
+/**
+ * @package gofast_cmis
+ * This method send a request using CURL to alfresco to get parents of a folder (return an array of all parents reference
+ * @param type $folder_ref
+ * @return array
+ */
+function gofast_cmis_webservice_get_node_parents($node_ref)
+{
+  if (empty($node_ref)) {
+    return false;
+  }
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_HEADER, 0);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_USERPWD, "admin" . ":" . gofast_get_admin_pwd());
+  curl_setopt($ch, CURLOPT_URL, "http://localhost:8080/alfresco/s/getnodeparents?node=" . $node_ref);
+  curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+  $buffer = curl_exec($ch);
+  $result = $buffer;
+  $parents_ref = str_replace('[', '', $result);
+  $parents_ref = str_replace(']', '', $parents_ref);
+  $result = explode(',', $parents_ref);
+  $result = array_map('trim', $result);
+  return $result;
+}
+
+// for some reason mirrored folders don't work with gofast_cmis_webservice_item_update_properties
+// so if you have issues updating some folder props you should try with this more generic call
+function gofast_cmis_set_folder_item_prop($item_id, $prop = "gofast:ismirrored", $value = TRUE)
+{
+  global $user;
+  $ticket = gofast_cmis_get_user_ticket();
+  if($ticket == FALSE) {
+      $ticket = gofast_cmis_retrieve_and_store_ticket($user);
+  }
+  $url = "http://localhost:8080/alfresco/api/-default-/public/alfresco/versions/1/nodes/".gofast_cmis_get_raw_item_id($item_id)."/content?alf_ticket=".$ticket."";
+  $curl = curl_init();
+  curl_setopt($curl, CURLOPT_URL, $url);
+  curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "PUT");
+  curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($curl, CURLOPT_HTTPHEADER, array("Content-Type: application/json;"));
+  $options = array("properties" => array(
+    $prop => $value
+  ));
+  curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($options));
+  $result = curl_exec($curl);
+  return $result;
 }

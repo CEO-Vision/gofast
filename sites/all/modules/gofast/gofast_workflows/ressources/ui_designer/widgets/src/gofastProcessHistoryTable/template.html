@@ -7,34 +7,34 @@
             </tr>
         </thead>
          <tbody ng-if="ctrl.isArray(final_content)">
-            <tr ng-repeat="row in final_content" ng-click="ctrl.selectRow(row)" ng-class="{'info': ctrl.isSelected(row)}">
+            <tr style="cursor:auto;background-color:white;" ng-repeat="row in final_content" ng-click="ctrl.selectRow(row)" ng-class="">
                 <td>
                     
-                  <div class="task_in_todoliste" style="background-color: #f9f9f9;border: 1px solid #eee;list-style: none;padding: 6px 9px;position: relative;" >
+                  <div class="task_in_todoliste" style="list-style: none;padding: 1px 2px;position: relative;" >
                     
                     <div style="float:right;">
                        <span ng-bind-html="row.actor" class="ng-binding ng-scope card-text actor_container" style="display: inline-block;"></span> 
                     </div>
-                    <div style="padding-left:20px;">
+                    <div style="padding-left:0;">
                         <div class="row">
-                            <span style="color:#337ab7;width:200px;white-space: nowrap;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;" title='{{"label.process_title" | gfTranslateHistory}}'>
+                            <span style="color:#337ab7;width:40%;white-space: nowrap;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;" title='{{"label.process_title" | gfTranslateHistory}}'>
                                 <i class="fa fa-cogs"></i>
                                 <span class="card-title">{{row.title}}</span>
                             </span>
-                            <span style="color:#337ab7;font-weight: bold;width:270px;white-space: nowrap;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;">
+                            <span style="color:#337ab7;font-weight: bold;white-space: nowrap;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;">
                                 <i class="fa fa-check"></i>
-                                <span class="card-subtitle mb-2 text-muted">{{"label.process_finished" | gfTranslateHistory}}</span>
+                                <span class="card-subtitle mb-2 text-muted"></span>
                             </span>
                         </div>
                         <div class="row">
                             <div>
-                                <div class="deadline_box_in_rapide_todoliste" style="float:left;max-width:125px;max-height:22px;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;">
+                                <div class="deadline_box_in_rapide_todoliste" style="float:left;width:40%;max-height:22px;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;">
                                    <i class="glyphicon glyphicon-time"></i> <span title='{{"label.process_start_date" | gfTranslateHistory}}'>{{row.start_date|date:"dd/MM/yyyy"}}</span>
                                 </div>
-                               <div class="deadline_box_in_rapide_todoliste" style="font-weight:bold;cursor:pointer;float:left;width:125px;text-align:center;px;max-height:22px;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;">
+                               <!--<div class="deadline_box_in_rapide_todoliste" style="font-weight:bold;cursor:pointer;float:left;width:5%;text-align:center;px;max-height:22px;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;">
                                    <i ng-if="row.has_deadline" class="fa fa-stop" style="color:#337ab7;"></i> <span style="color:{{row.deadline_color}};" title='{{"label.process_deadline" | gfTranslateHistory}}'>{{row.deadline|date:"dd/MM/yyyy"}}</span>
-                                </div>
-                                <div class="deadline_box_in_rapide_todoliste" style="float:left;max-width:125px;max-height:22px;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;">
+                                </div>-->
+                                <div class="deadline_box_in_rapide_todoliste" style="float:left;width:40%;max-height:22px;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;">
                                    <i class="glyphicon glyphicon-time"></i> <span title='{{"label.process_end_date" | gfTranslateHistory}}'>{{row.finished_date|date:"dd/MM/yyyy"}}</span>
                                 </div>
                                 
@@ -42,7 +42,7 @@
                                      <div ng-bind-html="row.documents" class="ng-binding ng-scope card-text document_container"></div>
                                 </div>
                                 
-                                <div id="wf-buttons" style="float: right;margin-right: 15px;margin-top: 5px;">
+                                <div id="wf-buttons" style="float: right;margin-right: 0;">
                                     <span ng-if="row.is_author" class="gofast_workflows_title_task_doit" style="cursor:pointer;" ng-click='ctrl.selectRow(row);ceo_vision_js_task_doit();' title='{{"label.process_doit" | gfTranslateHistory}}'>
                                         <button type="button" class="btn btn-default wf-button wf-button-green" style="padding: 1px 6px;color: #2ecc71;">
                                             <span class="fa fa-check gofast_wf_link"></span>

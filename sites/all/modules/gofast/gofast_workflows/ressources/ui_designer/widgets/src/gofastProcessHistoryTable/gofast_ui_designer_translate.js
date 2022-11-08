@@ -40,6 +40,7 @@
 					"label.process_outdated" : "Ce processus a dépassé sa date limite",
 					"label.process_title" : "Titre du processus",
 					"label.process_start_date" : "Date de démarrage",
+					"label.process_end_date" : "Date de fin",
 					"label.process_deadline" : "Date d'échéance",
 					"label.process_doit" : "Executer la tâche",
 					"label.process_history" : "Afficher l'historique"

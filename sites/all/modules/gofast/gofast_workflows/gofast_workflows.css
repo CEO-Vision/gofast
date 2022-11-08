@@ -514,3 +514,24 @@ table td[class*="span"], table th[class*="span"], .row-fluid table td[class*="sp
   margin-right: -80px;
   margin-top: 5px;
 }
+
+@media screen and (max-width: 767px) {
+  #bonita_form_process .table-responsive {
+    width: 100%;
+    margin-bottom: 15px;
+    overflow-y: hidden;
+    -ms-overflow-style: -ms-autohiding-scrollbar;
+     border: none!important;
+  }
+}
+
+
+#lightDashboardDocumentMyParentTab i , #lightDashboardDocumentOtherParentTab i , #lightDashboardDocumentHistoryParentTab i , 
+#lightDashboardDocumentNewParentTab i {
+    width : 16px;
+}
+
+/* allows Bonita buttons text to wrap in lower resolutions */
+#bonita_form_container .btn {
+    white-space: normal !important;
+}

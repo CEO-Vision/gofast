@@ -23,18 +23,23 @@ function gofast_conference_enable() {
 }
 
 function gofast_conference_form_conference_node_form_alter(&$form, &$form_state) {
-  drupal_add_js(drupal_get_path('module', 'gofast_conference') . '/js/gofast_conference.js');
   global $user;
-  $form['#suffix'] = "<script>Gofast.conference.attach_before_submit();</script>"; //Apply custom js on submit button to format dates
+
+  $form['#attached']['js'][] = array(
+      'type' => 'file',
+      'group' => JS_THEME + 1,
+      'data' => drupal_get_path('module', 'gofast') . '/js/gofast_ajax_form.js',
+    );
+
+ // $form['#suffix'] = "<script>Gofast.conference.attach_before_submit();</script>"; //Apply custom js on submit button to format dates
   // Replace adresses textarea with a textfield for autocompletion
   $nid = isset($form['#node']->nid) ? $form['#node']->nid : '';
 
    //translate label of field
   $form['body'][LANGUAGE_NONE][0]['#title'] = t("Subject");
-
+  unset($form['body'][LANGUAGE_NONE][0]['summary']);
   $label = $form['field_place'][LANGUAGE_NONE][0]['value']['#title'];
   $form['field_place'][LANGUAGE_NONE][0]['value']['#title'] = t($label);
-
   if (!empty($nid)) { // edit : Pre-fill the participants and the linked documents
     $list_participants = array();
 
@@ -77,12 +82,7 @@ function gofast_conference_form_conference_node_form_alter(&$form, &$form_state)
     $list_documents = array();
 
     $documents_nids = $form['#node']->field_timestamp_target_link[LANGUAGE_NONE];
-    foreach ($documents_nids as $nid) {
-      $node = node_load(explode('/', $nid['value'])[0]);
-      $list_documents[] = str_replace($node->title , str_replace(",", " ", $node->title) , gofast_modal_ac_format_documents_value('node', $node, null, str_replace(",", " ", $node->title), null));
-    }
 
-    $form_state['values']['list_documents'] = empty($form_state['values']['list_documents']) ? implode(',', $list_documents) : $form_state['values']['list_documents'];
 
   }else if(!empty($form_state['input']['field_date'])){
       $form["#after_build"][] = "gofast_conference_form_edit_after_rebuild";
@@ -91,7 +91,7 @@ function gofast_conference_form_conference_node_form_alter(&$form, &$form_state)
       if(isset($_GET['gid'])){
             //Call from callendar, we have to fill in the default participants
             $select_node = node_load($_GET['gid']);
-            $list_participants[] = str_replace(",", " ", gofast_modal_ac_format_send_email_value('node', $select_node, null, $select_node->title, null));
+            // $list_participants[] = str_replace(",", " ", gofast_modal_ac_format_send_email_value('node', $select_node, null, $select_node->title, null));
 
             //Retrieve space members
             $selected_uid = gofast_og_get_members_userlist_included($select_node, "active");
@@ -107,18 +107,62 @@ function gofast_conference_form_conference_node_form_alter(&$form, &$form_state)
         }
   }
 
+// Hidden inputs datas
+  foreach ($documents_nids as $document) {
+    $node_doc = node_load(explode('/', $document['value'])[0]);
+    $json_doc = gofast_ac_format_value_json('node', $node_doc, null, []);
+    $json_doc["nid"] = $node_doc->nid;
+    $info['json_conference_document'][] = $json_doc;
+  }
+
+
+  foreach ($list_participants as $participant) {
+    if(is_array($participant) && isset($participant[0]['email'])){
+      $participant_data = user_load_by_mail($participant[0]['email']);
+      $json_participants = gofast_ac_format_value_json('user', $participant_data, null, []);
+      $json_participants["uid"] = $participant_data->uid;
+    }else if(is_array($participant) && isset($participant[0]['ulvalue'])){
+      $userlist_data = entity_load('userlist', $participant[0]['ulvalue']);
+      $json_participants = gofast_ac_format_value_json('userlist', $userlist_data, null, []);
+    }else if($participant[0]["type"] == "node"){
+      $json_participants = gofast_ac_format_value_json('node', node_load($participant[0]["value"]), null, []);   
+    } else{
+      $json_participants = ['name'=> $participant, 'value'=> $participant];
+    }
+    $info['json_conference_participant'][] = $json_participants;
+  }
+
+  // hidden inputs set
+  if($info['json_conference_document']!= null){
+    $form['actagify-ac-list-tags-list-documents'] = array(
+      '#type' => 'textfield',
+      '#maxlength' => '', // no maxlength
+      '#attributes' => ['class' => [' d-none']],
+      '#value' => json_encode($info['json_conference_document'], JSON_HEX_APOS)
+    );
+  }
+
+  if ($info['json_conference_participant'] != null) {
+    $form['actagify-ac-list-tags-list-participants'] = array(
+      '#type' => 'textfield',
+      '#maxlength' => '', // no maxlength
+      '#attributes' => ['class' => [' d-none']],
+      '#value' => json_encode($info['json_conference_participant'])
+    );
+  }
+
   $form['folders'] = array(
     '#title' => t('Linked folders') . " <span class='caret'></span>",
     '#type' => 'fieldset',
     '#collapsible' => TRUE,
-    '#collapsed' => TRUE
+    '#collapsed' => TRUE,
+    '#keen-accordion' => TRUE
   );
 
   global $user;
   $form['folders']['locations_checks'] = array(
 	'#type' => 'item',
-	'#title' => t('Folders selected to be linked to your meeting'),
-	'#suffix' => "<div class='ui-locations-check' style='min-width:800px;margin-bottom:10px;'><i>" . t('You have not chosen any folder to add...') ."</i></div>",
+	'#suffix' => "<div class='ui-locations-check' style='min-width:800px;margin-bottom:10px;'><i></i></div>",
   );
 
   //Get root spaces
@@ -148,67 +192,62 @@ function gofast_conference_form_conference_node_form_alter(&$form, &$form_state)
   }
 
   $form['folders'][GOFAST_CMIS_LOCATIONS_FIELD]['#multiple'] = TRUE;
-  $form['folders'][GOFAST_CMIS_LOCATIONS_FIELD]['#title'] = t("Select folders to link to your meeting", array(), array('context' => 'gofast'));
   $form['folders'][GOFAST_CMIS_LOCATIONS_FIELD]['#required'] = FALSE;
   $form['folders'][GOFAST_CMIS_LOCATIONS_FIELD]['#type'] = 'select';
   $form['folders'][GOFAST_CMIS_LOCATIONS_FIELD]['#options'] = $ztree;
   $form['folders'][GOFAST_CMIS_LOCATIONS_FIELD]['#value'] = $ztree;
   $form['folders'][GOFAST_CMIS_LOCATIONS_FIELD]["#attributes"]["class"][] = "gofast_display_none";
 
-  $form['list_documents'] = array(
+
+  $attributes_list_documents = [
+    'class' => [' form-control-tags js-tagify'],
+    //'data-enforce' => '', //  Comment : Do not allow putting data that dose not exist | Decomment : allow putting data that dose not exist
+    // 'data-user' => '', // show ac users
+    'data-node' => '', // show ac node
+    //'data-userlist' => '', // show ac userlist
+    //'data-taxonomy_term' => '' // show ac taxonomy term
+  ];
+
+    $form['list_documents'] = array(
     '#title' => t('Linked documents'),
     '#type' => 'textfield',
+    '#name' => 'ac-list-tags-list-documents',
     '#size' => 99999,
     //'#required' => TRUE,
-    '#default_value' => isset($form_state['values']['list_documents']) ? $form_state['values']['list_documents'] : '',
+    //'#default_value' => isset($form_state['values']['list_documents']) ? $form_state['values']['list_documents'] : '',
     '#maxlength' => '', // no maxlength
-    '#autocomplete_path' => 'conference/node-link-autocomplete',
-    '#attributes' => array('class' => array('labelize-autocomplete labelize-insert')),
-    '#value' => isset($form_state['values']['list_documents']) ? $form_state['values']['list_documents'] : '',
+    //'#autocomplete_path' => 'conference/node-link-autocomplete',
+    '#attributes' => $attributes_list_documents,
   );
+
+  $attributes_list_participants = [
+    'class' => [' form-control-tags js-tagify'],
+    // 'data-enforce' => '', //  Comment : Do not allow putting data that dose not exist | Decomment : allow putting data that dose not exist
+    'data-email' => '', // show valid emails in ac
+    'data-user' => '', // show ac users
+    // 'data-node' => '', // show ac node
+    'data-userlist' => '', // show ac userlist
+    'data-extract-user' => '', // extract user from space
+    'data-get-spaces' => '' 
+  ];
 
   $form['list_participants'] = array(
-    '#title' => t('Participants'),
+    '#title' => t('Participants') . " *",
     '#type' => 'textfield',
+    '#name' => 'ac-list-tags-list-participants',
     '#size' => 62,
-    //'#required' => TRUE,
-    '#default_value' => isset($form_state['values']['list_participants']) ? $form_state['values']['list_participants'] : '',
+    // '#required' => TRUE,
+    //'#default_value' => isset($form_state['values']['list_participants']) ? $form_state['values']['list_participants'] : '',
     '#maxlength' => '', // no maxlength
-    '#autocomplete_path' => 'gofast_user_space_autocomplete',
-    '#attributes' => array('class' => array('labelize-autocomplete labelize-insert')),
-    '#value' => isset($form_state['values']['list_participants']) ? $form_state['values']['list_participants'] : '',
+    '#attributes' =>  $attributes_list_participants
   );
 
-  libraries_load('bootstrap-datetimepicker');
-
-  /** BEGIN : Load DateTime picker **/
-  $form['field_date']['#id'] = 'conference_date';
-  $form['field_date'][LANGUAGE_NONE][0]['#date_is_default'] = 1;
-  $form['field_date']['#attached'] =  array(
-    'js' => array(
-      array(
-        'data' => drupal_get_path('module', 'gofast_conference') . '/js/gofast_conferece_datetimepicker.js',
-        'type' => 'file',
-        'scope' => 'footer'
-      )
-  ));
-
+  /** END : Load DateTime picker **/
   if(!$rebuilt){
     $form["#after_build"][] = "gofast_conference_form_edit_after_build";
   }
 
-  $form['field_end_date']['#id'] = 'conference_end_date';
-  $form['field_end_date'][LANGUAGE_NONE][0]['#date_is_default'] = 1;
-  $form['field_end_date']['#weight'] = 0;
-  $form['field_end_date']['#attached'] =  array(
-    'js' => array(
-      array(
-        'data' => drupal_get_path('module', 'gofast_conference') . '/js/gofast_conferece_datetimepicker_end.js',
-        'type' => 'file',
-        'scope' => 'footer'
-      )
-  ));
-  /** END : Load DateTime picker **/
+
   $form['field_participants']['#attributes']['class'][] = 'gofast_display_none';
   $form['field_timestamp_target_link']['#attributes']['class'][] = 'gofast_display_none';
   $form['field_existing_participants']['#attributes']['class'][] = 'gofast_display_none';
@@ -226,6 +265,8 @@ function gofast_conference_form_conference_node_form_alter(&$form, &$form_state)
     '#type' => 'checkbox',
     '#default_value' => false,
     '#attributes' => array('class' => array('gofast_display_none')),
+    '#prefix'=>'<span class="gofast_display_none">',
+    '#suffix'=>'</span>',
     '#weight' => 9999,
   );
 
@@ -234,8 +275,11 @@ function gofast_conference_form_conference_node_form_alter(&$form, &$form_state)
 
   $form['#validate'][] = 'gofast_conference_form_conference_node_form_validate';
   $form['#submit'][] = 'gofast_conference_form_conference_node_form_submit';
-  
+
   unset($form['actions']['delete']);
+
+  $form['#attributes']['class'][] = 'GofastForm GofastForm__Conference';
+
 }
 
 /*
@@ -244,23 +288,34 @@ function gofast_conference_form_conference_node_form_alter(&$form, &$form_state)
  */
 function gofast_conference_form_edit_after_build($form, &$form_state){
   global $user;
-  if(isset($form_state['node']->field_date[LANGUAGE_NONE][0]['value'])){
-    if($user->language === "fr"){
-      $form['field_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = format_date(strtotime(gofast_change_time_zone($form['field_date'][LANGUAGE_NONE][0]['value']['#default_value'], 'UTC', $user->timezone)), "custom", "d-m-Y H:i");
-      $form['field_end_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = format_date(strtotime(gofast_change_time_zone($form['field_end_date'][LANGUAGE_NONE][0]['value']['#default_value'], 'UTC', $user->timezone)), "custom", "d-m-Y H:i");
-    }else{
-      $form['field_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = format_date(strtotime(gofast_change_time_zone($form['field_date'][LANGUAGE_NONE][0]['value']['#default_value'], 'UTC', $user->timezone)), "custom", "m-d-Y H:i");
-      $form['field_end_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = format_date(strtotime(gofast_change_time_zone($form['field_end_date'][LANGUAGE_NONE][0]['value']['#default_value'], 'UTC', $user->timezone)), "custom", "m-d-Y H:i");
-    }
-  }else{
-    if($user->language === "fr"){
-      $form['field_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = format_date(strtotime($form['field_date'][LANGUAGE_NONE][0]['value']['#default_value']), "custom", "d-m-Y H:i");
-      $form['field_end_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = format_date(strtotime($form['field_end_date'][LANGUAGE_NONE][0]['value']['#default_value']), "custom", "d-m-Y H:i");
-    }else{
-      $form['field_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = format_date(strtotime($form['field_date'][LANGUAGE_NONE][0]['value']['#default_value']), "custom", "m-d-Y H:i");
-      $form['field_end_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = format_date(strtotime($form['field_end_date'][LANGUAGE_NONE][0]['value']['#default_value']), "custom", "m-d-Y H:i");
-    }
+
+  if(isset($form_state['node']->field_date[LANGUAGE_NONE][0]['value']))  {
+    $form['field_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = format_date(strtotime(gofast_change_time_zone($form['field_date'][LANGUAGE_NONE][0]['value']['#default_value'], 'UTC', $user->timezone)), "short");
+    $form['field_end_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = format_date(strtotime(gofast_change_time_zone($form['field_end_date'][LANGUAGE_NONE][0]['value']['#default_value'], 'UTC', $user->timezone)), "short");
+  } else {
+      $form['field_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = format_date(strtotime($form['field_date'][LANGUAGE_NONE][0]['value']['#default_value']), "short");
+      $form['field_end_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = format_date(strtotime($form['field_end_date'][LANGUAGE_NONE][0]['value']['#default_value']), "short");
   }
+
+  $form['field_date'][LANGUAGE_NONE][0]['value']['date']['#attributes']['class'][] = 'gofastDatetimepicker';
+  $form['field_end_date'][LANGUAGE_NONE][0]['value']['date']['#attributes']['class'][] = 'gofastDatetimepicker';
+
+  $form['field_date'][LANGUAGE_NONE][0]['value']['date']['#attributes']['data-toggle'] = 'datetimepicker';
+  $form['field_end_date'][LANGUAGE_NONE][0]['value']['date']['#attributes']['data-toggle'] = 'datetimepicker';
+
+  $form['field_date'][LANGUAGE_NONE][0]['value']['date']['#attributes']['data-target'] = '#edit-field-date-und-0-value-date';
+  $form['field_end_date'][LANGUAGE_NONE][0]['value']['date']['#attributes']['data-target'] = '#edit-field-end-date-und-0-value-date';
+
+  // labels and patterns also reflect that datetimepicker default format is the format chosen by Drupal's admin
+  $form['field_date'][LANGUAGE_NONE][0]['value']['date']['#description'] = t('Format: @date', array(
+    '@date' => format_date(strtotime($form['field_date'][LANGUAGE_NONE][0]['value']['#default_value']), "short")
+  ));
+  $form['field_end_date'][LANGUAGE_NONE][0]['value']['date']['#description'] = t('Format: @date', array(
+    '@date' => format_date(strtotime($form['field_end_date'][LANGUAGE_NONE][0]['value']['#default_value']), "short")
+  ));
+  $form['field_date'][LANGUAGE_NONE][0]['value']['#date_format'] = variable_get('date_format_short', 'm/d/Y - H:i');
+  $form['field_end_date'][LANGUAGE_NONE][0]['value']['#date_format'] = variable_get('date_format_short', 'm/d/Y - H:i');
+
   return $form;
 }
 /*
@@ -279,20 +334,18 @@ function gofast_conference_form_edit_after_rebuild($form, &$form_state){
 
     if($user->language === "fr"){
       $form['field_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = $date_date[1] . '-' . $date_date[0] . '-' . $date_date[2] . " " . $date_time;
-      $form['field_end_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = $end_date_date[2] . '-' . $end_date_date[1] . '-' . $end_date_date[0] . " " . $end_date_time;
+      $form['field_end_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = $end_date_date[1] . '-' . $end_date_date[0] . '-' . $end_date_date[2] . " " . $end_date_time;
     }else{
       $form['field_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = $date_date[0] . '-' . $date_date[1] . '-' . $date_date[2] . " " . $date_time;
-      $form['field_end_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = $end_date_date[1] . '-' . $end_date_date[2] . '-' . $end_date_date[0] . " " . $end_date_time;
+      $form['field_end_date'][LANGUAGE_NONE][0]['value']['date']['#value'] = $end_date_date[0] . '-' . $end_date_date[1] . '-' . $end_date_date[2] . " " . $end_date_time;
     }
+
 
     return $form;
 }
 
 function gofast_conference_theme() {
   return array(
-    'gofast_conference_test' => array(
-      'template' => 'tpl/gofast-conference-test'
-    ),
     'gofast_conference_report' => array(
       'template' => 'tpl/gofast-conference-report'
     ),
@@ -319,9 +372,32 @@ function gofast_conference_theme() {
         'conference_owner' => NULL
       )
     ),
+    'gofast_conference_email_canceled_body' => array(
+      'template' => 'tpl/gofast-conference-email-canceled-body',
+      'variables' => array(
+        'conference_url' => NULL,
+        'other_participants' => NULL,
+        'gofast_participants' => NULL,
+        'conference_datetime' =>NULL,
+        'conference_content' => NULL,
+        'conference_owner' => NULL
+      )
+    ),
     'gofast_conference_email_removed_body' => array(
       'template' => 'tpl/gofast-conference-email-removed-body',
-    )
+    ),
+    'page_conference_node_form' => array(
+      'template' => 'tpl/gofast-cmis-conference-conference-node-form-page',
+      'variables' => array('form' => NULL)
+    ),
+    'conference_node_form' => array(
+      'render element' => 'form',
+      'path' => drupal_get_path('theme', 'bootstrap_keen') . '/templates',
+      'template' => 'conference_node_form'
+    ),
+    'gofast_conference' => array(
+      'template' => 'tpl/gofast-conference',
+    ),
   );
 }
 
@@ -332,9 +408,10 @@ function gofast_conference_menu() {
     'title' => 'Test the conference configuration',
     'page callback' => 'gofast_conference_conference_test',
     'type' => MENU_CALLBACK,
-    'access callback' => TRUE
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access'
   );
-  
+
   $items['conference/node-link-autocomplete/%'] = array(
     'page callback' => 'gofast_documents_autocomplete',
     'page arguments' => array(2, ['webform']),
@@ -344,6 +421,24 @@ function gofast_conference_menu() {
   );
 
   return $items;
+}
+
+/**
+ * Implements hook_menu_alter.
+ */
+function gofast_conference_menu_alter(&$items) {
+  $items['node/add/conference']['page callback'] = 'gofast_conference_node_add_conference'; //GOFAST-6985
+}
+
+function gofast_conference_node_add_conference() { //GOFAST-6985
+
+    $node = new stdClass();
+    $node->type = "conference";
+    $conference_node_form = drupal_get_form('conference_node_form', $node);
+    $content = theme('page_conference_node_form', ['form' => $conference_node_form]);
+    $pageContent = gofast_create_page_content($content);
+
+    return $pageContent;
 }
 
 /**
@@ -390,6 +485,7 @@ function gofast_conference_library() {
  * @param type $form_state
  */
 function gofast_conference_form_conference_node_form_validate(&$form, &$form_state) {
+
   $save_list_spaces = array();
   // check the the forbiden caraters, like "."
   $pos = strpos($form['title']['#value'], ".");
@@ -407,7 +503,7 @@ function gofast_conference_form_conference_node_form_validate(&$form, &$form_sta
     $timestamp_target_save[$splited_value[0]] = $value;
   }
 
-  $json_list_participants = json_decode($form_state['input']['edit-' . str_replace("_", "-", $form['list_participants']['#name']) . '-hidden-values']);
+  $json_list_participants = json_decode($form_state['input']['ac-list-tags-list-participants']);
   if($form_state['input']['list_participants'] !== null && $form_state['input']['list_participants'] !== ""){
         $json_list_participants[] = $form_state['input']['list_participants'];
     }
@@ -434,19 +530,19 @@ function gofast_conference_form_conference_node_form_validate(&$form, &$form_sta
     $uids = array();
     foreach ($json_list_participants as $participant) {
       if (is_object($participant) && $participant->type === 'user') {// Gofast's users
-        if(in_array($participant->id, $uids, TRUE)){
+        if(in_array($participant->value, $uids, TRUE)){
           continue;
         }
-        $form_state['values']['field_existing_participants'][LANGUAGE_NONE][] = array('target_id' => $participant->id);
-        $list_participants[] = gofast_modal_ac_format_send_email_value('user', user_load($participant->id), null, $participant->name, null);
-        $uids[] = $participant->id;
+        $form_state['values']['field_existing_participants'][LANGUAGE_NONE][] = array('target_id' => $participant->value);
+        $list_participants[] = gofast_modal_ac_format_send_email_value('user', user_load($participant->value), null, $participant->name, null);
+        $uids[] = $participant->value;
       }else if(is_object($participant) && $participant->type === 'node'){
-          $node = node_load($participant->id);
+          $node = node_load($participant->value);
           if(in_array($node->type, array('group', 'organisation', 'public', 'extranet'), true)){ //This is a space
-            if(!in_array($participant->id, $list_gofast_spaces, TRUE)){
+            if(!in_array($participant->value, $list_gofast_spaces, TRUE)){
               //Check if the space have just been added
               if($form_state['values']['stop_validation_propagation'] == 1){
-                $members = gofast_og_get_members_userlist_included(node_load($participant->id), 'active');
+                $members = gofast_og_get_members_userlist_included(node_load($participant->value), 'active');
                 foreach ($members as $uid){
                   if(gofast_get_user_status_from_uid($uid) === FALSE){
                       continue;
@@ -460,25 +556,39 @@ function gofast_conference_form_conference_node_form_validate(&$form, &$form_sta
                 }
               }
             }
-            $save_list_spaces[] = gofast_modal_ac_format_send_email_value('node', node_load($participant->id), null, node_load($participant->id)->title, null);
+            $save_list_spaces[] = gofast_modal_ac_format_send_email_value('node', node_load($participant->value), null, node_load($participant->value)->title, null);
             //Store space ids in POST var to use it in node_insert hook
-            $_POST['gofast_conference_space_ids'][] = $participant->id;
-          }else{ //This is a document
-            if(!in_array($participant->id, $list_gofast_documents, TRUE)){
-                if(in_array((int)$participant->id, array_keys($timestamp_target_save), TRUE)){ //Old value
-                  $form_state['values']['field_timestamp_target_link'][LANGUAGE_NONE][] = array('value' => $timestamp_target_save[$participant->id]);
-                }else{ //New value
-                  $form_state['values']['field_timestamp_target_link'][LANGUAGE_NONE][] = array('value' => $participant->id . '/' . time());
-                }
-            }
+            $_POST['gofast_conference_space_ids'][] = $participant->value;
           }
-      }
-      else { // Non-Gofast's users
-        if (valid_email_address($participant)) {
-          $form_state['values']['field_participants'][LANGUAGE_NONE][] = array('_weight' => '2', 'value' => $participant);
-          $list_participants[] = $participant;
+      } else if (is_object($participant) && $participant->type === 'userlist') { // Gofast UserList
+
+        $userlist_members = gofast_userlist_get_members($participant->ulvalue);
+
+        if (!empty($userlist_members) && $userlist_members != NULL) {
+          foreach ($userlist_members as $uid => $userlist_member) {
+            $members_tab[] = $uid;
+          }
+
+          $userlist_users = user_load_multiple($members_tab);
+
+          foreach ($userlist_users as $userlist_user) {
+                if ($userlist_user->status == 0) {
+                  continue;
+                }
+                if (in_array($userlist_user->uid, $uids, TRUE)) {
+                  continue;
+                }
+                $uids[] = $userlist_user->uid;
+                $form_state['values']['field_existing_participants'][LANGUAGE_NONE][] = array('target_id' => $userlist_user->uid);
+                $list_participants[] = gofast_modal_ac_format_send_email_value('user', $userlist_user, null, $userlist_user->name, null);
+              }
+        }
+      } else { // Non-Gofast's users
+        if (valid_email_address($participant->name)) {
+          $form_state['values']['field_participants'][LANGUAGE_NONE][] = array('_weight' => '2', 'value' => $participant->name);
+          $list_participants[] = $participant->name;
         } else {
-          $invalid_email_participants[] = $participant;
+          $invalid_email_participants[] = $participant->name;
         }
       }
     }
@@ -497,11 +607,11 @@ function gofast_conference_form_conference_node_form_validate(&$form, &$form_sta
   }
 
   if (count($form_state['values'][GOFAST_OG_CONTENT_MEMBERSHIP_FIELD][LANGUAGE_NONE]) > 1) {
-  global $user;
-  $private_space_id = gofast_og_get_user_private_space($user, FALSE);
-  $form_state['values'][GOFAST_OG_CONTENT_MEMBERSHIP_FIELD][LANGUAGE_NONE] = array_filter($form_state['values'][GOFAST_OG_CONTENT_MEMBERSHIP_FIELD][LANGUAGE_NONE], function($value) use ($private_space_id){
-    return ($value['target_id'] === $private_space_id);
-  });
+    global $user;
+    $private_space_id = gofast_og_get_user_private_space($user, FALSE);
+    $form_state['values'][GOFAST_OG_CONTENT_MEMBERSHIP_FIELD][LANGUAGE_NONE] = array_filter($form_state['values'][GOFAST_OG_CONTENT_MEMBERSHIP_FIELD][LANGUAGE_NONE], function($value) use ($private_space_id){
+      return ($value['target_id'] === $private_space_id);
+    });
   }
   //Convert the date to UTC
   $date = $form_state['values']['field_date'][LANGUAGE_NONE][0]['value'];
@@ -517,11 +627,20 @@ function gofast_conference_form_conference_node_form_validate(&$form, &$form_sta
 
   if(!$form_state['values']['field_uid_ics'][LANGUAGE_NONE][0]['value']){
     $form_state['values']['field_uid_ics'][LANGUAGE_NONE][0]['value'] = uniqid();
-  } 
-  
+  }
+
   if($form_state['values']['stop_validation_propagation'] == 1){
     form_set_error('success','prevent_validation');
     drupal_get_messages();
+  }
+
+  $json_list_documents = json_decode($form_state['input']['ac-list-tags-list-documents']);
+  foreach($json_list_documents as $document) {
+    if(in_array((int)$document->value, array_keys($timestamp_target_save), TRUE)){ //Old value
+        $form_state['values']['field_timestamp_target_link'][LANGUAGE_NONE][] = array('value' => $timestamp_target_save[$document->value]);
+    } else { //New value
+        $form_state['values']['field_timestamp_target_link'][LANGUAGE_NONE][] = array('value' => $document->value . '/' . time());
+    }
   }
 
   if(!empty(form_get_errors())){
@@ -543,7 +662,7 @@ function gofast_conference_form_conference_node_form_submit(&$form, &$form_state
     foreach($form_state['values']['field_participants'][LANGUAGE_NONE] as $participant){
       $participants[] = $participant['value'];
     }
-    
+
     //Extract node participants
     foreach($node->field_existing_participants[LANGUAGE_NONE] as $participant){
       $existing_node_participants[] = $participant['target_id'];
@@ -566,7 +685,7 @@ function gofast_conference_form_conference_node_form_submit(&$form, &$form_state
         gofast_conference_removed_from_meeting($node, $mail);
       }
     }
-    
+
     //Store new participants in case they are needed by others modules
     foreach($existing_participants as $participant){
       $uid = $participant;
@@ -598,39 +717,45 @@ function gofast_conference_form_conference_node_form_submit(&$form, &$form_state
 function gofast_conference_removed_from_meeting($node, $user){
   $subject = t('[Cancelled meeting] !title', array('!title' => $node->title), array('context' => 'gofast:gofast_conference'));
   $title = $node->title;
-  $footer = t('Meeting', array(), array('context' => 'gofast:gofast_conference'));
+  $footer = t('Meeting powered by GoFAST', array(), array('context' => 'gofast:gofast_conference'));
 
   $owner = user_load($node->uid);
-  $conference_owner = theme('user_picture', array('account' => $owner));
+  $conference_owner = theme('user_picture', array('account' => $owner , 'dimensions' => 40, 'attributes' => ['style' => "border-radius: 5px; width:40px;"]));
 
   $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
   $document_pic = gofast_mail_queue_fa_png($node_icon);
-  if(is_object($user)){
+  if (is_object($user)) {
     $language = $user->language;
-  }else{
+  } else {
     $language = $owner->language;
   }
 
   $l = array('langcode' => $language, 'context' => 'gofast:conference');
 
+  if (is_object($user)) {
+    $recipients_gofast[] = array('recpt' => $user->mail, 'method' => 'to');
+    $recip_name = gofast_user_display_name($user);
+  } else {
+    $recipients_gofast[] = array('recpt' => $user, 'method' => 'to');
+    $recip_name = $user;
+  }
+
     $body_gofast = theme('gofast_conference_email_removed_body', array(
       'author_pic' => $conference_owner,
       'conference_title' => $title,
-      'document_pic' =>$document_pic,
+      'document_pic' => $document_pic,
       'author_name' => gofast_user_display_name($owner),
+      'recip_name' => $recip_name,
       'l' => $l
     ));
 
-    if(is_object($user)){
-      $recipients_gofast[] = array('recpt' => $user->mail, 'method' => 'to');
-    }else{
-      $recipients_gofast[] = array('recpt' => $user, 'method' => 'to');
-    }
     $uid_ics = $node->field_uid_ics[LANGUAGE_NONE][0]['value'];
 
     $description = strip_tags($node->body[LANGUAGE_NONE][0]['value']);
     $description = preg_replace("/\n/m", '\n', $description);
     $description = str_replace("&nbsp;", '', $description);
+
+    $conference_place = $node->field_place[LANGUAGE_NONE][0]['value'];
 
     $invite = new Invite($uid_ics);
     $invite->setSubject($node->title);
@@ -643,11 +768,11 @@ function gofast_conference_removed_from_meeting($node, $user){
 
     $invite->setStatus("CANCELLED");
     $invite->setMethod('CANCEL');
-      
+
     $count_update = db_query("SELECT count(id) as count FROM {ceo_vision_audit} WHERE nid= '".$node->nid."' AND event_type = 'update_node' ")->fetchObject()->count;
-    $number_sequence = $count_update;        
+    $number_sequence = $count_update;
     $invite->setSequence($number_sequence);
- 
+
     $attachement_method = 'CANCEL';
 
      //we generate an ics file to attach to the mail
@@ -689,25 +814,10 @@ function gofast_conference_node_insert($node, $delete = false, $update = false) 
     $conference_url_gofast = CONFERENCE_URL . '?nid='.$node->nid.'&token='.$node->uuid.'&domain='.$base_url.'&name='.$normalize_title;
     // link to jitsi conference
     $conference_url_external = CONFERENCE_URL . '/' .$normalize_title;
-    $conference_url_test = $base_url . '/conference/test-config';
 
     $existing_participants_email = array();
     $non_gofast_participants_email = array();
 
-    //Ununderstandable code, saved for backup purpose
-    /*if ($node->field_existing_participants[LANGUAGE_NONE]) {
-      print_r($node->field_existing_participants[LANGUAGE_NONE]);exit;
-      $existing_participants_email = array_map(function($value) use ($node, $user, $delete){
-        $existing_participant = user_load($value['target_id']);
-        if ($user->uid != $value['target_id'] && $delete === "false") {
-          $private_space_id = gofast_og_get_user_private_space($existing_participant, FALSE);
-          $og = og_membership_create('node', $private_space_id, 'node', $node->nid, GOFAST_OG_CONTENT_MEMBERSHIP_FIELD);
-          og_membership_save($og);
-        }
-          return $existing_participant->mail;
-      }, $node->field_existing_participants[LANGUAGE_NONE]);
-    }*/
-    
     //fills the existing_participants_email array
     foreach($node->field_existing_participants[LANGUAGE_NONE] as $participant){
       $appartenance = false;
@@ -755,24 +865,49 @@ function gofast_conference_node_insert($node, $delete = false, $update = false) 
     }
 
     $title = $node->title;
-    $footer = t('Meeting', array(), array('context' => 'gofast:gofast_conference'));
+    $footer = t('Meeting powered by GoFAST', array(), array('context' => 'gofast:gofast_conference'));
 
     $conference_content = $node->body[LANGUAGE_NONE][0]['value'];
     $conference_place = $node->field_place[LANGUAGE_NONE][0]['value'];
-    $gofast_participants = isset($node->field_existing_participants[LANGUAGE_NONE]) ? gofast_conference_build_gofast_participants_email_list($node->field_existing_participants[LANGUAGE_NONE]) : t('No Gofast participants', array(), array('context' => 'gofast:gofast_conference'));
-    $other_paticipants = isset($node->field_participants[LANGUAGE_NONE]) ? gofast_conference_build_other_participants_email_list($node->field_participants[LANGUAGE_NONE]) : t('No other participants', array(), array('context' => 'gofast:gofast_conference'));
 
-    $owner = user_load($node->uid);
-    $conference_owner = theme('user_picture', array('account' => $owner, 'dimensions' => array('width' => '15px', 'height' => '15px'))) . ' ' . $owner->mail;
-    
+    // commented for now, may be useful in case of regression
+    // $gofast_participants = isset($node->field_existing_participants[LANGUAGE_NONE]) ? gofast_conference_build_gofast_participants_email_list($node->field_existing_participants[LANGUAGE_NONE]) : t('Non user participants', array(), array('context' => 'gofast:gofast_conference'));
+    // $other_paticipants = isset($node->field_participants[LANGUAGE_NONE]) ? gofast_conference_build_other_participants_email_list($node->field_participants[LANGUAGE_NONE]) : t('No other participants', array(), array('context' => 'gofast:gofast_conference'));
+    $gofast_participants = $node->field_existing_participants[LANGUAGE_NONE] ?? array();
+    $gofast_participants = array_map(function ($participant) {
+      $participant = gofast_get_properties_user_by_uid_or_u_name($participant['target_id'], NULL, ['mail', 'picture', 'fullname']);
+      $participant->picture = gofast_get_url_picture_by_id($participant->picture);
+      return $participant;
+    }, $gofast_participants);
+    $other_participants = $node->field_participants[LANGUAGE_NONE] ?? array();
+    $other_participants = array_map(function ($participant) {
+      global $base_url;
+      $mail = $participant['value'];
+      $participant = new stdClass();
+      $participant->fullname = "";
+      $participant->mail = $mail;
+      $participant->picture = $base_url . "/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png";
+      return $participant;
+    }, $other_participants);
+
+    $owner = gofast_get_properties_user_by_uid_or_u_name($node->uid, NULL, ['mail', 'picture', 'fullname']);
+    $owner->picture = gofast_get_url_picture_by_id($owner->picture);
+    // commented for now, may be useful in case of regression
+    // $conference_owner = theme('user_picture', array('account' => $owner, 'dimensions' => 40, 'attributes' => ['style' => "border-radius: 5px; width:40px;"])) . ' ' . $owner->mail;
+    $conference_owner = $owner;
+
     $date = $node->field_date[LANGUAGE_NONE][0]['value'];
     $end_date = $node->field_end_date[LANGUAGE_NONE][0]['value'];
-       
+
     if(isset($node->field_timestamp_target_link[LANGUAGE_NONE]) && count($node->field_timestamp_target_link[LANGUAGE_NONE]) > 0){
-      $conference_documents = gofast_conference_build_documents_list($node->field_timestamp_target_link[LANGUAGE_NONE], TRUE);
+      $conference_documents_array = gofast_conference_build_documents_list($node->field_timestamp_target_link[LANGUAGE_NONE], TRUE);
+      $conference_documents = '';
+      foreach($conference_documents_array as $doc){
+           $conference_documents .= '<div style="font-family:Poppins;font-size:14px;font-weight:400;line-height:1;text-align:left;color:#000000;" title="'.$doc['date'].'"><span>'.gofast_mail_queue_fa_png($doc['node_icon']).'</span>  <a href="'.$doc['href'].'" style="color: #337ab7; text-decoration: none;">'.$doc['title'].'</a></div>';
+      }
       $conference_alt_documents = gofast_conference_build_documents_list_alt($node->field_timestamp_target_link[LANGUAGE_NONE]);
     }
-    
+
     if(isset($node->field_linked_folders[LANGUAGE_NONE]) && count($node->field_linked_folders[LANGUAGE_NONE]) > 0){
       $conference_folders = gofast_conference_build_folders_list($node->field_linked_folders[LANGUAGE_NONE], TRUE);
       $conference_alt_folders = gofast_conference_build_folders_list_alt($node->field_linked_folders[LANGUAGE_NONE]);
@@ -780,169 +915,8 @@ function gofast_conference_node_insert($node, $delete = false, $update = false) 
 
     // creating array with all participants' emails
     $participants_email = array_merge($existing_participants_email, $non_gofast_participants_email);
-    #region old code
-    /*
-    //generating email body
-    $body_gofast = theme('gofast_conference_email_body', array(
-      'conference_url' => $conference_url_gofast,
-      'conference_url_external' => $conference_url_external,
-      'conference_url_test' => $conference_url_test,
-      'gofast_participants' => $gofast_participants,
-      'other_participants' => $other_paticipants,
-      'conference_datetime' => $conference_datetime,
-      'conference_end_datetime' => $conference_end_datetime,
-      'conference_content' => gofast_conference_build_informations($conference_content, $conference_place),
-      'conference_owner' => $conference_owner,
-      'conference_documents' => $conference_documents,
-      'conference_folders' => $conference_folders,
-      'delete' => $delete,
-    ));
-    //generating email body
-    $body_external = theme('gofast_conference_email_body', array(
-      'conference_url' => $conference_url_external,
-      'conference_url_external' => $conference_url_external,
-      'conference_url_test' => $conference_url_test,
-      'gofast_participants' => $gofast_participants,
-      'other_participants' => $other_paticipants,
-      'conference_datetime' => $conference_datetime,
-      'conference_end_datetime' => $conference_end_datetime,
-      'conference_content' => gofast_conference_build_informations($conference_content, $conference_place),
-      'conference_owner' => $conference_owner,
-      'conference_documents' => $conference_documents,
-      'conference_folders' => $conference_folders,
-      'delete' => $delete,
-    ));
-    
-    // initializing recipents arrays
-    $recipients_gofast = array();
-    $recipients_external = array();
-    $attendee = array();
 
-    // adding owner as a cc
-    $recipients_gofast[] = array('recpt' => $owner->mail, 'method' => 'cc');
-
-      $uid_ics = $node->field_uid_ics[LANGUAGE_NONE][0]['value'];
-      $description = strip_tags($node->body[LANGUAGE_NONE][0]['value']);
-      $description = preg_replace("/\n/m", '\n', $description);
-      $description = str_replace("&nbsp;", '', $description);
-      $description = str_replace("\r", "", $description);
-
-      $invite = new Invite($uid_ics);
-      $invite->setSubject($node->title);
-      $invite->setDescription($description . "\\n" . "URL: " . $conference_url_external .  "   URL ALTERNATIVE: " . str_replace(CONFERENCE_URL, "https://meet.jit.si", $conference_url_external));
-      $invite->setStart(new DateTime($node->field_date[LANGUAGE_NONE][0]['value']));
-      $invite->setEnd(new DateTime($node->field_end_date[LANGUAGE_NONE][0]['value']));
-      $invite->setLocation($conference_place);
-      $invite->setOrganizer($owner->mail, $owner->ldap_user_givenname[LANGUAGE_NONE][0]['value']." ".$owner->ldap_user_sn[LANGUAGE_NONE][0]['value']);
-      $invite->setUrl($conference_url_external . "  ".str_replace(CONFERENCE_URL, "https://meet.jit.si", $conference_url_external));
-
-      foreach ($participants_email as $participant_email) {
-        $recipient_user = user_load_by_mail($participant_email);
-        if(isset($recipient_user->uid)){
-            $recipients_gofast[] = array('recpt' => $participant_email, 'method' => 'to');
-            //$attendee[] = "CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=".$recipient_user->ldap_user_givenname[LANGUAGE_NONE][0]['value']." ".$recipient_user->ldap_user_sn[LANGUAGE_NONE][0]['value'].";X-NUM-GUESTS=0:MAILTO:".$recipient_user->mail;
-            $invite->addAttendee($recipient_user->mail, $recipient_user->ldap_user_givenname[LANGUAGE_NONE][0]['value']." ".$recipient_user->ldap_user_sn[LANGUAGE_NONE][0]['value']);
-        }
-        else{
-          $recipients_external[] = array('recpt' => $participant_email, 'method' => 'to');
-          //$attendee[] = "CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=".$participant_email.";X-NUM-GUESTS=0:MAILTO:".$participant_email;
-          $invite->addAttendee($participant_email, $participant_email);
-        }
-      }
-
-      if($delete == true){
-          $invite->setStatus("CANCELLED");
-          $invite->setMethod('CANCEL');
-          $attachement_method = 'CANCEL';
-          $alt_body = t('The meeting', array(), array('context' => 'gofast:gofast_conference'))
-              . " "
-              . $title
-              . " "
-              . t('has been cancelled', array(), array('context' => 'gofast:gofast_conference'));
-      }else{
-        $invite->setStatus("NEEDS-ACTION");
-        $invite->setMethod('REQUEST');
-        $attachement_method = 'REQUEST';
-        $alt_body = t('You are invited to the meeting', array(), array('context' => 'gofast:gofast_conference'))
-              . " "
-              . $title;
-      }
-
-      //Set informations in alt_body
-      // global $base_url; // already declared at the top of the function
-      $alt_body .= "\n\n";
-      $alt_body .= t('Subject', array(), array('context' => 'gofast:gofast_conference')) . " : " . strip_tags($node->body[LANGUAGE_NONE][0]['value']);
-      $alt_body .= "\n\n";
-      $alt_body .= t('Place', array(), array('context' => 'gofast:gofast_conference')) . " : " . $conference_place;
-      $alt_body .= "\n\n";
-      $alt_body .= t('Start date', array(), array('context' => 'gofast:gofast_conference')) . " : " . $conference_datetime;
-      $alt_body .= "\n\n";
-      $alt_body .= t('End date', array(), array('context' => 'gofast:gofast_conference')) . " : " . $conference_end_datetime;
-      $alt_body .= "\n\n";
-      $alt_body .= t('Linked documents') . " : ";
-      $alt_body .= "\n\n";
-      $alt_body .= $conference_alt_documents;
-      $alt_body .= "\n\n";
-      $alt_body .= t('Linked folders') . " : ";
-      $alt_body .= "\n\n";
-      $alt_body .= $conference_alt_folders;
-      $alt_body .= "\n\n";
-      $alt_body .= t('More informations', array(), array('context' => 'gofast:gofast_conference')) . " : " . $base_url . "/node/" . $node->nid;
-
-    //we generate an ics file to attach to the mail
-    $ics_content = $invite->getInviteContent();
-    $ics_content = str_replace("\;", ";", $ics_content);
-    //$ics_content = str_replace("END:VEVENT", "X-MICROSOFT-CDO-BUSYSTATUS:BUSY\nX-MICROSOFT-CDO-IMPORTANCE:1\nX-MICROSOFT-DISALLOW-COUNTER:FALSE\n	X-MS-OLK-AUTOFILLLOCATION:TRUE\nX-MS-OLK-CONFTYPE:0\nEND:VEVENT", $ics_content);
-
-    $current_timestamp = time();
-    $public_path = "/var/www/d7/sites/default/files";
-    $file_path = $public_path."/invite_gofast_".$current_timestamp.".ics";
-    $written_file = fopen($file_path, "w+");
-    fwrite($written_file, $ics_content);
-    fclose($written_file);
-
-    $mail = array(
-      'body' => $body_gofast,
-      'title' => $title,
-      'subject' => $subject,
-      'footer' => $footer,
-      'urlAttachmentFile' => $file_path,
-      'urlAttachmentTitle' => $normalize_title . ".ics",
-      'attachmentMethod' => $attachement_method,
-      'altBody' => $alt_body,
-      'deleteAttachment' => TRUE
-    );
-    
-    if(count(module_implements("conference_notified_participants_alter")) > 0){
-      $recipients_gofast = module_invoke_all("conference_notified_participants_alter", $recipients_gofast, TRUE);
-    }
-    gofast_mail_queue_api_queue_ext($mail, $recipients_gofast, time());
-
-    $mail_external = array(
-      'body' => $body_external,
-      'title' => $title,
-      'subject' => $subject,
-      'footer' => $footer,
-      'urlAttachmentFile' => $file_path,
-      'urlAttachmentTitle' => $normalize_title . ".ics",
-      'attachmentMethod' => $attachement_method,
-      'altBody' => $alt_body,
-      'deleteAttachment' => TRUE
-    );
-    
-    if(count(module_implements("conference_notified_participants_alter")) > 0){
-      $recipients_external = module_invoke_all("conference_notified_participants_alter", $recipients_external, FALSE);
-    }
-    
-    gofast_mail_queue_api_queue_ext($mail_external, $recipients_external, time());
-    */
-    //Removed in GOFAST-4393
-    /*if(!$delete){
-      // Remind conference 5 minutes before it is hold
-      gofast_conference_remind_conference($node, $recipients_gofast, $body_gofast);
-      gofast_conference_remind_conference($node, $recipients_external, $body_external);
-    }*/
-    #endregion
+    // generating email body
     // version with custom email for everyone
     $custom_mail_recipients = $participants_email;
     if(!in_array($owner->mail, $custom_mail_recipients)) $custom_mail_recipients = array_merge(array($owner->mail),$custom_mail_recipients);
@@ -950,48 +924,63 @@ function gofast_conference_node_insert($node, $delete = false, $update = false) 
     // foreach( $participants_email as $partIndex => $email_recipient ) {
 
       $recipient = user_load_by_mail($email_recipient);
+      $recipient_name = $recipient->ldap_user_givenname[LANGUAGE_NONE][0]['value'] ?: $email_recipient;
+      $recipient = gofast_get_properties_user_by_uid_or_u_name($recipient->uid, NULL, ['mail', 'picture', 'fullname']);
+      $recipient->picture = gofast_get_url_picture_by_id($recipient->picture);
       $conference_custom_url = $conference_url_external;
       if(isset($recipient->uid)) {
         $conference_custom_url .='#userInfo.displayName='.rawurlencode('"'.gofast_user_display_name($recipient).'"').'&userInfo.email='.rawurlencode('"'.$email_recipient.'"');
       }
-      
-      $conference_datetime = format_date(strtotime(gofast_change_time_zone($date, 'UTC', $recipient->timezone)), 'medium');
-      $conference_end_datetime = format_date(strtotime(gofast_change_time_zone($end_date, 'UTC', $recipient->timezone)), 'medium'); 
+
+      $start_time = strtotime(gofast_change_time_zone($date, 'UTC', $recipient->timezone));
+      $end_time = strtotime(gofast_change_time_zone($end_date, 'UTC', $recipient->timezone));
+
+      $conference_datetime = format_date($start_time, 'medium');
+      $conference_end_datetime = format_date($end_time, 'medium');
       //generating email body
-      $body_gofast = theme('gofast_conference_email_body', array(
+      $body_gofast = theme($delete ? 'gofast_conference_email_canceled_body' : 'gofast_conference_email_body', array(
+        'conference_title' => $node->title,
         'conference_url' => $conference_url_gofast,
         'conference_url_external' => $conference_custom_url,
-        // 'conference_url_test' => $conference_url_test,
         'gofast_participants' => $gofast_participants,
-        'other_participants' => $other_paticipants,
+        'other_participants' => $other_participants,
         'conference_datetime' => $conference_datetime,
         'conference_end_datetime' => $conference_end_datetime,
-        'conference_content' => gofast_conference_build_informations($conference_content, $conference_place),
+        'duration' => getConferenceDuration($start_time, $end_time),
+        'conference_content' => [
+          "subject" => $conference_content,
+          "place" => $conference_place
+        ],
         'conference_owner' => $conference_owner,
         'conference_documents' => $conference_documents,
         'conference_folders' => $conference_folders,
-        'delete' => $delete,
+        'recipient' => $recipient,
+        'recipient_name' => $recipient_name,
       ));
       //generating email body
-      $body_external = theme('gofast_conference_email_body', array(
+      $body_external = theme($delete ? 'gofast_conference_email_canceled_body' : 'gofast_conference_email_body', array(
+        'conference_title' => $node->title,
         'conference_url' => $conference_custom_url,
         'conference_url_external' => $conference_custom_url,
-        // 'conference_url_test' => $conference_url_test,
         'gofast_participants' => $gofast_participants,
-        'other_participants' => $other_paticipants,
+        'other_participants' => $other_participants,
         'conference_datetime' => $conference_datetime,
         'conference_end_datetime' => $conference_end_datetime,
-        'conference_content' => gofast_conference_build_informations($conference_content, $conference_place),
+        'duration' => getConferenceDuration($start_time, $end_time),
+        'conference_content' => [
+          "subject" => $conference_content,
+          "place" => $conference_place
+        ],
         'conference_owner' => $conference_owner,
         'conference_documents' => $conference_documents,
         'conference_folders' => $conference_folders,
-        'delete' => $delete,
+        'recipient' => $recipient,
+        'recipient_name'=> $recipient_name,
       ));
-      
+
       // initializing recipents arrays
       $recipients_gofast = array(array('recpt' => $email_recipient, 'method' => 'to'));
       $recipients_external = array(array('recpt' => $email_recipient, 'method' => 'to'));
-      $attendee = array();
 
       // adding owner as a cc
       // $recipients_gofast[] = array('recpt' => $owner->mail, 'method' => 'cc');
@@ -1033,30 +1022,29 @@ function gofast_conference_node_insert($node, $delete = false, $update = false) 
                 . " "
                 . $title
                 . " "
-                . t('has been cancelled', array(), array('context' => 'gofast:gofast_conference'));                    
+                . t('has been cancelled', array(), array('context' => 'gofast:gofast_conference'));
            $count_update = db_query("SELECT count(id) as count FROM {ceo_vision_audit} WHERE nid= '".$node->nid."' AND event_type = 'update_node' ")->fetchObject()->count;
-           $number_sequence = $count_update + 1;          
-          $invite->setSequence($number_sequence);       
-          
+           $number_sequence = $count_update + 1;
+          $invite->setSequence($number_sequence);
+
         }else{
           $invite->setStatus("TENTATIVE");
           $invite->setMethod('REQUEST');
-          
+
           $count_update = db_query("SELECT count(id) as count FROM {ceo_vision_audit} WHERE nid= '".$node->nid."' AND event_type = 'update_node' ")->fetchObject()->count;
           if($update){
-            $number_sequence = $count_update + 1; 
+            $number_sequence = $count_update + 1;
           }else{
-             $number_sequence = $count_update;  
-          }         
-          $invite->setSequence($number_sequence);       
+             $number_sequence = $count_update;
+          }
+          $invite->setSequence($number_sequence);
           $attachement_method = 'REQUEST';
           $alt_body = t('You are invited to the meeting', array(), array('context' => 'gofast:gofast_conference'))
                 . " "
                 . $title;
         }
 
-        //Set informations in alt_body
-        // global $base_url; // already declared at the top of the function
+        // Set informations in alt_body
         $alt_body .= "\n\n";
         $alt_body .= t('Subject', array(), array('context' => 'gofast:gofast_conference')) . " : " . strip_tags($node->body[LANGUAGE_NONE][0]['value']);
         $alt_body .= "\n\n";
@@ -1101,14 +1089,14 @@ function gofast_conference_node_insert($node, $delete = false, $update = false) 
           'altBody' => $alt_body,
           'deleteAttachment' => TRUE
         );
-        
+
         if(count(module_implements("conference_notified_participants_alter")) > 0){
           $recipients_gofast = module_invoke_all("conference_notified_participants_alter", $recipients_gofast, TRUE);
         }
-        if(!$_POST['conference_prevent_mail']){
+        if(!$_POST['conference_prevent_mail'] && count($recipients_gofast) > 0){
             gofast_mail_queue_api_queue_ext($mail, $recipients_gofast, time());
         }
-      } 
+      }
       else {
         $mail_external = array(
           'body' => $body_external,
@@ -1121,24 +1109,31 @@ function gofast_conference_node_insert($node, $delete = false, $update = false) 
           'altBody' => $alt_body,
           'deleteAttachment' => TRUE
         );
-        
+
         if(count(module_implements("conference_notified_participants_alter")) > 0){
           $recipients_external = module_invoke_all("conference_notified_participants_alter", $recipients_external, FALSE);
         }
-        if(!$_POST['conference_prevent_mail']){
+        if(!$_POST['conference_prevent_mail'] && count($recipients_external) > 0){
             gofast_mail_queue_api_queue_ext($mail_external, $recipients_external, time());
         }
       }
 
     }
+    /*ctools_include('ajax');
+    ctools_add_js('ajax-responder');
+    $commands[] = ctools_ajax_command_redirect('node/'.$node->nid);
+    print ajax_render($commands);exit;*/
+
+
   }
 }
 
+/** @todo */
 // Remind conference 5 minutes before it is hold
 function gofast_conference_remind_conference($node, $recipients, $body) {
   $subject = t('[Meeting reminder] "!title" is about to start', array('!title' => $node->title), array('context' => 'gofast:gofast_conference'));
   $title = $node->title;
-  $footer = t('Meeting reminder', array(), array('context' => 'gofast:gofast_conference'));
+  $footer = t('Meeting reminder powered by GoFAST', array(), array('context' => 'gofast:gofast_conference'));
   $timestamp = '';
   $mail = array(
     'body' => $body,
@@ -1164,6 +1159,46 @@ function gofast_conference_node_update($node) {
 
 }
 
+function gofast_conference_get_participant_by_id($uid) {
+    $user = user_load($uid);
+    return [
+        "uid" => $user->uid,
+        "name" => $user->ldap_user_displayname[0][0]['value'],
+        "mail" =>   $user->mail,
+        "picture" => theme('user_picture', array('account' => $user, 'dimensions' => 40, 'attributes' => ['style' => "border-radius: 5px; width:40px;"])),
+    ];
+}
+
+function gofast_conference_build_spaces_participants($spaces) {
+  $participants = [];
+  $properties_u = ['mail', 'picture', 'fullname', 'lastname', 'firstname', 'is_extranet'];
+  foreach ($spaces as $space) {
+      $participant = $space;
+      array_push($participants, $participant);
+  }
+  return $participants;
+}
+
+function gofast_conference_build_participants($uid_participants) {
+    $participants = [];
+    $properties_u = ['mail', 'picture', 'fullname', 'lastname', 'firstname', 'is_extranet'];
+    foreach ($uid_participants as $uid_paticipant) {
+        $participant = gofast_get_properties_user_by_uid_or_u_name($uid_paticipant, NULL, $properties_u);
+        $participant->uid = $uid_paticipant;
+        $participant->picture = gofast_get_url_picture_by_id($participant->picture);
+        array_push($participants, $participant);
+    }
+    return $participants;
+}
+
+function gofast_conference_build_others_participants($othersParticipants) {
+  $mailParticipants = [];
+  foreach($othersParticipants as $otherParticipant) {
+    array_push($mailParticipants, $otherParticipant['value']);
+  }
+    return $mailParticipants;
+}
+
 /**
  * Retrieve a gofast's participants html string
  * @param type $participants
@@ -1180,10 +1215,10 @@ function gofast_conference_build_gofast_participants_email_list($participants, $
     $account = user_load($participant['target_id']);
 
     if($isOwner){
-      $html .= '<div class="" style="float:left;">'.theme('user_picture', array('account' => $account)).' '.$account->mail.'</div>';
+      $html .= '<div class="" style="float:left;">'.theme('user_picture', array('account' => $account,'dimensions' => 40, 'attributes' => ['style' => "border-radius: 5px; width:40px;"])).' '.$account->mail.'</div>';
     }
     else{
-      $html .= '<li class="list-group-item" style="border:none; padding:5px 0px;"><div class="gofast-participant">'.theme('user_picture', array('account' => $account, 'dimensions' => array('width' => '15px', 'height' => '15px'))).' '.$account->mail.'</div></li>';
+      $html .= '<li class="list-group-item" style="border:none; padding:5px 0px;"><div class="gofast-participant">'.theme('user_picture', array('account' => $account, 'dimensions' => 40, 'attributes' => ['style' => "border-radius: 5px; width:40px;"])).' '.$account->mail.'</div></li>';
     }
   }
 
@@ -1192,46 +1227,35 @@ function gofast_conference_build_gofast_participants_email_list($participants, $
   return $html;
 }
 
-function gofast_conference_build_documents_list($documents, $forMail = FALSE){
-  $output = "<table style='width:100%;'>";
-  $rotate = 0;
+function gofast_conference_build_documents_list($documents) {
 
-  foreach($documents as $document){
-    if($rotate == 0){
-      $output .= '<tr style="width:100%;">';
+    $documents_formated = [];
+
+    foreach($documents as $document){
+
+        $value = $document['value'];
+        $valueSplit = explode('/', $value);
+        $node = node_load($valueSplit[0]);
+        $date = format_date($valueSplit[1], 'long', '', date_default_timezone_get());
+        $node_icon = theme("gofast_node_icon_format", array("node" => $node));
+        $document['title'] = $node->title;
+        $document['href'] = '/node/' . $node->nid;
+        $document['date'] = $date;
+        $document['node_icon'] = $node_icon;
+
+        unset($document['value']);
+        unset($document['format']);
+        unset($document['safe_value']);
+
+        array_push($documents_formated, $document);
+
     }
 
-    $value = $document['value'];
-    $valueSplit = explode('/', $value);
-    $node = node_load($valueSplit[0]);
-    $date = format_date($valueSplit[1], 'long', '', date_default_timezone_get());
-
-    $node_icon = theme("node_title", array("link" => TRUE, "node" => $node));
-    if($forMail){
-      $node_icon = gofast_mail_queue_fa_png($node_icon, TRUE) . theme("node_title", array("link" => TRUE, "fullLink" => TRUE, "node" => $node, "noIcon" => TRUE));
-    }
-    $output .= '<td style="width:22%;display:inline-block;"><div style=";white-space: nowrap;text-overflow: ellipsis;overflow: hidden;word-break: break-all;">'.$node_icon.'</div></td>';
-    $output .= '<td style="width:22%;display:inline-block;">'.$date.'</td>';
-
-    if(count($documents) > 1){
-      if($rotate == 1){
-        $rotate = 0;
-        $output .= '</tr>';
-      }else{
-        $output .= '<td style="width:4%;display:inline-block;"></td>';
-        $rotate++;
-      }
-    }else{
-      $output .= '</tr>';
-    }
-  }
-
-  $output .= "</table>";
-  return $output;
+    return $documents_formated;
 }
 
 function gofast_conference_build_folders_list($folders, $forMail = FALSE){
-  $output = "<table style='width:100%;'>";
+  $output = "<table class='table table-borderless' style='width:100%;'>";
   $rotate = 0;
 
   foreach($folders as $folder){
@@ -1242,12 +1266,12 @@ function gofast_conference_build_folders_list($folders, $forMail = FALSE){
     $path = $folder['value'];
     $title = end(explode('/', $path));
 
-    $node_icon = '<span class="fa fa file-o fa-folder" style="margin-right: 10px;"></span>' . '<a href="/gofast/browser?path=' . rawurlencode($path) . '" title="' . $title . '">' . $title . "</a>";
+    $node_icon = '<span class="fa fa file-o fa-folder" style="margin-right: 10px;"></span>' . '<a href="/gofast/browser?path=' . rawurlencode($path) . '" title="' . $title . '" style="color: #337ab7; text-decoration: none;">' . $title . "</a>";
     if($forMail){
       global $base_url;
       $node_icon = "<img src='" . $base_url . "/sites/all/modules/gofast/gofast_mail_queue/icon/folder.png' />" . '<a href="' . $base_url . '/gofast/browser?path=' . rawurlencode($path) . '" title="' . $title . '">' . $title . "</a>";
     }
-    $output .= '<td style="width:45%;display:inline-block;"><div style=";white-space: nowrap;text-overflow: ellipsis;overflow: hidden;word-break: break-all;">'.$node_icon.'</div></td>';
+    $output .= '<td style="width:45%;display:inline-block;"><div style="font-family:Poppins;font-size:14px;font-weight:400;line-height:1;text-align:left;color:#000000;">'.$node_icon.'</div></td>';
 
     if(count($folders) > 1){
       if($rotate == 1){
@@ -1293,13 +1317,13 @@ function gofast_conference_build_folders_list_alt($folders){
     $output .= ' - ' . $folder_title . " " . $base_url . "/gofast/browser/?path=" . rawurlencode($path);
     $output .= "\n";
   }
-  
+
   //Allow other modules to alter this output
   if(count(module_implements("conference_folders_list_post_render")) > 0){
     $invokes = module_invoke_all("conference_folders_list_post_render", $folders, $output);
     $output = end($invokes);
   }
-  
+
   return $output;
 }
 
@@ -1312,7 +1336,7 @@ function gofast_conference_build_folders_list_alt($folders){
 function gofast_conference_build_other_participants_email_list($participants) {
   $html = '';
   foreach ($participants as $participant) {
-    $html .= '<li class="list-group-item" style="border:none; padding:5px 0px;"><div class="gofast-participant">'.theme('user_picture',array('dimensions' => array('width' => '15px', 'height' => '15px'))).' '.$participant['value'].'</div></li>';
+    $html .= '<li class="list-group-item" style="border:none; padding:5px 0px;"><div class="gofast-participant">'.theme('user_picture',array('dimensions' => 40, 'attributes' => ['style' => "border-radius: 5px; width:40px;"])).' '.$participant['value'].'</div></li>';
   }
   return $html;
 }
@@ -1321,24 +1345,10 @@ function gofast_conference_build_other_participants_email_list($participants) {
  * Little formatting for informations displaying
  */
 function gofast_conference_build_informations($subject, $place) {
-  $html = '<table style="width:100%">';
-  $html .= ' <tr>';
-  $html .= '   <td style="width:50%">';
-  $html .= '   <div><strong>'.t('Subject').'</strong></div>';
-  $html .= '   </td>';
-  $html .= '   <td style="width:50%">';
-  $html .= '   <div><strong>'.t('Place').'</strong></div>';
-  $html .= '   </td>';
-  $html .= ' </tr>';
-  $html .= ' <tr>';
-  $html .= '   <td style="width:50%">';
-  $html .= '   <div>'.$subject.'</div>';
-  $html .= '   </td>';
-  $html .= '   <td style="width:50%">';
-  $html .= '   <div>'.$place.'</div>';
-  $html .= '   </td>';
-  $html .= ' </tr>';
-  $html .= '</table>';
+  $html = '   <h5>'.t('Subject').'</h5>';
+  $html .= '   <div class="py-2">'.$subject.'</div>';
+  $html .= '   <h5>'.t('Place').'</h5>';
+  $html .= '   <div class="py-2">'.$place.'</div>';
 
 
   return $html;
@@ -1352,7 +1362,7 @@ function gofast_conference_preprocess_node(&$variables) {
     $full_user = user_load($user);
     $user_displayName = gofast_user_display_name($full_user);
     $user_mail = $user->mail;
-    
+
     drupal_add_library('gofast_conference', 'DetectRTC');
 
     // Prepare the variables for conference's node
@@ -1367,7 +1377,7 @@ function gofast_conference_preprocess_node(&$variables) {
     }else{
       $variables['gofast_folders_list'] = null;
     }
-    $variables['gofast_participants_email_list'] = isset($variables['field_existing_participants'][LANGUAGE_NONE]) ? gofast_conference_build_gofast_participants_email_list($variables['field_existing_participants'][LANGUAGE_NONE]) : t('No Gofast participant', array(), array('context' => 'gofast:gofast_conference'));
+    $variables['gofast_participants_email_list'] = isset($variables['field_existing_participants'][LANGUAGE_NONE]) ? gofast_conference_build_gofast_participants_email_list($variables['field_existing_participants'][LANGUAGE_NONE]) : t('Non user participants', array(), array('context' => 'gofast:gofast_conference'));
     $variables['other_participants_email_list'] = isset($variables['field_participants'][LANGUAGE_NONE]) ? gofast_conference_build_other_participants_email_list($variables['field_participants'][LANGUAGE_NONE]) : t('No other participant', array(), array('context' => 'gofast:gofast_conference'));
     $variables['report'] = theme('gofast_conference_report');
     $variables['conference_datetime'] = format_date(strtotime(gofast_change_time_zone($variables['field_date'][LANGUAGE_NONE][0]['value'], 'UTC', $user->timezone)), 'long', '', date_default_timezone_get());
@@ -1380,6 +1390,203 @@ function gofast_conference_preprocess_node(&$variables) {
     $variables['conference_url'] = CONFERENCE_URL . '?nid='.$variables['nid'].'&token='.$variables['uuid'].'&domain='.$base_url.'&name='.$normalize_title;
     $variables['conference_url_external'] = CONFERENCE_URL . '/' .$normalize_title . '#userInfo.displayName='. rawurlencode('"'.$user_displayName.'"').'&userInfo.email='.rawurlencode('"'.$user_mail.'"');
   }
+}
+
+function getConferenceDuration($startTime, $endTime){
+
+  $time = [];
+
+  // Formulate the Difference between two dates
+  $diff = abs($endTime - $startTime);
+
+
+  // To get the year divide the resultant date into
+  // total seconds in a year (365*60*60*24)
+  $years = floor($diff / (365*60*60*24));
+
+  if($years > 0){
+    $time[] = $years."y";
+  }
+
+  // To get the month, subtract it with years and
+  // divide the resultant date into
+  // total seconds in a month (30*60*60*24)
+  $months = floor(($diff - $years * 365*60*60*24)
+                                / (30*60*60*24));
+
+  if($months > 0){
+    $time[] = $months."m";
+  }
+
+
+  // To get the day, subtract it with years and
+  // months and divide the resultant date into
+  // total seconds in a days (60*60*24)
+  $days = floor(($diff - $years * 365*60*60*24 -
+  $months*30*60*60*24)/ (60*60*24));
+
+  if($days > 0){
+    $time[] = $days."d";
+  }
+
+  // To get the hour, subtract it with years,
+  // months & seconds and divide the resultant
+  // date into total seconds in a hours (60*60)
+  $hours = floor(($diff - $years * 365*60*60*24
+    - $months*30*60*60*24 - $days*60*60*24)
+    / (60*60));
+
+  if($hours > 0){
+    $time[] = $hours . " " . format_plural($hours, "hour", "hours");
+  }
+
+  // To get the minutes, subtract it with years,
+  // months, seconds and hours and divide the
+  // resultant date into total seconds i.e. 60
+  $minutes = floor(($diff - $years * 365*60*60*24
+    - $months*30*60*60*24 - $days*60*60*24
+    - $hours*60*60)/ 60);
+
+  if($minutes > 0){
+    $time[] = $minutes . " " . format_plural($minutes, "minute", "minutes");
+  }
+
+  // To get the minutes, subtract it with years,
+  // months, seconds, hours and minutes
+  $seconds = floor(($diff - $years * 365*60*60*24
+          - $months*30*60*60*24 - $days*60*60*24
+                  - $hours*60*60 - $minutes*60));
+
+  // Print the result
+  return implode(" ", $time);
+
+}
+
+
+
+function template_preprocess_gofast_conference(&$variables) {
+
+    global $base_url;
+    global $user;
+    $account = user_load($user->uid);
+    drupal_add_library('gofast_conference', 'DetectRTC');
+
+    $node = node_load($variables['nid']);
+    $properties_u = ['mail', 'picture', 'fullname', 'lastname', 'firstname', 'is_extranet'];
+
+    if (intval($variables['uid']) === 0) $variables['uid'] = $variables['revision_uid'];
+
+    $owner = gofast_get_properties_user_by_uid_or_u_name($variables['uid'], NULL, $properties_u);
+
+    $owner->url_user = "user/" . $variables['uid'];
+    $owner->picture = gofast_get_url_picture_by_id($owner->picture);
+
+    $normalize_title = preg_replace("/[^A-Za-z0-9]/", '', gofast_conference_normalize_conference_name($node->title));
+
+    $startTime = strtotime(gofast_change_time_zone($variables['field_date'][LANGUAGE_NONE][0]['value'], 'UTC', $account->timezone));
+    $endTime = strtotime(gofast_change_time_zone($variables['field_end_date'][0]['value'], 'UTC', $account->timezone));
+
+    $folders = (isset($variables['field_linked_folders']) && count($variables['field_linked_folders']) > 0) ? $variables['field_linked_folders'] : null;
+    $startDateTime = explode(" - ", format_date($startTime, 'long', '', date_default_timezone_get()));
+    $endDateTime = explode(" - ", format_date($endTime, 'long', '', date_default_timezone_get()));
+
+    //add spaces into participants
+    $gofast_spaces = $node->og_group_content_ref['und'];
+    foreach($gofast_spaces as $k => $gid){ //Clear private spaces as we want to retrieve spaces
+      $space = node_load($gid['target_id']);
+      if($space->type !== 'private_space'){
+        //This is a space
+        $variables['field_spaces_participants'][LANGUAGE_NONE][] = $space;
+       // $list_participants[] = str_replace(",", " ", gofast_modal_ac_format_send_email_value('node', $space, null, $space->title, null));
+      }
+    }
+    
+    
+    $variables['conferenceDetails'] = [
+
+        //left informations
+        "title" => $normalize_title,
+        "subject" => $variables['body'][LANGUAGE_NONE][0]['value'],
+        "place" => $variables['field_place'][0]['value'],
+        "duration" => getConferenceDuration($startTime, $endTime),
+        "startDate" => $startDateTime[0],
+        "startTime" => $startDateTime[1],
+        "endDate" => $endDateTime[0],
+        "endTime" => $endDateTime[1],
+        "timezone" => $account->timezone,
+        "actions" => [
+            "startConference" => [
+                "id" => "conference-pc-link-start",
+                "label" => t('Start conference'),
+                "href" => CONFERENCE_URL . '/' .$normalize_title . '#userInfo.displayName='. rawurlencode('"'.$account->ldap_user_displayname[LANGUAGE_NONE][0]['value'].'"').'&userInfo.email='.rawurlencode('"'.$user->mail.'"'),
+                "style" => "",
+            ],
+            "displayPCLink" => [
+                "id" => "conference-pc-link-display",
+                "label" => t('Display access link to conference', array(), array("context" => "gofast:gofast_conference")),
+                "href" => "",
+                "style" => "",
+            ],
+            "copyLinkToClipboard" => [
+                "id" => "conference-pc-link-copy",
+                "label" => t('Copy access link to conference', array(), array("context" => "gofast:gofast_conference")),
+                "href" => "",
+                "style" => "",
+                "url" => CONFERENCE_URL . '/' .$normalize_title . '#userInfo.displayName='. rawurlencode('"'.$account->ldap_user_displayname[LANGUAGE_NONE][0]['value'].'"').'&userInfo.email='.rawurlencode('"'.$user->mail.'"'),
+            ],
+        ],
+
+        //right informations
+        "owner" => $owner,
+        "spaces_participants" => isset($variables['field_spaces_participants'][LANGUAGE_NONE]) ? gofast_conference_build_spaces_participants($variables['field_spaces_participants'][LANGUAGE_NONE]) : t('No spaces', array(), array('context' => 'gofast:gofast_conference')),
+        "participants" => isset($variables['field_existing_participants'][LANGUAGE_NONE]) ? gofast_conference_build_participants($variables['field_existing_participants'][LANGUAGE_NONE]) : t('No user participant', array(), array('context' => 'gofast:gofast_conference')),
+        "othersParticipants" => isset($variables['field_participants'][LANGUAGE_NONE]) ? gofast_conference_build_others_participants($variables['field_participants'][LANGUAGE_NONE]) : t('No other participant', array(), array('context' => 'gofast:gofast_conference')),
+        "listsDocuments" => (isset($variables['field_timestamp_target_link']) && count($variables['field_timestamp_target_link']) > 0) ? gofast_conference_build_documents_list($variables['field_timestamp_target_link']) : null,
+        "listsFolders" => $folders,
+
+        //others informations
+        "mediaDetection" => [
+            "mainDevices" => [
+                "label" => t('Main devices', array(), array('context' => 'gofast:gofast_conference')),
+                "items" => [
+                    "camera" => [
+                        "label" => t('Camera', array(), array('context' => 'gofast:gofast_conference')),
+                        "icon" => "glyphicon glyphicon-camera",
+                    ],
+                    "microphone" => [
+                        "label" => t('Microphone', array(), array('context' => 'gofast:gofast_conference')),
+                        "icon" => "glyphicon glyphicon-bullhorn",
+                    ],
+                    "audio" => [
+                        "label" => t('Loudspeakers', array(), array('context' => 'gofast:gofast_conference')),
+                        "icon" => "glyphicon glyphicon-headphones",
+                    ],
+                ]
+            ],
+            "protocols" => [
+                "label" => t('Protocols', array(), array('context' => 'gofast:gofast_conference')),
+                "items" => [
+                        "webrtc" => [
+                        "label" => t('WebRTC', array(), array('context' => 'gofast:gofast_conference')),
+                    ],
+                    "websocket" => [
+                        "label" => t('WebSocket', array(), array('context' => 'gofast:gofast_conference')),
+                    ],
+                ],
+            ],
+            "others" => [
+                "label" => t('Others', array(), array('context' => 'gofast:gofast_conference')),
+            ],
+        ],
+    ];
+    if(node_access("update", $node)) {
+      $variables['conferenceDetails']['actions']['editConference'] = [
+          "id" => "conference-edit-link",
+          "label" => t('Edit conference'),
+          "href" => "/node/" . $variables['nid'] . "/edit",
+          "style" => "",
+      ];
+    }
 }
 
 /**
@@ -1408,7 +1615,7 @@ function gofast_conference_normalize_conference_name($str) {
     foreach ($uni as $value)
       $str = str_replace($value, $nonUnicode, $str);
   }
-  $str = trim(strtolower($str));
+  $str = trim($str);
   $str = rtrim($str, "-");
   return $str;
 }
@@ -1496,102 +1703,102 @@ function gofast_conference_can_edit_conference($node){
  * Implements GoFAST API
  * Ressource : conference
  * Action : recording
- * 
+ *
  * Store a record of a GoFAST conference
  * This API don't need any access as it won't do anything if it's not called with proper params
  */
 function gofast_api_conference_recording($params){
     set_time_limit(0);
-    
+
     if($params['method'] !== "GET"){
         gofast_api_not_implemented("This method");
     }
-    
+
     if(strpos($params['Content-Type'], "application/json") === FALSE){
         gofast_api_not_implemented("This Content-Type");
     }
-    
+
     //Get params and check mandatory params
     if(isset($params['conference_name'])){
         $conference_name = $params['conference_name'];
     }else{
         gofast_api_mandatory_parameter("conference_name");
     }
-    
+
     if(isset($params['recording_path'])){
         $recording_path = $params['recording_path'];
     }else{
         gofast_api_mandatory_parameter("recording_path");
     }
-    
+
     //Search the conference by name
     $conferences = db_select("node", 'n')
           ->fields('n', array('nid', 'title'))
           ->condition('type', 'conference', '=')
           ->execute()
           ->fetchAll();
-    
+
     $conference_match = array();
-    
+
     foreach($conferences as $conference){
         $conference_title = preg_replace("/[^A-Za-z0-9]/", '', gofast_conference_normalize_conference_name($conference->title));
-        
+
         if($conference_title == $conference_name){
             //We have a matching conference
             $conference_match[] = $conference->nid;
         }
     }
-    
+
     if(count($conference_match) === 0){
         gofast_api_not_found("Conference " . $conference_name . " not found");
     }else if(count($conference_match) > 1){
         gofast_api_internal_server_error("Multiple conferences found for name " . $conference_name);
     }
-    
+
     //We have retrieved a conference, load it and retrieve it's creator
     $conference_node = node_load($conference_match[0]);
     $uid = $conference_node->uid;
-    
+
     //Load the user and get it's name
     $creator = user_load($uid);
     $user_name = $creator->name;
-    
+
     //Prepare the file upload
     $mimetype = "video/mp4";
     $title = $conference_name . "_" . time() . ".mp4";
     $path = "/mnt/alfresco_webdav/Sites/_$user_name/$title";
     $item_path = "/alfresco/webdav/Sites/_$user_name/$title";
     $alfresco_path = str_replace("/alfresco/webdav", "", $item_path);
-    
+
     //Try to download the file
     $url = CONFERENCE_URL . $recording_path;
     shell_exec("wget -O $path $url");
     $filesize = filesize($path);
-    
+
     if(!$filesize){
         gofast_api_internal_server_error("Downloaded file is empty: " . CONFERENCE_URL . $recording_path);
     }
-    
+
     //Force replication of the node
     usurp(1);
     $_GET['href'] = $item_path;
     $nid = gofast_cmis_replicate(FALSE);
-    
+
     //Associate the file to the conference and don't send an email
     $_POST["conference_prevent_mail"] = true;
     $conference_node->field_timestamp_target_link['und'][]['value'] = $nid . "/" . time();
-    
-    $conference_node = gofast_prepare_node_save_technically($conference_node); 
+
+    $conference_node = gofast_prepare_node_save_technically($conference_node);
     $ruid = $conference_node->revision_uid;
     node_save($conference_node);
     db_update('node_revision')
       ->fields(array('uid' => $ruid))
       ->condition('nid', $conference_node->nid)
       ->execute();
-    
+
     //Release admin user
     usurp(FALSE);
-    
+
     gofast_api_success(array('code' => '200 OK', 'nid' => $nid, 'link' => '/node/' . $nid, "date" => date("c")));
 }
 
@@ -1599,54 +1806,54 @@ function gofast_api_conference_recording($params){
  * Implements GoFAST API
  * Ressource : conference
  * Action : checkroom
- * 
+ *
  * Check if conference room exists
  */
 function gofast_api_conference_checkroom($params){
     set_time_limit(0);
-    
+
     if($params['method'] !== "GET"){
         gofast_api_not_implemented("This method");
     }
-    
+
     if(strpos($params['Content-Type'], "application/json") === FALSE){
         gofast_api_not_implemented("This Content-Type");
     }
-    
+
     //Get params and check mandatory params
     if(isset($params['rid'])){
         $rid = $params['rid'];
     }else{
         gofast_api_mandatory_parameter("rid");
     }
-    
+
     //Prevent CORS issues
     global $conf;
     header("Access-Control-Allow-Origin: https://" . $conf['gofast-comm_domain']);
-    
+
     //Don't do the check if the configuration is disabled
     if(!variable_get("gofast_conference_check_room", FALSE)){
         gofast_api_success(array("result" => "found"));
     }
-    
+
     //Search the conference by name
     $conferences = db_select("node", 'n')
           ->fields('n', array('nid', 'title'))
           ->condition('type', 'conference', '=')
           ->execute()
           ->fetchAll();
-    
+
     $conference_match = array();
-    
+
     foreach($conferences as $conference){
         $conference_title = preg_replace("/[^A-Za-z0-9]/", '', gofast_conference_normalize_conference_name($conference->title));
-        
+
         if($conference_title == $rid){
             //We have a matching conference
             $conference_match[] = $conference->nid;
         }
     }
-    
+
     if(count($conference_match) === 0){
         gofast_api_success(array("result" => "not found"));
     }else{

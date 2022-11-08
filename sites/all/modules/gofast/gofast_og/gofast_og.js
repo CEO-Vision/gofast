@@ -2,8 +2,61 @@
   'use strict';
 
   Drupal.gofast_og = Drupal.gofast_og || {};
+  Gofast.og = Gofast.og || {};
+  Gofast.og.overSpace = false;
 
   var fromTree = false;
+
+  Gofast.og.showOGPopup = function() {
+      Gofast.og.overSpace = true;
+      var nid = this.id, url,
+              popup = $(this).find('.space-popup'),
+              throbber = '<i aria-hidden="true" class="icon glyphicon glyphicon-refresh glyphicon-spin"></i>';
+      popup.html(throbber).mouseleave(Gofast.og.hideOGPopup);
+
+      url = '/gofast_og/space/popup/' + nid;
+
+      $.ajax({
+          url: url,
+          dataType: 'html',
+          beforeSend: function(xhr) {
+              Gofast.xhrPool = Gofast.xhrPool || {};
+              Gofast.xhrPool.xhrShowOGPopup = xhr;
+          },
+          'complete': function() {
+              delete Gofast.xhrPool.xhrShowOGPopup;
+          },
+          success: function(response) {
+              if(Gofast.og.overSpace === true) {
+                  popup.html(response);
+                  Drupal.attachBehaviors();
+              }
+          }
+      });
+  };
+
+  Gofast.og.hideOGPopup = function() {
+      Gofast.og.overSpace = false;
+      $(this).find('.space-popup').children().remove();
+  };
+
+  Drupal.behaviors.gofastOGSpacePopup = {
+      attach : function(context, settings) {
+          var config = {
+              sensitivity: 7,
+              interval: 100,
+              over: Gofast.og.showOGPopup,
+              timeout: 0,
+              out: Gofast.og.hideOGPopup
+          };
+          setTimeout(function() {
+              $('.space-icon.space-to-popup:not(.gofast-popup-processed)').addClass('gofast-popup-processed').each(function() {
+                    $(this).hoverIntent(config);
+                });
+          }, 8000);
+
+      }
+  };
 
   $(document).ready(function () {
     var $ = jQuery;
@@ -13,26 +66,21 @@
           //Prevent doing these actions outside of a space page
           return;
       }
-     // if(e.oldURL !== e.newURL){
         if(location.hash === ""){
           history.replaceState(null, "Gofast", location.href + "#oghome");
+          $("#ogtab_home").click();
         }
 
         if(location.hash !== "#ogdocuments"){
-            clearInterval(Gofast.ITHit.refreshBreadcrumbTimeout);
-            //Get params
-            var params = {};
-            if (location.search) {
-                var parts = location.search.substring(1).split('&');
-
-                for (var i = 0; i < parts.length; i++) {
-                    var nv = parts[i].split('=');
-                    if (!nv[0]) continue;
-                    params[nv[0]] = nv[1] || true;
-                }
-            }
-            Gofast.ITHit.refreshBreadcrumb(params.path, true);
+          clearInterval(Gofast.ITHit.refreshBreadcrumbTimeout);
+          //Get params
+          const urlParams = new URLSearchParams(location.search);
+          const path = urlParams.get("path");
+          if (!!path) {
+            Gofast.ITHit.refreshBreadcrumb(path, true);
+          }
         }
+
         $('.gofast-og-page a[href="' + location.hash + '"]').tab('show');
         $(window).scrollTop(0);
         if($("#file_browser_full_tree_element").length > 0){
@@ -40,7 +88,6 @@
             $('.mCSB_scrollTools_vertical').css('visibility', 'visible');
             $('.mCSB_scrollTools_horizontal').css('visibility', 'visible');
         }
-    //  }
     });
     $('#tabs_og_group').tabs();
     $('#panel_ztree_og').css('max-height', $(window).height()*0.7);
@@ -57,7 +104,6 @@
 
       modal_form.hide();
       modal_process.css('display', 'block');
-      modalContentResize();
 
       //Step 1 : Delete the documents
       $("#delete_step_1").append("<div class='loader-deleting'></div>");
@@ -179,8 +225,11 @@
       var $roles = $('.og-roles-force-single input[type=checkbox]', context);
       $roles.once('single-role', function () {
         $(this).on('change', function () {
-          if (this.checked) {
+          if ($(this).hasClass("role_contributor")) {
             $roles.not(this).not(':disabled').prop('checked', false);
+          }
+          if ($(this).hasClass("role_administrator") || $(this).hasClass("role_business_adm")) {
+            $('.role_contributor').prop('checked', false);
           }
         });
       });
@@ -225,11 +274,12 @@
        $('#panel_ztree_og').css('max-height', $(window).height()*0.7);
        //In case of non-membership
        $('.joinbtn').not(".processed").on('click', function(caller){ //Click on join button
+        debugger;
          if($(caller.target).hasClass("clicked")){ // Check if the button was already clicked
            return;
          }
-         var caller_id = caller.currentTarget.id;
-         var gid = caller_id.replace("join_", ""); //Get back the id of the caller div
+         var caller_id = $(this).attr('id');
+         var gid = caller_id.replace("join-", ""); //Get back the id of the caller div
          $(caller.target).addClass("clicked"); //Prevent from multiclicking
 
          $('#iconjoin_'+gid).removeClass("glyphicon-ok").addClass("glyphicon glyphicon-time"); //Change icon on the button
@@ -629,23 +679,23 @@ Drupal.behaviors.gofast_og_grid_ztree = {
 
     Drupal.behaviors.gofast_activity_space_async = {
         attach: function (context, settings) {
-                if($('#tab_ogactivity:not(.activity_processed)').parent().hasClass('active')){
-                    $("#tab_ogactivity:not(.activity_processed)").addClass("activity_processed");
-                    var nid = $(".gofast-og-page").attr("id").replace("node-", "");
-                     $("#ogactivity").load( "/gofast_og/space_activity_async/" + nid, function (response, status, xhr){
-                         if(status == "success"){
-                             Drupal.attachBehaviors();
-                         }
-                     });
-                }
-            $("#tab_ogactivity:not(.activity_processed)").addClass("activity_processed").click(function(){
-                        var nid = $(".gofast-og-page").attr("id").replace("node-", "");
-                         $("#ogactivity").load( "/gofast_og/space_activity_async/" + nid, function (response, status, xhr){
-                             if(status == "success"){
-                                 Drupal.attachBehaviors();
-                             }
-                         });
-            });
+          if($('#tab_ogactivity:not(.activity_processed)').parent().hasClass('active')){
+            $("#tab_ogactivity:not(.activity_processed)").addClass("activity_processed");
+            var nid = $(".gofast-og-page").attr("id").replace("node-", "");
+              $("#ogactivity").load( "/gofast_og/space_activity_async/" + nid, function (response, status, xhr){
+                  if(status == "success"){
+                      Drupal.attachBehaviors();
+                  }
+              });
+          }
+          $("#tab_ogactivity:not(.activity_processed)").addClass("activity_processed").click(function(){
+              var nid = $(".gofast-og-page").attr("id").replace("node-", "");
+                $("#ogactivity").load( "/gofast_og/space_activity_async/" + nid, function (response, status, xhr){
+                    if(status == "success"){
+                        Drupal.attachBehaviors();
+                    }
+                });
+          });
         }
     };
 
@@ -663,9 +713,12 @@ Drupal.behaviors.gofast_og_grid_ztree = {
                 }
             }, 2000 );
             $("#ogtab_home:not(.activity_processed)").click(function(){
-                       $(this).addClass("activity_processed");
+                        if($("#ogtab_home").hasClass("activity_processed")){
+                          return;
+                        }
+                        $("#ogtab_home").addClass("activity_processed")
                         var nid = $(".gofast-og-page").attr("id").replace("node-", "");
-                        if($("#oghome").html().trim() == "<span></span>"){
+                        if($("#oghome").html().trim() == '<div class="loader-blog"></div>'){
                             $("#oghome").load( "/gofast_og/home_async/" + nid, function (response, status, xhr){
                                 if(status == "success"){
                                     Drupal.attachBehaviors();
@@ -680,58 +733,63 @@ Drupal.behaviors.gofast_og_grid_ztree = {
     var panel = $(".preadd-validation-panel");
 
     //For each panel, process the request and check the result
-        //Retrieve nid
-        var nid = $(panel).find('#nid').text();
-        if (nid > 0) { } else {
-          $(panel).find('.panel-body').find(".preadd-validation-info").html("<i class='fa fa-times' style='color:red' aria-hidden='true'></i> " + Drupal.t("This modification cannot be done currently. Please try again later.", {}, { context: 'gofast:taxonomy' }));
-          return true;
-        }
-        //Retrieve locations
-        var usersPreAdd = JSON.parse($(panel).find('#users_preadd').text());
-        $(panel).find('.panel-body').find(".preadd-validation-info").html("<i class='fa fa-arrow-right' style='color:#3498db' aria-hidden='true'></i> " + Drupal.t("Processing...", {}, { context: 'gofast:taxonomy' }));
+    panel.each(function(i, obj){
+        var it = $(this);    
+            //Retrieve nid
+            var nid = it.find('#nid').text();
+            if (nid > 0) { } else {
+              it.find('.panel-body').find(".preadd-validation-info").html("<i class='fa fa-times' style='color:red' aria-hidden='true'></i> " + Drupal.t("This modification cannot be done currently. Please try again later.", {}, { context: 'gofast:taxonomy' }));
+              return true;
+            }
+            //Retrieve locations
+            var usersPreAdd = JSON.parse($(it).find('#users_preadd').text());
+            it.find('.panel-body').find(".preadd-validation-info").html("<i class='fa fa-arrow-right' style='color:#3498db' aria-hidden='true'></i> " + Drupal.t("Processing...", {}, { context: 'gofast:taxonomy' }));
 
-        var barWidth = usersPreAdd.length;
-        var count = 0;
-        var actionPost;
-        var timeoutPreadd;
+            var message = it.find('#message').text();
+            var rid = it.find('#role_id').text();
+            var barWidth = usersPreAdd.length;
+            var count = 0;
+            var actionPost;
+            var timeoutPreadd;
 
-        usersPreAdd.forEach(function (userPreaAdd) {
-          count++
-          if (count == usersPreAdd.length) {
-            actionPost = "join_preadd_send";
-            timeoutPreadd = 3000;
-          } else {
-            actionPost = "join_preadd"
-            timeoutPreadd = 0;
-          }
-
-            $.ajax({
-              type: "POST",
-              async: false,
-              url: location.origin + "/og/preadd/process",
-              data: {nid: nid, action: actionPost, user_to_add: userPreaAdd },
-              timeout: timeoutPreadd,
-              success: function (data) {
-                var returnData = jQuery.parseJSON(data);
-                if (returnData.success == false) {
-                  $("span.user-preadd-span#" + returnData.uid).append(" - " + returnData.message + " <i class='fa fa-info' style='color:red' aria-hidden='true'></i>");
-                } else {
-                  $("span.user-preadd-span#" + returnData.uid).append("<i class='fa fa-check' style='color:green' aria-hidden='true'></i>");
-                }
-
-                var barProgressValue = 100 / barWidth;
-                $('#modal-content .progress-bar').width(barProgressValue * 10);
-                $('#modal-content .progress-bar').html(Math.floor(barProgressValue) + "%");
-                if (Math.floor(barProgressValue) === 100) {
-                  $('.progress-bar').removeClass('progress-bar-striped');
-                  $('.progress-bar').addClass('progress-bar-success');
-                  $('.progress-bar').html(Drupal.t('Completed', {}, { 'context': "gofast:gofast_taxonomy" }));
-                  $(panel).find('.panel-body').find(".preadd-validation-info").html("<i class='fa fa-check' style='color:green' aria-hidden='true'></i> " + Drupal.t("Processed !", {}, { context: 'gofast:taxonomy' }));
-                }
-                barWidth--;
+            usersPreAdd.forEach(function (userPreaAdd) {
+              count++
+              if (count == usersPreAdd.length) {
+                actionPost = "join_preadd_send";
+                timeoutPreadd = 3000;
+              } else {
+                actionPost = "join_preadd"
+                timeoutPreadd = 0;
               }
+
+                $.ajax({
+                  type: "POST",
+                  async: false,
+                  url: location.origin + "/og/preadd/process",
+                  data: {nid: nid, action: actionPost, user_to_add: userPreaAdd, message: message, role_id : rid },
+                  timeout: timeoutPreadd,
+                  success: function (data) {
+                    var returnData = jQuery.parseJSON(data);
+                    if (returnData.success == false) {
+                      it.find("span.user-preadd-span#" + returnData.uid).append(" - " + returnData.message + " <i class='fa fa-info' style='color:red' aria-hidden='true'></i>");
+                    } else {
+                      it.find("span.user-preadd-span#" + returnData.uid).append("<i class='fa fa-check' style='color:green' aria-hidden='true'></i>");
+                    }
+
+                    var barProgressValue = 100 / barWidth;
+                    $('#modal-content .progress-bar').width(barProgressValue * 10);
+                    $('#modal-content .progress-bar').html(Math.floor(barProgressValue) + "%");
+                    if (Math.floor(barProgressValue) === 100) {
+                      $('.progress-bar').removeClass('progress-bar-striped');
+                      $('.progress-bar').addClass('progress-bar-success');
+                      $('.progress-bar').html(Drupal.t('Completed', {}, { 'context': "gofast:gofast_taxonomy" }));
+                      $(panel).find('.panel-body').find(".preadd-validation-info").html("<i class='fa fa-check' style='color:green' aria-hidden='true'></i> " + Drupal.t("Processed !", {}, { context: 'gofast:taxonomy' }));
+                    }
+                    barWidth--;
+                  }
+                });
             });
-        });
+      });
   };
 
 })(jQuery, Gofast, Drupal);

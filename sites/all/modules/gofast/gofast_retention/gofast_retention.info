@@ -4,4 +4,4 @@ package = Gofast
 core = 7.x
 dependencies[] = gofast
 ;configure=admin/config/gofast/retention
-version = "7.x-3.10.0_r2"
+version = "7.x-4.0.0_r3"

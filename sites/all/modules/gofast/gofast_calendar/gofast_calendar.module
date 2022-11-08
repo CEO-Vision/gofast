@@ -30,6 +30,20 @@ function gofast_calendar_form_alter(&$form, &$form_state, $form_id) {
   }
 }
 
+/**
+ * Implements hook_theme
+ */
+function gofast_calendar_theme(){
+  $themes = array();
+
+  $themes['gofast_calendar_popover_description'] = array(
+    'template' => 'tpl/gofast-calendar-popover-description'
+  );
+
+  return $themes;
+}
+
+
 /*
  * Implements hook_views_pre_view
  * Alter the calendar query to make it able to add the subspaces events in the calendar
@@ -107,4 +121,132 @@ drupal_add_css(drupal_get_path('module', 'gofast_calendar') . "/css/calendar_mul
 
 function gofast_calendar_init(){
   drupal_add_js(drupal_get_path('module', 'gofast_calendar') . "/js/gofast_calendar.js");
+}
+
+function gofast_calendar_menu(){
+  $item = array();
+
+  $item['calendar/get_calendar'] = array(
+    'page callback' => 'gofast_calendar_get_calendar',
+    'page arguments' => array(),
+    'type' => MENU_CALLBACK,
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+  );
+
+  return $item;
+}
+
+
+function gofast_calendar_get_calendar(){
+  $nid = $_GET['nid'];
+  $fetchInfo = $_GET['fetchInfo'];
+
+  header('Content-Type: application/json');
+
+  // SQL request to get all events
+  $events = gofast_calendar_get_events_query($nid, $fetchInfo);
+
+  print json_encode($events);
+  exit;
+}
+
+
+function gofast_calendar_get_events_query($nid, $fetchInfo){
+  global $user;
+  if (isset($user->{GOFAST_OG_USER_PRIVATE_SPACE}[LANGUAGE_NONE][0]['target_id']) && $user->{GOFAST_OG_USER_PRIVATE_SPACE}[LANGUAGE_NONE][0]['target_id'] == $nid) {
+    $is_private = TRUE;
+  } else {
+    $is_private = FALSE;
+  }
+
+  $events = [];
+
+  $fetchInfo_startDate = $fetchInfo['startStr'];
+  $fetchInfo_endDate = $fetchInfo['endStr'];
+
+  $startDate = date('Y-m-d H:i:s', strtotime($fetchInfo_startDate));
+  $endDate = date('Y-m-d H:i:s', strtotime($fetchInfo_endDate));
+  
+  if ($is_private) {
+    $available_gids = gofast_og_get_spaces_by_user($user);
+  }
+  // Alfresco_item / Kanban task request
+  $og_membership_subquery = new EntityFieldQuery();
+  if ($is_private) {
+    $og_membership_subquery = db_select('og_membership', 'og_m')
+    ->fields('og_m', array('etid'))
+    ->condition('gid', $available_gids, 'IN');
+  } else {
+    $og_membership_subquery = db_select('og_membership', 'og_m')
+    ->fields('og_m', array('etid'))
+    ->condition('gid', $nid, '=');
+  }
+
+  $og_membership_subquery->join('node', 'n', 'og_m.etid = n.nid');
+
+  $og_membership_subquery->condition('fd.field_date_value', $startDate, ">");
+  $og_membership_subquery->condition('fd.field_date_value', $endDate, "<");
+  $og_membership_subquery->join('field_data_field_date', 'fd', 'og_m.etid = fd.entity_id');
+  $result = $og_membership_subquery->execute()->fetchCol();
+
+
+
+  if (!empty($result)) {
+    $nodes = node_load_multiple($result);
+
+    //    'start' => $node->field_date[LANGUAGE_NONE][0]['value'],
+    //    'end' => $node->field_date[LANGUAGE_NONE][0]['value']
+    foreach ($nodes as $node) {
+
+
+
+      $myuser = gofast_get_user_by_id($node->uid);
+      $userFormatted = [];
+      $userFormatted['uid'] = $myuser->uid;
+      $userFormatted['picture'] = gofast_get_url_picture_by_id($myuser->picture);
+      $userFormatted['firstname'] = $myuser->firstname;
+      $userFormatted['lastname'] = $myuser->lastname;
+      
+
+
+      $field_date = $node->field_date[LANGUAGE_NONE][0]['value'];
+      $field_date = format_date(strtotime(gofast_change_time_zone($field_date, 'UTC', $user->timezone)) , 'custom', 'Y-m-d H:i:s', date_default_timezone_get());
+      $node->body[LANGUAGE_NONE][0]["value"] = substr(strip_tags($node->body[LANGUAGE_NONE][0]["value"]), 0, 250);
+      
+      if($node->type == 'conference'){
+        $field_end_date = $node->field_end_date[LANGUAGE_NONE][0]['value'];
+        $field_end_date = format_date(strtotime(gofast_change_time_zone($field_end_date, 'UTC', $user->timezone)) , 'custom', 'Y-m-d H:i:s', date_default_timezone_get());       
+        $events[] = array(
+          'title' => $node->title,
+          'nid' => $node->nid,
+          'start' => $field_date,
+          'end' => $field_end_date,
+          'user' => $userFormatted,
+          'description' =>  $node->body,
+          'type' => $node->type,
+          'icon' => TRUE,
+          'className' => ""
+        );
+      } else {
+        $events[] = array(
+          'title' => $node->title,
+          'nid' => $node->nid,
+          'start' => $field_date,
+          'user' => $userFormatted,
+          'description' => $node->body,
+          'type' => $node->type,
+          'icon' => 'pdf',
+          'className' => ""
+
+        );
+      }
+    }
+  }
+
+  //Conference
+
+  # Todo
+
+  return $events;
 }

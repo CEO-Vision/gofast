@@ -46,7 +46,7 @@ body{ /* Set background */
   opacity: 1;  
 }
 
-.block-facetapi > .facet-collapsible-wrapper{ /* Search panels */
+.block-facetapi > ul.facetapi-collapsible{ /* Search panels */
     background-color:white;
 }
 

@@ -54,7 +54,7 @@
       return window.setTimeout(function () {
         // Trigger polling only if the current tab is active.
         if (tab && tab.now()) {
-          $poll.trigger('polling');
+          $poll.trigger('polling');       
         }
       }, Gofast.Poll.delay * 1000, $poll);
     },
@@ -104,6 +104,9 @@
           Drupal.ajax[base].ajaxing = false;
           if (status === 'error' || status === 'parsererror') {
             window.console && window.console.error(Drupal.ajaxError(xhr, Drupal.ajax[base].url));
+          }
+          if (xhr.status == 200 && status.includes("error")) {
+            Gofast.toast(Drupal.t("An error occurred while refreshing the content of the page. Please refresh the page.", {}, {context: "gofast"}), "warning");
           }
           Drupal.attachBehaviors();
           // Remove poll xhr from the pool.
@@ -194,7 +197,7 @@
       //
       Gofast.Poll.run();
       $poll.on('pollEnd', Gofast.Poll.run);
-
+   
       // Polling may interrupt itself when the tab goes idle. In this case we
       // need to trigger the event when the tab wakes up.
       tab.on('wakeup', function () {
@@ -202,7 +205,7 @@
         if (base && Drupal.ajax[base] && Drupal.ajax[base].ajaxing === false) {
           $poll.trigger('polling');
         }
-      });
+    });
     });
 
     $(this).on('ajax-navigate', function () {

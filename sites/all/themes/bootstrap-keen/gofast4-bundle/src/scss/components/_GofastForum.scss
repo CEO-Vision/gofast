@@ -1,0 +1,32 @@
+.mainContent.gofast-content--collapsible-side .gofast-content__node {
+    grid-template-columns: 97% 3%;
+    transition: all 0.5s;
+
+    & .forum-node-wrapper {
+        max-height: calc(100vh - 55px - 6rem);
+        overflow: scroll;
+    }
+
+    & #collapsible-metadata-panel-toggle {
+        background-color: #f2f5f8;
+        border-radius: 14px 0 0 14px;
+        width: 14px;
+        height: 44px;
+        transform: translateX(-14px);
+        transition: width 0.5s, background-color 0.5s, padding-right 0.5s, transform 0.5s;
+        &:hover {
+            background-color: #c8c8c8;
+            width: 28px;
+            padding-right: 6px;
+            transform: translateX(-28px);
+        }
+    }
+    
+    .sideContent{
+        .card{
+            .card-body{
+                visibility: hidden;
+            }
+        }
+    }
+}

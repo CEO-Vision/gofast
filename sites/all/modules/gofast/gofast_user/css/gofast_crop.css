@@ -2,32 +2,6 @@
 
 /* Content */
 
-.img-container {
-  background-color: #f7f7f7;
-  width: 100%;
-  text-align: center;
-  min-height: 200px;
-  max-height: 516px;
-  margin-bottom: 20px;
-}
-
-.img-container-current {
-  background-color: #f7f7f7;
-  width: 200px;
-  height: auto;
-  margin: 0 auto;
-  text-align: center;
-}
-
-@media (min-width: 768px) {
-  .img-container {
-    min-height: 516px;
-  }
-  .img-container {
-    min-height: 316px;
-  }
-}
-
 .img-container > img {
   max-width: 100%;
 }

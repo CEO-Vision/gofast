@@ -52,6 +52,7 @@ module_load_include('inc', 'gofast', 'gofast.xeditable');
 module_load_include('inc', 'gofast', 'gofast.poll');
 module_load_include('inc', 'gofast', 'gofast_api');
 module_load_include('inc', 'gofast', 'gofast.integrity');
+module_load_include('module', 'gofast_mobile');
 
 function gofast_get_admin_pwd() {
   return variable_get('admin_password', '');
@@ -64,16 +65,36 @@ function gofast_get_admin_pwd() {
  * @see https://api.drupal.org/api/drupal/modules%21system%21system.api.php/function/hook_init/7
  */
 function gofast_init() {
-   #GOFAST-6288 override drupal cookie setting
-  if (isset($_COOKIE['has_js']) && $_COOKIE['has_js']) {
-    setcookie('has_js', 1, null, '/', null, true, true);
+  //GOFAST-8195
+  //Security : Prevent all requests with CORS policy expressly disabled
+  if(function_exists('getallheaders')){
+    $cors_header = getallheaders()["Sec-Fetch-Mode"];
+    if ($cors_header == 'no-cors') {
+      header('HTTP/1.1 403 Forbidden');
+      exit;
+    }
   }
-
+  
   drupal_add_js(drupal_get_path('module', 'gofast_og') . "/gofast_og.js");
-  global $base_url, $base_path, $user, $dev_mode,$technically_changed,$mobile_url,$prevent_check_alfresco_status;
+  drupal_add_js(drupal_get_path('module', 'gofast') . "/js/gofastPerfectScrollbar.js");
+  drupal_add_js(drupal_get_path('module', 'gofast') . "/js/gofastNode.js");
+
+  drupal_add_js(array('messages' => $_SESSION['messages']), "setting");
+  // add Drupal date format to JS
+  drupal_add_js([
+    "date_format_short" => variable_get('date_format_short', 'm/d/Y - H:i'),
+    "date_format_medium" => variable_get('date_format_medium', 'D, m/d/Y - H:i'),
+    "date_format_long" => variable_get('date_format_long', 'l, F j, Y - H:i'),
+    "mobile_prefix_url" => variable_get_value("mobile_prefix_url"),
+  ], "setting");
+  global $base_url, $base_path, $user, $dev_mode, $mobile_url, $cookie_domain;
+  $cookie_domain = ""; // empty string to enforce full domain name in setcookie calls
   $parts = explode('.', $_SERVER['HTTP_HOST']);
   $mobile_prefix_url = variable_get_value('mobile_prefix_url');
+  // if mobile is a second-level subdomain, avoid duplicating the first-level subdomain
+  if ($parts[0] != explode(".", $mobile_prefix_url)[0]) {
   $parts[0] = $mobile_prefix_url;
+  }
   $mobile_url = $_SERVER["REQUEST_SCHEME"]."://". implode(".", $parts);
   drupal_add_library('gofast', 'main', TRUE);
   if (preg_match("/(Trident\/(\d{2,}|7|8|9)(.*)rv:(\d{2,}))|(MSIE\ (\d{2,}|8|9)(.*)Tablet\ PC)|(Trident\/(\d{2,}|7|8|9))/", $_SERVER["HTTP_USER_AGENT"], $match) != 0) {
@@ -697,6 +718,26 @@ function gofast_library() {
         'every_page' => TRUE,
         'weight' => 3
       ),
+      $path . '/js/gofastPerfectScrollbar.js' => array(
+        'group' => JS_LIBRARY,
+        'every_page' => TRUE,
+        'weight' => 3
+      ),
+      $path . '/js/gofastFullScreen.js' => array(
+        'group' => JS_LIBRARY,
+        'every_page' => TRUE,
+        'weight' => 3
+      ),
+      $path . '/js/gofastSelect2.js' => array(
+        'group' => JS_LIBRARY,
+        'every_page' => TRUE,
+        'weight' => 3
+      ),
+      $path . '/js/gofastDatetimepicker.js' => array(
+        'group' => JS_LIBRARY,
+        'every_page' => TRUE,
+        'weight' => 3
+      ),
       $path . '/js/jquery.ac.html.js' => array(
         'group' => JS_LIBRARY,
         'every_page' => TRUE,
@@ -704,10 +745,6 @@ function gofast_library() {
       ),
       $path . '/js/autocomplete.ext.js' => array(
         'group' => JS_THEME + 1,
-        'every_page' => TRUE
-      ),
-      $lib . '/toastr/toastr.js' => array(
-        'group' => JS_DEFAULT,
         'every_page' => TRUE
       ),
       $path . '/js/gofast_override_drupal_ajax.js' => array(
@@ -728,12 +765,6 @@ function gofast_library() {
       )
     ),
     'css' => array(
-      $lib . '/toastr/toastr.css' => array(
-        'type' => 'file',
-        'media' => 'screen',
-        'group' => CSS_DEFAULT,
-        'weight' => 1
-      ),
       drupal_get_path('module', 'jquery_update') . '/replace/ui/themes/base/jquery-ui.css' => array(
         'type' => 'file',
         'media' => 'screen',
@@ -741,6 +772,12 @@ function gofast_library() {
         'weight' => 0
       ),
       $path . '/css/font-awesome.css' => array(
+        'type' => 'file',
+        'media' => 'screen',
+        'group' => CSS_THEME,
+        'weight' => 0
+      ),
+      $lib . '/fontawesome/css/all.min.css' => array(
         'type' => 'file',
         'media' => 'screen',
         'group' => CSS_THEME,
@@ -896,13 +933,20 @@ function gofast_menu() {
 
   foreach (gofast_error_handler() as $code => $error) {
     $items["error/{$code}"] = array(
-      'title' => $error,
+      'title' => $code,
       'page callback' => 'gofast_error_handler',
       'page arguments' => array(1),
       'access callback' => TRUE,
       'type' => MENU_CALLBACK
     );
   }
+
+  $items['node'] = array(
+    'page callback' => 'gofast_error_handler',
+    'page arguments' => array('404'),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
 
   $items['gofast/node-autocomplete/%'] = array(
     'page callback' => 'gofast_node_autocomplete',
@@ -930,7 +974,7 @@ function gofast_menu() {
 
   $items['admin/config/gofast/global'] = array(
     'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
-    'page callback' => 'drupal_get_form',
+    'page callback' => 'gofast_admin_config_gofast_global',
     'page arguments' => array('gofast_admin_settings'),
     'access arguments' => array('administer site configuration'),
     'type' => MENU_NORMAL_ITEM,
@@ -947,7 +991,7 @@ function gofast_menu() {
   );
 
     $items['home'] = array(
-    'title' => t('My private space', array(), array('context' => 'gofast')),
+    'title' => t('My personal space', array(), array('context' => 'gofast')),
     'page callback' => 'gofast_goto_home',
     'access arguments' => array('access content'),
     'type' => MENU_NORMAL_ITEM,
@@ -971,7 +1015,33 @@ function gofast_menu() {
    $items['gofast/all_comments/render/%node'] = array(
     'title' => t('API render comments', array(), array('context' => 'gofast')),
     'page arguments' => array(3),
-    'page callback' => 'gofast_api_get_render_all_comments',
+    'page callback' => 'gofast_render_allCommentsByNode_async',
+    'access arguments' => array('access content'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+   $items['gofast/all_tasks/render/%node'] = array(
+    'title' => t('API render tasks', array(), array('context' => 'gofast')),
+    'page arguments' => array(3),
+    'page callback' => 'gofast_render_allTasksByNode_async',
+    'access arguments' => array('access content'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['gofast/extra_metadata/render/%node'] = array(
+    'title' => t('API render extra metadata', array(), array('context' => 'gofast')),
+    'page arguments' => array(3),
+    'page callback' => 'gofast_render_extraMetadataByNode_async',
+    'access arguments' => array('access content'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+
+
+     $items['gofast/history/render/%node'] = array(
+    'title' => t('API render hystory', array(), array('context' => 'gofast')),
+    'page arguments' => array(3),
+    'page callback' => 'gofast_render_historyByNode_async',
     'access arguments' => array('access content'),
     'type' => MENU_NORMAL_ITEM,
   );
@@ -985,24 +1055,8 @@ function gofast_menu() {
     'type' => MENU_CALLBACK,
   );
 
-  $items['gofast/node-info/%'] = array(
-    'page callback' => 'gofast_get_node_infos_async',
-    'page arguments' => array(2, TRUE),
-    'type' => MENU_CALLBACK,
-    'access arguments' => array('access content'),
-    'access callback' => 'user_access'
-  );
-
   $items['gofast/node-actions/%'] = array(
     'page callback' => 'gofast_get_node_actions_async',
-    'page arguments' => array(2),
-    'type' => MENU_CALLBACK,
-    'access arguments' => array('access content'),
-    'access callback' => 'user_access'
-  );
-
-  $items['gofast/node-breadcrumb/%'] = array(
-    'page callback' => 'gofast_get_node_breadcrumb_async',
     'page arguments' => array(2),
     'type' => MENU_CALLBACK,
     'access arguments' => array('access content'),
@@ -1062,8 +1116,8 @@ function gofast_menu() {
    $items['gofast/stamp/add'] = array(
     'page callback' => 'gofast_stamp_add',
     'type' => MENU_CALLBACK,
-    'access arguments' =>array(),
-    'access callback'=>TRUE,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access'
   );
 
    $items['gofast/node/%/get_audit_node'] = array(
@@ -1071,7 +1125,7 @@ function gofast_menu() {
     'page arguments' => array(2),
     'type' => MENU_CALLBACK,
     'access arguments' => array('access content'),
-    'access callback'=>TRUE,
+    'access callback' => 'user_access'
    );
 
   $items['gofast/tour/visited_pages'] = array(
@@ -1105,7 +1159,70 @@ function gofast_menu() {
     'access callback' => 'user_access',
   );
 
+  $items['pastell/api/check/module'] = array(
+    'title' => t('Pastell check if module enabled', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_check_pastell_module_enabled',
+    'page arguments' => array(),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+
+  if(!module_exists('gofast_pastell')){
+    $items['pastell/api/get/entite'] = array(
+      'title' => t('Pastell get entites', array(), array('context' => 'gofast')),
+      'page callback' => 'gofast_get_pastell_entites_config',
+      'page arguments' => array(),
+      'type' => MENU_CALLBACK,
+      'access arguments' => array('access content'),
+      'access callback' => 'user_access',
+    );
+  }
+
+  $items['admin/manage/metadata'] = array(
+    'title' => t('Tags Configuration', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_admin_metadata_settings_page',
+    'access arguments' => array('administer general configuration'),
+  );
+
+  $items['modal/%ctools_js/metadata/bulk_action/%/%'] = array(
+    'page callback' => 'gofast_metadata_bulk_actions',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(1,4,5),
+    'access arguments' => array('access content'),
+  );
+
+  $items['modal/%ctools_js/taxonomy/tags/add'] = [
+    'title' => t('Add new term', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_taxonomy_add_term_page',
+    'page arguments' => array(1),
+    'access arguments' => ['administer general configuration'],
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['gofast/global/get-async/%'] = array(
+    'page callback' => 'gofast_global_async',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(3),
+    'access arguments' => array('administer general configuration'),
+    'access callback' => 'user_access',
+  );
+
   return $items;
+}
+
+function gofast_admin_config_gofast_global() {
+
+    //$formAdm = drupal_render(drupal_get_form('gofast_admin_settings'));
+    $settingsTabs = gofast_admin_settings_tabs();
+
+    $sideContent = theme('gofast_admin_config_gofast_global_side_block', ['settingsTabs' => $settingsTabs]);
+
+    $content = theme('gofast_admin_config_gofast_global', ['settingsTabs' => $settingsTabs]);
+
+    $pageContent = gofast_create_page_content($content, $contentType = 'content-block-left', $sideContent);
+
+    return $pageContent;
 }
 
 /**
@@ -1141,6 +1258,15 @@ function gofast_comment_view_alter(&$build) {
         unset($links['comment-edit']);
     }
 
+    $links['comment-permalink'] = $links['comment-reply'];
+    $links['comment-permalink']['title'] = "<span class='fas fa-link'></span>";
+    $links['comment-permalink']['href'] = 'node/' . $node->nid;
+    $links['comment-permalink']['fragment'] = 'comment-' . $comment->cid;
+    $links['comment-permalink']['attributes']['class'] = array(
+      "forum-post-number",
+      "permalink",
+      "af-button-small"
+    );
     $build['links']['comment']['#links'] = $links;
   }
 }
@@ -1205,7 +1331,98 @@ function gofast_permission() {
       'title' => t('Administer Gofast Settings', array(), array('context' => 'gofast')),
       'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
       'restrict access' => TRUE
-    )
+    ),
+     'administer general configuration' => array(
+      'title' => t('Administer Gofast General Settings', array(), array('context' => 'gofast')),
+      'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+    'administer smtp configuration' => array(
+      'title' => t('Administer Gofast SMTP Settings', array(), array('context' => 'gofast')),
+      'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+    'administer visibility configuration' => array(
+      'title' => t('Administer Gofast Visibility Settings', array(), array('context' => 'gofast')),
+      'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+    'administer rss configuration' => array(
+      'title' => t('Administer Gofast RSS Settings', array(), array('context' => 'gofast')),
+      'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+    'administer ldap configuration' => array(
+      'title' => t('Administer Gofast LDAP Settings', array(), array('context' => 'gofast')),
+      'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+    'administer users configuration' => array(
+      'title' => t('Administer Gofast Users Settings', array(), array('context' => 'gofast')),
+      'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+     'administer documents configuration' => array(
+      'title' => t('Administer Gofast Documents Settings', array(), array('context' => 'gofast')),
+      'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+     'administer spaces configuration' => array(
+      'title' => t('Administer Gofast Spaces Settings', array(), array('context' => 'gofast')),
+      'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+     'administer sso configuration' => array(
+      'title' => t('Administer Gofast SSO Settings', array(), array('context' => 'gofast')),
+      'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+    'administer index configuration' => array(
+      'title' => t('Administer Gofast Index Settings', array(), array('context' => 'gofast')),
+      'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+    'administer integrity configuration' => array(
+      'title' => t('Administer Gofast Integrity Settings', array(), array('context' => 'gofast')),
+      'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+    'administer categories configuration' => array(
+      'title' => t('Administer Gofast Categories Settings', array(), array('context' => 'gofast')),
+      'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+    'administer retention configuration' => array(
+      'title' => t('Administer Gofast Retention Settings', array(), array('context' => 'gofast')),
+      'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+    'administer custom link configuration' => array(
+      'title' => t('Administer Gofast Custom Link Settings', array(), array('context' => 'gofast')),
+      'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+    'administer pastell configuration' => array(
+      'title' => t('Administer Gofast Pastell Settings', array(), array('context' => 'gofast')),
+      'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+    'administer signature configuration' => array(
+      'title' => t('Administer Gofast Signature Settings', array(), array('context' => 'gofast')),
+      'description' => t('Access the configuration page, update Gofast settings.', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+    'administer import ldap' => array(
+      'title' => t('Import users from external LDAP', array(), array('context' => 'gofast')),
+      'description' => t('Import manually users from external LDAP', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+    'access statistics' => array(
+      'title' => t('Access statistics', array(), array('context' => 'gofast')),
+      'description' => t('Access GoFast Statistics page', array(), array('context' => 'gofast')),
+      'restrict access' => TRUE
+    ),
+
   );
 }
 
@@ -1431,7 +1648,6 @@ function gofast_not_supported(){
  */
 function gofast_form_alter(&$form, &$form_state) {
   if($form['#form_id'] === 'og_ui_add_users') {
-    $form['og_user']['name']['#autocomplete_path'] = 'gofast_userlist_og_autocomplete';
     $form['og_user']['#attributes']['class'][] = 'og-roles-force-single';
   }
   gofast_ztree_form_alter($form, $form_state);
@@ -1440,8 +1656,13 @@ function gofast_form_alter(&$form, &$form_state) {
    drupal_set_title(t("Login", array(), array("context" => "gofast")));
   }
 
-  if($form['#form_id'] === 'article_node_form' || $form['#form_id'] === 'conference_node_form'){
+  if($form['#form_id'] === 'article_node_form' || $form['#form_id'] === 'conference_node_form' || $form['#form_id'] === 'contact_node_form'){
       global $base_url;
+    $form['#attached']['js'][] = array(
+      'type' => 'file',
+      'group' => JS_THEME + 1,
+      'data' => drupal_get_path('module', 'gofast') . '/js/gofast_ajax_form.js',
+    );
       $form['#prefix'] = '<script src="' .$base_url . '/sites/all/libraries/ckeditor/ckeditor.js"></script>';
   }
 }
@@ -1463,7 +1684,7 @@ function gofast_form_node_form_alter(&$form, &$form_state, $form_id) {
   }
   $node = $form['#node'];
 
-  if($node->type == 'alfresco_item'){
+  if($node->type == 'alfresco_item' || $node->type == 'article'){
       if(isset($_GET['path'])){
         $form['#path'] = $_GET['path'];
         $form[GOFAST_CMIS_LOCATIONS_FIELD][LANGUAGE_NONE]['#entity']->field_emplacement['und'][]['value'] = $_GET['path'];
@@ -1520,11 +1741,11 @@ function gofast_form_node_form_alter(&$form, &$form_state, $form_id) {
       )
     );
 
-    $form['title']['#prefix'] = '<div class="col-md-10">';
-    $form['title']['#suffix'] = '</div>';
+    // $form['title']['#prefix'] = '<div class="col-md-6 col-sm-12">';
+    // $form['title']['#suffix'] = '</div>';
 
-    $form['language']['#prefix'] = '<div class="col-md-2">';
-    $form['language']['#suffix'] = '</div>';
+    // $form['language']['#prefix'] = '<div class="col-md-3">';
+    // $form['language']['#suffix'] = '</div>';
 
     // Arrange options as a unique list by merging disabled & enabled languages.
 
@@ -1564,7 +1785,7 @@ function gofast_form_node_form_alter(&$form, &$form_state, $form_id) {
 
 
 
-  if ($node->type !== 'alfresco_item' && !in_array($node->type, array_keys(gofast_og_node_types()))) {
+  if (($node->type !== 'alfresco_item' && $node->type !== 'article') && !in_array($node->type, array_keys(gofast_og_node_types()))) {
     $form['#validate'][] = 'gofast_node_form_validate';
   }
 
@@ -1587,7 +1808,7 @@ function gofast_form_node_form_alter(&$form, &$form_state, $form_id) {
       'data' => drupal_get_path('module', 'gofast') . '/js/gofast_ajax_form.js',
     );
 
-    if ($node->type === 'alfresco_item' && strpos($_SERVER['REQUEST_URI'],'external')==0){
+    if (($node->type === 'alfresco_item' || $node->type === 'article') && strpos($_SERVER['REQUEST_URI'],'external')==0){
       $form['wrapper']['language']['#options']['auto'] = t('Detected language',array(),array("context"=>"gofast"));
     }
 
@@ -1600,7 +1821,7 @@ function gofast_form_node_form_alter(&$form, &$form_state, $form_id) {
     '#title' => t('Prevent notification : The other users won\'t be notified.'),
     '#weight' => '10',
     '#default_value' => GOFAST_DEFAULT_VALUE_PREVENT_NOTIFY,
-    '#prefix' => "<span class='".GOFAST_CLASS_PREVENT_NOTIFY."'",
+    '#prefix' => "<span class='".GOFAST_CLASS_PREVENT_NOTIFY."'>",
     '#suffix' => "</span>"
   );
   $form['#submit'][] = 'gofast_node_form_submit';
@@ -1621,7 +1842,7 @@ function gofast_node_form_submit(&$form, &$form_state){
     $documents_form_defaults = variable_get("documents_form_defaults", $default_documents_form_configuration);
     $xss_whitelist = is_array($documents_form_defaults['xss_whitelist']) ? $documents_form_defaults['xss_whitelist'] : [];
 
-    if(!in_array($form_state['values']['nid'], $xss_whitelist, TRUE)){
+    if(!in_array($form_state['values']['nid'], $xss_whitelist, FALSE)){
       $form_state['values']['body']['und'][0]['value'] = gofast_xss_clean($form_state['values']['body']['und'][0]['value']);
     }
   }
@@ -1700,7 +1921,7 @@ function gofast_ajax_submit_callback(&$form, &$form_state) {
 //      }
       if($node->type != "task"){
         if(isset($form['#path'])){
-            if($node->type == "alfresco_item"){
+            if($node->type == "alfresco_item" || $node->type == "article"){
                 $commands[] = array(
                     'command' => 'success_creating_node',
                      'data' => '/node/' . $node->nid
@@ -1712,7 +1933,7 @@ function gofast_ajax_submit_callback(&$form, &$form_state) {
                  );
             }
       }else{
-       $command_data = ($node->type == "contact") ? '/contacts-listing' : '/node/' . $node->nid;
+       $command_data = ($node->type == "contact") ? '/directory/contacts-listing' : '/node/' . $node->nid;
         $commands[] = array(
             'command' => 'success_creating_node',
               'data' => $command_data
@@ -1800,6 +2021,7 @@ function gofast_form_validate_title(&$form, &$form_state) {
     $duplicates = db_select('node', 'n')
             ->fields('n', array('nid'))
             ->condition('type', 'alfresco_item', '<>')
+            ->condition('type', 'article', '<>')
             ->condition('nid', $nids, 'IN')
             ->condition('title', $title, '=')
             ->execute()
@@ -1868,8 +2090,8 @@ function gofast_form_user_login_block_alter(&$form, &$form_state)
   //force emptied login field (do not offer suggestion of previous fill-in)
   $form['name']['#attributes']['autocomplete'] = 'off';
 
-  //Clear local storage
-  $form['#suffix'] = "<script>localStorage.clear();indexedDB.deleteDatabase('matrix-js-sdk:riot-web-sync');indexedDB.deleteDatabase('matrix-js-sdk:crypto');</script>";
+  //Logout from Element
+  $form['#suffix'] = theme("gofast_riot_logout_page");
 }
 
 function gofast_user_login(&$edit, $account) {
@@ -1882,12 +2104,12 @@ function gofast_user_login(&$edit, $account) {
   $standard_prefix_url = variable_get_value('base_url_standard');
 
   if ($base_url == $mobile_url) {
-    setcookie('gofast_mobile_login_sid', session_id(), strtotime('+1 year'), '/', $cookie_domain, true); // set the mobile version sid cookie
+    setcookie('gofast_mobile_login_sid', session_id(), strtotime('+1 year'), '/', $cookie_domain, true, true); // set the mobile version sid cookie
   } elseif ($base_url == $standard_prefix_url) {
-    setcookie('gofast_complete_login_sid', session_id(), strtotime('+1 year'), '/', $cookie_domain, true); // set the complete version sid cookie
+    setcookie('gofast_complete_login_sid', session_id(), strtotime('+1 year'), '/', $cookie_domain, true, true); // set the complete version sid cookie
   }
 
-  setcookie('gofast_user', $account->name, strtotime( '+1 year' ), '/', $cookie_domain, true);
+  setcookie('gofast_user', $account->name, strtotime( '+1 year' ), '/', $cookie_domain, true, true);
 
   gofast_resynchro_ldap_membership_one_user($account);
 
@@ -1963,6 +2185,10 @@ function gofast_preprocess_node(&$vars) {
   // depending on view modes.
   $vars['theme_hook_suggestions'][] = 'node__' . $vars['view_mode'];
   $vars['theme_hook_suggestions'][] = 'node__' . $vars['type'] . '__' . $vars['view_mode'];
+  $vars['custom_grid'] = "";
+  if (($vars["node"]->type == "article" && isset($vars["node"]->book["bid"])) || $vars["node"]->type == "webform") {
+    $vars["custom_grid"] = "gofast-content--collapsible-side";
+  }
 
   // Provide specific class as well.
   $vars['classes_array'][] = 'node-' . $vars['view_mode'];
@@ -1976,26 +2202,12 @@ function gofast_preprocess_node(&$vars) {
  * Contextual actions (spaces & contents)
  */
 function gofast_get_breadcrumbs_alt($node) {
-  $node_refresh_action = gofast_get_refresh_action_node($node);
-  $refresh_action = theme('contextual_links', array('btn_group_id' => 'breadcrumb-alt-refresh', 'buttons' => $node_refresh_action));
 
-  $node_comments_action = gofast_get_comments_actions_node($node);
-  $comments_actions = theme('contextual_links', array('btn_group_id' => 'breadcrumb-alt-comments', 'buttons' => $node_comments_action));
-
-  $node_lock_action = gofast_get_lock_action_node($node);
-  $lock_action = theme('contextual_links', array('btn_group_id' => 'breadcrumb-alt-lock', 'buttons' => $node_lock_action));
-
-  if (module_exists('gofast_workflows') && $node->type == 'alfresco_item'){
-    $node_workflow_action = gofast_get_workflow_action_node($node, true);
-    $workflow_action = theme('contextual_links', array('btn_group_id' => 'breadcrumb-alt-wf', 'buttons' => $node_workflow_action));
-  } else {
-    $workflow_action = '';
-  }
+  $actions = [];
 
   $status_conference = '';
   if (module_exists('gofast_conference') && $node->type == 'conference'){
     $status_conference = gofast_conference_get_status($node);
-    //$status_conference_theme = theme('contextual_links', array('btn_group_id' => 'breadcrumb-alt-conference-status', 'buttons' => $status_conference));
   }
 
   $contextual_actions = "<div id='contextual-actions-loading' class='loader-actions not-processed'></div>";
@@ -2009,11 +2221,13 @@ function gofast_get_breadcrumbs_alt($node) {
   }
 
   $prevent_notify_toggle = "";
-  if($node->type == 'alfresco_item'){
+  if($node->type == 'alfresco_item' || $node->type == 'article'){
     $prevent_notify_toggle .= '<div class="'.GOFAST_CLASS_PREVENT_NOTIFY.' contextual-actions btn-group btn-group-xs" style="height:30px;" >
    <input id="edit-prevent-notify-update" class="form-checkbox" value="" type="checkbox" '.$prevent_notify_default_value.'></div><script>Gofast.preventNotifySetDefaultValue("'.$prevent_notify_default_value2.'");</script>';
   }
-  return '<div class="breadcrumb-alt">'.$prevent_notify_toggle . $status_conference . $refresh_action . $workflow_action . $comments_actions . $lock_action . $contextual_actions .'</div>';
+
+  $actions = [$status_conference, $prevent_notify_toggle, $contextual_actions];
+  return $actions;
 }
 
 /**
@@ -2092,11 +2306,13 @@ function gofast_gofast_messages_alter(&$messages){
     }
   }
 
-  foreach($messages['status'] as $k => $message){
-    if(strpos($message, "The AdvAgg bypass cookie is currently enabled") !== FALSE){
-      unset($messages['status'][$k]);
-    }
-  }
+  // foreach($messages['status'] as $k => $message){
+  //   if(strpos($message, "The AdvAgg bypass cookie is currently enabled") !== FALSE){
+  //     unset($messages['status'][$k]);
+  //   }
+  // }
+
+    $messages['status'] = array_unique($messages['status']);
 
    foreach($messages['warning'] as $k => $message){
 
@@ -2217,7 +2433,7 @@ function gofast_get_refresh_action_node($node , $mobile = false) {
   $refresh_actions = array();
 
   // New comments
-  if ($node->type === 'alfresco_item') {
+  if ($node->type === 'alfresco_item' || $node->type === "article") {
     $refresh_button = array(
       'id' => 'refresh-preview',
       'alt' => t('Refresh preview', array(), array('context' => 'gofast')),
@@ -2226,6 +2442,7 @@ function gofast_get_refresh_action_node($node , $mobile = false) {
       'icon-class' => 'fa fa-refresh',
       'disabled' => TRUE,
       'onClick' => 'Drupal.gofast_cmis.reloadPreview();',
+      'classes' => array("disabled")
     );
 
     if($mobile == true){
@@ -2351,14 +2568,14 @@ function gofast_get_lock_action_node($node) {
           'button-text' => '',
           'icon-class' => 'fa document_locked ' . $lock_icon,
           'alt' => 'Unlock',
-          'avatar' => theme('user_picture', array('account' => $locked_owner, 'dimensions' => 15))
+           'avatar' => "<img title='".$locked_owner->ldap_user_givenname['und'][0]['value']." ".$locked_owner->ldap_user_sn['und'][0]['value']."' style='margin-right:2px;width:20px;height:20px;' src='".gofast_get_url_picture_by_id($locked_owner->picture->fid)."' />"
         );
         if (!gofast_user_can_unlock_document($node, $locked_owner)) {
           //$unlock_button['disabled'] = true;
           $unlock_button['classes'][] = 'not-unlockable';
         }
         else {
-          $unlock_button['onClick'] = 'Drupal.gofast_cmis.unlockDocument(\'' . $node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value'] . '\', \'' . $locked_owner->uid . '\')';
+          $unlock_button['onClick'] = '"Drupal.gofast_cmis.preUnlockDocument(\'' . $node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value'] . '\' , \''.$locked_owner->uid.'\');"';
         }
       }
     }
@@ -2368,8 +2585,14 @@ function gofast_get_lock_action_node($node) {
 }
 
 function gofast_get_contextual_actions_node($node, $browser_path = FALSE, $fromTree = FALSE) {
+  global $base_url;
+
   $node_actions = array();
   $node_contextual_actions = array();
+  
+  if(is_object($node)){
+    $_POST['dropleft'] = gofast_contextual_menu_dropleft($node);
+  }
 
   if($node == "filebrowser"){
     //Selected elements are stores in POST the input
@@ -2407,60 +2630,73 @@ function gofast_get_contextual_actions_node($node, $browser_path = FALSE, $fromT
     }
   }
 
-  foreach (gofast_views_get_node_available_actions($node, $browser_path, $fromTree) as $action) {
+  if ($browser_path && strpos($browser_path, "/alfresco/webdav") !== 0) $browser_path = "/alfresco/webdav" . $browser_path;
 
-    if(is_array($action)){
+  $node_actions = gofast_contextual_menu_get_node_actions_dropdown($node, $browser_path ?: null, $fromTree);
 
-      $children = array();
-      foreach($action['children'] as $child){
-         $children[]['themed'] = $child;
-       }
+  $node_contextual_actions = array_merge($node_contextual_actions, gofast_get_lock_action_node($node));
 
-       $node_actions[] = array(
-        'themed' => $action['action'],
-        'children' => $children
-       );
-
-    }
-    else  if (strpos($action, "header:") !== FALSE) {
-      $header = explode("header:", $action)[1];
-      $node_actions[]['themed'] = '<li class="dropdown-header">' . $header . '</li>';
-    }
-    else if (strpos($action, "divider:") !== FALSE) {
-      $node_actions[]['themed'] = '<li role="separator" class="divider"></li>';
-    }
-    else {
-      $node_actions[]['themed'] = '<li>' . $action . '</li>';
-    }
-  }
-
-  if(gofast_og_is_space($node)) {
-    $node_path = gofast_cmis_space_get_webdav_path($node->nid);
+  if($node->type !== 'userlist'){
     $node_contextual_actions[] = array(
-      'id' => 'open-browser',
-      'title' => t('Browse from here', array(), array('context' => 'gofast')),
+      'id' => 'toggle-fitscreen',
+      'title' => t('Set content to full windows size', array(), array('context' => 'gofast')),
       'button-text' => '',
-      'icon-class' => 'fa fa-sitemap open-browser',
-      'href' => '/gofast/browser',
-      'target' => '_blank'
-    );
+      'icon-class' => 'fa fa-arrows-alt'
+    );  
   }
 
-  /* This item allows fullscreen view (like F11). Not activated yet.
-    libraries_load('jquery-fullscreen');
-    array(
-    'id' => 'toggle-fullscreen',
-    'title' => t('Set content to fullscreen'),
-    'button-text' => '',
-    'icon-class' => 'fa fa-desktop',
-    ), */
-  $node_contextual_actions[] = array(
-    'id' => 'toggle-fitscreen',
-    'title' => t('Set content to full windows size', array(), array('context' => 'gofast')),
-    'button-text' => '',
-    'icon-class' => 'fa fa-arrows-alt',
-    'onClick' => "Gofast.toggle_fitscreen(this);"
-  );
+  if($node->type == "alfresco_item" && !gofast_get_content_state_archived($node) && node_access("update", $node)){
+
+        $onlyoffice_locked= gofast_onlyoffice_document_get_soft_lock($node);
+        $locked = gofast_cmis_node_get_lock($node);
+
+        if($locked != "nolocked" && $onlyoffice_locked == false){
+            $href = "";
+            $title = t("This document is locked");
+            $disabled_class = "disabled";
+        }else{
+            $href = $base_url . '/onlyoffice/editor/' . $node->nid;
+            $title = t("Edit this document with OnlyOffice");
+            $disabled_class = "";
+        }
+
+    // If we have mobile or tablet, but not iPad, we have disable button 'co-edit with OnlyOffice'.
+    $detect = new Mobile_Detect();
+    $is_mobile_domain = gofast_mobile_is_mobile_domain();
+    $is_mobile = $detect->isMobile();
+    $is_tablet = $detect->isTablet();
+    $is_ipad = $detect->is('iPad');
+    if ($is_mobile_domain && ($is_mobile || $is_tablet) && !$is_ipad) {
+      $disabled_class = "disabled";
+    }
+    
+    //If tag 'NO-COEDITION' then disabled button
+    $tags = taxonomy_get_term_by_name('NO-COEDITION', 'tags');
+    $tid_template = array_keys($tags);
+  
+    $node_tags= array();
+    foreach($node->field_tags[LANGUAGE_NONE] as $tag){
+      $node_tags[] = $tag['tid'];
+    }
+  
+    if(count(array_intersect($tid_template, $node_tags)) > 0){
+        $disabled_class = "disabled";
+    }else{
+        $disabled_class = "";
+    }
+    
+    if (gofast_contextual_menu_is_onlyoffice_compatible($node) === TRUE && gofast_contextual_menu_node_locked_onlyoffice($node, NULL, NULL, NULL) === TRUE) {
+      $node_contextual_actions[] = array (
+        'text' => t('Co-edit with onlyoffice', array(), array('context' => 'gofast')),
+        'id' => 'contextual_btn_onlyoffice',
+        'classes' => array('gofast-non-ajax', $disabled_class),
+        'href' => $href,
+        'icon-class' => 'fa fa-edit',
+        'target' => '_blank',
+        'title' => $title
+      );
+    }
+  }
 
   if (!empty($node_actions)) {
     $node_contextual_actions[] = array(
@@ -2499,11 +2735,11 @@ function gofast_get_file_browser_actions($selected, $fromTree = FALSE){
 
     if(is_numeric($nid)){ //A node is associated with this item
       $node = node_load($nid);
-      if($node->type == "alfresco_item"){ //Check locations
+      if($node->type == "alfresco_item" || $node->type == "article"){ //Check locations
           gofast_process_location_check_async($nid, true);
       }
       $node = node_load($nid, NULL, TRUE);
-      $browser_actions = gofast_get_contextual_actions_node($node, $path);
+      $browser_actions = gofast_get_contextual_actions_node($node, $path, $fromTree);
     }else{ //No associated nodes
       $browser_actions = gofast_get_contextual_actions_node(null, $path, $fromTree);
       if(strpos(json_encode($browser_actions), "Contextual actions") === false){
@@ -2554,25 +2790,22 @@ function gofast_get_mass_actions_on_selected_items($selected){
         }
     }
   }
-
   if(!$contains_space){
-    $actions[]['themed'] = '<li>' . theme('gofast_link_generic', array(
+    $actions[]['themed'] = theme('gofast_link_generic', array(
           'text' => t('Delete', array(), array('context' => 'gofast')),
           'link_id' => "delete",
-          'link_class' => 'btn btn-sm',
           'href' => '',
           'icon_class' => "fa fa-trash",
           'target' => '_blank',
-          'onClick' => 'Gofast.ITHit.deleteSelected(event)',
-        )) . '</li>';
+          'onClick' => 'Gofast.ITHit.deleteSelected(event);$(\'.gofast-node-actions.open\').click();',
+        ));
     if(!$contains_folder){
-        $actions[]['themed'] = '<li>' . theme('gofast_link_generic', array(
+        $actions[]['themed'] = theme('gofast_link_generic', array(
               'text' => t('Download', array(), array('context' => 'gofast')),
               'link_id' => "download",
-              'link_class' => 'btn btn-sm',
               'icon_class' => "fa fa-cloud-download",
               'onClick' => 'Gofast.ITHit.downloadSelected()',
-            )) . '</li>';
+            ));
     }
   }
   $attr = array(
@@ -2584,12 +2817,12 @@ function gofast_get_mass_actions_on_selected_items($selected){
     $actions = call_user_func( $function, $actions, $contains_space, $contains_folder, $selected );
   }
   if(!$contains_space && !$contains_folder){
-    $actions[]['themed'] = '<li>' . gofast_dropdown_link(t('Manage Metadata', array(), array('context' => 'gofast')), '/modal/nojs/manage-taxonomy', 'taxonomy_open_span', 'ctools-use-modal manage-taxonomy', 'fa fa-tags', $attr). '</li>';
-    $actions[]['themed'] = '<li>' . gofast_dropdown_link(t('Share/Add locations', array(), array('context' => 'gofast')), '/modal/nojs/add-locations', 'locations_open_span', 'ctools-use-modal add-locations', 'fa fa-share-alt', $attr). '</li>';
-    $actions[]['themed'] = '<li>' . gofast_dropdown_link(t('Create publications', array(), array('context' => 'gofast')), '/modal/nojs/manage-publications', 'locations_open_span', 'ctools-use-modal manage-publications', 'fa fa-arrow-up', $attr). '</li>';
-    $actions[]['themed'] = '<li>' . gofast_dropdown_link(t('Share by email', array(), array('context' => 'gofast')), '/modal/nojs/manage-mail-sharing', 'locations_open_span', 'ctools-use-modal manage-mail-sharing', 'fa fa-envelope', $attr). '</li>';
-    $actions[]['themed'] = '<li>' . gofast_dropdown_link(t('Archive', array(), array('context' => 'gofast:ajax_file_browser')), '/modal/nojs/bulk-archive', 'locations_open_span', 'ctools-use-modal bulk-archive', 'fa fa-archive',$attr). '</li>';
-    $actions[]['themed'] = '<li>' .  gofast_dropdown_link(t('Add to cart', array(), array('context' => 'gofast')), '/modal/nojs/bulk_add_to_cart', 'cart_open_span', 'ctools-use-modal add_to_cart', 'fa fa-cart-plus', $attr). '</li>';
+    $actions[]['themed'] = gofast_dropdown_link(t('Manage Metadata', array(), array('context' => 'gofast')), '/modal/nojs/manage-taxonomy', 'taxonomy_open_span', 'ctools-use-modal manage-taxonomy', 'fa fa-tags', $attr);
+    $actions[]['themed'] = gofast_dropdown_link(t('Share/Add locations', array(), array('context' => 'gofast')), '/modal/nojs/add-locations', 'locations_open_span', 'ctools-use-modal add-locations', 'fa fa-share-alt n-color', $attr);
+    $actions[]['themed'] = gofast_dropdown_link(t('Create publications', array(), array('context' => 'gofast')), '/modal/nojs/manage-publications', 'locations_open_span', 'ctools-use-modal manage-publications', 'fa fa-arrow-up', $attr);
+    $actions[]['themed'] = gofast_dropdown_link(t('Share by email', array(), array('context' => 'gofast')), '/modal/nojs/manage-mail-sharing', 'locations_open_span', 'ctools-use-modal manage-mail-sharing', 'fa fa-envelope', $attr);
+    $actions[]['themed'] = gofast_dropdown_link(t('Archive', array(), array('context' => 'gofast:ajax_file_browser')), '/modal/nojs/bulk-archive', 'locations_open_span', 'ctools-use-modal bulk-archive', 'fa fa-archive',$attr);
+    $actions[]['themed'] = gofast_dropdown_link(t('Add to cart', array(), array('context' => 'gofast')), '/modal/nojs/bulk_add_to_cart', 'cart_open_span', 'ctools-use-modal add_to_cart', 'fa fa-cart-plus', $attr);
   }
 
   return array(
@@ -2611,6 +2844,101 @@ function gofast_preprocess_html(&$vars) {
   $browser = gofast_get_browser();
   if (isset($browser->browser)) {
     $vars['classes_array'][] = $browser->browser;
+  }
+}
+
+
+function gofast_preprocess_item_list(&$vars)
+{
+  // make sure we're dealing with a pager item list
+  if (isset($vars['attributes']['class']) && (in_array('pagination', $vars['attributes']['class']) || in_array('pager', $vars['attributes']['class']))){
+    $vars['attributes']['class'] = 'd-flex flex-wrap py-2 mr-3';
+    $vars['attributes']['style']='list-style: none;';
+    // loop the items
+    foreach ($vars['items'] as $index => $item) {
+      if ((in_array('active', $item['class']))) { // active
+        $vars['items'][$index]['class'][] = 'btn btn-icon btn-sm border-0 btn-hover-primary active mr-2 my-1';
+      }else if ((in_array('pager-ellipsis', $item['class']))) { // pager-ellipsis
+        $vars['items'][$index]['class'][] = 'btn btn-icon btn-sm border-0 btn-light btn-hover-primary mr-2 my-1';
+      }
+    }
+  }
+}
+
+
+function gofast_custom_pager_link(&$variables)
+{
+  $text = $variables['text'];
+  $page_new = $variables['page_new'];
+  $element = $variables['element'];
+  $parameters = $variables['parameters'];
+  $attributes = $variables['attributes'];
+
+  $page = isset($_GET['page']) ? $_GET['page'] : '';
+  if ($new_page = implode(',', pager_load_array($page_new[$element], $element, explode(',', $page)))) {
+    $parameters['page'] = $new_page;
+  }
+
+  $query = array();
+  if (count($parameters)) {
+    $query = drupal_get_query_parameters($parameters, array());
+  }
+  if ($query_pager = pager_get_query_parameters()) {
+    $query = array_merge($query, $query_pager);
+  }
+
+  // Set each pager link title
+  if (!isset($attributes['title'])) {
+    static $counter = NULL;
+    static $titles = NULL;
+    static $arrow = NULL;
+    if (!isset($titles)) {
+       $counter = array(
+        t('« first') => 1,
+        t('‹ previous') => 2,
+        t('next ›') => 3,
+        t('last »') => 4,
+        // so we have the right icons even with the multiple t('next') and t('last') out there
+        t('first') => 1,
+        t('previous') => 2,
+        t('next') => 3,
+        t('last') => 4,
+      );
+      $titles = array(
+        1 => t('Go to first page'),
+        2 => t('Go to previous page'),
+        3 => t('Go to next page'),
+        4 => t('Go to last page'),
+      );
+      $arrow = array(
+        1 => '<i class="fas fa-angle-double-left"></i>',
+        2 => '<i class="fas fa-angle-left"></i>',
+        3 => '<i class="fas fa-angle-right"></i>',
+        4 => '<i class="fas fa-angle-double-right"></i>',
+      );
+    }
+    if (isset($counter[$text])) {
+      $i = $counter[$text];
+      $attributes['title'] = $titles[$i];
+      $arrow_div = $arrow[$i];
+    } elseif (is_numeric($text)) {
+      $attributes['title'] = t('Go to page @number', array('@number' => $text));
+    }
+  }
+
+  // @todo l() cannot be used here, since it adds an 'active' class based on the
+  //   path only (which is always the current path for pager links). Apparently,
+  //   none of the pager links is active at any time - but it should still be
+  //   possible to use l() here.
+  // @see http://drupal.org/node/1410574
+  $attributes['href'] = url($_GET['q'], array('query' => $query));
+
+  if (isset($arrow_div)) {
+      $attributes['class'] = 'btn btn-icon btn-sm btn-light-primary mr-2 my-1';
+    return '<a' . drupal_attributes($attributes) . '>' . $arrow_div . '</a>';
+  } else {
+      $attributes['class'] = 'btn btn-icon btn-sm border-0 btn-light btn-hover-primary mr-2 my-1';
+    return '<a' . drupal_attributes($attributes) . '>' . check_plain($text) . '</a>';
   }
 }
 
@@ -2688,7 +3016,7 @@ function gofast_block_view($delta = '') {
         //if($node->type === 'forum' && $node->uid !== $user->uid) {
         //  $content = "";
         //} else {
-          $content = gofast_get_node_infos($node, TRUE);
+          $content = gofast_metadata_get_node_infos($node, TRUE);
        // }
       }
       break;
@@ -2720,7 +3048,7 @@ function gofast_block_view($delta = '') {
         if (gofast_user_has_role('administrator',$user) == 1){
             if (arg(0) == 'node' && is_numeric(arg(1))) {
                 $node = node_load(arg(1));/** @todo : condition dans hook_block_info */
-                if($node->type === "alfresco_item" && !gofast_mobile_is_mobile_domain()){
+                if(($node->type === "alfresco_item"  || $node->type === "article") && !gofast_mobile_is_mobile_domain()){
                     $subject = t('Audit' , array() , array('context' => 'gofast:gofast_audit'));
                     $content = "<div class='loader_audit_node'></div>";
                 }
@@ -2760,10 +3088,90 @@ function gofast_get_lang_switcher_content() {
   return $content;
 }
 
+function gofast_get_flag_lang_switcher_content() {
+
+  $languages = array();
+  $selected_language = '';
+
+  // Get GoFAST Multi language
+  if (drupal_multilingual()) {
+    $path = $_GET['q'];
+    $available_languages = language_list();
+    global $language;
+    foreach ($available_languages as $available_language) {
+      if($available_language->enabled == 0){
+          continue;
+      }
+      $language_enabled = array(
+        'name' => $available_language->name,
+        'href' => '/' . $path . '?language=' . $available_language->language,
+        'lcode' => $available_language->language,
+      );
+      $languages[] = $language_enabled;
+
+      if ($language->language === $available_language->language) {
+        $selected_language = $language_enabled;
+      }
+      $content = theme('gofast-flag-lang-switch', array('selected_language' => $selected_language, 'languages' => $languages));
+    }
+  }else {
+    $content = '';
+  }
+  return $content;
+}
+
+function gofast_get_flag_icon($language)
+{
+  if (!empty($language)) {
+    switch ($language) {
+      case 'und':
+        $flag_icon = "/sites/all/themes/bootstrap-keen/keenv2/assets/media/svg/flags/000-neutral-flag.svg";
+        break;
+      case 'ar':
+        $flag_icon = "/sites/all/themes/bootstrap-keen/keenv2/assets/media/svg/flags/133-saudi-arabia.svg";
+        break;
+      case 'nl':
+        $flag_icon = "/sites/all/themes/bootstrap-keen/keenv2/assets/media/svg/flags/237-netherlands.svg";
+        break;
+      case 'en':
+        $flag_icon = "/sites/all/themes/bootstrap-keen/keenv2/assets/media/svg/flags/226-united-states.svg";
+        break;
+      case 'fr':
+        $flag_icon = "/sites/all/themes/bootstrap-keen/keenv2/assets/media/svg/flags/195-france.svg";
+        break;
+      case 'de':
+        $flag_icon = "/sites/all/themes/bootstrap-keen/keenv2/assets/media/svg/flags/017-germany.svg"; //
+        break;
+      case 'it':
+        $flag_icon = "/sites/all/themes/bootstrap-keen/keenv2/assets/media/svg/flags/013-italy.svg";
+        break;
+      case 'pt':
+        $flag_icon = "/sites/all/themes/bootstrap-keen/keenv2/assets/media/svg/flags/005-portugal.svg";
+        break;
+      case 'es':
+        $flag_icon = "/sites/all/themes/bootstrap-keen/keenv2/assets/media/svg/flags/016-spain.svg"; //
+        break;
+      default:
+        # code...
+        break;
+    }
+    return $flag_icon;
+  }
+}
+
 /**
  * Hook theme
  */
 function gofast_theme() {
+
+  $themes['gofast-flag-lang-switch'] = array(
+    'template' => 'tpl/gofast_flag_lang_switch',
+    'variables' => array(
+      'selected_language' => NULL,
+      'languages' => NULL
+    )
+  );
+
   $themes['node_title'] = array(
     'variables' => array(
       'node' => NULL,
@@ -2801,10 +3209,6 @@ function gofast_theme() {
     )
   );
 
-  $themes['node_infos'] = array(
-    'template' => 'tpl/node_infos',
-  );
-
   $themes['gofast_dashboard'] = array(
     'template' => 'tpl/dashboard',
     'variables' => array(
@@ -2838,12 +3242,14 @@ function gofast_theme() {
   );
 
     $themes['node_locations'] = array(
-    'template' => 'tpl/node_locations',
+    'template' => 'tpl/node_locations'
+   );
+
+  $themes['gofast_content'] = array(
+    'template' => 'tpl/content/gofast-content',
     'variables' => array(
-      'node_locations_options' => array(
-        'link_text' => NULL,
-        'href' => NULL
-      )
+      'container' => [],
+      'subheader' => []
     )
   );
    $themes['node_locations_members'] = array(
@@ -2854,19 +3260,244 @@ function gofast_theme() {
         'members_roles'=>NULL,
       )
   );
+  $themes['gofast_content_container'] = array(
+    'template' => 'tpl/content/gofast-content-container',
+    'variables' => array(
+      'mainBlock' => [],
+      'sideBlock' => []
+    )
+  );
+  $themes['gofast_content_container_block_left'] = array(
+    'template' => 'tpl/content/gofast-content-container-block-left',
+    'variables' => array(
+      'mainBlock' => [],
+      'sideBlock' => []
+    )
+  );
+  $themes['gofast_content_container_block_right'] = array(
+    'template' => 'tpl/content/gofast-content-container-block-right',
+    'variables' => array(
+      'mainBlock' => [],
+      'sideBlock' => []
+    )
+  );
+  $themes['gofast_content_container_fluid'] = array(
+    'template' => 'tpl/content/gofast-content-container-fluid',
+    'variables' => array(
+      'content' => []
+    )
+  );
+  $themes['gofast_content_container_custom'] = array(
+    'template' => 'tpl/content/gofast-content-conteiner-custom',
+    'variables' => array(
+      'content' => []
+    )
+  );
+    $themes['gofast_content_container_contact'] = array(
+      'template' => 'tpl/content/gofast-content-conteiner-contact',
+      'variables' => array(
+        'content' => []
+      )
+    );
+
+  $themes['gofast_node'] = array(
+    'template' => 'tpl/gofast-node/gofast-node',
+  );
+
+  $themes['gofast_node_content'] = array(
+    'template' => 'tpl/gofast-node/gofast-node-content',
+  );
+
+  $themes['gofast_node_alfresco_content'] = array(
+    'template' => 'tpl/gofast-node/document/gofast-node-alfresco-content',
+  );
+
+  $themes['gofast_node_webform_content'] = array(
+    'template' => 'tpl/gofast-node/webform/gofast-node-webform-content',
+  );
+
+  $themes['gofast_node_article_content'] = array(
+    'template' => 'tpl/gofast-node/article/gofast-node-article-content',
+  );
+
+  $themes['gofast_node_forum_content'] = array(
+    'template' => 'tpl/gofast-node/forum/gofast-node-forum-content',
+  );
+  
+
+  $themes['gofast_node_external_content'] = array(
+    'template' => 'tpl/gofast-node/externalPage/gofast-node-external-content',
+  );
+
+  $themes['gofast_node_sidebar'] = array(
+    'template' => 'tpl/gofast-node/gofast-node-sidebar',
+  );
+
+  $themes['gofast_node_alfresco_sidebar'] = array(
+    'template' => 'tpl/gofast-node/document/gofast-node-alfresco-sidebar',
+  );
+
+  $themes['gofast_node_webform_sidebar'] = array(
+    'template' => 'tpl/gofast-node/webform/gofast-node-webform-sidebar',
+  );
+
+  $themes['gofast_node_article_sidebar'] = array(
+    'template' => 'tpl/gofast-node/article/gofast-node-article-sidebar',
+  );
+
+  $themes['gofast_node_forum_sidebar'] = array(
+    'template' => 'tpl/gofast-node/forum/gofast-node-forum-sidebar',
+  );
+
+  $themes['gofast_node_external_sidebar'] = array(
+    'template' => 'tpl/gofast-node/externalPage/gofast-node-external-sidebar',
+  );
+
+  $themes['gofast_node_alfresco_tabsHeader'] = array(
+    'template' => 'tpl/gofast-node/document/gofast-node-alfresco-tabsHeader',
+  );
+
+  $themes['gofast_node_webform_tabsHeader'] = array(
+    'template' => 'tpl/gofast-node/webform/gofast-node-webform-tabsHeader',
+  );
+
+  $themes['gofast_node_article_tabsHeader'] = array(
+    'template' => 'tpl/gofast-node/article/gofast-node-article-tabsHeader',
+  );
+
+  $themes['gofast_node_metadatas'] = array(
+    'template' => 'tpl/gofast-node/gofast-node-metadata',
+  );
+
+  $themes['gofast_node_extra_metadatas'] = array(
+    'template' => 'tpl/gofast-node/gofast-node-extra-metadata',
+  );
+
+  $themes['gofast_node_metadata_info'] = array(
+    'template' => 'tpl/gofast-node/gofast-node-metadata-info',
+  );
+
+  $themes['gofast_node_extra_metadata'] = array(
+    'template' => 'tpl/gofast-node/document/gofast-node-extra-metadata',
+  );
+
+  $themes['gofast_node_metadata_location'] = array(
+    'template' => 'tpl/gofast-node/gofast-node-metadata-location',
+  );
+
+  $themes['gofast_node_metadata_tags'] = array(
+    'template' => 'tpl/gofast-node/gofast-node-metadata-tags',
+  );
+
+  $themes['gofast_node_metadata_links'] = array(
+    'template' => 'tpl/gofast-node/gofast-node-metadata-links',
+  );
+
+  $themes['gofast_node_og'] = array(
+    'template' => 'tpl/gofast-node-og/gofast-node-og',
+  );
+
+  $themes['gofast_node_og_restrict'] = array(
+    'template' => 'tpl/gofast-node-og/gofast-node-og-restrict',
+  );
+
+  $themes['gofast_node_og_documents'] = array(
+    'template' => 'tpl/gofast-node-og/gofast-node-og-documents'
+  );
+
+  $themes['gofast_node_og_calendar'] = array(
+    'template' => 'tpl/gofast-node-og/gofast-node-og-calendar'
+  );
+
+  $themes['gofast_node_og_kanban'] = array(
+    'template' => 'tpl/gofast-node-og/gofast-node-og-kanban'
+  );
+
+  $themes['gofast_node_og_members'] = array(
+    'template' => 'tpl/gofast-node-og/gofast-node-og-members'
+  );
+
+  $themes['gofast_node_og_riot'] = array(
+    'template' => 'tpl/gofast-node-og/gofast-node-og-riot'
+  );
+
+  $themes['gofast_node_userlist'] = array(
+    'template' => 'tpl/gofast-node-userlist/gofast-node-userlist'
+  );
+
+  $themes['gofast_node_userlist_members'] = array(
+    'template' => 'tpl/gofast-node-userlist/gofast-node-userlist-members'
+  );
+
+  $themes['gofast_node_userlist_locations'] = array(
+    'template' => 'tpl/gofast-node-userlist/gofast-node-userlist-locations'
+  );
+
+  $themes['gofast_admin_config_gofast_global'] = array(
+    'template' => 'tpl/gofast_admin-config-gofast-global',
+  );
+
+  $themes['gofast_admin_metadata_table'] = array(
+    'template' => 'tpl/tables/gofast-admin-metadata-table',
+  );
+
+  $themes['taxonomy_form_term'] = [
+    'render element' => 'form',
+    'template' => 'tpl/taxonomy_form_term',
+  ];
+
+  $themes['page_taxonomy_add'] = [
+    'template' => 'tpl/taxonomy-add-page',
+    'variables' => ['form' => NULL],
+  ];
+
+  $themes['gofast_manage_bulkactions_metatag'] = array(
+    'template'  => 'tpl/bulkactions/gofast-manage-bulkactions-metatag',
+  );
+
+  $themes['gofast_admin_config_gofast_global_side_block'] = array(
+    'template' => 'tpl/gofast-admin-config-gofast-global-side-block',
+  );
+
+  $themes["gofast_card_template"] = [
+    "template" => "tpl/gofast-card-template",
+    "variables" => ["class" => NULL,
+                    "title" => NULL,
+                    "content" => NULL,
+                    "child_content" => NULL
+                    ]
+  ];
+
+  $themes["gofast_element_dropdown_autocomplete_template"] = [
+    "template" => "tpl/gofast-element-dropdown-template",
+    "variables" => [
+                    "type" => NULL,
+                    "name" => NULL,
+                    "address" => NULL,
+                    "id" => NULL
+                  ]
+  ];
 
   gofast_xeditable_theme($themes);
 
   return $themes;
 }
 
-function gofast_get_comments_view($node) {
-  return gofast_comments_tab($node);
+/**
+ * Implements hook theme_registry_alter()
+ */
+function gofast_theme_registry_alter(&$theme_registry) {
+  $theme_registry['pager_link']['function'] = "gofast_custom_pager_link";
 }
 
-function gofast_comments_tab($node) {
+function gofast_get_comments_view($node) {
+  return gofast_comments_tab($node, FALSE);
+}
+
+function gofast_comments_tab($node, $asForum = FALSE) {
 
   $content = "";
+  if(!$asForum) {
 
   $comments_help_html_title = t("Comments");
   $comments_help_html = t("You can comment a content. Comments added by all users about this content are summarized here, and you can access it directly by clicking");
@@ -2884,9 +3515,9 @@ function gofast_comments_tab($node) {
   $html_img_comments = '<span><i class="fa fa-comments-o"></i>&nbsp;' . $text . '</span>';
   //$content .= '<a href=' . $href . ' title="' . $text . '" alt="' . $text . '" class="ctools-use-modal">' . $html_img_comments . '</a>';$
   $node_comments_action = gofast_get_comments_actions_node($node, TRUE);
-  $comments_actions = theme('contextual_links', array('btn_group_id' => 'breadcrumb-alt-comments', 'buttons' => $node_comments_action));
   $block_title = t('Comments ', array(), array('context' => 'gofast')) . $comments_actions;
   $content .= '<h2 class="block-title">' . $block_title . '</h2>';
+    }
 
   // Récuperer les comentaires associés au noeud
   $res = db_query("SELECT cid, pid, uid, subject, nid, changed, thread, field_comment_is_private_value
@@ -2945,28 +3576,41 @@ function gofast_comments_tab($node) {
     $comment->new = $comment->changed > $timestamp ? 1 : 0;
     $comments[] = $comment;
   }
+  if($asForum) {
+      foreach($comments as $comment) $comment->thread.='.';
+      array_unshift($comments, $node);
+      $comments[0]->link = 'comment-init';
+      $comment->new = '';
+
+  }
 
   if (!empty($comments)) {
     // Ajoute un attribut indent pour l'indentation (reply to...)
     $comments[0]->indent = 0;
+    $indent = ($asForum) ? 1 : 0;
     for ($i = 1; $i < count($comments); $i++) {
-      $comments[$i]->indent = (substr_count($comments[$i]->thread, '.') + 1) - (substr_count($comments[$i - 1]->thread, '.') + 1);
+      $comments[$i]->indent =  (substr_count($comments[$i]->thread, '.') + 1) - (substr_count($comments[$i - 1]->thread, '.') + 1);
     }
   }
-  // Créer un index sous forme d'arbre
-  $content .= '<div style="font-size:85%;">';
-  $content .= gofast_toc_tree($comments);
-  $content .= '</div>';
+  if($asForum) {
+      $content .= theme('gofast_forum_file_browser_element', ['comments' => $comments]);
+  }else{
+    $content .= '<div style="font-size:85%;">';
+    $content .= gofast_toc_tree($comments);
+    $content .= '</div>';
+  }
   //json_encode($comments_tree);
   return $content;
 }
 
 function gofast_toc_tree($comments = array()) {
+  global $base_url;
   $k = count($comments);
   $str = $k > 1 ? t('Comments', array(), array('context' => 'gofast')) : t('Comment', array(), array('context' => 'gofast'));
   $pos = 0;
 
-  $tree = '<ul class = "menu jquerymenu book_block" style="margin-bottom:0;">';
+  $tree = '<div id="comment-jstree">';
+  $tree .= '<ul class = "menu jquerymenu book_block" style="margin-bottom:0;">';
   //$tree .= '<li id="commentaire" style="color:#636363; margin-bottom:4px;">';
   //$tree .= $k . ' ' . $str . ' </li>';
 
@@ -2974,23 +3618,25 @@ function gofast_toc_tree($comments = array()) {
     return $tree . '</ul>';
   }
   $user_commenter = user_load($comments[0]->uid);
+  $user_commenter_picture_uri = $user_commenter->picture->uri == null ? $base_url . '/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png' : file_create_url($user_commenter->picture->uri);
   $user_picture = theme('user_picture', array('account' => $user_commenter, 'dimensions' => 15));
   $new = '<span class="new"><a href="#" alt="' . t('New', array(), array('context' => 'gofast')) . '" title="' . t('New', array(), array('context' => 'gofast')) . '!"> *</a></span>';
   for ($i = 0; $i < $k - 1; $i++) {
     $user_commenter = user_load($comments[$i]->uid);
+    $user_commenter_icon = $user_commenter->picture->uri == null ? $base_url . '/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png' : file_create_url($user_commenter->picture->uri);
     $user_picture = theme('user_picture', array('account' => $user_commenter, 'dimensions' => 15));
     $new = $comments[$i]->new ? $new : '';
     if ($comments[$i + 1]->indent > 0) {
-      $tree .= '<li id="' . $comments[$i]->cid . '" class="parent closed comment-flexed">';
-      $tree .= $user_picture;
+      $tree .= '<li id="' . $comments[$i]->cid . '" class="parent closed comment-flexed" data-jstree=\'{"icon":"' . $user_commenter_icon . '"}\'>';
       $tree .= '<span class="parent closed" style="margin-top:2px;"></span>';
+      $tree .= $user_picture;
       $tree .= '<a anchor="' . $comments[$i]->link . '" class="scrolltoanchor" href="/node/' . $comments[$i]->nid . '#' . $comments[$i]->link . '">' . $comments[$i]->subject . '</a>' . $new;
       $tree .= '<ul>';
       $pos++;
     }
     if ($comments[$i + 1]->indent < 0) {
       $indent = $comments[$i + 1]->indent;
-      $tree .= '<li id="' . $comments[$i]->cid . '" class="comment-flexed">';
+      $tree .= '<li id="' . $comments[$i]->cid . '" class="comment-flexed" data-jstree=\'{"icon":"' . $user_commenter_icon . '"}\'>';
       $tree .= $user_picture;
       $tree .= '<a anchor="' . $comments[$i]->link . '" class="scrolltoanchor" href="/node/' . $comments[$i]->nid . '#' . $comments[$i]->link . '">' . $comments[$i]->subject . '</a>' . $new . '</li>';
       while ($indent != 0) {
@@ -3000,13 +3646,13 @@ function gofast_toc_tree($comments = array()) {
       }
     }
     if ($comments[$i + 1]->indent == 0) {
-      $tree .= '<li id="' . $comments[$i]->cid . '" class="comment-flexed">';
+      $tree .= '<li id="' . $comments[$i]->cid . '" class="comment-flexed" data-jstree=\'{"icon":"' . $user_commenter_icon . '"}\'>';
       $tree .= $user_picture;
       $tree .= '<a anchor="' . $comments[$i]->link . '" class="scrolltoanchor" href="/node/' . $comments[$i]->nid . '#' . $comments[$i]->link . '">' . $comments[$i]->subject . '</a>' . $new . '</li>';
     }
   }
   $new = $comments[$i]->new ? $new : '';
-  $tree .= '<li id="' . $comments[$k - 1]->cid . '" class="comment-flexed">';
+  $tree .= '<li id="' . $comments[$k - 1]->cid . '" class="comment-flexed" data-jstree=\'{"icon":"' . $user_commenter_icon . '"}\'>';
   $user_comment = user_load($comments[$k - 1]->uid);
   $user_pictu = theme('user_picture', array('account' => $user_comment, 'dimensions' => 15));
   $tree .= $user_pictu;
@@ -3015,7 +3661,7 @@ function gofast_toc_tree($comments = array()) {
     $tree .= '</ul></li>';
     $pos--;
   }
-  $tree .= '</ul>';
+  $tree .= '</ul></div>';
   return $tree;
 }
 
@@ -3030,7 +3676,7 @@ function gofast_get_node_locations($node, $origine = null) {
   $check_disabled_locations = array();
   $disabled_paths = array();
 
-  if ($node->type === "alfresco_item") {
+  if ($node->type === "alfresco_item" || $node->type === "article") {
     // We are processing node that is alfresco_item
     $check_disabled_locations = array();
     if($origine == null){
@@ -3122,14 +3768,21 @@ function gofast_get_node_locations($node, $origine = null) {
  * This function prepares the locations for a node.
  */
 function gofast_get_node_locations_async($node, $origine = null, $template = false  , $browser_path = null, $is_publication = false, $conference_path = null ,$is_confidential = false, $is_internal = false) {
-
+  
   global $user;
   $all_paths = array();
   $selected_paths = array();
   $check_disabled_locations = array();
   $disabled_paths = array();
 
-  if ($node->type === "alfresco_item" || $node->type === "conference") {
+  $folder_reference = $_REQUEST['folder_reference'];
+
+  $enable_mirror_check = false;
+  if ($_REQUEST["enable_mirror_check"]) {
+    $enable_mirror_check = true;
+  }
+
+  if ($node->type === "alfresco_item" || $node->type === "conference" || $node->type === "article") {
     // We are processing node that is alfresco_item
     $check_disabled_locations = array();
     if($origine == null){
@@ -3144,12 +3797,15 @@ function gofast_get_node_locations_async($node, $origine = null, $template = fal
         $has_browser_path = false;
     }
     $item = gofast_cmis_item_get_by_path($origine, FALSE);
-    if($template == false){
-        $user_paths =  gofast_cmis_webservice_item_get_descendants($item->id, "groupsfolders", true);
-    }else{
-        $user_paths =  gofast_cmis_webservice_item_get_descendants($item->id, "templates", true);
+    $target_documents = "groupsfolders";
+    if ($template) {
+      $target_documents = "templates";
     }
-
+    // we don't want to display folders for wiki articles, only spaces
+    if ($node->type == "article") {
+      $target_documents = "groups";
+    }
+    $user_paths =  gofast_cmis_webservice_item_get_descendants($item->id, $target_documents, true, false, $origine);
 
     // New ztree selected items
     $selected_spaces = array();
@@ -3158,12 +3814,18 @@ function gofast_get_node_locations_async($node, $origine = null, $template = fal
     $node_locations_paths = array();
 
     if($has_origine == null){
-        if (isset($node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE]) && count($node->og_group_content_ref) !== 0) {
-          $node_locations_paths = array_map(function($element) {
-            return $element['value'];
-          }, $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE]);
+      if ($enable_mirror_check) {
+        if(!empty($folder_reference)){
+          $node_locations_paths = gofast_cmis_webservice_get_node_parents($folder_reference);
         }
-    }
+        if (count($node->og_group_content_ref) !== 0) {
+          $node_locations_paths = gofast_cmis_webservice_get_node_parents($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']);
+        }
+      } elseif (isset($node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE]) && count($node->og_group_content_ref) !== 0) {
+        $node_locations_paths = array_map(function($element) {
+          return $element['value'];
+        }, $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE]);
+      }
     if($has_browser_path && !isset($_REQUEST['ename'])){
         $node_locations_paths[] = $browser_path;
     }
@@ -3182,16 +3844,40 @@ function gofast_get_node_locations_async($node, $origine = null, $template = fal
           $item_nid = $item->properties['gofast:nid'];
           ## Removes spaces that the user does not have access to in publication form ( https://ceo-vision.com/jira/browse/GOFAST-5519 )
           if($is_publication){
-              if(!og_user_access(node, $item_nid, 'create alfresco_item content')){
+              if(!og_user_access('node', $item_nid, 'create alfresco_item content')){
                   unset($node_locations_paths[$key]);
                   continue;
               }
           }
           $map_id_locations[$node_location_path] = $item_nid;
-        }
-        else {
+        }else {
+          if($is_publication){
+            //Check if we have permission in the parent space
+            $node_parent_path_crumbs = explode('/', $node_location_path);
+            for($i = 0; $i<count(explode('/', $node_location_path)); $i++){
+                //Remove last element and iterrate
+                array_pop($node_parent_path_crumbs);
+                $location_to_check = implode("/", $node_parent_path_crumbs);
+                
+                if(substr(end($node_parent_path_crumbs),0,1) == "_"){
+                    //This is the space, check our permissions
+                    $gid_in_crumb = gofast_og_get_group_id_from_title_without_cmis($location_to_check,true,true);
+                    if(og_user_access('node', $gid_in_crumb, 'create alfresco_item content')){
+                        //We have permission here, set this path and break
+                        unset($node_locations_paths[$key]);                      
+                        break;
+                    }else{
+                        //We don't have permission here, stop the parent loop and continue
+                        continue 2;
+                    }
+                }else{
+                    //This element is a folder, continue searching for a space
+                }
+            }
+          }
           $map_id_locations[$node_location_path] = $node_location_path;
         }
+
 
         //We load (non async) the neighbours of the selected paths as ztree consider them loaded
         $paths_to_load = explode('/', substr($node_location_path, 1));
@@ -3212,24 +3898,25 @@ function gofast_get_node_locations_async($node, $origine = null, $template = fal
           unset($user_paths[$node_location_path]);
 
           }
+      }
     }
 
-    foreach(array_flip($user_paths) as $key => $path) {
-              $all_path[$key] = $path;
-          }
-
-         $string_liste = "";
-    foreach($all_path as $gid=>$path){
-        $string_liste .= $gid."::*::".$path."\n";
+    foreach (array_flip($user_paths) as $key => $path) {
+      $all_path[$key] = $path;
     }
-       $liste = explode("\n", $string_liste);
-   $formatted_liste = array();
-   foreach($liste as $element_liste){
-       $array_element_liste = explode("::*::", $element_liste);
-       if($array_element_liste[0] !== 0 && $array_element_liste[0] != ""){
+
+    $string_liste = "";
+    foreach ($all_path as $gid => $path) {
+      $string_liste .= $gid . "::*::" . $path . "\n";
+    }
+    $liste = explode("\n", $string_liste);
+    $formatted_liste = array();
+    foreach ($liste as $element_liste) {
+      $array_element_liste = explode("::*::", $element_liste);
+      if ($array_element_liste[0] !== 0 && $array_element_liste[0] != "") {
         $formatted_liste[$array_element_liste[0]] = $array_element_liste[1];
-       }
-   }
+      }
+    }
 
    $user_paths = $formatted_liste;
 
@@ -3241,25 +3928,83 @@ function gofast_get_node_locations_async($node, $origine = null, $template = fal
     // For every parent we check the permission, disable check if not member, not admin or not document's author
     foreach ($node_parents_paths as $node_parent_path) {
       //if (!node_access('view', node_load($node_parent))) {
-    $gid = gofast_og_get_group_id_from_title_without_cmis($node_parent_path['value'],true,true);
+      $gid = gofast_og_get_group_id_from_title_without_cmis($node_parent_path['value'], true, true);
 
-    global $user;
-    $roles = gofast_og_get_user_final_roles_for_space('node', $gid, $user->uid);
-    $role = reset($roles);
-    $can_delete = false;
-    //if it's a publication, always allow to uncheck preselected path
-    if($role == "administrator member" || $node->uid == $user->uid || $is_publication){
-         $can_delete = true;
-    }
-    if(!og_user_access('node', $gid, 'create alfresco_item content') ||  $can_delete == false){
-        if(gofast_cmis_space_get_webdav_path($gid) === $node_parent_path['value']){
-            $check_disabled_locations[$gid] = $node_parent_path['value'];
-        }else{
-            //Disable for subfolder
-            $check_disabled_locations[$node_parent_path['value']] = $node_parent_path['value'];
+      global $user;
+      $roles = gofast_og_get_user_final_roles_for_space('node', $gid, $user->uid);
+      $role = reset($roles);
+      $can_delete = false;
+      //if it's a publication, always allow to uncheck preselected path
+      if ($role == "administrator member" || $node->uid == $user->uid || $is_publication) {
+        $can_delete = true;
+      }
+      if (!og_user_access('node', $gid, 'create alfresco_item content') ||  $can_delete == false) {
+        if (gofast_cmis_space_get_webdav_path($gid) === $node_parent_path['value']) {
+          $check_disabled_locations[$gid] = $node_parent_path['value'];
+        } else {
+          //Disable for subfolder
+          $check_disabled_locations[$node_parent_path['value']] = $node_parent_path['value'];
+        }
+
+        //Also diable everything we don't have access in the parents - GOFAST-7579
+        $node_parent_path_crumbs = explode('/', $node_parent_path['value']);
+        for ($i = 0; $i < count(explode('/', $node_parent_path['value'])); $i++) {
+          //Remove last element and iterrate
+          array_pop($node_parent_path_crumbs);
+          $location_to_check = implode("/", $node_parent_path_crumbs);
+
+          if (substr(end($node_parent_path_crumbs), 0, 1) == "_"
+          ) {
+            //This is the space, check our permissions
+            $gid_in_crumb = gofast_og_get_group_id_from_title_without_cmis($location_to_check, true, true);
+            if (!og_user_access('node', $gid_in_crumb,
+              'create alfresco_item content'
+            )) {
+              //We have no permission here, remove this space and continue iterrating
+              $disabled_paths[$gid_in_crumb] = $location_to_check;
+            } else {
+              //We have permission here, stop this process and continue
+              break;
+            }
+          } else {
+            //This element is a folder, disable it
+            $disabled_paths[$location_to_check] = $location_to_check;
+          }
         }
       }
     }
+
+    // GOFAST-4446 : Disabled folder auto-mirrorring
+    if(!empty($folder_reference) && $enable_mirror_check){
+      // $item = gofast_cmis_item_get($folder_reference);
+      // $parent_folder_item = gofast_cmis_item_get_object_parent($folder_reference);
+      $oldest_parent_id = FALSE;
+      $oldest_parent_path = FALSE;
+      gofast_cmis_activate_alfresco_connection();
+      $folder_parents = db_query("SELECT alf_child_assoc.parent_node_id FROM alf_node INNER JOIN alf_child_assoc ON child_node_id = alf_node.id WHERE uuid = :folder_ref", array(":folder_ref" => gofast_cmis_get_raw_item_id($folder_reference)), array("target" => "alfresco"))->fetchAll();
+      if (!empty($folder_parents)) {
+        $oldest_parent_id = $folder_parents[0]->parent_node_id;
+      }
+      if ($oldest_parent_id) {
+        // there must be a way to get the path directly from alfresco db...
+        // $path_qname_id = db_query("select id from alf_qname where local_name = 'path'", array(), array("target" => "alfresco"))->fetchAll()[0]->id;
+        // $oldest_parent_path = db_query("SELECT string_value FROM alf_node_properties INNER JOIN alf_qname ON alf_node_properties.qname_id = alf_qname.id WHERE node_id = :oldest_parent_id AND local_name = 'path'", array(":oldest_parent_id" => $oldest_parent_id), array("target" => "alfresco"))->fetchAll();
+        $oldest_parent_uuid = db_query("SELECT uuid FROM alf_node WHERE id = :oldest_parent_id", array(":oldest_parent_id" => $oldest_parent_id), array("target" => "alfresco"))->fetchAll()[0]->uuid;
+        $item = gofast_cmis_item_get($oldest_parent_uuid);
+        $oldest_parent_path = $item->properties["cmis:path"];
+      }
+      // we make the mirror source uncheckable to prevent the user from breaking the whole mirroring relationship
+      if ($oldest_parent_path) {
+        $check_disabled_locations[$oldest_parent_path] = $oldest_parent_path;
+        $_REQUEST['path_warnings'] = array($oldest_parent_path => t("This is the mirroring source, the folder can't be removed from it while it still has mirroring target locations", array(), array("context" => "gofast:gofast_ztree")));
+      }
+      $name = $item->properties['cmis:name'];
+      $folder_parents = gofast_cmis_webservice_get_node_parents($folder_reference);
+      foreach($folder_parents as $key => $folder_parent){
+        $disabled_paths[$folder_parent . '/' . $name] = $folder_parent . '/' . $name;
+      }
+    }
+
     $selected_paths = array_flip($map_id_locations);
     if($has_browser_path != null && array_search($browser_path, $selected_paths) === false){
         $selected_paths[$browser_path] = $browser_path;
@@ -3396,6 +4141,30 @@ function gofast_get_node_locations_async($node, $origine = null, $template = fal
   // This disables the root spaces (_Organisation, _Groups, _Public, _Extranet
   // and every user private spaces that are not current user private space).
   foreach ($all_paths as $gid => $path) {
+    // Check if gid is numeric (folder)
+    if(!is_numeric($gid) && $enable_mirror_check){
+      // Disable wikis in mirroring tree
+      if (substr($gid, -strlen("Wikis")) === "Wikis" || substr($gid, -strlen("TEMPLATES")) === "TEMPLATES") {
+        $disabled_paths[$gid] = $path;
+        continue;
+      }
+      
+      // Get alfresco item with path
+      $item_load = gofast_cmis_item_get_by_path($path);
+      
+      // Get reference
+      $reference = $item_load->properties['alfcmis:nodeRef'];
+      
+      // Get folder parents
+      $parents = gofast_cmis_webservice_get_node_parents($reference);
+      
+      // If $parents > 1 then it's a mirror folder
+      if(count($parents) > 1){
+        // Disable mirror folders
+        $disabled_paths[$gid] = $path;
+      }
+    }
+
     $parts = explode('/', $path);
     $parts = array_filter($parts);
     if (intval($gid) !== 0 && (count($parts) === 2 && $parts[2] !== '_'.$user->name)) {
@@ -3446,9 +4215,7 @@ function gofast_get_node_locations_async($node, $origine = null, $template = fal
     }
   }
 
-  $result['message'] = "test";
-
-    return $result;
+  return $result;
 }
 
 /**
@@ -3469,1027 +4236,10 @@ function gofast_access_spaces($space_nid){
     return $access_state;
 }
 
-function gofast_get_node_infos($node, $async = false) {
-  if($async){
-    return theme('node_infos', array('nid' => $node->nid));
-  }else{
-    return gofast_get_node_infos_async($node->nid, $async);
-  }
-}
-
-function gofast_get_node_infos_async($nid, $asyncr = true) {
-  $node = node_load($nid);
-  global $user;
-
-  if(count(module_implements("extra_metadata")) >= 1){
-    foreach (module_implements("extra_metadata") as $module) {
-      $metadata = call_user_func($module . "_extra_metadata", $node);
-      if(!empty($metadata)){
-        $extra_metadata = TRUE;
-      }else{
-        $extra_metadata = FALSE;
-      }
-    }
-  }
-  if($extra_metadata){
-    $output = '<ul class="nav nav-tabs gofast-extra-metadata-tab">';
-    $output .= '<li role="presentation" class="active"><a href="#gofast-node-info-basic" aria-controls="gofast-node-info-basic" role="tab" data-toggle="tab">'. t('Metadata', array(), array('context' => 'gofast')) . '</a></li>';
-    $output .= '<li role="presentation"><a href="#gofast-node-info-extra" aria-controls="gofast-node-info-extra" role="tab" data-toggle="tab">'. t('Extra metadata', array(), array('context' => 'gofast')). '</a></li>';
-    $output .= '</ul>';
-  }
-
-  $output .= '<div class="tab-content" id="gofast-node-infos-tab-content">';
-
-  $output .= '<div id="gofast-node-info-basic" role="tabpanel" class="tab-pane active">';
-
-  $temps_o_debut = microtime(true);
-  if ($node->type == 'alfresco_item' && $node->status != 0) {
-    $infos = gofast_cmis_alfresco_get_infos($node);
-  }
-  else {
-    $infos = false;
-  }
-  $temps_o_fin = microtime(true);
-  watchdog('CMIS get infos LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
-
-  if ($node->type === 'alfresco_item') {
-    $lock_state = isset($node->cmis_lock_owner) ? $node->cmis_lock_owner : gofast_cmis_webservice_execute_request("getlocked", gofast_cmis_node_get_item_id($node));
-  }
-  else {
-    $lock_state = 'nolocked';
-  }
-
-  //$canEdit = node_access("update", $node) && $lock_state === "nolocked" && !gofast_get_content_state_archived($node);
-  $canEdit = node_access("update", $node) && $lock_state === "nolocked";
-
-
-  $temps_o_debut = microtime(true);
-  // Initialization of variables to show in the page
-  $wrapper = entity_metadata_wrapper("node", $node);
-  $category = $wrapper->{'field_category'}->value();
-  $info['node_category'] = $category ? i18n_taxonomy_localize_terms($category)->name : '';
-
- $tags = $wrapper->{'field_tags'}->value();
- if ($canEdit &&
-      (!module_exists('gofast_retention') || ( module_exists('gofast_retention') && $info['retention_end_date'] == NULL )
-      )
-  ) {
-    $tags_values = array_map(function($element) {
-      if(isset($element->name)){ //We parse names and IDs of tags
-        return htmlspecialchars($element->name)."[GOFAST_TAG_SEPARATOR]".$element->tid;
-      }
-      return NULL;
-    }, $tags);
-    $info['node_keywords'] = is_array($tags) ? implode(', ', $tags_values) : '';
- }
- else{
-    $node_keywords_value = '<ul class="select2-tags">';
-    $tags_values = array_map(function ($element) {
-      if (isset($element->name)) { //We parse names and IDs of tags
-        return '<li class="gofast-tags-noedit" data-name="' . $element->name . '" data-id="' . $element->tid . '">' . $element->name . '</li>';
-      }
-      return NULL;
-    }, $tags);
-    $node_keywords_value .= is_array($tags) ? implode('', $tags_values) : '';
-    $node_keywords_value .= '</ul>';
-    $info['node_keywords'] = $node_keywords_value;
- }
-
-  if ($node->type !== 'forum') {
-    $state = $wrapper->{'field_state'}->value();
-    $info['node_state'] = $state ? i18n_taxonomy_localize_terms($state)->name : '';
-  }
-
-  $criticity = isset($wrapper->{'field_criticity'}) ? $wrapper->{'field_criticity'}->value() : FALSE;
-  $info['node_criticity'] = $criticity ? i18n_taxonomy_localize_terms($criticity)->name : '';
-
-  $deadline = $wrapper->{'field_date'}->value();
-  $date_format = $user->language === 'fr' ? 'd/m/Y' :  'm/d/Y';
-  $info['node_deadline'] = $deadline ? date($date_format, $deadline) : '';
-
-  //retention date
-  if( $node->type === "alfresco_item" && module_exists('gofast_retention') ){
-    $date_format_retention = 'm/d/Y h:i';
-    if($node->field_retention_end[LANGUAGE_NONE][0]['value'] !== NULL){
-      $retention_end_date = new DateObject();
-      $retention_end_date->setTimestamp($node->field_retention_end[LANGUAGE_NONE][0]['value']);
-
-      $info['retention_end_date'] = $retention_end_date->format($date_format_retention);
-    }
-  }
-
-  if ($node->type === "alfresco_item") {
-    $ztree_options = array("widget_locations" => "true",
-      "form" => array(
-        'field_name' => GOFAST_CMIS_LOCATIONS_FIELD,
-        'id' => $node->nid,
-        'url' => '/update_node_field'
-    ));
-  }
-  else {
-    $ztree_options = array("widget_locations" => "true",
-      "form" => array(
-        'field_name' => GOFAST_OG_CONTENT_MEMBERSHIP_FIELD,
-        'id' => $node->nid,
-        'url' => '/update_node_field'
-    ));
-  }
-
-  //DEBUG
-  $temps_o_debut = microtime(true);
-  $async = true;
-   if ($node->type === "alfresco_item") {
-        //$path_options = gofast_get_node_locations_async($node);
-         $node_locations_paths = array();
-         $map_id_locations = array();
-         $selected_spaces = array();
-
-          if (isset($node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE])) {
-            $node_locations_paths = array_map(function($element) {
-              return $element['value'];
-            }, $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE]);
-          }
-
-          foreach ($node_locations_paths as $node_location_path) {
-            $node_location_path = htmlspecialchars_decode($node_location_path);
-            // For every location we retrieve the node id
-            if (!isset($map_id_locations[$node_location_path])) {
-              $item = gofast_cmis_item_get_by_path($node_location_path);
-              if(isset($item->properties['gofast:nid'])){
-                $item_nid = $item->properties['gofast:nid'];
-                $map_id_locations[$node_location_path] = $item_nid;
-              }
-              else {
-                $map_id_locations[$node_location_path] = $node_location_path;
-              }
-            }
-          }
-
-        $node_parents = gofast_og_get_parent($node);
-        $selected_spaces = array_merge($selected_spaces, $node_parents);
-        $selected_paths = array_flip($map_id_locations);
-        $path_options = array("all_paths" => $selected_paths,
-                              "selected_paths" => $selected_paths,
-                              "check_disabled_paths" => array(),
-                              "disabled_paths" => array());
-
-
-        $all_paths = $path_options['all_paths'];
-   }else{
-         $node_locations_paths = array();
-         $map_id_locations = array();
-         $selected_spaces = array();
-
-          $node_parents = gofast_og_get_parent($node);
-          foreach ($node_parents as $node_location_path) {
-            // For every location we retrieve the node id
-           // $map_id_locations[gofast_get_node_title($node_location_path)] = $node_location_path;
-           $map_id_locations[gofast_cmis_space_get_webdav_path($node_location_path)] = $node_location_path;
-          }
-
-
-        $selected_spaces = array_merge($selected_spaces, $node_parents);
-        $selected_paths = array_flip($map_id_locations);
-        $path_options = array("all_paths" =>  $selected_paths , //$map_id_locations,
-                              "selected_paths" => $selected_paths,
-                              "check_disabled_paths" => array(),
-                              "disabled_paths" => array());
-
-
-       $all_paths = $path_options['all_paths'];
-      // $async = false;
-
-   }
-  $temps_o_fin = microtime(true);
-  watchdog('CMIS pre widget render LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
-  $temps_o_debut = microtime(true);
-
-  $location_widget = gofast_ztree_block_content($node->nid, $all_paths, $ztree_options, $path_options, $async);
-
-  // We unset ztree variables so we can render the ztree without errors
-  unset($location_widget['user_visible_paths']);
-  unset($location_widget['pre_selected_paths']);
-  unset($location_widget['disabled_paths']);
-  unset($location_widget['obfuscated_paths']);
-
-  $location_values = array();
-
-  # GOFAST-5790 Fix error when we make a publication
-  unset($path_options['selected_paths']['/Sites']);
-
-  //DEBUG TC
-  if(count($node->og_group_content_ref) > 0){
-    foreach ($path_options['selected_paths'] as $key => $pre_selected_location) {
-      $cleaned_path = gofast_ztree_get_drupal_path_from_webdav_path(array($pre_selected_location));
-      if (intval($key) !== 0) {
-        $location_values[] =  l(reset($cleaned_path), 'node/' . $key, array( 'attributes' => array("class" => "ajax-navigate ".gofast_access_spaces($key), "nid" => $key)));
-      }
-      else {
-        $parts = explode('/', $pre_selected_location);
-        $parent_group = null;
-        while ($parent_group === null) {
-          array_pop($parts);
-          $parent_group = gofast_og_get_group_id_from_title_2(implode('/', $parts), TRUE);
-        }
-        if($parent_group == null){
-          $location_values[] = l(reset($cleaned_path), "/gofast/browser", array('query' => array('path' => $pre_selected_location), 'attributes' => array("class" => "ajax-navigate", "nid" => $parent_group), 'fragment' => 'ogdocuments'));
-        }else{
-          $location_values[] = l(reset($cleaned_path), "/node/" . $parent_group, array('attributes' => array("class" => "ajax-navigate ".gofast_access_spaces($parent_group), "nid" => $parent_group), 'fragment' => 'ogdocuments'));
-        }
-      }
-    }
-    $info['node_locations'] = isset($location_values) && is_array($location_values) ? implode('<br />', $location_values) : '';
-
-  }else{
-      $info['node_locations'] = $path_options['selected_paths'][0];
-  }
-  //END DEBUG TC
-
-  $temps_o_fin = microtime(true);
-  watchdog('CMIS widget render LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
-  $temps_o_debut = microtime(true);
-
-  // We retrieve the current node entity links
-  $target_nodes = isset($wrapper->{'field_target_link'}) ? $wrapper->{'field_target_link'}->value() : array();
-  $target_links = array_map(function($element) {
-      if($element->status == "1"){
-        return theme('node_title', array('node' => $element));
-      }else{
-        return;
-      }
-  }, $target_nodes);
-  $info['node_target_links'] = !empty($target_nodes) ? implode('<br />', $target_links) : '';
-
-  // We retrieve entities that refers this node
-  // Exclude : templates nodes
-  $excluded = FALSE;
-  if ($node->type === 'alfresco_item') {
-    foreach ($path_options['selected_paths'] as $selected_path) {
-      if (strpos($selected_path, TEMPLATES_FOLDER_NAME) !== FALSE) {
-        $excluded = TRUE;
-        break;
-      }
-    }
-  }
-
-  $source_link_ids = array();
-  if (!$excluded) {
-    $results = db_select('field_data_field_target_link', 'f')
-               ->fields("f");
-    $results->join('node_revision', 'n', 'n.nid = f.entity_id');
-    $results = $results->condition('f.field_target_link_target_id', $node->nid)
-            ->condition('n.status', "1")
-            ->execute()->fetchAll();
-    foreach ($results as $row) {
-      $source_link_ids[] = $row->entity_id;
-    }
-  }
-  $source_links = array_map(function($element) {
-    return theme('node_title', array('node' => $element));
-  }, node_load_multiple($source_link_ids));
-  $info['node_source_links'] = !empty($source_links) ? implode('<br /> ', $source_links) : t('None', array(), array('context' => 'gofast'));
-
-  gofast_node_info_attachments($info, $wrapper);
-
-  // We retrieve node external links
-  $external_page_url = isset($wrapper->{'field_external_page_url'}) ? $wrapper->{'field_external_page_url'}->value() : array();
-  $external_links = array_map(function($element) {
-    $url = !isset(parse_url($element)["scheme"]) ? 'http://' . $element : $element;
-    return l($element, $url);
-  }, $external_page_url);
-  $info['node_external_page_url'] = !empty($external_page_url) ? implode('<br />', $external_links) : '';
-
-  $popularity = $wrapper->{'field_popularity'}->value();
-  $info['node_popularity'] = isset($popularity) ? $popularity : 0;
-  if(isset($popularity)){
-        $info['node_popularity'] .= '  <a title="'.t("Display popularity history", array(), array("context" => "gofast")).'" class="ctools-use-modal" href="/gofast/nojs/radioactivity/graphic/'.$node->nid.'"><i class="fa fa-question-circle" style=" color: #777;"></i></a>  ';
-  }
-  $info['node_view_count'] = isset(nodeviewcountcount_count_node_views($node, NULL, TRUE)[0]) ? nodeviewcountcount_count_node_views($node, NULL, TRUE)[0]->expression : 0;
-
-  $is_book = isset($node->book) && $node->book['bid'] !== 0;
-  if ($is_book) {
-    // Book is main page ?
-    if ($node->nid === $node->book['bid']) {
-      $info['node_book'] = t('This is the main page of a book', array(), array('context'=> 'gofast:gofast_book'));
-    }else {
-      $main_page_node = node_load($node->book['bid']);
-      $uri = entity_uri('node', $main_page_node);
-      $info['node_book'] = l($main_page_node->title, url($uri['path'], $uri['options']), array('attributes' => array(), 'html' => TRUE));
-    }
-      if (node_access('update', $node)) {
-        $form_id = 'article_node_form';
-        $_POST['is_popover'] = TRUE;
-        $article_form = drupal_get_form($form_id,$node);
-        $book_block_output = drupal_render($article_form);
-        $options_book = array(
-          'popup_variables' => array(
-            'container_id' => 'popup_block_book_' . $node->nid,
-            'container_class' => NULL,
-            'title' => t('Edit book', array(), array('context' => 'gofast')),
-            'link_text' => '</br>' . $info['node_book'],
-            'link_class' => 'editable-click',
-            'type' => 'a',
-            'emptytext' => t('None', array(), array('context' => 'gofast')),
-            'delegated' => 'true',
-            'placement' => 'left',
-            'context' => $node->type,
-            'content' => htmlentities($book_block_output) ,
-          )
-        );
-
-        $info['node_book'] = theme('popup_content', $options_book);
-      }
-  }else{
-       if (node_access('update', $node)) {
-        $form_id = 'article_node_form';
-        $_POST['is_popover'] = TRUE;
-
-        /*$article_form = drupal_get_form($form_id,$node);
-        $book_block_output = drupal_render($article_form);
-        $options_book = array(
-          'popup_variables' => array(
-            'container_id' => 'popup_block_book_' . $node->nid,
-            'container_class' => NULL,
-            'title' => t('Edit book', array(), array('context' => 'gofast')),
-            'link_text' => '</br>' . t('None', array(), array('context' => 'gofast')),
-            'link_class' => 'editable-click',
-            'type' => 'a',
-            'emptytext' => t('None', array(), array('context' => 'gofast')),
-            'delegated' => 'true',
-            'placement' => 'left',
-            'context' => $node->type,
-            'content' => htmlentities($book_block_output) ,
-          )
-        );
-
-        $info['node_book'] = theme('popup_content', $options_book);*/
-      }
-  }
-
-  if ($node->type !== "alfresco_item") {
-    $info['document_author'] = user_load($node->uid)->name;
-  }
-  else {
-    $info['document_author'] = $infos['document_author'];
-    $info['document_reference'] = $infos['document_reference'];
-    $conditions = array('source' => 'node/' . $node->nid);
-    $path = path_load($conditions);
-    if($path["alias"]){
-        $info['alias'] = $path["alias"];
-    }else{
-        $info['alias'] = "";
-    }
-  }
-
-  $publication = gofast_cmis_node_is_published($node);
-  $publication_node = $publication !== FALSE ? node_load($publication) : NULL;
-  $info['node_publication'] = isset($publication_node) && $publication_node !== FALSE ? l($publication_node->title, '/node/' . $publication_node->nid) : '';
-
-  $publication_source = gofast_cmis_get_publication_source($node);
-  $publication_source_node = $publication_source !== FALSE ? node_load($publication_source) : NULL;
-  $info['node_publication_source'] = $publication_source_node !== NULL ? l($publication_source_node->title, '/node/' . $publication_source_node->nid) : '';
-
-  if ($publication_source !== FALSE) {
-    $output .= '<p class="text-danger bg-warning">' . t("This document is a publication", array(), array('context' => 'gofast')) . '</p>';
-  }
-
-  if(!$canEdit) {
-    if($lock_state !== 'nolocked'){
-       $output .= '<p class="text-danger bg-warning">' . t("The document is being edited, you can't change its metadatas", array(), array('context' => 'gofast')) . '</p>';
-    }
-    else {
-       $output .= '<p class="text-danger bg-warning">' . t("You have read-only permission on this document", array(), array('context' => 'gofast')) . '</p>';
-    }
-   }
-  else if (module_exists('gofast_retention') && isset($info['retention_end_date']) ) {
-      $retention_node = true;
-      if(node_access("delete", $node)){
-           $retention_node_can_edit = true;
-           $output .= '<p class="text-danger bg-warning">' . t("This document has a retention date, you can't change its content or its category", array(), array('context' => 'gofast:gofast_retention')) . '</p>';
-      }else{
-           $output .= '<p class="text-danger bg-warning">' . t("This document has a retention date, you can't change its content, its category or its state", array(), array('context' => 'gofast:gofast_retention')) . '</p>';
-      }
-  }elseif(node_access("delete", $node) && gofast_get_content_state_archived($node)){
-        $output .= '<p class="text-danger bg-warning">' . t("This document is archived, you can't change its content", array(), array('context' => 'gofast:gofast_retention')) . '</p>';
-  }
-
-  $is_confidential = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Confidential Data";
-  if($is_confidential){
-    $output .= '<p class="text-danger bg-warning">' . t("This document is confidential: you can't download and share it", array(), array('context' => 'gofast:gofast_cmis')) . '</p>';
-  }
-
-  $is_internal = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Internal Distribution";
-  if ($is_internal) {
-    $output .= '<p class="text-danger bg-warning">' . t("Document for Internal Distribution: downloading and sharing in Extranet Spaces forbidden", array(), array('context' => 'gofast:gofast_cmis')) . '</p>';
-  }
-
-  $temps_o_fin = microtime(true);
-  watchdog('CMIS other data processing LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
-  $temps_o_debut = microtime(true);
-
-  // If the user has the rights, update shown fields to display x-editable
-  if ($canEdit) {
-    $loaded = libraries_load('x-editable');
-
-    // Init variables for taxonomy fields
-    $field_taxonomy = array(
-      'pk' => $node->nid,
-      'type' => 'select2',
-      'showbuttons' => 'bottom',
-      'select2' => array(
-        'multiple' => true,
-        'allowClear' => true,
-      ),
-      'placement' => 'left',
-      'mode' => 'popup',
-      'url' => '/update_node_field',
-      'inputclass' => 'input-extra-large',
-      'delegated' => 'true',
-    );
-
-    // Field category of the node
-    //TODO prevent edit this field if node is in retention mode ( must be after change of criteria to fire retention mode )
-    if($info['retention_end_date'] == NULL){
-        $available_categories = gofast_xeditable_vocabulary_to_select_items(GOFAST_VID_CATEGORY, $node);
-        $field_node_category = array(
-          'name' => 'field_category',
-          'value' => $info['node_category'],
-          'title' => t('Node category', array(), array('context' => 'gofast')),
-          'emptytext' => t('None', array(), array('context' => 'gofast')),
-          'source' => $available_categories,
-          'params' => ['vid' => GOFAST_VID_CATEGORY],
-          'select2' => array(
-            'placeholder' => t('Type any category', array(), array('context' => 'gofast')),
-            'multiple' => false,
-            'allowClear' => true,
-          ),
-        );
-        $field_category = array_replace_recursive($field_taxonomy, $field_node_category);
-        $info['node_category'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_category));
-    }
-    $info['node_keywords'] = !empty($tags_values) ? '<ul><li>' . implode('</li><li>', $tags_values) . '</li></ul>' : '';
-
-    $field_node_keywords = array(
-      'pk' => $node->nid,
-      'type' => 'select2',
-      'placement' => 'left',
-      'showbuttons' => 'bottom',
-      'mode' => 'popup',
-      'url' => '/update_node_field',
-      'inputclass' => 'input-extra-large',
-      'name' => 'field_tags',
-      'value' => implode(',', $tags_values),
-      'data' => array('tags' => !empty($tags_values) ? $tags_values : null),
-      'source' => '/gofast/tag_autocomplete',
-      'title' => t('Node keywords', array(), array('context' => 'gofast')),
-      'emptytext' => t('None', array(), array('context' => 'gofast')),
-      'params' => ['vid' => GOFAST_VID_TAGS],
-      'delegated' => 'true',
-      'wrapper_class' => array(
-        'node-info-keywords',
-      )
-    );
-    $info['node_keywords'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_node_keywords));
-
-    if ($node->type !== 'forum') {
-
-      $states_options = gofast_xeditable_vocabulary_to_select_items(GOFAST_VID_STATE);
-     /* array_walk($states_options, function(&$element) {
-        if($element['id'] === t('Archived', array(), array('context' => 'gofast'))) {
-          $element['disabled'] = TRUE;
-        }
-      });*/
-
-      // Field state of the node
-       //TODO prevent edit this field if node is in retention mode, except for admin and doc author( must be after change of criteria to fire retention mode )
-     if($info['retention_end_date'] == NULL || ($info['retention_end_date'] !== NULL && node_access("delete", $node))){
-      $field_node_state = array(
-        'name' => 'field_state',
-        'value' => $info['node_state'],
-        'title' => t('Node state', array(), array('context' => 'gofast')),
-        'emptytext' => t('None', array(), array('context' => 'gofast')),
-        'source' => $states_options,
-        'params' => ['vid' => GOFAST_VID_STATE],
-        'select2' => array(
-          'placeholder' => t('Type any state', array(), array('context' => 'gofast')),
-          'multiple' => false,
-          'allowClear' => true,
-        ),
-      );
-      $field_state = array_replace_recursive($field_taxonomy, $field_node_state);
-      $info['node_state'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_state));
-     }
-    }
-
-    // Field state of the node
-    if(!$is_confidential || node_access("delete", $node)){
-        $field_node_criticity = array(
-          'name' => 'field_criticity',
-          'value' => $info['node_criticity'],
-      'title' => t('Node criticity', array(), array('context' => 'gofast')),
-      'emptytext' => t('None'),
-      'source' => gofast_xeditable_sort_criticity(gofast_xeditable_vocabulary_to_select_items(GOFAST_VID_CRITICITY), $node),
-      'params' => ['vid' => GOFAST_VID_CRITICITY],
-      'select2' => array(
-        'placeholder' => t('Type any criticity', array(), array('context' => 'gofast')),
-        'multiple' => false,
-        'allowClear' => true,
-      ),
-        );
-        $field_criticity = array_replace_recursive($field_taxonomy, $field_node_criticity);
-        $info['node_criticity'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_criticity));
-    }
-
-    // Field deadline of the node
-    $field_node_deadline = array(
-      'pk' => $node->nid,
-      'name' => 'field_date',
-      'showbuttons' => 'bottom',
-      'value' => $info['node_deadline'],
-      'format' => dateformat_PHP_to_bootstrapDatePicker($date_format),
-      'type' => 'datetime',
-      'title' => t('Node deadline', array(), array('context' => 'gofast')),
-      'emptytext' => t('None', array(), array('context' => 'gofast')),
-      'url' => '/update_node_field',
-      'delegated' => 'true',
-      'datetimepicker' => array(
-        'minView' => 1,
-        'todayHighlight' => true,
-        'language' => $user->language,
-        'bootcssVer' => 3,
-      ),
-      'mode' => 'popup',
-      'placement' => 'left',
-    );
-     $info['node_deadline'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_node_deadline));
-
-    $location_block_output = drupal_render($location_widget);
-    $options = array(
-      'node_locations_options' => array(
-        'link_text' => $info['node_locations'],
-        'href' => '/modal/nojs/node/' . $node->nid . '/manage-locations',
-        'container_id' => 'popup_block_' . $node->nid,
-        'container_class' => NULL,
-      )
-    );
-
-    if($info['node_locations'] !== null){
-        $info['node_locations'] = theme('node_locations', $options);
-    }else{
-         $info['node_locations'] = "<div>";
-    }
-
-    $field_target_links = array(
-      'pk' => $node->nid,
-      'type' => 'select2',
-      'placement' => 'left',
-      'showbuttons' => 'bottom',
-      'mode' => 'popup',
-      'url' => '/update_node_field',
-      'inputclass' => 'input-extra-large',
-      'name' => 'field_target_link',
-      'value' => implode(', ', array_map(function($element) {
-                        return $element->nid;
-                      }, $target_nodes)),
-      'data' => array('links' => !empty($target_links) ? $target_links : null),
-      'source' => '/gofast/node_autocomplete',
-      'title' => t('Links to other content', array(), array('context' => 'gofast')),
-      'emptytext' => t('None', array(), array('context' => 'gofast')),
-      'delegated' => 'true',
-      'wrapper_class' => array(
-        'node-info-target-links',
-      )
-    );
-    $info['node_target_links'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_target_links));
-
-    $field_node_external_page_url = array(
-      'name' => 'field_external_page_url',
-      'value' => implode(',', $external_page_url),
-      'data' => array('links' => !empty($external_links) ? $external_links : null),
-      'title' => t('Links webpages content', array(), array('context' => 'gofast')),
-      'delegated' => 'true',
-      'emptytext' => t('None', array(), array('context' => 'gofast')),
-      'select2' => array(
-        'tags' => array(),
-        'multiple' => true,
-        'placeholder' => t('Enter website url', array(), array('context' => 'gofast')),
-      ),
-    );
-    $field_external_page_url = array_replace_recursive($field_taxonomy, $field_node_external_page_url);
-    $info['node_external_page_url'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_external_page_url));
-
-    //if ($node->type === "alfresco_item") {
-      $loaded = libraries_load('x-editable');
-      drupal_add_js(drupal_get_path('module', 'gofast') . '/js/gofast_xeditable.js', array('type' => 'file', 'weight' => 5));
-      $field_document_author = array(
-        'pk' => $node->nid,
-        'placement' => 'left',
-        'showbuttons' => 'bottom',
-        'mode' => 'popup',
-        'url' => '/update_node_field',
-        'inputclass' => 'input-extra-large',
-        'name' => GOFAST_CMIS_DOCUMENT_AUTHOR_FIELD,
-        'value' => $info['document_author'],
-        'title' => t('Enter document author', array(), array('context' => 'gofast')),
-        'emptytext' => t('None', array(), array('context' => 'gofast')),
-        'delegated' => 'true',
-        'type' => 'typeaheadjs',
-        'wrapper_class' => array(
-          'node-info-document_author',
-        )
-      );
-      $info['document_author'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_document_author));
-    //}
-
-
-      $loaded = libraries_load('x-editable');
-      drupal_add_js(drupal_get_path('module', 'gofast') . '/js/gofast_xeditable.js', array('type' => 'file', 'weight' => 5));
-      $field_alias = array(
-        'pk' => $node->nid,
-        'placement' => 'left',
-        'showbuttons' => 'bottom',
-        'mode' => 'popup',
-        'url' => '/update_node_field',
-        'inputclass' => 'input-extra-large',
-        'name' => GOFAST_CMIS_ALIAS_FIELD,
-        'value' => $info['alias'],
-        'title' => t('Enter a URL alias', array(), array('context' => 'gofast')),
-        'emptytext' => t('None', array(), array('context' => 'gofast')),
-        'delegated' => 'true',
-        'type' => 'typeaheadjs',
-        'wrapper_class' => array(
-          'node-info-alias',
-        )
-      );
-      $info['alias'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_alias));
-
-    if ($node->type === "alfresco_item") {
-        $field_document_reference = array(
-        'pk' => $node->nid,
-        'placement' => 'left',
-        'showbuttons' => 'bottom',
-        'mode' => 'popup',
-        'url' => '/update_node_field',
-        'inputclass' => 'input-extra-large',
-        'name' => 'field_document_reference',
-        'value' => $info['document_reference'],
-        'title' => t(variable_get("document_reference_label", "Document reference"), array(), array('context' => 'gofast')),
-        'emptytext' => t('None', array(), array('context' => 'gofast')),
-        'delegated' => 'true',
-        'type' => 'typeaheadjs',
-        'wrapper_class' => array(
-          'node-info-document_reference',
-        )
-      );
-      $info['document_reference'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_document_reference));
-    }
-  }else{
-    if ($node->type === "alfresco_item" && module_exists('gofast_retention') && isset($info['retention_end_date'])
-       && (node_access("update", $node) && $lock_state === "nolocked" && !gofast_get_content_state_archived($node))
-    ) {
-
-      $loaded = libraries_load('x-editable');
-      drupal_add_js(drupal_get_path('module', 'gofast') . '/js/gofast_xeditable.js', array('type' => 'file', 'weight' => 5));
-
-     // Init variables for taxonomy fields
-      $field_taxonomy = array(
-        'pk' => $node->nid,
-        'type' => 'select2',
-        'showbuttons' => 'bottom',
-        'select2' => array(
-          'multiple' => true,
-          'allowClear' => true,
-        ),
-        'placement' => 'left',
-        'mode' => 'popup',
-        'url' => '/update_node_field',
-        'inputclass' => 'input-extra-large',
-        'delegated' => 'true',
-      );
-
-
-      // Field category of the node
-      $available_categories = gofast_xeditable_vocabulary_to_select_items(GOFAST_VID_CATEGORY, $node);
-      $field_node_category = array(
-        'name' => 'field_category',
-        'value' => $info['node_category'],
-        'title' => t('Node category', array(), array('context' => 'gofast')),
-        'emptytext' => t('None', array(), array('context' => 'gofast')),
-        'source' => $available_categories,
-        'params' => ['vid' => GOFAST_VID_CATEGORY],
-        'select2' => array(
-          'placeholder' => t('Type any category', array(), array('context' => 'gofast')),
-          'multiple' => false,
-          'allowClear' => true,
-        ),
-      );
-      $field_category = array_replace_recursive($field_taxonomy, $field_node_category);
-      $info['node_category'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_category));
-    }
-  }
-
-  if ($canEdit_archived){
-
-    $loaded = libraries_load('x-editable');
-    drupal_add_js(drupal_get_path('module', 'gofast') . '/js/gofast_xeditable.js', array('type' => 'file', 'weight' => 5));
-
-    // Init variables for taxonomy fields
-    $field_taxonomy = array(
-      'pk' => $node->nid,
-      'type' => 'select2',
-      'showbuttons' => 'bottom',
-      'select2' => array(
-        'multiple' => true,
-        'allowClear' => true,
-      ),
-      'placement' => 'left',
-      'mode' => 'popup',
-      'url' => '/update_node_field',
-      'inputclass' => 'input-extra-large',
-      'delegated' => 'true',
-    );
-
-
-    if ($node->type !== 'forum') {
-
-
-      $states_options = gofast_xeditable_vocabulary_to_select_items(GOFAST_VID_STATE);
-
-      $field_node_state = array(
-        'name' => 'field_state',
-        'value' => $info['node_state'],
-        'title' => t('Node state', array(), array('context' => 'gofast')),
-        'emptytext' => t('None', array(), array('context' => 'gofast')),
-        'source' => $states_options,
-        'params' => ['vid' => GOFAST_VID_STATE],
-        'select2' => array(
-          'placeholder' => t('Type any state', array(), array('context' => 'gofast')),
-          'multiple' => false,
-          'allowClear' => true,
-        ),
-      );
-      $field_state = array_replace_recursive($field_taxonomy, $field_node_state);
-      $info['node_state'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_state));
-
-
-    }
-
-  }
-
-
-  // These following fields cannot be edited
-  $format = $wrapper->{'field_format'}->value();
-  $format_value = theme('gofast_node_icon_format', array('node' => $node));
-  $format_value .= $format ? i18n_taxonomy_localize_terms($format)->name : NULL;
-  //add extension
-  if ($node->type === "alfresco_item" && $format_value != NULL ) {
-    $extension = pathinfo($node->field_filename[LANGUAGE_NONE][0]['value'], PATHINFO_EXTENSION);
-    $format_value .= ' ('.$extension.')';
-  }
-  $output .= theme('gofast_node_info_field', array('title' => 'Format', 'values' => $format_value));
-  //$type = $format_value;
-
-  if ($node->type === "alfresco_item") {
-    //$output .= theme('gofast_node_info_field', array('title' => 'Extension', 'values' => $infos["extension"]));
-    $output .= theme('gofast_node_info_field', array('title' => 'Size', 'values' => $infos["size"]));
-    //$type .= $infos["extension"] . ' ' . t('Size') . ' : ' . $infos["size"];
-  }
-
-  $votes = fivestar_get_votes('node', $node->nid, 'vote');
-  $values = array(
-    'user' => empty($votes['user']['value']) ? 0 : $votes['user']['value'],
-    'average' => empty($votes['average']['value']) ? 0 : $votes['average']['value'],
-    'count' => empty($votes['count']['value']) ? 0 : $votes['count']['value'],
-  );
-
-  $settings = array(
-    'stars' => 5,
-    'allow_clear' => TRUE,
-    'allow_revote' => TRUE,
-    'allow_ownvote' => TRUE,
-    'description' => '',
-    'widget' => array('name' => 'minimal', 'css' => 'sites/all/modules/fivestar/widgets/minimal/minimal.css'),
-    'style' => 'average', //'smart'
-    'text' => 'average', //'dual'
-    'content_type' => 'node',
-    'content_id' => $node->nid,
-    'tag' => 'vote',
-    'autosubmit' => TRUE,
-    'title' => FALSE,
-    'feedback_enable' => FALSE, //FALSE,
-    'labels_enable' => FALSE, //FALSE,
-    'labels' => array(),
-    'microdata' => array(),
-    'field_name' => 'field_fivestar',
-    'langcode' => LANGUAGE_NONE,
-    'entity_type' => 'node',
-    'entity_id' => $node->nid,
-  );
-  $fivestar = drupal_get_form('fivestar_custom_widget', $values, $settings);
-
-  $temps_o_fin = microtime(true);
-  watchdog('CMIS xeditable processing LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
-  $temps_o_debut = microtime(true);
-
-  //$output .= theme('gofast_node_info_field', array('title' => t('Type'), 'values' => $type));
-  // Prints all the fields in the block (normal if not able to edit, x-editable otherwise).
-  $output .= theme('gofast_node_info_field', array('title' => 'Category', 'values' => $info['node_category']));
-  if ($node->type !== 'forum') {
-    $output .= theme('gofast_node_info_field', array('title' => 'State', 'values' => $info['node_state']));
-  }
-
-  $output .= theme('gofast_node_info_field', array('title' => 'Rating', 'values' => drupal_render($fivestar)));
-
-  $icon_members='  <a title="'.t("Show user access", array(), array('context' => 'gofast')).'" class="ctools-use-modal node-info-member-link btn btn-default" href="/gofast/nojs/node/' . $node->nid . '/locations-members"><i class="fa fa-users" style=" color: #777;"></i></a> ';
-  $output .= theme('gofast_node_info_field', array('title' => 'Locations / Shares', 'values' => $info['node_locations'], 'multiline' => TRUE,'title_suffix_html' => $icon_members));
-  if (!empty($info['node_publication'])) {
-    $output .= theme('gofast_node_info_field', array('title' => 'Publication', 'values' => $info['node_publication'], 'multiline' => TRUE));
-  }
-  if (!empty($info['node_publication_source'])) {
-    $output .= theme('gofast_node_info_field', array('title' => 'Publication Source', 'values' => $info['node_publication_source'], 'multiline' => TRUE));
-  }
-  $output .= theme('gofast_node_info_field', array('title' => 'Links to', 'values' => $info['node_target_links'], 'multiline' => TRUE));
-  $output .= theme('gofast_node_info_field', array('title' => "Links from", 'values' => $info['node_source_links']));
-  if(!empty($info['node_target_lien'])){
-    $output .= theme('gofast_node_info_field', array('title' => 'Attachments', 'values' => $info['node_target_lien'], 'multiline' => TRUE));
-  }
-  $output .= theme('gofast_node_info_field', array('title' => '', 'values' => $info['node_source_lien'], 'multiline' => TRUE));
-  $output .= theme('gofast_node_info_field', array('title' => 'External links', 'values' => $info['node_external_page_url'], 'multiline' => TRUE));
-  $output .= theme('gofast_node_info_field', array('title' => 'Tags', 'values' => $info['node_keywords'], 'multiline' => TRUE));
-  $output .= theme('gofast_node_info_field', array('title' => variable_get("document_reference_label", "Document reference"), 'values' => $info['document_reference']));
-  $output .= theme('gofast_node_info_field', array('title' => 'Deadline', 'values' => $info['node_deadline'], 'medium'));
-  if($node->type == "article"){
-    $output .= theme('gofast_node_info_field', array('title' => 'Book', 'values' => $info['node_book']));
-  }
-
-
-  if( $node->type === "alfresco_item" && module_exists('gofast_retention')  && isset($info['retention_end_date'])){
-    $output .= theme('gofast_node_info_field', array('title' => 'Retention end date', 'values' => format_date(strtotime($info['retention_end_date']), 'medium')));
-  }
-
-  $output .= theme('gofast_node_info_field', array('title' => 'Criticity', 'values' => $info['node_criticity']));
-  $output .= theme('gofast_node_info_field', array('title' => 'Popularity/View count', 'values' => $info["node_popularity"] . ' / ' . $info["node_view_count"]));
-  $output .= theme('gofast_node_info_field', array('title' => 'Author', 'values' => $info['document_author']));
-  $output .= theme('gofast_node_info_field', array('title' => 'Alias URL', 'values' => $info['alias']));
-
-  $temps_o_fin = microtime(true);
-  watchdog('CMIS theming processing LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
-  $temps_o_debut = microtime(true);
-
-  $node_language = $wrapper->language->value();
-  $translatable_languages = i18n_node_language_list($node);
-  $translated_languages = translation_node_get_translations($node->tnid);
-  $language_icon = gofast_get_flag_icon_by_langcode($node_language) . '&nbsp;' . $translatable_languages[$node_language];
-  $available_languages = array_map(function($lang_key) use ($translatable_languages, $translated_languages) {
-    $item = array('id' => $lang_key, 'text' => $translatable_languages[$lang_key], 'icon' => gofast_get_flag_icon_by_langcode($lang_key));
-    if (isset($translated_languages[$lang_key])) {
-      $item['disabled'] = TRUE;
-    }
-    return $item;
-  }, array_keys($translatable_languages));
-  $info['node_language'] = !empty($node_language) ? $language_icon : null;
-
-  if ($canEdit) {
-    libraries_load("flag-icon-css");
-    $field_node_language = array(
-      'pk' => $node->nid,
-      'type' => 'select2',
-      'showbuttons' => 'bottom',
-      'name' => 'language',
-      'value' => $node_language,
-      'data' => array('links' => !empty($node_language) ? $language_icon : null),
-      'title' => t('Node language', array(), array('context' => 'gofast')),
-      'source' => $available_languages,
-      'placement' => 'left',
-      'mode' => 'popup',
-      'url' => '/update_node_field',
-      'inputclass' => 'input-extra-large',
-      'delegated' => 'true',
-      'emptytext' => 'Select language',
-      'wrapper_class' => array(
-        'select2-node-language',
-      )
-    );
-    $info['node_language'] = theme('x-editable_field', gofast_xeditable_enrich_values($field_node_language));
-  }
-
-  $node_translations = translation_node_get_translations($node->tnid);
-
-  $available_translations = array();
-  if (!empty($node_translations)) {
-    unset($node_translations[$wrapper->language->value()]);
-    foreach ($node_translations as $lang_key => $node_translation) {
-      $lang_link = '/node/' . $node_translation->nid;
-      $title = $translatable_languages[$lang_key] . ' - ' . $node_translation->title;
-      $icon = gofast_get_flag_icon_by_langcode($lang_key);
-      $link = '<a class="node-lang-icon" type="button" href="' . $lang_link . '" title="' . $title . '">' . $icon . '</a>';
-      $available_translations[$lang_key] = $link;
-    }
-  }
-
-  $temps_o_fin = microtime(true);
-  watchdog('CMIS translation processing LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
-  $temps_o_debut = microtime(true);
-
-  // Then, display all the information about the history of the node
-
-  $history_content = gofast_node_info_get_history($node, $infos);
-
-  $output .= theme('gofast_node_info_field', array('title' => 'History', 'values' => $history_content));
-
-  $temps_o_fin = microtime(true);
-  watchdog('CMIS history processing LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
-  $temps_o_debut = microtime(true);
-
-  $revisions_content = '';
-
-  if ($node->type === 'alfresco_item') {
-    gofast_cmis_set_context("node", "version", $infos["last_version"]);
-
-  //get the field_publication_history content, to get the mapping between versions doc and versions publication
-  $publication_history = $node->field_publication_history[LANGUAGE_NONE][0]["value"];
-  $publication_history = json_decode($publication_history, true);
-
-  if(isset($node->field_publication[LANGUAGE_NONE][0]['target_id'])){
-      $publication_node = node_load($node->field_publication[LANGUAGE_NONE][0]['target_id']);
-       if(isset($publication_history[$infos["last_version"]])){
-        $attribute_title_publication = t("Publication")." : ".format_date($publication_history[$infos["last_version"]]["date"], 'medium') . t(" by ");
-        $attribute_title_publication .= $publication_history[$infos["last_version"]]["creator"];
-
-        if(isset($publication_history[$infos["last_version"]]["comment"])){
-          $attribute_title_publication .= " " . t("Comment") . ": " . $publication_history[$infos["last_version"]]["comment"];
-        }
-       $version_reference_publication = $publication_node->reference . ";" . $publication_history[$infos["last_version"]]["published_version"];
-       $link_published_version = l($publication_history[$infos["last_version"]]["published_version"], "/cmis/browser", array('attributes' => array('title' => $attribute_title_publication, 'style' => $style), 'query' => array("id" => $version_reference_publication)));
-       $return_str = " (".$link_published_version.")";
-    }
-  }else{
-      $return_str = "";
-  }
-
-     $html_list = "<ul class='list-inline' id='block-last-version'><li>".$infos["last_version"].$return_str."</li></ul>";
-    $revisions_content .= "<span id='gofast_cmis_container_versions'><input id='gofast_cmis_container_versions_button' type='button' value='".t("Show versions list", array(),  array('context' => 'gofast'))."' onClick='Drupal.gofast_cmis.async_show_all_versions(".$node->nid.");' />$html_list</span>";
-  }
-  else {
-      $revisions_content = "";
-  }
-  $output .= theme('gofast_node_info_field', array('title' => 'Revisions', 'values' => $revisions_content));
-
-  $translations_zone = '<span class="translations">' . implode(' ', $available_translations) . '</span>';
-  $output .= theme('gofast_node_info_field', array('title' => 'Language', 'values' => $info['node_language'] . $translations_zone));
-  //$output .= theme('gofast_node_info_field', array('title' => t('Translations'), 'values' => implode(' ', $available_translations)));
-
-  $temps_o_fin = microtime(true);
-  watchdog('CMIS revisions processing LOADING TIME', round($temps_o_fin - $temps_o_debut, 4));
-  $temps_o_debut = microtime(true);
-
-  $output .= '</div>';
-
-  if(count(module_implements("extra_metadata")) >= 1){
-    $output .= '<div id="gofast-node-info-extra" role="tabpanel" class="tab-pane">';
-    foreach(module_implements("extra_metadata") as $module){
-        $metadata = call_user_func($module . "_extra_metadata", $node );
-        $output .= $metadata;
-    }
-    $output .= '</div>';
-  }
-
-  $output .= '</div>';
-
-  //if the node is unpublished we can't read infos of the node.
-  if ($node->status == 0 ){
-      switch ($node->type) {
-          case 'forum':
-              $output = '<p class="text-danger bg-warning">' . t("The forum was deleted, you can't read infos", array(), array('context' => 'gofast')) . '</p>';
-              break;
-          case 'article':
-              $output = '<p class="text-danger bg-warning">' . t("The article was deleted, you can't read infos", array(), array('context' => 'gofast')) . '</p>';
-              break;
-          case 'webform':
-              $output = '<p class="text-danger bg-warning">' . t("The webform was deleted, you can't read infos", array(), array('context' => 'gofast')) . '</p>';
-              break;
-          default:
-              $output = '<p class="text-danger bg-warning">' . t("The document was deleted, you can't read infos", array(), array('context' => 'gofast')) . '</p>';
-              break;
-      }
-  }
-
-
-  if($asyncr){
-    $commands = array();
-    $commands[] = ajax_command_html("#block-gofast-gofast-node-infos", $output);
-
-    print ajax_render($commands);
-    exit;
-  }else{
-    return $output;
-  }
-}
-
 function gofast_node_info_get_history($node, $infos) {
 
   //if the node is not an alfresco_item, the history is not the same ( don't execute cmis requests)
-  if($node->type != "alfresco_item"){
+  if($node->type != "alfresco_item" && $node->type != "article"){
       $history_content = '<br /><ul id="node-history" class="list-unstyled">';
         $created = $node->created;
         $changed = $node->changed;
@@ -4586,21 +4336,20 @@ function gofast_node_info_links(&$info, $wrapper) {
 
   // We retrieve entities that refers this node
   // Exclude : templates nodes
-  $excluded = FALSE;
+  $is_template = gofast_contextual_menu_node_is_template($node, NULL, NULL, NULL);
   $source_link_ids = array();
-  if (!$excluded) {
-    $results = db_select('field_data_field_lien', 'f')
+  if ($is_template !== TRUE) {
+    $results = db_select('field_data_field_target_link', 'f')
             ->fields('f')
-            ->condition('field_lien_target_id', $node->nid)
+            ->condition('field_target_link_target_id ', $node->nid)
             ->execute();
     foreach ($results as $row) {
       $source_link_ids[] = $row->entity_id;
     }
   }
-  $source_links = array_map(function($element) {
-    return theme('node_title', array('node' => $element));
-  }, node_load_multiple($source_link_ids));
-  $info['node_source_lien'] = !empty($source_links) ? implode('<br /> ', $source_links) : '';
+  $source_links = node_load_multiple($source_link_ids);
+  $info['node_source_links'] = !empty($source_links) ? $source_links : '';
+  
 }
 
 /**
@@ -4701,470 +4450,6 @@ function gofast_node_view($node, $view_mode, $langcode) {
   }
 }
 
-/**
- * This function allows to override the default breadcrumbs
- * @param type $node
- * @return type
- */
-function gofast_get_breadcrumb_ajax($node) {
-  $bc = gofast_node_get_crumb_path($node);
-  if (!empty($bc)) {
-    drupal_set_breadcrumb($bc);
-    return theme('breadcrumb', array('breadcrumb' => $bc));
-  }
-}
-
-
-/**
- * This function generates the crumbs for a given node.
- * If the node is document (alfresco_item), generate the crumbs from locations.
- * Otherwise, generates the crumbs from og_membership
- * @param node $node the given node
- * @return array a list of crumbs generated for each line.
- */
-function gofast_node_get_crumb_path($node)
-{
-  $node = node_load($node->nid, NULL, TRUE);
-  $crumbs = array();
-  if ($node->type === "alfresco_item") {
-    $document_main_location = array($node->{GOFAST_CMIS_MAIN_LOCATION_FIELD}[LANGUAGE_NONE][0]['value']);
-    $document_locations = isset($node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE]) ? array_map(function ($element) {
-      return ($element['value']);
-    }, $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE]) : array();
-    $document_paths = array_unique(array_merge($document_main_location, $document_locations));
-    asort($document_paths);
-
-    if (!empty($document_paths)) {
-      $locations_crumbs = gofast_node_emplacements_get_crumbs($document_paths, $node);
-      $crumbs = $locations_crumbs;
-    }
-  } elseif ($node->type === 'article' || $node->type === 'webform' || $node->type === 'forum') {
-
-    $document_locations = $node->{og_group_content_ref}[LANGUAGE_NONE];
-    foreach ($document_locations as $locations) {
-      $document_paths[] = gofast_cmis_space_get_webdav_path($locations['target_id']);
-    }
-
-    $document_paths = array_unique($document_paths);
-    asort($document_paths);
-    if (!empty($document_paths)) {
-      $locations_crumbs = gofast_node_emplacements_get_crumbs($document_paths, $node);
-      $crumbs = $locations_crumbs;
-    }
-  } else {
-    $crumbs = gofast_node_get_crumbs($node, FALSE);
-  }
-
-  return $crumbs;
-}
-
-/**
- * This function generates crumbs for node
- * @param node $node the given node
- * @param boolean $root_space_link specify whether we have to make last crumb as a link
- * (usefull for recursion call form crumb generation of locations)
- * @return array the list of crumbs
- */
-function gofast_node_get_crumbs($node, $root_space_link = FALSE, $toOgdocument = FALSE)
-{
-  global $base_url;
-  global $mobile_url;
-  $crumbs = array();
-  $node_parents = gofast_og_get_parent($node);
-
-  if (empty($node_parents) || $node_parents === FALSE) {
-    $crumb = array();
-
-    $title = $node->type === "private_space" ? $node->name : t($node->title, array(), array('context' => 'gofast'));
-    if ($root_space_link) {
-      $gid = $node->nid;
-      $attr = array('attributes' => array("class" => "ajax-navigate " . gofast_access_spaces($gid) . "", "nid" => $gid));
-      if ($base_url == $mobile_url) {
-        $url_path_value = "home_page_navigation";
-        $fragment = "navBrowser";
-      } else {
-        $url_path_value = "node/" . $gid;
-      }
-      $crumb[] = l($title, $url_path_value, $attr);
-    } else {
-      $crumb[] = $title;
-    }
-
-    $crumb[] = l(t('Home'), "");
-    $crumbs[] = array_reverse($crumb);
-  } else {
-
-    $document_name = $node->title;
-
-    if ($node->type === 'alfresco_item') {
-      $node_reference = gofast_cmis_node_get_item_id($node);
-      $lock_state = gofast_cmis_webservice_execute_request("getlocked", $node_reference);
-    } else {
-      $lock_state = 'nolocked';
-    }
-
-    if (((gofast_og_is_space($node) && og_user_access('node', $node->nid, 'administer group'))
-        || (!gofast_og_is_space($node) && node_access('update', $node)))
-      && $lock_state === 'nolocked'
-    ) {
-      $loaded = libraries_load('x-editable');
-      drupal_add_js(drupal_get_path('module', 'gofast') . '/js/gofast_xeditable.js', array('type' => 'file', 'weight' => 5));
-      // Field title of the node
-      if ($node->type == 'conference') { // [GOFAST-6529] & [GOFAST-6255]
-        $field_node_title = array(
-          'pk' => $node->nid,
-          'name' => 'title',
-          'value' => $node->title,
-          'title' => t('Page title', array(), array('context' => 'gofast')),
-          'url' => '/update_node_field',
-          'mode' => 'popup',
-          'link_value' => '<a href="/node/' . $node->nid . '">' . $node->title . '</a>'
-        );
-      } else {
-        $field_node_title = array(
-          'pk' => $node->nid,
-          'name' => 'title',
-          'value' => $node->title,
-          'title' => t('Page title', array(), array('context' => 'gofast')),
-          'url' => '/update_node_field',
-          'mode' => 'popup',
-        );
-      }
-      $document_name = theme('x-editable_field', gofast_xeditable_enrich_values($field_node_title));
-    }
-    $node_parents = !is_array($node_parents) ? array($node_parents) : $node_parents;
-
-    if ($base_url == $mobile_url) {
-      $url_path_value = "home_page_navigation";
-      $fragment = "navBrowser";
-    } else {
-      $url_path_value = "node/" . $node->nid;
-      $fragment = "ogdocuments";
-    }
-
-    // Looping over each parent
-    foreach ($node_parents as $space_nid) {
-      $crumb = array();
-      // If the node is not a space, it does not have a dn so we go out
-      if (!gofast_og_is_space(node_load($space_nid))) {
-        return;
-      }
-
-      if ($root_space_link) {
-        $path = gofast_cmis_space_get_webdav_path($node->nid);
-        if (strpos($path, 'alfresco/webdav') === FALSE) {
-          $pathm = '/alfresco/webdav' . $path;
-        } else {
-          $pathm = $path;
-        }
-
-        $crumb[] = urldecode(l($node->title,"/".$url_path_value . "?&path=" . str_replace('&', '%26', str_replace('/alfresco/webdav', "", $pathm)),
-          array(
-            'fragment' => $fragment,
-            'attributes' => array(
-              "class" => "ajax-navigate " . gofast_access_spaces($node->nid) . "",
-              "nid" => $node->nid,
-            )
-          )
-        ));
-      } else {
-        $crumb[] = '<b>' . $document_name . '</b>';
-      }
-      while (!empty($space_nid)) {
-        $gid = $space_nid;
-        $title = gofast_get_node_title($gid);
-        $path = "/alfresco/webdav" . gofast_cmis_space_get_webdav_path($gid);
-        if (strpos($path, 'alfresco/webdav') === FALSE) {
-          $pathm = '/alfresco/webdav' . $path;
-        } else {
-          $pathm = $path;
-        }
-
-        $crumb[] = urldecode(l(
-          $title,
-          "/" . $url_path_value . "?&path=" . str_replace('&', '%26', str_replace('/alfresco/webdav', "", $pathm)),
-          array(
-            'fragment' => $fragment,
-            'attributes' => array(
-              "class" => "ajax-navigate " . gofast_access_spaces($gid) . "",
-              "nid" => $gid,
-            )
-          )
-        ));
-        $space_nid = gofast_og_get_parent(node_load($space_nid));
-      }
-      $crumb[] = l(t('Home'), "");
-    }
-    $crumbs[] = array_reverse($crumb);
-  }
-  return $crumbs;
-}
-
-/**
- * This function generates crumbs for node locations
- * @param type $locations the node locations
- * @return array the list of crumbs
- */
-function gofast_node_emplacements_get_crumbs($locations, $node) {
-  global $base_url;
-  global $mobile_url;
-
-
-  $location_values = array();
-  $i = 0;
-  $document_name = $node->title;
-
-  if ($node->type === 'alfresco_item') {
-    $node_reference = gofast_cmis_node_get_item_id($node);
-    $lock_state = gofast_cmis_webservice_execute_request("getlocked", $node_reference);
-  }
-  else {
-    $lock_state = 'nolocked';
-  }
-
-  if ( ( ( gofast_og_is_space($node) && og_user_access('node', $node->nid, 'administer group'))
-      || (! gofast_og_is_space($node) && node_access('update', $node) ) )
-      && $lock_state === 'nolocked') {
-    $loaded = libraries_load('x-editable');
-    drupal_add_js(drupal_get_path('module', 'gofast') . '/js/gofast_xeditable.js', array('type' => 'file', 'weight' => 5));
-    // Field title of the node
-    $field_node_title = array(
-      'pk' => $node->nid,
-      'name' => 'title',
-      'value' => pathinfo($node->title)['filename'],
-      'title' => t('Page title', array(), array('context' => 'gofast')),
-      'url' => '/update_node_field',
-      'mode' => 'popup',
-    );
-    $document_name = theme('x-editable_field', gofast_xeditable_enrich_values($field_node_title));
-  }
-
-  foreach ($locations as $pre_selected_location) {
-    $cleaned_path = substr(gofast_ztree_get_drupal_path_from_webdav_path(array($pre_selected_location))[0], 1);
-    $parts = explode('/', $pre_selected_location);
-    $parent_group = gofast_og_get_group_id_from_title($pre_selected_location, TRUE);
-    $folders = array();
-    $folder_path = $pre_selected_location."/";
-    if ($parent_group !== FALSE) {
-      $node_crumb_path = gofast_node_get_crumbs(node_load($parent_group), TRUE, TRUE);
-      $location_values[$i] = $node_crumb_path[0];
-      $location_values[$i][] = '<b>' . $document_name . '</b>';
-    }
-    else {
-      $pos = 0;
-      foreach (array_reverse($parts) as $part) {
-         if($part == ""){
-             continue;
-         }
-
-        //Truncate path of the last occurence of "part" (i.e. folder name)
-        $path = substr($folder_path, 0, strrpos($folder_path, "/".$part."/")+1);
-        $folders[$pos]['name'] = $part;
-        $folders[$pos]['path'] = $folder_path;
-        $folder_path = $path;
-
-        $parent_group = gofast_og_get_group_id_from_title($path, TRUE);
-        $pos++;
-        if ($parent_group !== FALSE) {
-          break;
-        }
-      }
-      if($parent_group !== FALSE){
-          $group = node_load($parent_group);
-          $parent_crumb = gofast_node_get_crumbs($group, TRUE, TRUE);
-          $location_values[$i] = $parent_crumb[0];
-      }
-
-      if ($base_url == $mobile_url) {
-        $url_path_value = "home_page_navigation";
-        $fragment = "navBrowser";
-      } else {
-        $url_path_value = "node/" . $parent_group;
-        $fragment = "ogdocuments";
-      }
-
-      foreach (array_reverse($folders) as $folder) {
-        $location_values[$i][] = urldecode(l($folder['name'], "/". $url_path_value."?&path=" . rawurlencode($folder['path']), array(
-                                  'fragment' => $fragment,
-                                  'attributes' => array(
-                                      "class" => "ajax-navigate ".gofast_access_spaces($parent_group)."",
-                                      "nid" => $parent_group,
-                                )
-                              )
-                            ));
-      }
-      $location_values[$i][] = '<b>' . $document_name . '</b>';
-    }
-    $i++;
-  }
-  return $location_values;
-}
-
-
-function gofast_get_node_space_breadcrumb_async($nid,$uid=NULL,$userlist=FALSE,$ulid=NULL,$final_role=TRUE){
-   print gofast_get_space_breadcrumb_ajax(node_load($nid),$uid,$userlist,$ulid,$final_role);
-}
-
-
-/**
- * This function allows to override the default space breadcrumbs
- * @param type $node
- * @return type
- */
-function gofast_get_space_breadcrumb_ajax($node,$uid=NULL,$userlist=FALSE,$ulid=NULL,$final_role=TRUE) {
-  $bc = gofast_node_space_get_crumbs($node);
-  if (!empty($bc)) {
-    drupal_set_breadcrumb($bc);
-    if(empty($bc)) {
-        return;
-    }
-    $output = '';
-    if (isset($bc[0]) && !is_array($bc[0])) {
-        array_shift($bc);
-    $items = array();
-    foreach ($bc as $item) {
-      if (!is_array($item)) {
-        $items[] = $item;
-      }
-      else {
-        $items[] = $item['data'];
-      }
-    }
-    return '<div class="bc gofast bc-gofast">' . implode(' » ', $items) . '</div>';
-    }
-    else {
-    $output = '<div class="bc gofast bc-gofast">';
-
-
-    $full_bc = $bc;
-    $reverse_bc = array_reverse($bc);
-    $array_clone = $reverse_bc;
-    $first_element_bc = array_shift($array_clone);
-    if(isset($first_element_bc['data'])) {
-      array_shift($reverse_bc);
-      $full_bc = array_reverse($reverse_bc);
-    }
-
-    foreach ($full_bc as $key => $crumbs) {
-      if(isset($crumbs['data'])) {
-        continue;
-      }
-      array_shift($crumbs);
-      $line = implode(' » ', $crumbs);
-        $class = "gofast_bc_display";
-        $output .= "<div id='" . $key . "' class='" . $class . "' style='margin:2px;' >" . $line;
-        if($final_role == TRUE){
-          if($userlist == TRUE){
-              if(!empty(gofast_userlist_og_get_userlist_roles('node',$node->nid,$ulid))){
-                  $output .= ' (' . t(array_shift(gofast_userlist_og_get_userlist_roles('node',$node->nid,$ulid,FALSE,TRUE)),array(),array('context' => 'gofast:gofast_userlist')) . ')';
-              }
-              $output .= "</div>";
-          }else{
-              if(!empty(gofast_og_get_user_final_roles_for_space('node',$node->nid,$uid))){
-                  $output .= ' (' . t(array_shift(gofast_og_get_user_final_roles_for_space('node',$node->nid,$uid)),array(),array('context' => 'gofast:gofast_userlist')) . ')';
-              }
-              $output .= "</div>";
-          }
-        }
-    }
-    $output .= "</div>";
-
-    }
-
-    return $output;
-  }
-}
-/**
- * Get crumbs for space node
- * @param type $node
- */
-function gofast_node_space_get_crumbs($node){
-  $crumbs = array();
-  $node_parents = gofast_og_get_parent($node);
-
-      if (empty($node_parents) || $node_parents === FALSE) {
-        $crumb = array();
-
-        $title = $node->type === "private_space" ? $node->name : t($node->title, array(), array('context' => 'gofast'));
-            $gid = $node->nid;
-            $attr = array('attributes' => array("class" => "ajax-navigate", "nid" => $gid));
-            $url_path = "node/" . $gid;
-            $crumb[] = l($title, $url_path, $attr);
-
-        $crumb[] = l(t('Home'), "");
-        $crumbs[] = array_reverse($crumb);
-      }
-      else {
-
-        $document_name = $node->title;
-
-        if ($node->type === 'alfresco_item') {
-          $node_reference = gofast_cmis_node_get_item_id($node);
-          $lock_state = gofast_cmis_webservice_execute_request("getlocked", $node_reference);
-        }
-        else {
-          $lock_state = 'nolocked';
-        }
-
-            $path = gofast_cmis_space_get_webdav_path($node->nid);
-            if(strpos($path, 'alfresco/webdav') === FALSE){
-              $pathm = '/alfresco/webdav' . $path;
-            }else{$pathm = $path;}
-            $document_name = urldecode(l($node->title, "/node/" . $node->nid. "?&path=" . str_replace('&', '%26', str_replace('/alfresco/webdav', "", $pathm)), array(
-                            'fragment' => 'ogdocuments',
-                            'attributes' => array(
-                                "class" => "ajax-navigate",
-                                "nid" => $node->nid,
-                              )
-                            )
-                          ));
-        $node_parents = !is_array($node_parents) ? array($node_parents) : $node_parents;
-
-        // Looping over each parent
-        foreach ($node_parents as $space_nid) {
-          $crumb = array();
-          // If the node is not a space, it does not have a dn so we go out
-          if (!gofast_og_is_space(node_load($space_nid))) {
-            return;
-          }
-
-                $path = gofast_cmis_space_get_webdav_path($node->nid);
-                if(strpos($path, 'alfresco/webdav') === FALSE){
-                  $pathm = '/alfresco/webdav' . $path;
-                }else{$pathm = $path;}
-                $crumb[] = urldecode(l($node->title, "/node/" . $node->nid. "?&path=" . str_replace('&', '%26', str_replace('/alfresco/webdav', "", $pathm)), array(
-                            'fragment' => 'ogdocuments',
-                            'attributes' => array(
-                                "class" => "ajax-navigate",
-                                "nid" => $node->nid,
-                                "style" => 'font-weight:bold;'
-                              )
-                            )
-                          ));
-            while (!empty($space_nid)) {
-              $gid = $space_nid;
-              $title = gofast_get_node_title($gid);
-                $path = "/alfresco/webdav" . gofast_cmis_space_get_webdav_path($gid);
-                if(strpos($path, 'alfresco/webdav') === FALSE){
-                  $pathm = '/alfresco/webdav' . $path;
-                }else{$pathm = $path;}
-
-                $crumb[] = urldecode(l($title, "/node/" . $gid. "?&path=".str_replace('&', '%26', str_replace('/alfresco/webdav', "", $pathm)), array(
-                            'fragment' => 'ogdocuments',
-                            'attributes' => array(
-                                "class" => "ajax-navigate",
-                                "nid" => $gid,
-                              )
-                            )
-                          ));
-                $space_nid = gofast_og_get_parent(node_load($space_nid));
-            }
-            $crumb[] = l(t('Home'), "");
-          }
-          $crumbs[] = array_reverse($crumb);
-      }
-  return $crumbs;
-}
 
 /**
  * Returns a node ID given a book mlid (book page's menu_links.mlid).
@@ -5356,7 +4641,7 @@ function gofast_get_mlid_by_path($path) {
  *  on matching entities' type and the options callback : keys and values are
  *  respectively formatted by 'format_key_callback' and 'format_value_callback'.
  */
-function gofast_ac_query($str, $entity_type, $options = array(), $broadcast = false) {
+function gofast_ac_query($str, $entity_type, $options = array(), $broadcast = false, $space = array()) {
   global $user;
   $options += array(
     'bundle' => array(),
@@ -5467,6 +4752,16 @@ function gofast_ac_query($str, $entity_type, $options = array(), $broadcast = fa
 
   $format_key = $options['format_key_callback'];
   $format_value = $options['format_value_callback'];
+  
+  //Check space filter passed in params. If this is a user not member of the space filter ignore it
+  if(!empty($space)){
+      $users_in_spaces = array();
+      
+      foreach($space as $gid){
+          $users_in_spaces = array_merge($users_in_spaces, gofast_og_get_members_userlist_included(node_load($gid), OG_STATE_ACTIVE));
+      }
+  }
+  
   foreach ($entities as $id => $entity) {
 
       if($entity->type == NULL && $entity_type != 'userlist' && $entity->vid != GOFAST_VID_TAGS){
@@ -5502,6 +4797,14 @@ function gofast_ac_query($str, $entity_type, $options = array(), $broadcast = fa
       if($entity_type == "userlist" && !gofast_userlist_is_visible($entity->ulid)){
           continue;
       }
+      
+      //Check space filter passed in params. If this is a user not member of the space filter ignore it
+      if(!empty($space) && $entity_type === 'user'){
+          if(!in_array($entity->uid, $users_in_spaces)){
+              continue;
+          }
+      }
+  
     $_value = $map_value($entity, $options['value']);
     $_key = $entity->{$options['key']};
     $key = $format_key($entity_type, $entity, $_key, $_value, $options);
@@ -5733,7 +5036,7 @@ function theme_node_title($variables)
   if ($base_url == $mobile_url && $node->type == "task") {
     $task =  node_load($node->nid);
     $parent_space = $task->field_board[LANGUAGE_NONE][0]['target_id'];
-    $path = "tasks_page_navigation?parent_sapce=". $parent_space."&card_id=" . $node->nid;
+    $path = "tasks_page_navigation?parent_space=". $parent_space."&card_id=" . $node->nid;
     $option['fragment'] = 'navKanban';
     return urldecode(l($title, $path, $option));
   } else  if ($variables['fullLink']) {
@@ -5867,6 +5170,9 @@ function gofast_user_view_access($account) {
   $admin_visibility = variable_get('gofast_admin_visibility', GOFAST_ADMIN_VISIBILITY_DEFAULT);
   $admin_visibility_condition = ($admin_visibility == GOFAST_ADMIN_VISIBILITY_ON && gofast_user_is_adm($user));
   if (($visibility == GOFAST_USER_PARTITIONING_ON && $admin_visibility_condition == FALSE) || ($visibility == GOFAST_USER_PARTITIONING_ON_ONLY_EXTRANET && gofast_user_is_extranet() && $admin_visibility_condition == FALSE )) {
+    if(gofast_user_is_business_admin($user)){
+        return TRUE;
+    }
     // Users must have at least one space in common.
     $common = gofast_og_get_common_spaces(array($GLOBALS['user']->uid, $account->uid));
     if (empty($common)) {
@@ -5884,12 +5190,18 @@ function gofast_entity_view($entity, $type, $view_mode, $langcode) {
     return;
   }
 
-  if (isset($entity->type) && $entity->type === 'alfresco_item') {
+  if (isset($entity->type) && ($entity->type === 'alfresco_item' || $node->type === "article")) {
     $cmis_lock_owner = gofast_cmis_webservice_execute_request('getlocked', gofast_cmis_node_get_item_id($entity));
     $entity->cmis_lock_owner = isset($cmis_lock_owner) ? $cmis_lock_owner : 'nolock';
   }
 
   list ($entity_id,, ) = entity_extract_ids($type, $entity);
+
+  //if entity type is "user", remove private informations before to send to context
+  if($type == "user"){
+      unset($entity->data);
+      unset($entity->pass);
+  }
 
   $context = array(
     'timestamp' => time(),
@@ -6215,113 +5527,6 @@ function gofast_get_status(){
   exit;
 }
 
-/**
- *
- * Once per day, retreive all node with deadline = tomorrow, then send a email
- * to related users.
- */
-function gofast_node_deadline_notify(){
-
-   global $base_url;
-   $tomorrow = new DateTime('tomorrow');
-   $tomorrow_str = $tomorrow->format('Y-m-d');
-
-   $query = new EntityFieldQuery();
-   $query->entityCondition('entity_type', 'node')
-      ->entityCondition('bundle', array('conference', 'webform', 'task'), 'NOT IN')
-      ->propertyCondition('status', 1)
-      ->fieldCondition('field_date', 'value', $tomorrow_str.'%', 'like');
-   $result = $query->execute();
-
-   if (isset($result['node'])) {
-      $nids = array_keys($result['node']);
-      $nodes = node_load_multiple($nids);
-
-      foreach ($nodes as $node) {
-        $og_groups = $node->og_group_content_ref['und'];
-
-        $node_link = $base_url.'/node/'.$node->nid;
-
-        $recpt = array();
-        $recpt_list = array();
-
-        //get group subscriber
-        if(isset($og_groups)){
-          foreach ($og_groups as $og_group){
-            //retreive subscribres
-            $subscribers = gofast_subscription_ui_api_subscribed_list('og', $og_group['target_id']);
-            if(isset($subscribers)){
-              foreach($subscribers as $subscriber){
-                $user = user_load($subscriber[0]);
-                if(! in_array($user->mail, $recpt_list )){
-                  $recpt_list[] = $user->mail;
-                   $recpt[] = array('recpt' => $user->mail,
-                                    'method' => 'to',
-                                    'firstname' => $user->ldap_user_givenname[LANGUAGE_NONE][0]['value'],
-                                    'user_language' => $user->language);
-                }
-              }
-            }
-          }
-        }
-
-       //get node subscriber
-       $subscribers = gofast_subscription_ui_api_subscribed_list('node', $node->nid);
-       if(isset($subscribers)){
-          foreach($subscribers as $subscriber){
-            $user = user_load($subscriber[0]);
-            if(! in_array($user->mail, $recpt_list )){
-              $recpt_list[] = $user->mail;
-              $recpt[] = array('recpt' => $user->mail,
-                                'method' => 'to',
-                                'firstname' => $user->ldap_user_givenname[LANGUAGE_NONE][0]['value'],
-                                'user_language' => $user->language);
-            }
-          }
-       }
-       //Send notification mail
-       foreach($recpt as $to){
-
-        $mail_recpt = array();
-        $mail_recpt[] = $to;
-
-        $userName = gofast_user_display_name(user_load_by_mail($mail_recpt[0]['recpt']));
-
-        $RecipUser = user_load_by_mail($mail_recpt[0]['recpt']);
-        $l = array('langcode' =>  $RecipUser->language, 'context' => 'gofast');
-
-        $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node , 'link' => FALSE)));
-        $document_pic = gofast_mail_queue_fa_png($node_icon);
-
-        $subject = t('Deadline of a document reached', array(), $l);
-        $title = t('Deadline document notification' ,array(), $l);
-        $footer = t('Message sent from ', array(), $l)." ".variable_get('site_name');
-
-        $body = theme('gofast-notifications-node-deadline', array(
-          'user_name' => $userName,
-          'l' => $l,
-          'node_title' => $node->title,
-          'node_link' => $node_link,
-          'node_icon' => $document_pic,
-        ));
-
-        $mail = array(
-            'body' => $body,
-            'title' => $title,
-            'subject' => $subject,
-            'footer' => $footer
-        );
-        $ret = gofast_mail_queue_api_queue_ext($mail, $mail_recpt, time());
-         if ($ret == TRUE) {
-          flood_register_event('print_mail');
-          $ok = TRUE;
-         }
-       }
-     }
-   }
-}
-
-
 function gofast_alter_username_before_load($username){
     foreach (module_implements('alter_username_before_load_func') as $module) {
       $username = module_invoke($module, 'alter_username_before_load_func',$username);
@@ -6335,55 +5540,16 @@ function gofast_alter_username_before_load($username){
   $mySettings = array('language' => $language->language);
   drupal_add_js(array('gofast' => $mySettings), 'setting');
 
-function gofast_get_node_actions_async($nid){
-  //Check if the call is coming from the File browser
-  if($nid == "filebrowser"){
-    $node_contextual_actions = gofast_get_contextual_actions_node('filebrowser');
-  }else{
-    $node_contextual_actions = gofast_get_contextual_actions_node(node_load($nid));
-  }
-  $contextual_actions = theme('contextual_links', array('btn_group_id' => 'breadcrumb-alt-actions', 'buttons' => $node_contextual_actions));
-  print $contextual_actions;
-  exit;
-}
-
-function gofast_get_node_breadcrumb_async($nid){
-
-  $detect = new Mobile_Detect;
-  $node = node_load($nid);
-
-    if(isset($_GET["only_actions"])){
-     print gofast_get_node_actions_async($nid);
+  function gofast_get_node_actions_async($nid){
+    //Check if the call is coming from the File browser
+    if($nid == "filebrowser"){
+      $node_contextual_actions = gofast_get_contextual_actions_node('filebrowser');
     }else{
-      print gofast_get_breadcrumb_ajax(node_load($nid));
+      $node_contextual_actions = gofast_get_contextual_actions_node(node_load($nid));
     }
-
-    if($node->type === 'alfresco_item' && gofast_mobile_is_mobile_domain()){
-      print '<div class="breadcrumb-alt" id="breadcrumb-container-buton-mobile">';
-
-      // refresh button
-      $node_refresh_action = gofast_get_refresh_action_node($node);
-      $refresh_action = theme('contextual_links', array('btn_group_id' => 'breadcrumb-alt-refresh', 'buttons' => $node_refresh_action));
-      print $refresh_action;
-
-        if (module_exists('gofast_workflows') &&!$detect->isMobile() && !$detect->isTablet()) {
-          $node_workflow_action = gofast_get_workflow_action_node($node, true);
-          $wf_action = theme('contextual_links', array('btn_group_id' => 'breadcrumb-alt-wf', 'buttons' => $node_workflow_action));
-          print $wf_action;
-        }
-
-      $node_lock_action = gofast_get_lock_action_node($node);
-      $lock_action = theme('contextual_links', array('btn_group_id' => 'breadcrumb-alt-lock', 'buttons' => $node_lock_action));
-      print $lock_action;
-
-    if (!$detect->isMobile() && !$detect->isTablet()) {
-      print "<div id='contextual-actions-loading' class='loader-actions not-processed'></div>";
-    }
-
-      print '</div>';
-    }
-
-  exit;
+    $contextual_actions = theme('contextual_links', array('btn_group_id' => 'breadcrumb-alt-actions', 'buttons' => $node_contextual_actions, 'fromBrowser' => isset($_POST["fromBrowser"])));
+    print $contextual_actions;
+    exit;
 }
 
 function gofast_process_location_check_async($nid, $no_answer = false, $force_execute = false, $no_timecheck = false){
@@ -6392,7 +5558,7 @@ function gofast_process_location_check_async($nid, $no_answer = false, $force_ex
   $reference = gofast_cmis_node_get_item_id($node);
   $item = gofast_cmis_item_get($reference);
 
-  if ($node->type === 'alfresco_item' && $node->changed < time()-30 || $no_timecheck) {
+  if (($node->type === 'alfresco_item' || $node->type === "article") && $node->changed < time()-30 || $no_timecheck) {
 
     // This set the field value if none were found
     if (empty($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value'])) {
@@ -6421,6 +5587,7 @@ function gofast_process_location_check_async($nid, $no_answer = false, $force_ex
           $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE] = $parents_formatted;
           field_attach_update('node', $node); // no hook_field_update()
           entity_get_controller('node')->resetCache([$nid]);
+          $data['response'] = "reload";
         }
 
         //check if main_emplacement is correct or not ( check if it exists into emplacements )
@@ -6434,6 +5601,7 @@ function gofast_process_location_check_async($nid, $no_answer = false, $force_ex
             $node->{GOFAST_CMIS_MAIN_LOCATION_FIELD}[LANGUAGE_NONE][0]["value"] = $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE][0]["value"];
             field_attach_update('node', $node); // no hook_field_update()
             entity_get_controller('node')->resetCache([$nid]);
+            $data['response'] = "reload";
         }
 
         //Check if Drupal node title isn't sync with alfresco title
@@ -6448,6 +5616,7 @@ function gofast_process_location_check_async($nid, $no_answer = false, $force_ex
             ->condition('nid', $node->nid)
             ->execute();
           cache_clear_all("field:node:$node->nid", 'cache_field');
+          $data['response'] = "reload";
         }
 
         //check if field_filename is empty or not correct
@@ -6463,6 +5632,7 @@ function gofast_process_location_check_async($nid, $no_answer = false, $force_ex
             ->condition('nid', $node->nid)
             ->execute();
           cache_clear_all("field:node:$node->nid", 'cache_field');
+          $data['response'] = "reload";
         }
 
     }
@@ -6551,9 +5721,15 @@ function gofast_process_location_check_async($nid, $no_answer = false, $force_ex
   }
 
   if(!$no_answer){
-    $data['response'] = "OK";
-    print json_encode($data);
-    exit;
+      if(isset($data['response'])){
+        print json_encode($data);
+        exit; 
+      }else{
+        $data['response'] = "OK";
+        print json_encode($data);
+        exit;
+      }
+   
   }
 }
 
@@ -6658,11 +5834,11 @@ function gofast_comment_view_access($op, $comment, $account){
 }
 
 function gofast_get_audit_node($nid){
-
+   
     $name = 'gofast_audit_node';
     $display_id = 'gofast_audit_node';
     $audit_view = views_embed_view($name, $display_id, $nid);
-    $button = '<a id="audit_node_button" href=/gofast_audit/' . $nid . '><button class="btn btn-default btn-sm">' . t('Go to audit page' , array(), array('context' => 'gofast_audit'))    . '</button></a>';
+    $button = '<a id="audit_node_button" href=/gofast_audit/' .  gofast_xss_clean($nid) . '><button class="btn btn-default btn-sm">' . t('Go to audit page' , array(), array('context' => 'gofast_audit'))    . '</button></a>';
     $render_data = $audit_view . $button;
     print $render_data;
     exit;
@@ -6719,6 +5895,15 @@ function gofast_api_get_node_node($params){
        gofast_api_forbidden("You don't have the permission to view this node");
     }
 
+    //Get node locations
+    $alfresco_reference = isset($node->reference) ? $node->reference : $node->field_folder_reference[LANGUAGE_NONE][0]['value'];
+    $parents = gofast_cmis_item_get_parent($alfresco_reference);
+    $parents_formatted = array();
+    if(count($parents->objectList) > 0){
+       foreach($parents->objectList as $myparent){
+           $parents_formatted[] = $myparent->properties["cmis:path"];
+       }
+    }
     $output = array(
         'nid' => $node->nid,
         'type' => $node->type,
@@ -6734,14 +5919,14 @@ function gofast_api_get_node_node($params){
         'last_comment_uid' => $node->last_comment_uid,
         'last_comment_timestamp' => $node->last_comment_uid,
         'last_comment_cid' => $node->cid,
-        'alfresco_reference' => isset($node->reference) ? $node->reference : $node->field_folder_reference[LANGUAGE_NONE][0]['value']
+        'alfresco_reference' => isset($node->reference) ? $node->reference : $node->field_folder_reference[LANGUAGE_NONE][0]['value'],
+        'locations' => $parents_formatted
     );
 
     gofast_api_success($output);
 }
 
 function gofast_api_node_links($params){
-    //  print '<div class="breadcrumb-alt" id="breadcrumb-container-buton-mobile">';
     //Check content type
     if(strpos($params['Content-Type'], "application/json") === FALSE){
         return gofast_api_not_implemented("This Content-Type");
@@ -6749,7 +5934,6 @@ function gofast_api_node_links($params){
 
     //Check authentication
     global $user;
-   //   print '</div>';
     if($user->uid == 0){
        //gofast_api_not_authorized("Unavailable ressource for anonymous user");
     }
@@ -7268,6 +6452,7 @@ function gofast_api_post_node_metadata($params){
         'field_document_author',
         'field_alias',
         'field_tags',
+        'field_filename',
         'field_document_reference'
     );
 
@@ -7372,9 +6557,30 @@ function gofast_api_post_node_metadata($params){
             break;
             case 'field_target_link':
                 $value = json_decode($value);
+                
+                $array_value = array();
+                // Reach $value to give some parameters
+                foreach($value as $key => $val){
+                  $tmp_node = node_load($val);
+                  $array_value[$key]['type'] = 'node';
+                  $array_value[$key]['node_type'] = $tmp_node->type;
+                  $array_value[$key]['value'] = $val;
+                  $array_value[$key]['name'] = $tmp_node->title;
+                  $array_value[$key]['icon'] = gofast_node_get_icon($node);
+                }
+                $value = $array_value;
             break;
             case 'field_external_page_url':
                  $value = json_decode($value);
+            break;
+            case 'field_filename':
+              if (!gofast_validate_filename($value)) {
+                gofast_api_internal_server_error("field_filename contains illegals characters or an invalid name.");
+              }
+              $extension = taxonomy_term_load($node->field_format[LANGUAGE_NONE][0]['tid'])->name;
+              $value = $value . "." . strtolower($extension);
+              $node->title = $value;
+              node_save($node);
             break;
         }
 
@@ -7639,7 +6845,633 @@ function gofast_js_alter(&$js){
     $js["sites/all/libraries/ckeditor/ckeditor.js"]['version'] = variable_get('ckeditor_timestamp', time());
     $js["sites/all/modules/ckeditor/ckeditor.styles.js"]['version'] = variable_get('ckeditor_timestamp', time());
     $js["sites/all/modules/ckeditor/ckeditor.config.js"]['version'] = variable_get('ckeditor_timestamp', time());
-//    print '<pre>'; print_r($js); exit;
+
+}
+
+######## TEMPLATE PREPROCESS SECTION #########
+
+function template_preprocess_gofast_node_content(&$variables){
+  $node = $variables['node'];
+  
+  switch ($node->type) {
+    case 'alfresco_item':
+      $theme = theme('gofast_node_alfresco_content', array('node' => $node));
+      break;
+    case 'article':
+      $theme = theme('gofast_node_article_content', array('node' => $node));
+      break;
+    case 'webform':
+      $theme = theme('gofast_webform_webform_container', array('node' => $node));
+      break;
+    case 'forum':
+      $theme = theme('gofast_node_forum_content', array('node' => $node));
+      break;
+  }
+  
+  $variables['content'] = $theme;
+}
+
+function template_preprocess_gofast_node_sidebar(&$variables){
+  $node = $variables['node'];
+  
+  switch ($node->type) {
+    case 'alfresco_item':
+      $theme = theme('gofast_node_alfresco_sidebar', array('node' => $node));
+      break;
+    case 'article':
+      $theme = theme('gofast_node_article_sidebar', array('node' => $node));
+      break;
+    case 'webform':
+      $theme = theme('gofast_node_webform_sidebar', array('node' => $node));
+      break;
+    case 'forum':
+      $theme = theme('gofast_node_forum_sidebar', array('node' => $node));
+      break;
+  }
+  
+  $variables['theme'] = $theme;
+}
+
+function template_preprocess_gofast_node_og(&$variables){
+  // Check if we hide some tabs
+  $disabled = false;
+  if(gofast_og_is_entity_hide_members_tab($variables['node'])){
+    $disabled = true;
+    $tab_members_id = 'tab_ogmembers_disabled';
+  }else{
+    $tab_members_id = 'gofastSpaceMembersLink';
+  }
+  $links = [];
+  $menus = [];
+  $links_medium = [];
+  $links_small = [];
+
+  $menus = [
+    'gofast-og-header-main' => [],
+    'gofast-og-header-medium' => [],
+    'gofast-og-header-small' => [],
+  ];
+
+  $main_links = [
+    'home' => [
+      'icon' => 'fas fa-home',
+      'id' => 'ogtab_home',
+      'label' => t('Home'),
+      'href' => 'oghome',
+      'content' => '<div class="loader-blog"></div>',
+    ],
+    'statistics' => [
+      'icon' => 'far fa-chart-bar',
+      'id' => 'tab_ogstats',
+      'label' => t('Statistics'),
+      'dropdown' => TRUE,
+      'dropdown-menu' => [
+        [
+          'id' => 'tab_ogmemberstats',
+          'icon' => 'fas fa-users n-color',
+          'label' => t('Members statistics', [], ['context' => 'gofast:stats']),
+          'href' => 'ogmemberstats',
+          'content' => '<div class="loader-blog"></div>',
+        ],
+        [
+          'id' => 'tab_ogdocumentstats',
+          'icon' => 'fas fa-file',
+          'label' => t('Documents statistics', [], ['context' => 'gofast:stats']),
+          'href' => 'ogmemberstats',
+          'content' => '<div class="loader-blog"></div>',
+        ],
+      ],
+    ],
+    'documents' => [
+      'icon' => 'fas fa-folder-open',
+      'id' => 'ogtab_documents',
+      'label' => t('Documents'),
+      'href' => 'ogdocuments',
+      'content' => theme('gofast_node_og_documents', ['node' => $variables['node']]),
+    ],
+  ];
+
+  $calendar_link = [
+    'icon' => 'fas fa-calendar-alt',
+    'id' => 'tab_ogcalendar',
+    'label' => t('Calendar'),
+    'href' => 'ogcalendar',
+    'content' => theme('gofast_node_og_calendar', ['node' => $variables['node']]),
+  ];
+
+  $more_links = [
+    'tasks' => [
+      'icon' => 'fab fa-trello',
+      'id' => 'tab_ogkanban',
+      'label' => t('Tasks'),
+      'href' => 'ogkanban',
+      'content' => theme('gofast_kanban_og_container', ['node' => $variables['node']])
+      // 'content' => theme('gofast_node_og_kanban', ['node' => $variables['node']])
+    ],
+    'members' => [
+      'icon' => 'la la-users',
+      'id' => $tab_members_id,
+      'label' => t('Members'),
+      'href' => 'gofastSpaceMembers',
+      'content' => theme('gofast_node_og_members', ['node' => $variables['node']]),
+      'disabled' => $disabled
+    ],
+    'chat' => [
+      'icon' => 'fas fa-comments',
+      'id' => 'ogtab_conversation',
+      'label' => t('Chat'),
+      'href' => 'ogconversation',
+      'content' => theme('gofast_node_og_riot',  ['node' => $variables['node']])
+    ],
+  ];
+
+  $more_link = [
+    'icon' => 'lab la-buffer',
+    'id' => 'tab_ogmore',
+    'label' => t('More'),
+    'dropdown' => TRUE,
+    'dropdown-menu' => [],
+  ];
+
+  // Prepare menus.
+
+  // Main menu and tabs.
+  $links = $main_links;
+  $links['calendar'] = $calendar_link;
+  $links = array_merge($links, $more_links);
+  $menus['gofast-og-header-main']['links'] = $links;
+
+  // Medium width menu.
+  $links_medium = $main_links;
+  $links_medium['calendar'] = $calendar_link;
+  $links_medium['more'] = $more_link;
+  $links_medium['more']['dropdown-menu'] = array_merge($links_medium['more']['dropdown-menu'], $more_links);
+  $menus['gofast-og-header-medium']['links'] = $links_medium;
+
+  // Small width menu.
+  $links_small = $main_links;
+  $links_small['more'] = $more_link;
+  $links_small['more']['dropdown-menu']['calendar'] = $calendar_link;
+  $links_small['more']['dropdown-menu'] = array_merge($links_small['more']['dropdown-menu'], $more_links);
+  $menus['gofast-og-header-small']['links'] = $links_small;
+
+  $variables['contextual_actions'] = gofast_get_breadcrumbs_alt($variables['node']);
+  $variables['links'] = $links;
+  $variables['menus'] = $menus;
+}
+
+
+function template_preprocess_gofast_node_og_restrict(&$variables){
+  // Check if we hide some tabs
+
+  $links = [];
+
+  if(user_access("access space info not member")){
+      $links = [
+        'home' => [
+          'icon' => 'fas fa-home',
+          'id' => 'ogtab_home',
+          'label' => t('Home'),
+          'href' => 'oghome',
+          'content' => '<div class="loader-blog"></div>'
+        ],
+        'statistics' => [
+          'icon' => 'far fa-chart-bar',
+          'id' => 'tab_ogstats',
+          'label' => t('Statistics'),
+          'dropdown' => TRUE,
+          'dropdown-menu' => [
+                [
+                    'id' => 'tab_ogmemberstats',
+                    'icon' => 'fas fa-users n-color',
+                    'label' => t('Members statistics', array(), array('context' => 'gofast:stats')),
+                    'href' => 'ogmemberstats',
+                    'content' => '<div class="loader-blog"></div>',
+                ],
+                [
+                    'id' => 'tab_ogdocumentstats',
+                    'icon' => 'fas fa-file',
+                    'label' => t('Documents statistics', array(), array('context' => 'gofast:stats')),
+                    'href' => 'ogmemberstats',
+                    'content' => '<div class="loader-blog"></div>',
+                ]
+          ]
+        ],
+          
+        'documents' => [
+          'icon' => 'fas fa-folder-open',
+          'id' => 'ogtab_documents',
+          'label' => t('Documents'),
+          'href' => 'ogdocuments',
+          'content' => "",
+          'disabled' => true,
+        ],
+          
+        "calendar" => [
+            'icon' => 'fas fa-calendar-alt',
+            'id' => 'tab_ogcalendar',
+            'label' => t('Calendar'),
+            'href' => 'ogcalendar',
+            'content' => "",
+            'disabled' => true,
+        ],
+          
+        'tasks' => [
+            'icon' => 'fab fa-trello',
+            'id' => 'tab_ogkanban',
+            'label' => t('Tasks'),
+            'href' => 'ogkanban',
+            'content' => "",
+            'disabled' => true,
+           
+        ], 
+
+        'members' => [
+          'icon' => 'la la-users',
+          'id' => 'gofastSpaceMembersLink',
+          'label' => t('Members'),
+          'href' => 'gofastSpaceMembers',
+          'content' => theme('gofast_node_og_members', ['node' => $variables['node']]),
+        ],
+          
+        'chat' => [
+          'icon' => 'fas fa-comments',
+          'id' => 'ogtab_conversation',
+          'label' => t('Chat'),
+          'href' => 'ogconversation',
+          'content' => "",
+          'disabled' => true,
+        ],
+
+      ];
+
+      $variables['contextual_actions'] = gofast_get_breadcrumbs_alt($variables['node']);
+  }
+
+  $variables['links'] = $links;
+}
+
+function getChildrens($comment,$baseArray){
+
+  //$childs = db_query('SELECT cid FROM {comment} WHERE pid = :cid', array(':cid' => $newComment))->fetchCol(); // get all comment childs
+
+  $newComment = $comment;
+  foreach($baseArray as $cmt){
+        if($cmt['comment_pid'] == $newComment['comment_id']){
+            $newComment['child_comments'][] = getChildrens($cmt, $baseArray);
+        }
+  }
+    return $newComment;
+}
+
+function gofast_render_historyByNode_async($node, $async=true){
+  $data_version = gofast_cmis_get_block_versions($node,null,true);
+
+  if($async){
+    print theme('gofast_history_tab', ['version' => $data_version['str'], 'content_version' => $data_version['users_versions'], 'async' => TRUE]);
+  }else{
+    return theme('gofast_history_tab', ['version' => $data_version['str'], 'content_version' => $data_version['users_versions'], 'async' => FALSE]);
+  }
+}
+
+function gofast_render_allCommentsByNode_async($node, $async=false){
+  global $base_url;
+
+  $build = gofast_api_get_render_all_comments($node);
+  $arrayDataComments = $build['comments']['comments'];
+  $comments=[];
+  foreach($arrayDataComments as $dataComment){
+    $comment = $dataComment['comment_body']['#object'];
+    if ($comment->cid) {
+        $commentPrincipalArray[] = ['id'=>$comment->cid ,'pid'=>$comment->pid];
+    }
+  }
+
+  foreach($arrayDataComments as $dataComment){
+    $comment = $dataComment['comment_body']['#object'];
+    $nid = $comment->nid;
+    $cid = $comment->cid;
+    if($cid){
+      $user = user_load($comment->uid);
+      $node = node_load($nid);
+
+      // essentiel data
+      $dataReturn['comment_id'] = $cid;
+      $dataReturn['comment_pid'] = $comment->pid;
+      $dataReturn['comment_nid'] = $nid;
+      $dataReturn['creator_id'] = $comment->uid;
+      $dataReturn['creator_name'] = gofast_user_display_name($user);
+      $dataReturn['creator_picture'] = $user->picture->uri == null ? $base_url . '/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png' : file_create_url($user->picture->uri);;
+      $dataReturn['creator_link'] = '/user/' .  $comment->uid;
+      $dataReturn['title'] = $comment->subject;
+      $dataReturn['creation_date'] = format_date($comment->created, 'custom', 'Y-m-d H:i:s');
+      $dataReturn['edited_date'] = format_date($comment->changed, 'custom', 'Y-m-d H:i:s');
+      $dataReturn['is_private'] = $comment->field_comment_is_private[LANGUAGE_NONE][0]['value'];
+      $dataReturn['text'] =  $dataComment['comment_body']['#items'][0]['value'];
+      $dataReturn['links'] = $dataComment['links'];
+
+      $editorId = isset($comment->field_edited_by[LANGUAGE_NONE][0]['value']) ? $comment->field_edited_by[LANGUAGE_NONE][0]['value'] : false;
+      if ($editorId != false && $editorId > 0) {
+          $edit_user = user_load($editorId);
+          $dataReturn['edit_user']["uid"] = $edit_user->uid;
+          $dataReturn['edit_user']["name"] = gofast_user_display_name($edit_user);
+          $dataReturn['edit_user']["picture"] = $edit_user->picture->uri == null ? $base_url . '/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png' : file_create_url($edit_user->picture->uri);
+          $dataReturn['edit_user']["link"] = '/user/' .  $edit_user->uid;
+        }
+
+      $can_edit = user_access('use vote up/down on comments');
+      if ($can_edit || user_access('view vote up/down count on comments')) {
+        $tag = variable_get('vud_tag', 'vote');
+        $widget_theme = variable_get('vud_comment_widget', 'plain');
+
+        $variables = array(
+          'entity_id' => $comment->cid,
+          'type' => 'comment',
+          'tag' => $tag,
+          'widget_theme' => $widget_theme,
+          'readonly' => !$can_edit,
+        );
+        $dataReturn['vud_comment_widget'] = theme('vud_widget', $variables);
+      }
+
+
+
+      if (empty($comment->in_preview)) {
+        $prefix = '';
+        $is_threaded = isset($comment->divs) && variable_get('comment_default_mode_' . $node->type, COMMENT_MODE_THREADED) == COMMENT_MODE_THREADED;
+
+        // Add 'new' anchor if needed.
+        if (!empty($comment->first_new)) {
+          $prefix .= "<a id=\"new\"></a>\n";
+        }
+
+        // Add indentation div or close open divs as needed.
+        if ($is_threaded) {
+          $prefix .= $comment->divs <= 0 ? str_repeat('</div>', abs($comment->divs)) : "\n" . '<div class="timeline-item pl-10">';
+        }
+
+        // Add anchor for each comment.
+        $prefix .= "<a id=\"comment-$comment->cid\"></a>\n";
+        $dataReturn['prefix'] = $prefix;
+
+        // Close all open divs.
+        if ($is_threaded && !empty($comment->divs_final)) {
+          $dataReturn['prefix'] = str_repeat('</div>', $comment->divs_final);
+        }
+      }
+      $comments[] =$dataReturn;
+    }
+  }
+
+  foreach ($comments as $comment) {
+    if($comment['comment_pid'] == 0) {
+        $newC[] = getChildrens($comment, $comments);
+      }
+  }
+
+
+  $container = theme('gofast_comment_container', ['comments' => $newC, 'nid' => $node->nid]);
+  if($async){
+    return  $container;
+  }else{
+    print $container;
+  }
+}
+
+
+function template_preprocess_gofast_node_userlist(&$variables){
+  $node = $variables['node'];
+  $description = $variables['content']['field_description']['#object']->field_description[LANGUAGE_NONE][0]["value"];
+  $symbol = '<i class="fas fa-3x fa-user-friends userlist"></i>';
+  $ulid  = $node->field_userlist_ulid['und'][0]['value'];
+  $variables['ulid'] = $ulid;
+  $variables['userlist_name'] = $node->title;
+  $variables['description'] = $description;
+  $variables['symbol'] = $symbol;
+}
+
+######## END TEMPLATE PREPROCESS SECTION #########
+
+// generate page main content in a cohesive layout
+// @params $content the actual content to render
+// @params $contentType refers to the content's container
+// @params $sideContent refers to the sidebar
+function gofast_create_page_content($content, String $contentType = 'content-fluid', $sideContent = '', $customGrid = FALSE){
+
+  $pageContent;
+  $contentRender;
+
+  switch ($contentType) {
+
+    case 'content':
+        $contentRender = theme('gofast_content_container', ['content' => $content]);
+        break;
+    case 'content-fluid':
+        $contentRender = theme('gofast_content_container_fluid', ['content' => $content]);
+        break;
+    case 'custom':
+        $contentRender = theme('gofast_content_container_custom', ['content' => $content, 'customGrid' => $customGrid]);
+        break;
+    case 'contact':
+      $contentRender = theme('gofast_content_container_contact', ['content' => $content]);
+      break;
+    case 'content-block-left':
+        $contentRender = theme('gofast_content_container_block_left', ['content' => $content, 'sideContent' => $sideContent]);
+        break;
+    case 'content-block-right':
+        $contentRender = theme('gofast_content_container_block_right', ['content' => $content, 'sideContent' => $sideContent]);
+        break;
+    default:
+        $contentRender = theme('gofast_content_container_fluid', ['content' => $content]);
+        break;
+  }
+
+  $pageContent = theme('gofast_content', ['container' => $contentRender]);
+
+  return $pageContent;
+}
+
+function gofast_get_properties_user_by_uid_or_u_name($uid = NULL, $u_name = NULL, $properties_u) {
+
+    if (empty($properties_u) || $uid == NULL && $u_name == NULL) return false;
+
+    $properties_u_join = ['fullname', 'firstname', 'lastname', 'entity', 'points', 'is_extranet', 'telephonenumber', 'left'];
+
+    $query = db_select('users', 'u');
+
+	foreach($properties_u_join as $property) {
+	    $offset = array_search($property, $properties_u);
+	    if($offset !== false) {
+	        switch ($property) { // use leftJoin if the information is not systematic for all users
+                    case 'fullname':
+                        $query->join('field_data_ldap_user_displayname', 'fun', 'fun.entity_id = u.uid'); // fullname
+                        $query->addField('fun', 'ldap_user_displayname_value', 'fullname');
+                        break;
+                    case 'firstname':
+                        $query->join('field_data_ldap_user_givenname', 'fin', 'fin.entity_id = u.uid'); // firstname
+                        $query->addField('fin', 'ldap_user_givenname_value', 'firstname');
+                        break;
+                    case 'lastname':
+                        $query->join('field_data_ldap_user_sn', 'ln', 'ln.entity_id = u.uid'); // lastname
+                        $query->addField('ln', 'ldap_user_sn_value', 'lastname');
+                        break;
+                    case 'entity':
+                        $query->leftJoin('field_data_ldap_user_o', 'o', 'o.entity_id = u.uid'); // entity
+                        $query->addField('o', 'ldap_user_o_value', 'entity');
+                        break;
+                    case 'points':
+                        $query->leftJoin('userpoints', 'up', 'up.uid = u.uid'); // points
+                        $query->fields('up', ['points']);
+                        break;
+                    case 'is_extranet':
+                        $query->leftJoin('field_data_is_extranet', 'ex', 'ex.entity_id = u.uid'); // extranet
+                        $query->addField('ex', 'is_extranet_value', 'is_extranet');
+                        break;
+                    case 'telephonenumber':
+                        $query->leftJoin('field_data_ldap_user_telephonenumber', 't', 't.entity_id = u.uid'); // telephonenumber
+                        $query->addField('t', 'ldap_user_telephonenumber_value', 'telephonenumber');
+                        break;
+                     case 'left':
+                        $query->leftJoin('field_data_field_left', 'l', 'l.entity_id = u.uid'); // left
+                        $query->addField('l', 'field_left_value', 'left');
+                        break;
+                    default:
+                        return 'error';
+	        }
+
+	        array_splice($properties_u, $offset, 1);
+	    }
+	}
+
+    if (empty($properties_u)) return false;
+
+    $query->fields('u', $properties_u);
+    if($u_name) {
+        $query->condition('u.name', $u_name, '=');
+    } else {
+        $query->condition('u.uid', $uid, '=');
+    }
+    $result = $query->execute();
+
+    return $result->fetchAll()[0];
+}
+
+function gofast_get_url_picture_by_id($id) {
+    global $base_url;
+    if($id != 0 && !empty($id)){
+        return file_create_url(file_load($id)->uri);
+    }
+    return $base_url . "/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png"; // default avatar
+}
+
+function gofast_get_roles() {
+
+    $query = db_select('role', 'r');
+    $query->fields('r', ['rid', 'name']);
+    $result = $query->execute();
+
+    return $result->fetchAll();
+}
+
+function gofast_get_node_properties_by_nid($nid, $properties = '') {
+
+    if($properties) {
+        $query = db_select('node', 'n');
+        $query->fields('n', $properties);
+        $query->condition('n.nid', $nid, '=');
+    } else {
+        return node_load($nid);
+    }
+
+    $result = $query->execute();
+    return $result->fetchAll()[0];
+}
+
+function gofast_get_rid_of_user_role_by_uid($uid) {
+
+    $query = db_select('users_roles', 'ur');
+    $query->fields('ur', ['rid']);
+    $query->condition('ur.uid', $uid, '=');
+    $result = $query->execute();
+
+    return $result->fetchAll()[0]->rid;
+}
+
+function gofast_get_name_of_user_role_by_uid($uid) {
+    //SELECT name FROM role WHERE rid IN (SELECT rid FROM users_roles WHERE uid = $uid);
+
+    $query = db_select('role', 'r');
+    $query->fields('r', ['name']);
+    $query->condition('rid',
+        db_select('users_roles', 'ur')
+        ->fields('ur', ['rid'])
+        ->condition('ur.uid', $uid, '='), 'IN');
+    $result = $query->execute();
+    $roles = [];
+    foreach($result->fetchAll() as $key => $value) {
+        array_push($roles, $value->name);
+    }
+    return $roles;
+}
+
+function gofast_render_allTasksByNode_async ($node, $async=false){
+
+  $container = theme('gofast_tasks_container', ['node' => $node]);
+  if($async){
+    return  $container;
+  }else{
+    print $container;
+  }
+}
+
+function gofast_render_extraMetadataByNode_async($node, $async = false)
+{
+
+  if (count(module_implements("extra_metadata")) >= 1) {
+    $extra_data = '';
+    foreach (module_implements("extra_metadata") as $module) {
+      $metadata = call_user_func($module . "_extra_metadata", $node);
+      $extra_data .= $metadata;
+    }
+    $container = theme('gofast_node_extra_metadata', ['extra_data' => $extra_data]);
+  }else{
+    $container = '';
+  }
+
+  if ($async) {
+    return  $container;
+  } else {
+    print $container;
+  }
+}
+
+function gofast_render_extraMetadataTabsByNode_async($node, $async = false){
+
+  $theme = "<div id='node-tabsHeader' class='card-toolbar min-w-200px w-100'>";
+  switch ($node->type) {
+    case 'alfresco_item':
+      $theme .= theme('gofast_node_alfresco_tabsHeader', ['node' => $node, 'count_notif' =>  gofast_get_notif_by_name($node, TRUE, FALSE)]);
+      break;
+    case 'forum':
+      $theme .= theme('gofast_node_forum_tabsHeader', ['node' => $node, 'count_notif' =>  gofast_get_notif_by_name($node, TRUE, FALSE)]);
+      break;
+    case 'article':
+      $theme .= theme('gofast_node_article_tabsHeader', ['node' => $node, 'count_notif' =>  gofast_get_notif_by_name($node, TRUE, FALSE)]);
+      break;
+    case 'webform':
+      $theme .= theme('gofast_node_webform_tabsHeader', ['node' => $node, 'count_notif' =>  gofast_get_notif_by_name($node, TRUE, FALSE)]);
+      break;
+    default:
+      break;
+  }
+
+  $theme .= "</div>";
+
+  if($async){
+    return $theme;
+  }else{
+    print $theme;
+  }
 }
 
 function gofast_get_is_confidential_from_nid()
@@ -7669,3 +7501,392 @@ function gofast_get_is_internal_from_nid()
 }
 
 
+
+/**
+ * Returns the count of notification :
+ * workflow button notif count (should pass param to true)
+ * Comments button notif count (should pass param to true)
+ */
+function gofast_get_notif_by_name($node, $get_comment_notif_count = False, $get_workflow_notif_count = False)
+{
+
+  if ($get_comment_notif_count) {
+
+/*  $new_comments = gofast_get_node_new_comments($node);
+    $new_comments_count = !empty($new_comments) ? count($new_comments) : 0; */
+
+    $node_comments_action = gofast_get_comments_actions_node($node);
+    $result['count_comment_notif'] = $node_comments_action[0]['button-text'];
+  }
+
+  if ($get_workflow_notif_count && module_exists('gofast_workflows') && ($node->type == 'alfresco_item' || $node->type == 'article')) {
+    $node_workflow_action = gofast_get_workflow_action_node($node);
+    $result['count_wf_notif'] =  $node_workflow_action[0]['button-text'];
+  }
+
+  return $result;
+}
+
+/**
+ * API to get if Pastell module is enabled
+ *
+ * @return boolean
+ */
+function gofast_check_pastell_module_enabled(){
+  if(module_exists('gofast_pastell')){
+    print 1; exit;
+  }else{
+    print 0; exit;
+  }
+}
+
+function gofast_get_pastell_entites_config(){
+  print "";
+  exit;
+}
+
+function gofast_admin_metadata_settings_page() {
+  drupal_add_js(drupal_get_path('module', 'gofast') . "/js/gofast_admin_metadata.js");
+
+  $columns = [];
+
+  $columns['links'] = t('links', [], ['context' => 'gofast:gofast']);
+  $columns['name'] = t('Name', [], ['context' => 'gofast:gofast']);
+  $columns['used'] = t('Used in', [], ['context' => 'gofast:gofast']);
+  $columns['actions'] = t('Actions', [], ['context' => 'gofast:v']);
+
+  $jsonColumns = json_encode($columns);
+
+  $content = theme('gofast_admin_metadata_table', ["columns" => $jsonColumns]);
+
+  return gofast_create_page_content($content);
+}
+
+function gofast_global_async($type) {
+  $pagination = $_GET['pagination'];
+  $sort = $_GET['sort'];
+  $filters = $_GET['query'];
+
+  switch ($type) {
+    case 'tags':
+      $global_settings = gofast_get_tags($pagination, $sort, $filters);
+      break;
+
+    default:
+      $global_settings = [];
+      break;
+  }
+
+  print json_encode($global_settings);
+}
+
+function gofast_get_tags($pagination, $sort = NULL, $filters = NULL) {
+
+  $tags = [];
+  if (empty($pagination->page)) {
+    $pagination->page = 1;
+  }
+  if (empty($pagination->perpage)) {
+    $pagination->perpage = 20;
+  }
+
+  $query = db_select('taxonomy_term_data', 'taxonomy');
+  $query->addfield('taxonomy', 'name');
+  $query->addfield('taxonomy', 'tid');
+  $sub_query = db_select('field_data_field_tags', 'data');
+  $sub_query->addExpression('COUNT(*)');
+  $sub_query->where('data.field_tags_tid = taxonomy.tid');
+  $query->addExpression("IFNULL(($sub_query), 0)", 'qty');
+  $query->condition('vid', GOFAST_VID_TAGS);
+
+  // Search by name.
+  if (isset($filters['tagname'])) {
+    $query->condition('taxonomy.name', '%' . $filters['tagname'] . '%', 'LIKE');
+  }
+  else {
+    $query->condition('taxonomy.name', '%%', 'LIKE');
+  }
+
+  // Sort.
+  if ($sort) {
+    switch ($sort['field']) {
+      case 'tag_nam':
+        if ($sort['sort'] == 'asc') {
+          $query->orderBy('taxonomy.name');
+        }
+        else {
+          $query->orderBy('taxonomy.name', 'DESC');
+        }
+        break;
+
+      case 'used':
+        if ($sort['sort'] == 'asc') {
+          $query->orderBy('qty');
+        }
+        else {
+          $query->orderBy('qty', 'DESC');
+        }
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  $result = $query->execute();
+  $tags = $result->fetchAll();
+
+  $new_tags = [];
+  foreach ($tags as $tag) {
+    $data = [];
+    $data['name'] = $tag->name ?? " ";
+    $data['qty'] = $tag->qty ?? " ";
+    $data['tid'] = $tag->tid ?? " ";
+    $new_tags[] = $data;
+  }
+  return $new_tags;
+}
+
+function gofast_metadata_bulk_actions($js, $action = NULL, $terms = NULL) {
+  module_load_include('inc', 'taxonomy', 'taxonomy.admin');
+
+  $terms = explode("-", $terms);
+  $terms = array_filter($terms);
+
+  if ($action === 'delete') {
+    $form_id = 'gofast_metatags_multiple_confirm_delete';
+  }
+
+  elseif ($action === 'edit') {
+    $form_id = 'taxonomy_form_term';
+    $terms = taxonomy_term_load(...$terms);
+  }
+  elseif ($action === 'merge') {
+    $form_id = 'gofast_tags_merge_form';
+  }
+
+  if (!$js) {
+    return drupal_get_form($form_id, $terms);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+  $form_state = [
+    'build_info' => [
+      'args' => [
+        $terms,
+      ],
+    ],
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  ];
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_processAjax("/admin/manage/metadata");
+  }
+  print ajax_render($commands);
+
+}
+
+function gofast_taxonomy_add_term_page($js = NULL) {
+  module_load_include('inc', 'taxonomy', 'taxonomy.admin');
+  $form_id = 'taxonomy_form_term';
+
+  if (!$js) {
+    $vocabulary = taxonomy_vocabulary_load(GOFAST_VID_TAGS, FALSE);
+    $form = drupal_get_form($form_id, $vocabulary);
+    return $form;
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+  $term = new stdClass();
+  $term->vid = GOFAST_VID_TAGS;
+
+  $form_state = [
+    'ajax' => TRUE,
+    'build_info' => [
+      'args' => [
+        (object) $term,
+      ],
+    ],
+    'title' => t('Add new term'),
+  ];
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  // Handle if submit with errors
+  if (isset($commands[0])) {
+    $commands[0]['output'] = gofast_normalize_string_from_ajaxifying($commands[0]['output']);
+  }
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_processAjax("/admin/manage/metadata");
+  }
+  print ajax_render($commands);
+
+}
+
+function gofast_metatags_bulk_actions_get_all_actions() {
+
+  $array_actions[]['themed'] = theme('gofast_link_generic', [
+    'icon_class' => "fas fa-layer-group",
+    'href' => "/modal/nojs/metadata/bulk_action/merge/0",
+    'link_class' => 'ctools-use-modal',
+    'text' => t('Merge', [], ['context' => 'gofast']),
+  ]);
+
+  $array_actions[]['themed'] = theme('gofast_link_generic', [
+    'icon_class' => "fas fa-trash",
+    'href' => "/modal/nojs/metadata/bulk_action/delete/0",
+    'link_class' => 'ctools-use-modal',
+    'text' => t('Delete', [], ['context' => 'gofast']),
+  ]);
+
+  $metatags_contextual_actions[] = [
+    'id' => 'metatag-dropdown',
+    'title' => 'Contextual actions',
+    'button-text' => '',
+    'icon-class' => 'fa fa-bars',
+    'children' => $array_actions,
+  ];
+
+  $actions = theme('contextual_links', ['buttons' => $metatags_contextual_actions]);
+  return $actions;
+}
+
+function gofast_tags_merge_form($form, &$form_state, $terms) {
+  $form['#id'] = 'gofast_tags_merge_form';
+  $form['#submit'] = ['gofast_tags_merge_form_submit'];
+
+  $form['terms'] = [
+    '#type' => 'hidden',
+    '#value' => $terms,
+  ];
+
+  $form['ac-list-tags-list-tags'] = [
+    '#type' => 'textfield',
+    '#id' => 'edit-field-tags',
+    '#maxlength' => 512,
+    '#attributes' => [
+      'class' => [' form-control-tags js-tagify'],
+      'data-taxonomy_term' => '',
+      'data-vid' => GOFAST_VID_TAGS,
+    ],
+  ];
+  $count = count($terms);
+  $confirm_form = confirm_form($form, t('Merge @count selected tag(s) into?', ['@count' => $count]), 'admin/manage/metadata');
+  unset($confirm_form['actions']['cancel']);
+
+  return $confirm_form;
+}
+
+function gofast_tags_merge_form_submit($form, &$form_state) {
+  $terms = $form_state['values']['terms'];
+  $merge_into = json_decode($form_state['values']['ac-list-tags-list-tags']);
+  $name = $merge_into[0]->name;
+  $term_id = $merge_into[0]->value;
+  $nodes = gofast_get_nodes_with_tags($terms);
+
+  if (!empty($nodes)) {
+    foreach ($nodes as $node) {
+      $node_load = node_load($node);
+      $wrapper = entity_metadata_wrapper('node', $node_load);
+      $tags = $wrapper->field_tags->value();
+      foreach ($tags as $tag) {
+        $tids[] = $tag->tid;
+      }
+      $tids[] = $term_id;
+      $tids = array_unique($tids);
+      $new_tids = [];
+
+      foreach ($tids as $tid) {
+        if (in_array($tid, $terms)) {
+          continue;
+        }
+        $new_tids[] = $tid;
+      }
+      $wrapper->field_tags->set($new_tids);
+      $wrapper->save();
+    }
+  }
+
+  $form_state['redirect'] = 'admin/manage/metadata';
+  drupal_set_message(t('You are success merged terms into <b>%term</b>', ['%term' => $name]));
+  return;
+}
+
+function gofast_get_nodes_with_tags($terms = []) {
+  if (!empty($terms) && is_array($terms)) {
+    $query = db_select('field_data_field_tags', 'tags');
+    $query->addfield('tags', 'entity_id');
+    $query->condition('field_tags_tid', $terms, "IN");
+    return $query->execute()->fetchCol();
+  }
+  return [];
+}
+
+function gofast_metatags_multiple_confirm_delete($form, &$form_state, $terms) {
+  $form['terms'] = [
+    '#type' => 'hidden',
+    '#value' => $terms,
+  ];
+
+  $value = t('List of choose terms');
+  $value .= '<ul>';
+  foreach ($terms as $term) {
+    $term_load = taxonomy_term_load($term);
+    $name = $term_load->name;
+    $value .= '<li>' . $name . '</li>';
+  }
+  $value .= '</ul>';
+  $form['terms_names'] = [
+      '#type' => 'markup',
+      '#markup' => $value,
+  ];
+
+  $confirm_form = confirm_form($form, t('Are you sure you want to delete the term(s)?'), 'admin/manage/metadata');
+  unset($confirm_form['actions']['cancel']);
+  return $confirm_form;
+}
+
+function gofast_metatags_multiple_confirm_delete_submit($form, &$form_state) {
+  $terms = $form_state['values']['terms'];
+  $names = [];
+  foreach ($terms as $term) {
+    $load_term = taxonomy_term_load($term);
+    $names[] = $load_term->name;
+    taxonomy_term_delete($term);
+  }
+
+  // Clean values in nodes
+  $nodes = gofast_get_nodes_with_tags($terms);
+  if (!empty($nodes)) {
+    foreach ($nodes as $node) {
+      $node_load = node_load($node);
+      $wrapper = entity_metadata_wrapper('node', $node_load);
+      $tags = $wrapper->field_tags->value();
+      foreach ($tags as $tag) {
+        $tids[] = $tag->tid;
+      }
+      $tids = array_unique($tids);
+      $new_tids = [];
+      foreach ($tids as $tid) {
+        if (in_array($tid, $terms)) {
+          continue;
+        }
+        $new_tids[] = $tid;
+      }
+      $wrapper->field_tags->set($new_tids);
+      $wrapper->save();
+    }
+  }
+  drupal_set_message(t('Deleted terms %name.', ['%name' => implode(', ', $names)]));
+  watchdog('metatag_manage', t('Deleted terms %name.', ['%name' => implode(', ', $names)]), WATCHDOG_NOTICE);
+  $form_state['redirect'] = 'admin/manage/metadata';
+  cache_clear_all();
+  return;
+}

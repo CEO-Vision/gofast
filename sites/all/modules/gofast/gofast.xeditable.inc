@@ -31,50 +31,7 @@ function gofast_xeditable_libraries_info(&$libraries) {
     ),
   );
 
-  $libraries['bootstrap-datetimepicker'] = array(
-    'name' => 'bootstrap-datetimepicker',
-    'vendor url' => 'https://github.com/smalot/bootstrap-datetimepicker/',
-    'download url' => 'https://github.com/smalot/bootstrap-datetimepicker/releases',
-    'version' => '2.3.11',
-    'version callback' => 'short_circuit_version',
-    'files' => array(
-      'js' => array(
-        'js/bootstrap-datetimepicker.min.js' => array(
-          'group' => 101,
-        ),
-        'js/locales/bootstrap-datetimepicker.fr.js' => array(
-          'group' => 102,
-        ),
-      ),
-      'css' => array(
-        'css/bootstrap-datetimepicker.min.css'
-      ),
-    )
-  );
-
-  $libraries['bootstrap-datepicker'] = array(
-    'name' => 'bootstrap-datepicker',
-    'vendor url' => 'https://github.com/uxsolutions/bootstrap-datepicker',
-    'download url' => 'https://github.com/uxsolutions/bootstrap-datepicker/releases',
-    'version' => '1.9.0',
-    'version callback' => 'short_circuit_version',
-    'files' => array(
-      'js' => array(
-        'js/bootstrap-datepicker.min.js' => array(
-          'group' => 101,
-        ),
-        'locales/bootstrap-datepicker.fr.min.js' => array(
-          'group' => 102,
-        ),
-      ),
-      'css' => array(
-        'css/bootstrap-datepicker.min.css'
-      ),
-    )
-  );
-
-
-  $libraries['select2'] = array(
+/*   $libraries['select2'] = array(
     'name' => 'select2',
     'vendor url' => 'https://select2.github.io/',
     'download url' => 'https://github.com/select2/select2/archive/3.5.4.zip',
@@ -86,10 +43,10 @@ function gofast_xeditable_libraries_info(&$libraries) {
       ),
       'css' => array(
         'select2.css',
-        //'select2-bootstrap.css',
+        'select2-bootstrap.css',
       ),
     ),
-  );
+  ); */
 
   $libraries['ckeditor'] = array(
     'name' => 'ckeditor',
@@ -124,14 +81,9 @@ function gofast_xeditable_libraries_info(&$libraries) {
         'dist/inputs-ext/typeaheadjs/lib/typeahead.js'=> array(
           'group' => 104,
         )
-      ),
-      'css' => array(
-        'dist/bootstrap3-editable/css/bootstrap-editable.css',
-        'dist/inputs-ext/typeaheadjs/lib/typeahead.js-bootstrap.css'
-      ),
+      )
     ),
     'dependencies' => array(
-      'select2',
       'bootstrap-datetimepicker',
       'ckeditor',
     ),
@@ -150,6 +102,7 @@ function gofast_xeditable_menu() {
     'page callback' => 'gofast_update_field',
     'page arguments' => array(),
     'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
     'access callback' => TRUE, // form validation handle this.
     'delivery callback' => 'gofast_ajax_delivery'
   );
@@ -159,6 +112,7 @@ function gofast_xeditable_menu() {
     'page callback' => 'gofast_update_node_field',
     'page arguments' => array(),
     'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
     'access callback' => TRUE, // form validation handle this.
     'delivery callback' => 'gofast_ajax_delivery'
   );
@@ -168,6 +122,7 @@ function gofast_xeditable_menu() {
     'page callback' => 'gofast_update_alfresco_item_properties',
     'page arguments' => array(),
     'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
     'access callback' => TRUE, // form validation handle this.
     'delivery callback' => 'gofast_ajax_delivery'
   );
@@ -177,7 +132,8 @@ function gofast_xeditable_menu() {
     'page callback' => 'gofast_update_user_groups',
     'page arguments' => array(),
     'type' => MENU_CALLBACK,
-    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
     'delivery callback' => 'gofast_ajax_delivery'
   );
 
@@ -186,28 +142,29 @@ function gofast_xeditable_menu() {
     'description' => "Render block popup",
     'page callback' => 'gofast_popup_block',
     'page arguments' => array(1),
-    'access callback' => TRUE,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
     'type' => MENU_CALLBACK,
   );
 
   $items['gofast/node_autocomplete'] = array(
     'page callback' => 'gofast_xeditable_node_autocomplete',
-    'access callback' => TRUE,
     'access arguments' => array('access content'),
+    'access callback' => 'user_access',
     'type' => MENU_CALLBACK,
   );
 
   $items['gofast/tag_autocomplete'] = array(
     'page callback' => 'gofast_xeditable_tag_autocomplete',
-    'access callback' => TRUE,
     'access arguments' => array('access content'),
+    'access callback' => 'user_access',
     'type' => MENU_CALLBACK,
   );
 
     $items['xeditable/get/subscribe/%/%'] = array(
     'page callback' => 'gofast_xeditable_get_subscribe_term_link',
-    'access callback' => TRUE,
     'access arguments' => array('access content'),
+    'access callback' => 'user_access',
     'page arguments' => array(3,4),
     'type' => MENU_CALLBACK,
   );
@@ -336,8 +293,11 @@ function gofast_update_node_field() {
   if (is_array($value)) {
     $new_values = [];
     foreach($value as $vkey => $val){ // We need to clear technical values
-
-      if(strpos($val, '[GOFAST_TAG_SEPARATOR]') !== FALSE){
+      if($field_name == "field_target_link"){
+        array_push($new_values, gofast_xss_clean($val['value']));
+      }else if($field_name == "field_tags"){
+        array_push($new_values, gofast_xss_clean(is_array($val) ? $val['name'] : $val));
+      }else if(strpos($val, '[GOFAST_TAG_SEPARATOR]') !== FALSE){
         unset ($value[$vkey]);
       }else{
         // XSS control if this node is not whitelisted
@@ -346,8 +306,7 @@ function gofast_update_node_field() {
         );
         $documents_form_defaults = variable_get("documents_form_defaults", $default_documents_form_configuration);
         $xss_whitelist = is_array($documents_form_defaults['xss_whitelist']) ? $documents_form_defaults['xss_whitelist'] : [];
-
-        if(in_array($nid, $xss_whitelist, TRUE)){
+        if(in_array($nid, $xss_whitelist, TRUE) || $node->field_is_homepage[LANGUAGE_NONE][0]['value'] == 1){
           array_push($new_values, $val);
         }else{
           array_push($new_values, gofast_xss_clean($val));
@@ -362,12 +321,10 @@ function gofast_update_node_field() {
     );
     $documents_form_defaults = variable_get("documents_form_defaults", $default_documents_form_configuration);
     $xss_whitelist = is_array($documents_form_defaults['xss_whitelist']) ? $documents_form_defaults['xss_whitelist'] : [];
-
-    if(!in_array($nid, $xss_whitelist, TRUE)){
+    if(!in_array($nid, $xss_whitelist, TRUE) && $node->field_is_homepage[LANGUAGE_NONE][0]['value'] != 1){      
       $value = gofast_xss_clean($value);
     }
   }
-
 
   $user_update_access = node_access("update", $node);
    if($_POST['technically_save'] === TRUE){
@@ -460,8 +417,8 @@ function gofast_update_node_field() {
       $value = null;
     }
     else {
-      $format = $user->language === 'fr' ? 'd/m/Y' : 'm/d/Y';
-      $_fdate = DateTime::createFromFormat($format, $value);
+      $_fdate = DateTime::createFromFormat(variable_get('date_format_short', 'm/d/Y - H:i'), $value);
+      if (!$_fdate) $_fdate = DateTime::createFromFormat(variable_get('date_format_short_without_hours', 'm/d/Y'), $value);
       $timestamp_date = $_fdate->getTimestamp();
       $property_date = $_fdate->date;
       $value = $timestamp_date;
@@ -471,7 +428,7 @@ function gofast_update_node_field() {
   if($field_name === 'title') {
     $form_state['values'][$field_name] = $value;
   }elseif($field_name === 'field_category' || $field_name === 'field_state'){
-      //specific case for pre-archived node
+    //specific case for pre-archived node
      if(gofast_retention_get_retention_date($node) !== NULL && gofast_get_content_state_archived($node)){
          //doc is un DUA and have pre-archived state, so we can check if the user has permission to update category
          if(($field_name === 'field_state' && !node_access("delete", $node)) || $field_name === 'field_category'){
@@ -496,9 +453,11 @@ function gofast_update_node_field() {
     }
   }
 
+
+
   // Validate form and check for error.
   drupal_validate_form($form_id, $form, $form_state);
-  $errors = form_get_errors();
+  //$errors = form_get_errors();
 
   //We unset target links related errors as a user may not have access to all target links but may be
   //Allowed to edit the node. This is a workaround for GOFAST-2982
@@ -563,36 +522,41 @@ function gofast_update_node_field() {
   // At this point $value is validated so we can save it safely.
   try {
     // If vid param is present, we process taxonomy terms.
-    if (isset($vid)) {
+    if (isset($vid) && $vid !="") {
       $terms = array();
       if(is_array($value)) {
         if ($field_name === 'field_tags'){
           // if value come from tags filed we gard the same values
-          $terms = $value;
+          foreach ($value as $term) {
+            if (isset($term['name']))
+              $terms[] = $term['name'];
+            else
+              $terms[] = $term;
+          }
         } else {
           foreach($value as $term) {
             if(intval($term) === 0) {
-              $terms[] = $term;
+                $terms[] = $term;
             }
           }
         }
       } else if(!empty($value)) {
-        $terms[] = $value;
+            $terms[] = $value;
       }
 
-      if (!empty($terms)) {
+      if (!empty($terms) && $field_name === 'field_tags') {
+        $normalized_values = gofast_metadata_terms_get_from_array($vid, $terms);
+      }else if(!empty($terms)) {
         $normalized_values = gofast_xeditable_terms_get_from_array($vid, $terms);
-
-      }
-      else {
+      }else{
         $normalized_values = null;
       }
+
       // If dealing with other than tags, field is single valued
       if($vid !== GOFAST_VID_TAGS && $normalized_values !== null) {
         $normalized_values = reset($normalized_values);
       }
-    }
-    else {
+    }  else {
       // If value is "", then the value we want to store DB wise is null
       $normalized_values = !empty($value) ? $value : null;
     }
@@ -603,6 +567,10 @@ function gofast_update_node_field() {
       $default_documents_form_configuration = array(
         'xss_whitelist' => [],
       );
+      
+      if($node->type == 'article'){
+        gofast_cmis_article_node_update($form, $form_state);      
+      }
       $documents_form_defaults = variable_get("documents_form_defaults", $default_documents_form_configuration);
       $xss_whitelist = is_array($documents_form_defaults['xss_whitelist']) ? $documents_form_defaults['xss_whitelist'] : [];
 
@@ -612,8 +580,7 @@ function gofast_update_node_field() {
 
       // In the case we would like to update the body, we set the summary field instead.
       $wrapper->{$field_name}->value->set($normalized_values);
-    }
-    else if ($field_name === GOFAST_OG_CONTENT_MEMBERSHIP_FIELD) {
+    }else if ($field_name === GOFAST_OG_CONTENT_MEMBERSHIP_FIELD) {
       // In cas we update an article/forum, we update og_group_content_ref
       $groups = array();
       foreach ($normalized_values as $normalized_value) {
@@ -654,8 +621,7 @@ function gofast_update_node_field() {
             }
           }
       }
-    }
-    else if ($field_name === GOFAST_CMIS_LOCATIONS_FIELD) {
+    }else if ($field_name === GOFAST_CMIS_LOCATIONS_FIELD) {
         if(isset($broadcast)){
             $broadcast_string = trim($_POST["broadcast_og-hidden-values"]);
             $broadcast_array = explode(" ", $broadcast_string);
@@ -785,23 +751,21 @@ function gofast_update_node_field() {
       $node->field_main_emplacement[LANGUAGE_NONE][0]['value'] = reset($normalized_values);
       //$wrapper->{$field_name}->set($normalized_values);
       $value = implode('<br />', $emplacements_url);
-    }
-    else if ($field_name === 'language') {
+    }else if ($field_name === 'language') {
       $translatable_languages = gofast_get_translation_languages(FALSE);
       $value = gofast_get_flag_icon_by_langcode($value) . '&nbsp;' . $translatable_languages[$value];
       $wrapper->{$field_name}->set($normalized_values);
-    }
-    else if ($field_name === 'field_target_link') {
+    }else if ($field_name === 'field_target_link') {
       if(is_array($value)) {
-        $node_links = array_map(function($element) {
-          $node = node_load($element);
-          return theme('node_title', array('node' => $node));
-        }, $value);
-        $value = implode("<br />", $node_links);
+        if (is_array($normalized_values)) {
+          foreach ($normalized_values as $link) {
+            $values_links[] = $link;
+          }
+          $normalized_values = $values_links;
+        }
       }
       $wrapper->{$field_name}->set($normalized_values);
-    }
-    else if ($field_name === 'field_external_page_url') {
+    }else if ($field_name === 'field_external_page_url') {
       if(is_array($value)){
         $external_links = array_map(function($element) {
           $url = !isset(parse_url($element)["scheme"]) ? 'http://' . $element : $element;
@@ -818,11 +782,17 @@ function gofast_update_node_field() {
         }
       }
       $wrapper->{$field_name}->set($normalized_values);
-    } else if ($field_name === 'title') {
+    }else if ($field_name === 'title') {
       $old_title = $wrapper->{$field_name}->value();
       $pathinfo = pathinfo($old_title);
       $new_title = isset($pathinfo['extension']) && $pathinfo['extension'] !== NULL ? '.' . $pathinfo['extension'] : '';
-
+      if(gofast_og_is_space($node)) {
+          $homepage = gofast_og_get_article_homepage($node);
+          if(isset($homepage->nid)){
+            $homepage->title = $value . ".html";
+            node_save($homepage);
+          }
+      }
       if($node->type  === 'alfresco_item'){
         if(isset($_POST['non_xeditable'])){ //Request from external module
           $wrapper->{GOFAST_CMIS_FILENAME_FIELD}->set($value);
@@ -835,8 +805,7 @@ function gofast_update_node_field() {
       }else{
           $wrapper->{$field_name}->set($value);
       }
-    }
-    else {
+    }else {
         if($normalized_values == false){
             $wrapper->{$field_name}->set(NULL);
         }else{
@@ -867,10 +836,10 @@ function gofast_update_node_field() {
               ->condition('nid', $node->nid)
               ->execute();
         }else{
+            $_POST["is_location_update"] = TRUE;
             node_save($node);
         }
-    }
-    else{
+    } else{
        // $wrapper->save();/** @todo : (missing) hooks implementations */
        if($_POST['technically_save'] === TRUE){
              //because function gofast_prepare_node_save_technically doesn't work for wrapper, I have to do differently
@@ -882,7 +851,6 @@ function gofast_update_node_field() {
         }else{
             $wrapper->save();/** @todo : (missing) hooks implementations */
         }
-
     }
   }
   catch (EntityMetadataWrapperException $e) {
@@ -1049,6 +1017,10 @@ function gofast_update_field() {
       }
       else {
         $format = $user->language === 'fr' ? 'd/m/Y' : 'm/d/Y';
+        if(isValidTimeStamp($value)){
+          $value = substr($value,0,-3);
+          $value = date($format,$value);
+        }
         $_fdate = DateTime::createFromFormat($format, $value);
         $timestamp_date = $_fdate->getTimestamp();
         $property_date = $_fdate->date;
@@ -1330,7 +1302,7 @@ function gofast_xeditable_vocabulary_to_select_items($vid, $node = null) {
 function gofast_xeditable_sort_criticity($elements, $node = null)
 {
 
-  $nids = _gofast_og_content_get_parents($node);
+  $nids = is_null($node) ? array() : _gofast_og_content_get_parents($node);
 
   $is_public = FALSE;
   $is_extranet = FALSE;
@@ -1430,7 +1402,7 @@ function gofast_xeditable_terms_get_from_array($vid, $list_terms, $create = TRUE
 function gofast_xeditable_translate_back($string = "", $context = NULL, $langcode = '', $textgroup ='default',$vid = null) {
   $t = $string;
   if($vid != null){
-      $query = db_query("select machine_name from {taxonomy_vocabulary} where vid = ".$vid);
+      $query = db_query("select machine_name from {taxonomy_vocabulary} where vid = :vid", array(":vid" => $vid));
       $result = $query->fetch();
       $vocab_name = $result->machine_name;
   }
@@ -1527,10 +1499,11 @@ function gofast_xeditable_tag_autocomplete($print = true) {
   $str = isset($_GET['query']) ? trim($_GET['query']) : '';
   $exact_match = isset($_GET['exact_match']) ? trim($_GET['exact_match']) : '';
   $tags = isset($_GET['tags']) ? $_GET['tags'] : '';
+  $vid = isset($_GET['vid']) ? $_GET['vid'] : GOFAST_VID_TAGS;
 
   $query = db_select('taxonomy_term_data', 't')
           ->fields('t')
-          ->condition('vid', GOFAST_VID_TAGS)
+          ->condition('vid', $vid)
           ->range(0, 20);
 
   if (!empty($tags)) {
@@ -1547,7 +1520,7 @@ function gofast_xeditable_tag_autocomplete($print = true) {
     }
   }
 
-  $result = $query->execute();
+  $result = $query->execute()->fetchAll();
 
   $results = array();
 
@@ -1573,6 +1546,7 @@ function gofast_xeditable_tag_autocomplete($print = true) {
  */
 function gofast_xeditable_get_subscribe_term_link($term, $nid= '/node'){
   $term =  str_replace("**", "/", $term);
+  $term = gofast_xss_clean($term);
   $term_split = explode('[GOFAST_TAG_SEPARATOR]', $term);
   $term_name = '<p style="margin-top:5px; float: left;">'.$term_split[0].'</p>';
   $term_id = $term_split[1];

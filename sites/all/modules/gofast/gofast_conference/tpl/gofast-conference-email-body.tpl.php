@@ -1,347 +1,650 @@
-<style>
-@import url(http://fonts.googleapis.com/css?family=Roboto);
-td {
-  font-size: 13px;
-}
+<!-- FILE: mail_conference_source.mjml -->
+<?php global $base_url; ?>
+<style type="text/css">
+  #outlook a {
+    padding: 0;
+  }
 
-#conference-links{
-  margin: 0 auto;
-  display: table;
-}
-.btn-group, .btn-group-vertical {
-    position: relative;
-    display: inline-block;
-    vertical-align: middle;
-}
-.btn-group > .btn:first-child:not(:last-child):not(.dropdown-toggle) {
-    border-bottom-right-radius: 0;
-    border-top-right-radius: 0;
-}
-.btn-group > .btn:first-child {
-    margin-left: 0;
-}
-.btn-group > .btn, .btn-group-vertical > .btn {
-    position: relative;
-    float: left;
-}
-a:link, a:visited, a:hover, a:active, a:focus {
+  body {
+    margin: 0;
+    padding: 0;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+  }
+
+  table,
+  td {
+    border-collapse: collapse;
+    mso-table-lspace: 0pt;
+    mso-table-rspace: 0pt;
+  }
+
+  img {
+    border: 0;
+    height: auto;
+    line-height: 100%;
     outline: none;
     text-decoration: none;
-}
-.btn-success {
-    color: #ffffff;
-    background-color: #5cb85c;
-    border-color: #4cae4c;
-}
-.btn {
-    display: inline-block;
-    margin-bottom: 0;
-    font-weight: normal;
-    text-align: center;
-    vertical-align: middle;
-    touch-action: manipulation;
-    cursor: pointer;
-    background-image: none;
-    border: 1px solid transparent;
-    white-space: nowrap;
-    padding: 6px 12px;
-    font-size: 14px;
-    line-height: 1.42857143;
-    border-radius: 4px;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-}
+    -ms-interpolation-mode: bicubic;
+  }
 
-.btn-group > .btn:not(:first-child):not(:last-child):not(.dropdown-toggle) {
-    border-radius: 0;
-}
-.btn-group .btn + .btn, .btn-group .btn + .btn-group, .btn-group .btn-group + .btn, .btn-group .btn-group + .btn-group {
-    margin-left: -1px;
-}
-.btn-group > .btn, .btn-group-vertical > .btn {
-    position: relative;
-    float: left;
-}
-.btn-default {
-    color: #333333;
-    background-color: #ffffff;
-    border-color: #cccccc;
-}
-.list-group-item:last-child {
-    margin-bottom: 0;
-    border-bottom-right-radius: 4px;
-    border-bottom-left-radius: 4px;
-}
-.list-group-item:first-child {
-    border-top-right-radius: 4px;
-    border-top-left-radius: 4px;
-}
-.list-group-item {
-    position: relative;
+  p {
     display: block;
-    padding: 10px 15px;
-    margin-bottom: -1px;
-    background-color: #ffffff;
-    border: 1px solid #dddddd;
-}
-.user-picture {
-    display: inline-block;
-}
-.profile-popup-wrapper {
-    position: absolute;
-    z-index: 999;
-}
-img.little{
-  width: 10px;
-  height: 10px;
-}
-.list-group{
-  padding-left: 0;
-}
-body{
-  font-family: Roboto, Arial, sans-serif;
-}
+    margin: 13px 0;
+  }
+</style>
+<!--[if mso]>
+        <noscript>
+        <xml>
+        <o:OfficeDocumentSettings>
+          <o:AllowPNG/>
+          <o:PixelsPerInch>96</o:PixelsPerInch>
+        </o:OfficeDocumentSettings>
+        </xml>
+        </noscript>
+        <![endif]-->
+<!--[if lte mso 11]>
+        <style type="text/css">
+          .mj-outlook-group-fix { width:100% !important; }
+        </style>
+        <![endif]-->
+<style type="text/css">
+  @media only screen and (min-width:480px) {
+    .mj-column-per-100 {
+      width: 100% !important;
+      max-width: 100%;
+    }
+
+    .mj-column-per-25 {
+      width: 25% !important;
+      max-width: 25%;
+    }
+
+    .mj-column-per-50 {
+      width: 50% !important;
+      max-width: 50%;
+    }
+  }
+</style>
+<style media="screen and (min-width:480px)">
+  .moz-text-html .mj-column-per-100 {
+    width: 100% !important;
+    max-width: 100%;
+  }
+
+  .moz-text-html .mj-column-per-25 {
+    width: 25% !important;
+    max-width: 25%;
+  }
+
+  .moz-text-html .mj-column-per-50 {
+    width: 50% !important;
+    max-width: 50%;
+  }
+</style>
+<style type="text/css">
+  @media only screen and (max-width:480px) {
+    table.mj-full-width-mobile {
+      width: 100% !important;
+    }
+
+    td.mj-full-width-mobile {
+      width: auto !important;
+    }
+  }
 </style>
 
-  <?php
-    if(!$delete){
-  ?>
-   <table width="98%" cellpadding="0" cellspacing="0" style="margin-left: 10px; margin-right: 10px; border-radius: 4px;  -webkit-box-shadow: 0 1px 1px rgba(0,0,0,.05); box-shadow: 0 1px 1px rgba(0,0,0,.05); margin-bottom: 10px;">
-        <tr>
-          <td width="42%"></td>
-          <td width="16%">
-            <table width="100%" cellpadding="5" cellspacing="0" bgcolor="#5cb85c" style="border-radius: 4px; padding: 5px; background-color: #5cb85c; border-bottom: 1px solid;  border-color: #4cae4c;">
-              <tr>
-                <td style="text-align: center;">
-                   <a target="_blank" href="<?php print $conference_url_external ?>" style="text-decoration: none; color: #fff;"><?php print t('Go to the conference') ?></a>
-                </td>               
-              </tr>
-          </table>
-          </td>
-          <td width="42%"></td>
-        </tr>
-      </table>
-  <div style='margin-top:10px;text-align:center;'><a href="<?php print str_replace(CONFERENCE_URL, "https://meet.jit.si", $conference_url_external); ?>" target="_blank"><?php print t("If you find any problems, all participants can try to use this link (shared Jitsi SaaS)"); ?></a></div>
-    <?php } ?>
-
-  <?php if(isset ($conference_content) && $conference_content !== ""){ ?>
-    <table width="98%" cellpadding="0" cellspacing="0" style="border: 1px solid; border-color: #bce8f1;   margin-left: 10px; margin-right: 10px; border-radius: 4px;  -webkit-box-shadow: 0 1px 1px rgba(0,0,0,.05); box-shadow: 0 1px 1px rgba(0,0,0,.05); margin-bottom: 10px;">
-        <tr>
-          <td>
-            <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#d9edf7" style=" background-color: #d9edf7; border-bottom: 1px solid;  border-color: #bce8f1;">
-              <tr>
-                <td style="padding-left:15px;">
-                  <h4 style="margin-top: 10px; margin-bottom: 10px; color: #31708f;"><?php print t('Informations') ?></h4>
-                </td>
-              </tr>
-          </table>
-          </td>
-        </tr>
-        <tr>
-          <td>
-            <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td valign="middle" style="color:#505050; font-family:Arial; font-size:14px; line-height:150%; text-align:left; padding: 10px 15px;">
-                <?php print $conference_content; ?>
-              </td>
-            </tr>
-          </table>
-          </td>
-        </tr>
-      </table> 
-<!-- Table spacer -->
-<table><div></div></table>
-<table><div></div></table>
-  <?php } ?>
-
-  <?php if(isset ($conference_documents) && $conference_documents !== ""){ ?>
-      <table width="98%" cellpadding="0" cellspacing="0" style="border: 1px solid; border-color: #bce8f1;   margin-left: 10px; margin-right: 10px; border-radius: 4px;  -webkit-box-shadow: 0 1px 1px rgba(0,0,0,.05); box-shadow: 0 1px 1px rgba(0,0,0,.05); margin-bottom: 10px;">
-        <tr>
-          <td>
-            <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#d9edf7" style=" background-color: #d9edf7; border-bottom: 1px solid;  border-color: #bce8f1;">
-              <tr>
-                <td style="padding-left:15px;">
-                  <h4 style="margin-top: 10px; margin-bottom: 10px; color: #31708f;"><?php print t('Documents') ?></h4>
-                </td>
-              </tr>
-          </table>
-          </td>
-        </tr>
-        <tr>
-          <td>
-            <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td valign="middle" style="color:#505050; font-family:Arial; font-size:14px; line-height:150%; text-align:left; padding: 10px 15px;">
-                <?php print $conference_documents ?>
-              </td>
-            </tr>
-          </table>
-          </td>
-        </tr>
-      </table> 
-<!-- Table spacer -->
-<table><div></div></table>
-<table><div></div></table>
-  <?php } ?>
-
-  <?php if(isset ($conference_folders) && $conference_folders !== ""){ ?>
-      <table width="98%" cellpadding="0" cellspacing="0" style="border: 1px solid; border-color: #bce8f1;   margin-left: 10px; margin-right: 10px; border-radius: 4px;  -webkit-box-shadow: 0 1px 1px rgba(0,0,0,.05); box-shadow: 0 1px 1px rgba(0,0,0,.05); margin-bottom: 10px;">
-        <tr>
-          <td>
-            <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#d9edf7" style=" background-color: #d9edf7; border-bottom: 1px solid;  border-color: #bce8f1;">
-              <tr>
-                <td style="padding-left:15px;">
-                  <h4 style="margin-top: 10px; margin-bottom: 10px; color: #31708f;"><?php print t('Linked folders') ?></h4>
-                </td>
-              </tr>
-          </table>
-          </td>
-        </tr>
-        <tr>
-          <td>
-            <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td valign="middle" style="color:#505050; font-family:Arial; font-size:14px; line-height:150%; text-align:left; padding: 10px 15px;">
-                <?php print $conference_folders ?>
-              </td>
-            </tr>
-          </table>
-          </td>
-        </tr>
-      </table> 
-<!-- Table spacer -->
-<table><div></div></table>
-<table><div></div></table>
-  <?php } ?>
-
-      <table width="98%" cellpadding="0" cellspacing="0" style="border: 1px solid; border-color: #bce8f1;   margin-left: 10px; margin-right: 10px; border-radius: 4px;  -webkit-box-shadow: 0 1px 1px rgba(0,0,0,.05); box-shadow: 0 1px 1px rgba(0,0,0,.05); margin-bottom: 10px;">
-        <tr>
-          <td>
-            <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#d9edf7" style=" background-color: #d9edf7; border-bottom: 1px solid;  border-color: #bce8f1;">
-              <tr>
-                <td style="padding-left:15px;">
-                  <h4 style="margin-top: 10px; margin-bottom: 10px; color: #31708f;"><?php print t('Participants') ?></h4>
-                </td>
-              </tr>
-          </table>
-          </td>
-        </tr>
-        <tr>
-          <td>
-            <table width="100%">
-              <tr>
-                <td width="50%">
-                  <div><strong><?php print t('%site_name participants', array('%site_name' => variable_get('site_name', 'GoFAST'))) ?></strong></div>
-                </td>
-                <td width="50%">
-                  <div><strong><?php print t('Other participants') ?></strong></div>
-                </td>
-              </tr>
-              <tr>
-                <td width="50%">
-                  <div>         
-                      <?php print $gofast_participants; ?>
-                      <div style='clear:both;'></div>
-                  </div>
-                </td>
-                <td width="50%">
-                  <div>
-                    <ul class="list-group">
-                      <?php print $other_participants; ?>
-                    </ul>
-                    <div style='clear:both;'></div>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td width="50%">
-                  <div><strong><?php print t('Meeting Owner'); ?></strong></div>
-                </td>
-                <td width="50%">
-                  <div><strong><?php print t('Meeting Date');  ?></strong></div>
-                </td>
-              </tr>
-              <tr>
-                <td width="50%">
-                  <div>
-                    <?php print $conference_owner; ?>
-                    <div style='clear:both;'></div>
-                  </div>
-                </td>
-                <td width="50%">
-                  <div>
-                    <?php print $conference_datetime; ?><br /><?php print $conference_end_datetime; ?>
-                    <div style='clear:both;'></div>
-                  </div>
-                </td>
-              </tr>
+<!-- SubHeader -->
+<!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+<div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
+  <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
+    <tbody>
+      <tr>
+        <td style="direction:ltr;font-size:0px;padding:0;padding-top:10px;text-align:center;">
+          <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="" style="vertical-align:top;width:992px;" ><![endif]-->
+          <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+              <tbody>
+                <tr>
+                  <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:18px;font-weight:600;line-height:1;text-align:left;color:#337ab7;"><?= t("Hello", array(), array("context" => "gofast")) ?> <?= $recipient_name ?></div>
+                  </td>
+                </tr>
+              </tbody>
             </table>
-          </td>
-        </tr>
-      </table>
-       <!-- Table spacer -->
-    <table><div></div></table>
-    <table><div></div></table>
-    <table width="98%" cellpadding="0" cellspacing="0" style="border: 1px solid; border-color: #bce8f1;   margin-left: 10px; margin-right: 10px; border-radius: 4px;  -webkit-box-shadow: 0 1px 1px rgba(0,0,0,.05); box-shadow: 0 1px 1px rgba(0,0,0,.05); margin-bottom: 10px;">
-        <tr>
-          <td>
-            <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#d9edf7" style=" background-color: #d9edf7; border-bottom: 1px solid;  border-color: #bce8f1;">
-              <tr>
-                <td style="padding-left:15px;">
-                  <h4 style="margin-top: 10px; margin-bottom: 10px; color: #31708f;"><?php print t('Advices') ?></h4>
-                </td>
-              </tr>
-          </table>
-          </td>
-        </tr>
-        <tr>
-          <td>
-            <table width="100%">
-              <tr>
-                <td width="50%">
-                  <div><strong><?php print t('Recommended browsers') ?></strong></div>
-                </td>
-                <td width="20%">
-                  <div><a style="text-decoration:none" href='https://gofast-docs.readthedocs.io/fr/latest/docs-gofast-users/doc-gofast-guide-utilisateurs.html#pre-requis-necessaires-pour-lutilisation-de-gofast'><?php print t("Usage tips")?></a></div>
-                </td>
-                <td width="30%">
-                    <div></div>
-                </td>
-              </tr>
-              <tr>
-                <td width="50%">
-                  <div>         
-                      Firefox 76+<br/>
-                      Firefox ESR 78+<br/>
-                      Google Chrome<br/>
-                      Safari<br/>
-                      Chromium Edge
-                  </div>
-                </td>
-                <td width="20%">
-                  <div>
-                    <!-- <a style="text-decoration:none" href="<?php // print $conference_url_test ?>">Test</a> -->
-                  </div>
-                </td>
-                <td width="30%">
-                    <div></div>
-                </td>
-              </tr>
+          </div>
+          <!--[if mso | IE]></td></tr></table><![endif]-->
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+<div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
+  <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
+    <tbody>
+      <tr>
+        <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+          <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="" style="vertical-align:middle;width:992px;" ><![endif]-->
+          <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:middle;width:100%;">
+            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;" width="100%">
+              <tbody>
+                <tr>
+                  <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:400;line-height:1;text-align:left;color:#000000;">
+                      <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+                        <tbody>
+                          <tr>
+                            <td>
+                              <img src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'user-solid.png' ?>" alt="<?= t("User Icon", array(), array("context" => "gofast:gofast_conference")) ?>" width="18" />
+                            </td>
+                            <td>
+                              <span style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 400;">&nbsp;<?= t("You are invited to a new @sitename conference", array("@sitename" => variable_get("site_name", "GoFAST")), array("context" => "gofast:gofast_conference")) ?></span>
+                            </td>
+                          <tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
             </table>
-          </td>
-          <tr>
-          <td>
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td style="padding-left:15px;">
-                    <div><?php t('We recommend you to use the same browser as the other members of the conference.')?></div>
-                </td>
-              </tr>
-          </table>
+          </div>
+          <!--[if mso | IE]></td></tr></table><![endif]-->
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+<div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
+  <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
+    <tbody>
+      <tr>
+        <td style="direction:ltr;font-size:0px;padding:0;padding-bottom:10px;text-align:center;">
+          <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="" style="vertical-align:top;width:992px;" ><![endif]-->
+          <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+              <tbody>
+                <tr>
+                  <td align="center" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                    <p style="border-top:solid 1px #666666;font-size:1px;margin:0px auto;width:100%;">
+                    </p>
+                    <!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" style="border-top:solid 1px #666666;font-size:1px;margin:0px auto;width:718px;" role="presentation" width="718px" ><tr><td style="height:0;line-height:0;"> &nbsp;
+</td></tr></table><![endif]-->
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!--[if mso | IE]></td></tr></table><![endif]-->
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<!--[if mso | IE]></td></tr></table><![endif]-->
+<!-- Body -->
+<!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+<div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
+  <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
+    <tbody>
+      <tr>
+        <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+          <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="" style="vertical-align:top;width:992px;" ><![endif]-->
+          <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+              <tbody>
+                <tr>
+                  <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:18px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= $conference_title ?></div>
+                  </td>
+                </tr>
+                <?php if (isset($conference_content["subject"])) : ?>
+                  <tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:400;line-height:1;text-align:left;color:#000000;"><?= $conference_content["subject"] ?></div>
+                    </td>
+                  </tr>
+                <?php endif; ?>
+              </tbody>
+            </table>
+          </div>
+          <!--[if mso | IE]></td></tr></table><![endif]-->
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+<div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
+  <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
+    <tbody>
+      <tr>
+        <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+          <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="" style="vertical-align:middle;width:248px;" ><![endif]-->
+          <div class="mj-column-per-25 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:middle;width:100%;">
+            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;" width="100%">
+              <tbody>
+                <tr>
+                  <td align="center" style="font-size:0px;padding:0;word-break:break-word;">
+                    <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:collapse;border-spacing:0px;">
+                      <tbody>
+                        <tr>
+                          <td style="width:18px;">
+                            <img alt="<?= t("Calendar Icon", array(), array("context" => "gofast:gofast_conference")) ?>" height="auto" src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'calendar-alt-solid.png' ?>" style="border:0;display:block;outline:none;text-decoration:none;height:auto;width:100%;font-size:13px;" width="18" />
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="font-size:0px;padding:3px;word-break:break-word;">
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#000000;"><?= t("Meeting Start", array(), array("context" => "gofast:gofast_conference")) ?></div>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="font-size:0px;padding:3px;word-break:break-word;">
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#666666;"><?= $conference_datetime ?></div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!--[if mso | IE]></td><td class="" style="vertical-align:middle;width:248px;" ><![endif]-->
+          <div class="mj-column-per-25 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:middle;width:100%;">
+            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;" width="100%">
+              <tbody>
+                <tr>
+                  <td align="center" style="font-size:0px;padding:0;word-break:break-word;">
+                    <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:collapse;border-spacing:0px;">
+                      <tbody>
+                        <tr>
+                          <td style="width:18px;">
+                            <img alt="<?= t("Calendar Icon", array(), array("context" => "gofast:gofast_conference")) ?>" height="auto" src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'calendar-alt-solid.png' ?>" style="border:0;display:block;outline:none;text-decoration:none;height:auto;width:100%;font-size:13px;" width="18" />
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="font-size:0px;padding:3px;word-break:break-word;">
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#000000;"><?= t("Meeting End", array(), array("context" => "gofast:gofast_conference")) ?></div>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="font-size:0px;padding:3px;word-break:break-word;">
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#666666;"><?= $conference_end_datetime ?></div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!--[if mso | IE]></td><td class="" style="vertical-align:middle;width:248px;" ><![endif]-->
+          <div class="mj-column-per-25 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:middle;width:100%;">
+            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;" width="100%">
+              <tbody>
+                <tr>
+                  <td align="center" style="font-size:0px;padding:0;word-break:break-word;">
+                    <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:collapse;border-spacing:0px;">
+                      <tbody>
+                        <tr>
+                          <td style="width:18px;">
+                            <img alt="<?= t("Clock Icon", array(), array("context" => "gofast:gofast_conference")) ?>" height="auto" src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'clock-regular.png' ?>" style="border:0;display:block;outline:none;text-decoration:none;height:auto;width:100%;font-size:13px;" width="18" />
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="font-size:0px;padding:3px;word-break:break-word;">
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#000000;"><?= t("Duration", array(), array("context" => "gofast:gofast_conference")) ?></div>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="font-size:0px;padding:3px;word-break:break-word;">
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#666666;"><?= $duration ?></div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!--[if mso | IE]></td><td style="vertical-align:middle;width:173px;" ><![endif]-->
+          <div class="mj-column-per-25 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:middle;width:25%;">
+            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;" width="100%">
+              <tbody>
+                <tr>
+                  <td align="center" style="font-size:0px;padding:0;word-break:break-word;">
+                    <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:collapse;border-spacing:0px;">
+                      <tbody>
+                        <tr>
+                          <td style="width:18px;">
+                            <img alt="<?= t("Map Icon", array(), array("context" => "gofast:gofast_conference")) ?>" height="auto" src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'map-marker-alt-solid.png' ?>" style="border:0;display:block;outline:none;text-decoration:none;height:auto;width:100%;font-size:13px;" width="18" />
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="font-size:0px;padding:3px;word-break:break-word;">
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#000000;"><?= t("Place", [], ["context" => "gofast:gofast_conference"]) ?></div>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="font-size:0px;padding:3px;word-break:break-word;">
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#666666;"><?= $conference_content["location"] ?: t("Online", array(), array("context" => "gofast:conference")) ?></div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!--[if mso | IE]></td></tr></table><![endif]-->
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+<div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
+  <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
+    <tbody>
+      <tr>
+        <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+          <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="" style="vertical-align:top;width:992px;" ><![endif]-->
+          <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+              <tbody>
+                <tr>
+                  <td align="center" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                    <p style="border-top:solid 1px #666666;font-size:1px;margin:0px auto;width:100%;">
+                    </p>
+                    <!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" style="border-top:solid 1px #666666;font-size:1px;margin:0px auto;width:942px;" role="presentation" width="942px" ><tr><td style="height:0;line-height:0;"> &nbsp;
+</td></tr></table><![endif]-->
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!--[if mso | IE]></td></tr></table><![endif]-->
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+<div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
+  <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
+    <tbody>
+      <tr>
+        <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+          <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="" style="vertical-align:top;width:496px;" ><![endif]-->
+          <div class="mj-column-per-50 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+              <tbody>
+                <tr>
+                  <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:18px;font-weight:600;line-height:1;text-align:left;color:#de6502;"><?= t('Organisator') ?></div>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                    <div style="font-family:Poppins;font-size:14px;line-height:1;text-align:left;color:#000000;">
+                      <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+                        <tbody>
+                          <tr>
+                            <td>
+                              <img alt="<?= t("Organisator Avatar", array(), array("gofast" => "gofast:gofast_conference")) ?>" src="<?= $conference_owner->picture ?>" width="40" />
+                            </td>
+                            <td>
+                              <span style="font-family: Poppins; font-size: 14px;">&nbsp;<?= $conference_owner->fullname ?></span>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      <div style="padding-top: 5px;"><a style="color: #666666;; font-family: Poppins; font-size: 14px; text-decoration: none;" href="mailto:<?= $conference_owner->mail ?>"><?= $conference_owner->mail ?></a></div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <?php
+          $count_all_participants = count($gofast_participants);
+          $participants = $gofast_participants;
+          // normalize informations for non-GoFAST participants
+          if (!empty($other_participants)) {
+            $count_all_participants += count($other_participants);
+            $participants = array_merge($participants, $other_participants);
+          }
+          ?>
+
+          <!--[if mso | IE]></td><td class="" style="vertical-align:top;width:496px;" ><![endif]-->
+          <div class="mj-column-per-50 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+              <tbody>
+                <tr>
+                  <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:18px;font-weight:600;line-height:1;text-align:left;color:#de6502;"><?= format_plural($count_all_participants, "Participant", "Participants") ?> (<?= $count_all_participants ?>)</div>
+                  </td>
+                </tr>
+                <?php foreach ($participants as $participant) : ?>
+                  <tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <div style="font-family:Poppins, Candara, Arial, sans-serif;font-size:14px;line-height:1;text-align:left;color:#000000;">
+                        <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+                          <tbody>
+                            <tr>
+                              <td>
+                                <img alt="<?= t("User Avatar", array(), array("gofast" => "gofast:gofast_conference")) ?>" src="<?= $participant->picture ?>" width="40" />
+                              </td>
+                              <td>
+                                &nbsp;<?= $participant->fullname ?>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        <div style="padding-top: 5px;"><a style="color: #666666;; font-family:Poppins, Candara, Helvetica, Arial, sans-serif; font-size: 14p; text-decoration: none;" href="<?= $participant->mail ?>"><?= $participant->mail ?></a></div>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+          <!--[if mso | IE]></td></tr></table><![endif]-->
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+<div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
+  <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
+    <tbody>
+      <tr>
+        <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+          <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="" style="vertical-align:top;width:992px;" ><![endif]-->
+          <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+              <tbody>
+                <tr>
+                  <td align="center" vertical-align="middle" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                    <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:separate;line-height:100%;">
+                      <tbody>
+                        <tr>
+                          <td align="center" bgcolor="#159992" role="presentation" style="border:none;border-radius:5px;cursor:auto;mso-padding-alt:10px 25px;background:#159992;" valign="middle">
+                            <a href="<?= $conference_url_external ?>" style="display:inline-block;background:#159992;color:#ffffff;font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:120%;margin:0;text-decoration:none;text-transform:none;padding:10px 25px;mso-padding-alt:0px;border-radius:5px;" target="_blank"><?= t('Go to the conference') ?></a>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!--[if mso | IE]></td></tr></table><![endif]-->
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+<div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
+  <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
+    <tbody>
+      <tr>
+        <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+          <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="" style="vertical-align:top;width:992px;" ><![endif]-->
+          <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+              <tbody>
+                <tr>
+                  <td align="center" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                    <div style="font-family:Poppins;font-size:12px;font-weight:300;line-height:1;text-align:center;color:#666666;">
+                      <a href="<?= str_replace(CONFERENCE_URL, "https://meet.jit.si", $conference_url_external); ?>" style="color: #666666; text-decoration: none;"><?= t("If you find any problems, all participants can try to use this link (shared Jitsi SaaS)"); ?></a>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!--[if mso | IE]></td></tr></table><![endif]-->
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<?php if (strlen($conference_documents > 0) || strlen($conference_folders) > 0) : ?>
+  <!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+  <div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
+    <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
+      <tbody>
+        <tr>
+          <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+            <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="" style="vertical-align:top;width:992px;" ><![endif]-->
+            <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+              <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+                <tbody>
+                  <tr>
+                    <td align="center" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <p style="border-top:solid 1px #666666;font-size:1px;margin:0px auto;width:100%;">
+                      </p>
+                      <!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" style="border-top:solid 1px #666666;font-size:1px;margin:0px auto;width:942px;" role="presentation" width="942px" ><tr><td style="height:0;line-height:0;"> &nbsp;
+</td></tr></table><![endif]-->
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <!--[if mso | IE]></td></tr></table><![endif]-->
           </td>
         </tr>
+      </tbody>
+    </table>
+  </div>
+<?php endif; ?>
+<?php if (strlen($conference_documents) > 0) : ?>
+  <!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+  <div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
+    <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
+      <tbody>
+        <tr>
+          <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+            <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="" style="vertical-align:top;width:992px;" ><![endif]-->
+            <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+              <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+                <tbody>
+                  <tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:18px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= t("Documents: ", array(), array("context" => "gofast:gofast_conference")) ?></div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <!--[if mso | IE]></td></tr></table><![endif]-->
+          </td>
         </tr>
-      </table>
-    
+      </tbody>
+    </table>
+  </div>
+  <!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+  <div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
+    <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
+      <tbody>
+        <tr>
+          <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+            <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="" style="vertical-align:top;width:992px;" ><![endif]-->
+            <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+              <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+                <tbody>
+                  <tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:left;color:#000000;"><?= $conference_documents ?></div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <!--[if mso | IE]></td></tr></table><![endif]-->
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+<?php endif; ?>
+<?php if (strlen($conference_folders) > 0) : ?>
+  <!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+  <div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
+    <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
+      <tbody>
+        <tr>
+          <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+            <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="" style="vertical-align:top;width:992px;" ><![endif]-->
+            <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+              <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+                <tbody>
+                  <tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:18px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= t("Folders: ", array(), array("context" => "gofast:gofast_conference")) ?></div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <!--[if mso | IE]></td></tr></table><![endif]-->
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+  <div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
+    <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
+      <tbody>
+        <tr>
+          <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+            <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="" style="vertical-align:top;width:992px;" ><![endif]-->
+            <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+              <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+                <tbody>
+                  <tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:left;color:#000000;"><?= $conference_folders ?></div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <!--[if mso | IE]></td></tr></table><![endif]-->
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+<?php endif; ?>
+<!--[if mso | IE]></td></tr></table><![endif]-->

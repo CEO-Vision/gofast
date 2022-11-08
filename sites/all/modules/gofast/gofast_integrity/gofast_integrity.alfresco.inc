@@ -180,6 +180,50 @@ function gofast_integrity_alfresco_identify_folders_spaces_permissions($items){
 /*
  * @package gofast_integrity
  * This function identify the following issue : 
+ * Mirrored folders that miss the gofast:ismirrored aspect property
+ * 
+ * @param array $items array(reference..)
+ * @return array array(valid, invalid)
+ */
+function gofast_integrity_alfresco_identify_folders_mirrors($items) {
+    $valid = array();
+    $invalid = array();
+    
+    //Fetch into items
+    foreach($items as $item){
+        if (isset($item["ismirrored"]) && $item["ismirrored"] == TRUE) {
+            $valid[] = $item;
+            continue;
+        }
+        $reference = $item["reference"];
+        $folder_parents = gofast_cmis_webservice_get_node_parents($reference);
+
+        $nb_parents = count($folder_parents);
+        if($nb_parents > 1){
+            // Check if parents are mirrors
+            foreach($folder_parents as $parent){
+                // Get reference by $parent path
+                $parent_reference = gofast_cmis_item_get_by_path($parent)->properties['alfcmis:nodeRef'];
+                $folder_parents_parents = gofast_cmis_webservice_get_node_parents($parent_reference);
+                $nb_parents_parents = count($folder_parents_parents);
+                if($nb_parents_parents > 1){
+                    $valid[] = $item;
+                }else{
+                    $invalid[] = $item;
+                }
+            }
+        }
+    }
+
+    return array(
+        "valid" => $valid,
+        "invalid" => $invalid
+    );
+}
+
+/*
+ * @package gofast_integrity
+ * This function identify the following issue : 
  * Documents that have an aspect issue
  * 
  * @param array $items array(reference..)
@@ -527,7 +571,8 @@ function gofast_integrity_alfresco_get_folders($start, $count){
             "parents_ref" => array($properties["cmis:parentId"]),
             "title" => $properties["cmis:name"],
             "is_group" => $properties["gofast:isgroup"],
-            "bundle" => $properties['gofast:bundle']
+            "bundle" => $properties['gofast:bundle'],
+            "ismirrored" => $properties['gofast:ismirrored'],
         );
     }
     

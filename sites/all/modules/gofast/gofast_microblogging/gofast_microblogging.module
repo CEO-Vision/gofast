@@ -46,12 +46,11 @@ function gofast_microblogging_menu(){
 }
 
 function gofast_microblogging_blog_access($node){
-    global $user;
-    if($node->uid == $user->uid){
-	return true;
-    }else{
-	return false;
-    }
+  global $user;
+  $roles = $user->roles;
+  $allowed_roles = ['administrator', 'business administrator'];
+  $check = (bool) array_intersect($allowed_roles, $roles);
+  return $node->uid == $user->uid || $check;
 }
 
 /*
@@ -59,6 +58,10 @@ function gofast_microblogging_blog_access($node){
  */
 function gofast_microblogging_add($user = NULL, $is_ajax = TRUE){
   $data = $_POST["message"];
+  
+  //Filter XSS
+  $data = gofast_xss_clean($data);
+  
   if ($user == NULL){
       global $user;
   }

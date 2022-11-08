@@ -573,8 +573,8 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
     ),
   );
   $terms[] = array(
-    'name' => 'Web Page',
-    'description' => 'A Web Page',
+    'name' => 'Wiki article',
+    'description' => 'A Wiki page',
     'format' => 'plain_text',
     'weight' => 7,
     'uuid' => '6c4054f5-4aef-4994-98d9-2b4b4bc75e8f',

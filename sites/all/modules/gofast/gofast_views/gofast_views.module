@@ -1,5 +1,7 @@
 <?php
 
+use DOMDocument;
+
 /**
  * Implements hook_enable().
  */
@@ -234,6 +236,20 @@ function gofast_views_menu()
     'type' => MENU_CALLBACK,
   );
 
+  $items['gofast_audit'] = array(
+    'page callback' => 'gofast_views_audit',
+    'access arguments' => array('access audit'),
+    'access callback' => 'user_access',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['gofast/unflag_folder/%'] = array(
+      'page callback' => 'gofast_views_remove_favorite_folder',
+      'page arguments' => array(2),
+      'type' => MENU_CALLBACK,
+      'access arguments' => array('access content'),
+      'access callback' => 'user_access',
+  );
 
   return $items;
 }
@@ -441,262 +457,275 @@ function gofast_views_views_query_alter(&$view, &$query)
 /**
  * Implements hook_theme().
  */
-function gofast_views_theme()
-{
-  $themes = array(
-    'gofast_link_generic' => array(
-      'template' => 'theme/gofast-link-generic', // template file called theme/gofast-link-generic.tpl.php
-      'arguments' => array(
-        'link_class' => NULL,
-        'link_id' => NULL,
-        'href' => NULL,
-        'disabled' => NULL,
-        'onClick' => NULL,
-        'alt' => NULL,
-        'target' => '_self',
-        'title' => NULL,
-        'icon_class' => NULL,
-        'text' => NULL,
-      ),
+function gofast_views_theme() {
+    $themes = array (
+        'gofast_link_generic' => array(
+            'template' => 'theme/gofast-link-generic', // template file called theme/gofast-link-generic.tpl.php
+            'arguments' => array(
+              'link_class' => NULL,
+              'link_id' => NULL,
+              'href' => NULL,
+              'disabled' => NULL,
+              'onClick' => NULL,
+              'alt' => NULL,
+              'target' => '_self',
+              'title' => NULL,
+              'icon_class' => NULL,
+              'text' => NULL,
+            ),
+        ),
+        'gofast_mobile_activity_feed' => array(
+            'template' => 'theme/gofast-mobile-activity-feed', // template file called theme/gofast-link-generic.tpl.php
+            'arguments' => array(
+              'user_picture' => NULL,
+              'node' => NULL,
+              'icon_format' => NULL,
+              'last_updated' => NULL,
+              'spaces'  => NULL,
+              'state'   => NULL,
+              'download_action' => NULL
+            )
+        ),
+        'gofast_download_link' => array(
+            'template' => 'theme/gofast-download-link', // template file called theme/gofast-download-link.tpl.php
+            'arguments' => array('node' => NULL),
+        ),
+         'gofast_duplicate_file' => array(
+            'template' => 'theme/gofast-duplicate-file', // template file called theme/gofast-duplicate-file.tpl.php
+            'arguments' => array('node' => NULL),
+        ),
+        'gofast_link_edit_mode' => array(
+            'template' => 'theme/gofast-link-edit-mode', // template file called theme/gofast-link-edit-mode.tpl.php
+            'arguments' => array('node' => NULL , 'disabled' => ''),
+        ),
+        'gofast_link_delete_modal' => array(
+            'template' => 'theme/gofast-link-delete-modal', // template file called theme/gofast-link-delete-modal.tpl.php
+            'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
+        ),
+        'gofast_link_delete_blog_modal' => array(
+            'template' => 'theme/gofast-link-delete-blog-modal', // template file called theme/gofast-link-delete-modal.tpl.php
+            'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
+        ),
+        'gofast_link_move_space' => array(
+            'template' => 'theme/gofast-link-move-space', // template file called theme/gofast-link-move-space.tpl.php
+            'arguments' => array('node' => NULL, 'nid' => NULL),
+        ),
+        'gofast_link_archive' => array(
+            'template' => 'theme/gofast-link-archive', // template file called theme/gofast-link-delete-modal.tpl.php
+            'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
+        ),
+        'gofast_link_unarchive' => array(
+            'template' => 'theme/gofast-link-archive', // template file called theme/gofast-link-delete-modal.tpl.php
+            'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
+        ),
+        'gofast_link_new_version' => array(
+            'template' => 'theme/gofast-link-new-version', // template file called theme/gofast-link-new-version.tpl.php
+            'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
+        ),
+        'gofast_link_manage_keywords' => array(
+            'template' => 'theme/gofast-link-manage-keywords', // template file called theme/gofast-link-manage-keywords.tpl.php
+            'arguments' => array('node' => NULL, 'nid' => NULL),
+        ),
+        'gofast_link_manage_translations' => array(
+            'template' => 'theme/gofast-link-manage-translations', // template file called theme/gofast-link-manage-translations.tpl.php
+            'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
+        ),
+        'gofast_link_manage_taxonomy' => array(
+            'template' => 'theme/gofast-link-manage-taxonomy', // template file called theme/gofast-link-manage-translations.tpl.php
+            'arguments' => array('node' => NULL, 'nid' => NULL),
+        ),
+        'gofast_block_file_management' => array(
+            'template' => 'theme/gofast-block-file-management', // template file called theme/gofast-block-file-management.tpl.php
+            'arguments' => array('node' => NULL, 'text' => NULL, 'class' => NULL),
+        ),
+        'gofast_block_microblogging_management' => array(
+            'template' => 'theme/gofast-block-microblogging-management', // template file called theme/gofast-block-file-management.tpl.php
+            'arguments' => array('blog_id' => NULL),
+        ),
+        'gofast_link_add_relationship' => array(
+            'template' => 'theme/gofast-link-add-relationship', // template file called theme/gofast-link-add-relationship.tpl.php
+            'arguments' => array('uid' => NULL),
+        ),
+        'gofast_link_delete_user' => array(
+            'template' => 'theme/gofast-user-delete', // template file called theme/gofast-user-delete.tpl.php
+            'arguments' => array('href' => null, 'text' => NULL, 'class' => NULL),
+        ),
+        'gofast_link_add_comment' => array(
+            'template' => 'theme/gofast-link-add-comment', // template file called theme/gofast-link-add-comment.tpl.php
+            'arguments' => array('node' => NULL, 'href'=> null, 'text' => NULL),
+        ),
+        'gofast_user_relationships_remove_link' => array(
+            'template' => 'theme/gofast-user-relationships-remove-link', // template gofast-user-relationships-remove-link.tpl.php
+            'arguments' => array('uid' => NULL, 'rid' => NULL),
+        ),
+        'gofast_space_join_conversation' => array(
+            'template' => 'theme/gofast-space-join-conversation', // template file called theme/gofast-space-join-conversation.tpl.php
+        ),
+        'gofast_user_relationships_pending_request_approve_link' => array(
+            'template' => 'theme/gofast-user-relationships-pending-request-approve-link', // template gofast-user-relationships-pending-request-approve-link.tpl.php
+            'arguments' => array('uid' => NULL, 'rid' => NULL),
+        ),
+        'gofast_user_relationships_pending_request_disapprove_link' => array(
+            'template' => 'theme/gofast-user-relationships-pending-request-disapprove-link', // template gofast-user-relationships-pending-request-disapprove-link.tpl.php
+            'arguments' => array('uid' => NULL, 'rid' => NULL),
+        ),
+        'gofast_user_relationships_pending_request_cancel_link' => array(
+            'template' => 'theme/gofast-user-relationships-pending-request-cancel-link', // template gofast-user-relationships-pending-request-cancel-link.tpl.php
+            'arguments' => array('uid' => NULL, 'rid' => NULL),
+        ),
+        'gofast_user_mobilephone' => array(
+            'template' => 'theme/gofast-user-mobilephone', // template gofast-user-mobilephone.tpl.php
+            'arguments' => array('user' => NULL, 'only_icon' => NULL),
+        ),
+        'gofast_user_new_message' => array(
+            'template' => 'theme/gofast-user-new-message', // template gofast-user-new-message.tpl.php
+            'arguments' => array('user' => NULL, 'only_icon' => NULL),
+        ),
+        'gofast_subscribe_user' => array(
+              'template' => 'theme/gofast-subscribe-user', // template gofast-subscribe-user.tpl.php
+              'arguments' => array('user' => NULL),
+        ),
+        'gofast_block_user' => array(
+              'template' => 'theme/gofast-block-user', // template gofast-unblock-user.tpl.php
+              'arguments' => array('uid' => NULL, 'only_icon' => NULL),
+        ),
+        'gofast_unblock_user' => array(
+              'template' => 'theme/gofast-unblock-user', // template gofast-unblock-user.tpl.php
+              'arguments' => array('uid' => NULL, 'only_icon' => NULL),
+        ),
+        'gofast_leave_user' => array(
+              'template' => 'theme/gofast-leave-user', // template gofast-unblock-user.tpl.php
+              'arguments' => array('uid' => NULL, 'only_icon' => NULL),
+        ),
+        'gofast_unleave_user' => array(
+              'template' => 'theme/gofast-unleave-user', // template gofast-unblock-user.tpl.php
+              'arguments' => array('uid' => NULL, 'only_icon' => NULL),
+        ),
+        'gofast_block_user_quick_actions' => array(
+            'template' => 'theme/gofast-block-user-quick-actions', // template file called theme/gofast-block-user-quick-actions.tpl.php
+            'arguments' => array('user' => NULL),
+        ),
+        'gofast_link_edit' => array(
+            'template' => 'theme/gofast-link-edit', // template file called theme/gofast-link-edit.tpl.php
+            'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => true),
+        ),
+        'gofast_link_add_article_page' => array(
+            'template' => 'theme/gofast-link-add-article-page', // template file called theme/gofast-link-edit-mode.tpl.php
+            'arguments' => array('bid' => NULL, 'disabled' => true),
+        ),
+        'gofast_link_edit_userlist' => array(
+            'template' => 'theme/gofast-link-edit-userlist', // template file called theme/gofast-link-edit-userlist.tpl.php
+          'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => NULL),
+        ),
+        'gofast_link_sync_userlist' => array(
+            'template' => 'theme/gofast-link-sync-userlist', // template file called theme/gofast-link-edit-userlist.tpl.php
+          'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => NULL),
+        ),
+        'gofast_link_delete_userlist' => array(
+          'template' => 'theme/gofast-link-delete-userlist', // template file called theme/gofast-link-delete-userlist.tpl.php
+          'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => NULL),
+        ),
+        'gofast_link_manage_userlist_members' => array(
+          'template' => 'theme/gofast_link_manage_userlist_members', // template file called theme/gofast_link_manage_userlist_members.tpl.php
+          'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => NULL),
+        ),
+        'gofast_link_manage_permissions_access_userlist' => array(
+          'template' => 'theme/gofast_link_manage_permissions_access_userlist', // template file called theme/gofast_link_manage_permissions_access_userlist.tpl.php
+          'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => NULL),
+        ),
+        'gofast_link_edit_onlyoffice' => array(
+            'template' => 'theme/gofast-link-edit-onlyoffice', // template file called theme/gofast-link-edit-onlyoffice.tpl.php
+            'arguments' => array('node' => NULL , 'disabled' => ''),
+        ),
+        'gofast_link_edit_microblogging' => array(
+            'template' => 'theme/gofast-link-edit-microblogging', // template file called theme/gofast-link-edit-onlyoffice.tpl.php
+            'arguments' => array('blog_id' => NULL),
+        ),
+        'gofast_link_publication' => array(
+            'template'  => 'theme/gofast-link-publication',
+            'arguments' => array('node' => NULL , 'disabled' => '')
+        ),
+        'gofast_link_share_email' => array(
+            'template'  => 'theme/gofast-link-share-email',
+            'arguments' => array('node' => NULL)
+        ),
+        'gofast_node_format' => array(
+            'template' => 'theme/gofast-node-format', // template file called theme/gofast-node-format.tpl.php
+            'arguments' => array('node' => NULL),
+        ),
+        'gofast_node_icon_format' => array(
+            'template' => 'theme/gofast-node-icon-format', // template file called theme/gofast-node-icon-format.tpl.php
+            'arguments' => array('node' => NULL, 'size' => 1),
+        ),
+        'gofast_node_info_field' => array(
+            'template' => 'theme/gofast-node-info-field', // template file called theme/gofast-node-info-field.tpl.php
+            'arguments' => array('title' => NULL, 'values' => NULL, 'multiline', FALSE)
+        ),
+        'gofast_type_icon_format' => array(
+            'template' => 'theme/gofast-type-icon-format', // template file called theme/gofast-type-icon-format.tpl.php
+            'arguments' => array('tid' => NULL, 'size' => 1),
+        ),
+        'gofast_tooltip_emplacements' => array(
+          'template' => 'theme/gofast-tooltip-emplacements', // template file called theme/gofast-node-icon-format.tpl.php
+          'arguments' => array('locations' => NULL),
+        ),
+        'gofast_space_add_members' => array(
+            'template' => 'theme/gofast-space-add-members', // template file called theme/gofast-space-add-members.tpl.php
+            'arguments' => array('nid' => NULL)
+        ),
+        'gofast_space_add_riot_room' => array(
+            'template' => 'theme/gofast-space-add-riot-room', // template file called theme/gofast-space-add-riot-room.tpl.php
+            'arguments' => array('nid' => NULL, 'disabled' => '')
+        ),
+        'gofast_space_delete_riot_room' => array(
+            'template' => 'theme/gofast-space-delete-riot-room', // template file called theme/gofast-space-add-riot-room.tpl.php
+            'arguments' => array('nid' => NULL, 'disabled' => '')
+        ),
+        'gofast_space_delete_space' => array(
+            'template' => 'theme/gofast-space-delete-space', // template file called theme/gofast-space-add-members.tpl.php
+            'arguments' => array('nid' => NULL)
+        ),
+        'gofast_space_archive' => array(
+            'template' => 'theme/gofast-space-archive',
+            'arguments' => array('nid' => NULL)
+        ),
+        'gofast_space_unarchive' => array(
+            'template' => 'theme/gofast-space-unarchive',
+            'arguments' => array('nid' => NULL)
+        ),
+        'gofast_space_manage_members' => array(
+            'template' => 'theme/gofast-space-manage-members', // template file called theme/gofast-space-manage-members.tpl.php
+            'arguments' => array('nid' => NULL),
+        ),
+        'gofast_link_edit_webform_form_builder' => array(
+            'template'  => 'theme/gofast-link-edit-webform-form-builder',
+            'arguments' => array('node' => NULL)
+        ),
+        'gofast_link_webform_results' => array(
+            'template'  => 'theme/gofast-link-webform-results',
+            'arguments' => array('node' => NULL)
+        ),
+        'gofast_bookmarks_favorites_folders' => array(
+            'template' => 'theme/gofast-bookmarks-favorites-folders'
+        ),
+        'gofast_user_display_user_gofast_role' => array(
+            'template' => 'theme/gofast-user-display-user-gofast-role'
+        ),
+        'gofast_userlist_display_number_members' => array(
+            'template' => 'theme/gofast-user-display-number-roles'
+        ),
+        'gofast_keen_button' => array(
+            'template' => 'theme/gofast-keen/gofast-keen-button'
+        ),
+        'gofast_unflag_folder' => array(
+            'template' => 'theme/gofast-unflag-folder'
+        ),
+        'gofast_link_edit_picture_user' => array(
+          'template' => 'theme/gofast-link-edit-picture-user',
+          'arguments' => array('uid' => NULL, 'only_icon' => NULL),
     ),
-    'gofast_mobile_activity_feed' => array(
-      'template' => 'theme/gofast-mobile-activity-feed', // template file called theme/gofast-link-generic.tpl.php
-      'arguments' => array(
-        'user_picture' => NULL,
-        'node' => NULL,
-        'icon_format' => NULL,
-        'last_updated' => NULL,
-        'spaces'  => NULL,
-        'state'   => NULL,
-        'download_action' => NULL
-      )
-    ),
-    'gofast_download_link' => array(
-      'template' => 'theme/gofast-download-link', // template file called theme/gofast-download-link.tpl.php
-      'arguments' => array('node' => NULL),
-    ),
-    'gofast_link_edit_mode' => array(
-      'template' => 'theme/gofast-link-edit-mode', // template file called theme/gofast-link-edit-mode.tpl.php
-      'arguments' => array('node' => NULL, 'disabled' => ''),
-    ),
-    'gofast_link_delete_modal' => array(
-      'template' => 'theme/gofast-link-delete-modal', // template file called theme/gofast-link-delete-modal.tpl.php
-      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
-    ),
-    'gofast_link_delete_blog_modal' => array(
-      'template' => 'theme/gofast-link-delete-blog-modal', // template file called theme/gofast-link-delete-modal.tpl.php
-      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
-    ),
-    'gofast_link_move_space' => array(
-      'template' => 'theme/gofast-link-move-space', // template file called theme/gofast-link-move-space.tpl.php
-      'arguments' => array('node' => NULL, 'nid' => NULL),
-    ),
-    'gofast_link_archive' => array(
-      'template' => 'theme/gofast-link-archive', // template file called theme/gofast-link-delete-modal.tpl.php
-      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
-    ),
-    'gofast_link_unarchive' => array(
-      'template' => 'theme/gofast-link-archive', // template file called theme/gofast-link-delete-modal.tpl.php
-      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
-    ),
-    'gofast_link_new_version' => array(
-      'template' => 'theme/gofast-link-new-version', // template file called theme/gofast-link-new-version.tpl.php
-      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
-    ),
-    'gofast_link_manage_keywords' => array(
-      'template' => 'theme/gofast-link-manage-keywords', // template file called theme/gofast-link-manage-keywords.tpl.php
-      'arguments' => array('node' => NULL, 'nid' => NULL),
-    ),
-    'gofast_link_manage_translations' => array(
-      'template' => 'theme/gofast-link-manage-translations', // template file called theme/gofast-link-manage-translations.tpl.php
-      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => ''),
-    ),
-    'gofast_link_manage_taxonomy' => array(
-      'template' => 'theme/gofast-link-manage-taxonomy', // template file called theme/gofast-link-manage-translations.tpl.php
-      'arguments' => array('node' => NULL, 'nid' => NULL),
-    ),
-    'gofast_block_file_management' => array(
-      'template' => 'theme/gofast-block-file-management', // template file called theme/gofast-block-file-management.tpl.php
-      'arguments' => array('node' => NULL, 'text' => NULL, 'class' => NULL),
-    ),
-    'gofast_block_microblogging_management' => array(
-      'template' => 'theme/gofast-block-microblogging-management', // template file called theme/gofast-block-file-management.tpl.php
-      'arguments' => array('blog_id' => NULL),
-    ),
-    'gofast_link_add_relationship' => array(
-      'template' => 'theme/gofast-link-add-relationship', // template file called theme/gofast-link-add-relationship.tpl.php
-      'arguments' => array('uid' => NULL),
-    ),
-    'gofast_link_delete_user' => array(
-      'template' => 'theme/gofast-user-delete', // template file called theme/gofast-user-delete.tpl.php
-      'arguments' => array('href' => null, 'text' => NULL, 'class' => NULL),
-    ),
-    'gofast_link_add_comment' => array(
-      'template' => 'theme/gofast-link-add-comment', // template file called theme/gofast-link-add-comment.tpl.php
-      'arguments' => array('node' => NULL, 'href' => null, 'text' => NULL),
-    ),
-    'gofast_user_relationships_remove_link' => array(
-      'template' => 'theme/gofast-user-relationships-remove-link', // template gofast-user-relationships-remove-link.tpl.php
-      'arguments' => array('uid' => NULL, 'rid' => NULL),
-    ),
-    'gofast_space_join_conversation' => array(
-      'template' => 'theme/gofast-space-join-conversation', // template file called theme/gofast-space-join-conversation.tpl.php
-    ),
-    'gofast_user_relationships_pending_request_approve_link' => array(
-      'template' => 'theme/gofast-user-relationships-pending-request-approve-link', // template gofast-user-relationships-pending-request-approve-link.tpl.php
-      'arguments' => array('uid' => NULL, 'rid' => NULL),
-    ),
-    'gofast_user_relationships_pending_request_disapprove_link' => array(
-      'template' => 'theme/gofast-user-relationships-pending-request-disapprove-link', // template gofast-user-relationships-pending-request-disapprove-link.tpl.php
-      'arguments' => array('uid' => NULL, 'rid' => NULL),
-    ),
-    'gofast_user_relationships_pending_request_cancel_link' => array(
-      'template' => 'theme/gofast-user-relationships-pending-request-cancel-link', // template gofast-user-relationships-pending-request-cancel-link.tpl.php
-      'arguments' => array('uid' => NULL, 'rid' => NULL),
-    ),
-    'gofast_user_mobilephone' => array(
-      'template' => 'theme/gofast-user-mobilephone', // template gofast-user-mobilephone.tpl.php
-      'arguments' => array('user' => NULL, 'only_icon' => NULL),
-    ),
-    'gofast_user_new_message' => array(
-      'template' => 'theme/gofast-user-new-message', // template gofast-user-new-message.tpl.php
-      'arguments' => array('user' => NULL, 'only_icon' => NULL),
-    ),
-    'gofast_subscribe_user' => array(
-      'template' => 'theme/gofast-subscribe-user', // template gofast-subscribe-user.tpl.php
-      'arguments' => array('user' => NULL),
-    ),
-    'gofast_block_user' => array(
-      'template' => 'theme/gofast-block-user', // template gofast-unblock-user.tpl.php
-      'arguments' => array('uid' => NULL, 'only_icon' => NULL),
-    ),
-    'gofast_unblock_user' => array(
-      'template' => 'theme/gofast-unblock-user', // template gofast-unblock-user.tpl.php
-      'arguments' => array('uid' => NULL, 'only_icon' => NULL),
-    ),
-    'gofast_leave_user' => array(
-      'template' => 'theme/gofast-leave-user', // template gofast-unblock-user.tpl.php
-      'arguments' => array('uid' => NULL, 'only_icon' => NULL),
-    ),
-    'gofast_unleave_user' => array(
-      'template' => 'theme/gofast-unleave-user', // template gofast-unblock-user.tpl.php
-      'arguments' => array('uid' => NULL, 'only_icon' => NULL),
-    ),
-    'gofast_block_user_quick_actions' => array(
-      'template' => 'theme/gofast-block-user-quick-actions', // template file called theme/gofast-block-user-quick-actions.tpl.php
-      'arguments' => array('user' => NULL),
-    ),
-    'gofast_link_edit' => array(
-      'template' => 'theme/gofast-link-edit', // template file called theme/gofast-link-edit.tpl.php
-      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => true),
-    ),
-    'gofast_link_add_article_page' => array(
-      'template' => 'theme/gofast-link-add-article-page', // template file called theme/gofast-link-edit-mode.tpl.php
-      'arguments' => array('bid' => NULL, 'disabled' => true),
-    ),
-    'gofast_link_edit_userlist' => array(
-      'template' => 'theme/gofast-link-edit-userlist', // template file called theme/gofast-link-edit-userlist.tpl.php
-      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => NULL),
-    ),
-    'gofast_link_sync_userlist' => array(
-      'template' => 'theme/gofast-link-sync-userlist', // template file called theme/gofast-link-edit-userlist.tpl.php
-      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => NULL),
-    ),
-    'gofast_link_delete_userlist' => array(
-      'template' => 'theme/gofast-link-delete-userlist', // template file called theme/gofast-link-delete-userlist.tpl.php
-      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => NULL),
-    ),
-    'gofast_link_manage_userlist_members' => array(
-      'template' => 'theme/gofast_link_manage_userlist_members', // template file called theme/gofast_link_manage_userlist_members.tpl.php
-      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => NULL),
-    ),
-    'gofast_link_manage_permissions_access_userlist' => array(
-      'template' => 'theme/gofast_link_manage_permissions_access_userlist', // template file called theme/gofast_link_manage_permissions_access_userlist.tpl.php
-      'arguments' => array('node' => NULL, 'nid' => NULL, 'disabled' => NULL),
-    ),
-    'gofast_link_edit_onlyoffice' => array(
-      'template' => 'theme/gofast-link-edit-onlyoffice', // template file called theme/gofast-link-edit-onlyoffice.tpl.php
-      'arguments' => array('node' => NULL, 'disabled' => ''),
-    ),
-    'gofast_link_edit_microblogging' => array(
-      'template' => 'theme/gofast-link-edit-microblogging', // template file called theme/gofast-link-edit-onlyoffice.tpl.php
-      'arguments' => array('blog_id' => NULL),
-    ),
-    'gofast_link_publication' => array(
-      'template'  => 'theme/gofast-link-publication',
-      'arguments' => array('node' => NULL, 'disabled' => '')
-    ),
-    'gofast_link_share_email' => array(
-      'template'  => 'theme/gofast-link-share-email',
-      'arguments' => array('node' => NULL)
-    ),
-    'gofast_node_format' => array(
-      'template' => 'theme/gofast-node-format', // template file called theme/gofast-node-format.tpl.php
-      'arguments' => array('node' => NULL),
-    ),
-    'gofast_node_icon_format' => array(
-      'template' => 'theme/gofast-node-icon-format', // template file called theme/gofast-node-icon-format.tpl.php
-      'arguments' => array('node' => NULL),
-    ),
-    'gofast_node_info_field' => array(
-      'template' => 'theme/gofast-node-info-field', // template file called theme/gofast-node-info-field.tpl.php
-      'arguments' => array('title' => NULL, 'values' => NULL, 'multiline', FALSE)
-    ),
-    'gofast_tooltip_emplacements' => array(
-      'template' => 'theme/gofast-tooltip-emplacements', // template file called theme/gofast-node-icon-format.tpl.php
-      'arguments' => array('locations' => NULL),
-    ),
-    'gofast_space_add_members' => array(
-      'template' => 'theme/gofast-space-add-members', // template file called theme/gofast-space-add-members.tpl.php
-      'arguments' => array('nid' => NULL)
-    ),
-    'gofast_space_preadd_members' => array(
-      'template' => 'theme/gofast-space-preadd-members', // template file called theme/gofast-space-add-members.tpl.php
-      'arguments' => array('nid' => NULL)
-    ),
-    'gofast_space_add_riot_room' => array(
-      'template' => 'theme/gofast-space-add-riot-room', // template file called theme/gofast-space-add-riot-room.tpl.php
-      'arguments' => array('nid' => NULL, 'disabled' => '')
-    ),
-    'gofast_space_delete_riot_room' => array(
-      'template' => 'theme/gofast-space-delete-riot-room', // template file called theme/gofast-space-add-riot-room.tpl.php
-      'arguments' => array('nid' => NULL, 'disabled' => '')
-    ),
-    'gofast_space_delete_space' => array(
-      'template' => 'theme/gofast-space-delete-space', // template file called theme/gofast-space-add-members.tpl.php
-      'arguments' => array('nid' => NULL)
-    ),
-    'gofast_space_archive' => array(
-      'template' => 'theme/gofast-space-archive',
-      'arguments' => array('nid' => NULL)
-    ),
-    'gofast_space_unarchive' => array(
-      'template' => 'theme/gofast-space-unarchive',
-      'arguments' => array('nid' => NULL)
-    ),
-    'gofast_space_manage_members' => array(
-      'template' => 'theme/gofast-space-manage-members', // template file called theme/gofast-space-manage-members.tpl.php
-      'arguments' => array('nid' => NULL),
-    ),
-    'gofast_link_edit_webform_form_builder' => array(
-      'template'  => 'theme/gofast-link-edit-webform-form-builder',
-      'arguments' => array('node' => NULL)
-    ),
-    'gofast_link_webform_results' => array(
-      'template'  => 'theme/gofast-link-webform-results',
-      'arguments' => array('node' => NULL)
-    ),
-    'gofast_bookmarks_favorites_folders' => array(
-      'template' => 'theme/gofast-bookmarks-favorites-folders'
-    ),
-    'gofast_user_display_user_gofast_role' => array(
-      'template' => 'theme/gofast-user-display-user-gofast-role'
-    ),
-    'gofast_userlist_display_number_members' => array(
-      'template' => 'theme/gofast-user-display-number-roles'
-    )
-  );
-  return $themes;
+    );
+    return $themes;
 }
 
 /**
@@ -1353,7 +1382,7 @@ function template_preprocess_gofast_link_unarchive(&$variables)
 function template_preprocess_gofast_download_link(&$variables)
 {
   $node = $variables['node'];
-  if ($node->type == "alfresco_item") {
+  if ($node->type == "alfresco_item" || $node->type == 'article') {
     if (module_exists('gofast_cmis')) {
         $variables['ref'] = !empty($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']) ? $node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value'] : '';
         $variables['onclick'] = 'Gofast.auditAction.download(\'' . $node->nid . '\')';
@@ -1362,8 +1391,19 @@ function template_preprocess_gofast_download_link(&$variables)
   }
 }
 
-function template_preprocess_gofast_space_add_riot_room(&$variables)
-{
+function template_preprocess_gofast_duplicate_file(&$variables){
+    $node = $variables['node'];
+
+    if ($node->type == "alfresco_item") {
+      if (module_exists('gofast_cmis')) {
+        $variables['onclick'] = 'Gofast.ITHit.duplicate(\''.$node->nid.'\')';
+      }
+
+      $variables['text'] = t('Duplicate this file', array(), array('context' => 'gofast'));
+    }
+}
+
+function template_preprocess_gofast_space_add_riot_room(&$variables) {
   $nid = FALSE;
   if (!empty($variables['nid'])) {
     $nid = $variables['nid'];
@@ -1624,8 +1664,6 @@ function template_preprocess_gofast_link_manage_keywords(&$variables)
 function template_preprocess_gofast_block_file_management(&$variables)
 {
   $node = $variables['node'];
-  $divider = true;
-
   if (!is_object($node) || !isset($node->nid)) return;
 
   if (isset($variables['text']) && empty($variables['text'])) {
@@ -1633,48 +1671,11 @@ function template_preprocess_gofast_block_file_management(&$variables)
   }
 
   $variables['class'] = isset($variables['class']) && is_array($variables['class']) ? $variables['class'] : array();
+  //$browser_path = isset($node->{GOFAST_CMIS_MAIN_LOCATION_FIELD}[LANGUAGE_NONE][0]['value']) ? $node->{GOFAST_CMIS_MAIN_LOCATION_FIELD}[LANGUAGE_NONE][0]['value'] . "/" . $node->{GOFAST_CMIS_FILENAME_FIELD}[LANGUAGE_NONE][0]['value'] : false;
+  //if ($browser_path && strpos($browser_path, "/alfresco/webdav") !== 0) $browser_path = "/alfresco/webdav" . $browser_path;
 
-  $output = '<ul class="dropdown-menu gofast-dropdown-menu" role="menu" aria-labelledby="dropdownMenu1">';
-  foreach (gofast_views_get_node_available_actions($node) as $action) {
-    if (is_array($action)) {
-      $children = array();
-
-      $node_actions[] = array(
-        'themed' => $action['action'],
-        'children' => $children
-      );
-      $output .= '<li class="collapsed dropdown-submenu">' . $action['action'];
-      $output .= '<ul class="dropdown-menu dropdown-menu-right gofast-dropdown-menu" aria-labelledby="dropdownMenu1">';
-      foreach ($action['children'] as $child) {
-        //Do not display "rename" menu on activityfeed view
-        // AND Do not display "edit-resume" menu on activityfeed view
-        if (FALSE === strpos($child, "id=\"rename\"") && FALSE === strpos($child, 'id="edit-resume"')) {
-          if ($divider == true) {
-            $output .= '<li>' . $child . '</li>';
-          } else {
-            $divider = true;
-          }
-        } else {
-          $divider = false;
-        }
-      }
-      $output . '</ul></li>';
-    } else if (strpos($action, "header:") !== FALSE) {
-      $header = explode("header:", $action)[1];
-      $output .= '<li class="dropdown-header">' . $header . '</li>';
-    } else if (strpos($action, "divider:") !== FALSE) {
-      $output .= '<li role="separator" class="divider"></li>';
-    } else {
-      //Do not display "rename" menu on activityfeed view
-      // AND Do not display "edit-resume" menu on activityfeed view
-      if (FALSE === strpos($action, "id=\"rename\"") && FALSE === strpos($action, 'id="edit-resume"')) {
-        $output .= '<li>' . $action . '</li>';
-      }
-    }
-  }
-
-  $output .= '</ul>';
-
+  $node_actions = gofast_contextual_menu_get_node_actions_dropdown($node, $browser_path ?: null);
+  $output = theme('gofast_contextual_menu_dropdown_items', array('node_actions' => $node_actions));
   $variables['output'] = $output;
 }
 
@@ -1691,7 +1692,7 @@ function template_preprocess_gofast_block_microblogging_management(&$variables)
 
   $variables['class'] = isset($variables['class']) && is_array($variables['class']) ? $variables['class'] : array();
 
-  $output = '<ul class="dropdown-menu gofast-dropdown-menu" role="menu" aria-labelledby="dropdownMenu1">';
+  $output = '<ul class="dropdown-menu navi navi-hover py-5" role="menu" aria-labelledby="dropdownMenu1">';
   //    print_r('toto');exit;
 
   foreach (gofast_views_get_microblogging_available_actions($id) as $action) {
@@ -1702,14 +1703,14 @@ function template_preprocess_gofast_block_microblogging_management(&$variables)
         'themed' => $action['action'],
         'children' => $children
       );
-      $output .= '<li class="collapsed dropdown-submenu">' . $action['action'];
-      $output .= '<ul class="dropdown-menu dropdown-menu-right gofast-dropdown-menu" aria-labelledby="dropdownMenu1">';
+      $output .= '<li class="collapsed dropdown-submenu navi-item">' . $action['action'];
+      $output .= '<ul class="dropdown-menu dropdown-menu-right navi navi-hover py-5" aria-labelledby="dropdownMenu1">';
       foreach ($action['children'] as $child) {
         //Do not display "rename" menu on activityfeed view
         // AND Do not display "edit-resume" menu on activityfeed view
         if (FALSE === strpos($child, "id=\"rename\"") && FALSE === strpos($child, 'id="edit-resume"')) {
           if ($divider == true) {
-            $output .= '<li>' . $child . '</li>';
+            $output .= '<li class="navi-item">' . $child . '</li>';
           } else {
             $divider = true;
           }
@@ -1722,7 +1723,7 @@ function template_preprocess_gofast_block_microblogging_management(&$variables)
       //Do not display "rename" menu on activityfeed view
       // AND Do not display "edit-resume" menu on activityfeed view
       if (FALSE === strpos($action, "id=\"rename\"") && FALSE === strpos($action, 'id="edit-resume"')) {
-        $output .= '<li>' . $action . '</li>';
+        $output .= '<li class="navi-item">' . $action . '</li>';
       }
     }
   }
@@ -1799,7 +1800,7 @@ function gofast_views_get_node_available_actions($node, $browser_path = NULL, $f
             'link_class' => 'btn btn-sm ctools-use-modal ctools-use-moal-processed',
             'href' => '/modal/nojs/node/' . $node->nid . '/manage-locations',
             'onclick' => 'Gofast.ITHit.bulkSelected(event)',
-            'icon_class' => "fa fa-share-alt",
+            'icon_class' => "fa fa-share-alt n-color",
             'title' => t('Manage locations of this document')
           ));
           if (in_array(strtolower(gofast_cmis_node_get_extension($node)), gofast_onlyoffice_editable_document_extensions()) && $detect->isTablet()) {
@@ -2058,7 +2059,7 @@ function gofast_views_get_node_available_actions($node, $browser_path = NULL, $f
       'onClick' => 'Gofast.ITHit.bulkSelected(event, \'' . $browser_path . '\')'
     );
     //$actions[] = gofast_dropdown_link(t('Manage taxonomy', array(), array('context' => 'gofast')), '/modal/nojs/manage-taxonomy', 'taxonomy_open_span', 'ctools-use-modal manage-taxonomy', 'fa fa-tags', $attr);
-    //$actions[] =  gofast_dropdown_link(t('Manage locations', array(), array('context' => 'gofast')), '/modal/nojs/manage-locations', 'locations_open_span', 'ctools-use-modal manage-locations', 'fa fa-list', $attr);
+    $actions[] =  gofast_dropdown_link(t('Manage locations', array(), array('context' => 'gofast')), '/modal/nojs/folder/manage-locations?path=' . $browser_path, 'locations_open_span', 'ctools-use-modal manage-folder-locations', 'fa fa-list');
     //$actions[] =  gofast_dropdown_link(t('Manage publications', array(), array('context' => 'gofast')), '/modal/nojs/manage-publications', 'locations_open_span', 'ctools-use-modal manage-publications', 'fa fa-arrow-up', $attr);
     //$actions[] =  gofast_dropdown_link(t('Manage shares by mail', array(), array('context' => 'gofast')), '/modal/nojs/manage-sharing-mail', 'locations_open_span', 'ctools-use-modal manage-mail-sharing', 'fa fa-envelope', $attr);
   }
@@ -2159,7 +2160,7 @@ function gofast_views_get_node_available_actions($node, $browser_path = NULL, $f
             'link_class' => 'btn btn-sm ctools-use-modal ctools-use-moal-processed',
             'href' => '/modal/nojs/node/' . $node->nid . '/manage-locations',
             'onclick' => 'Gofast.ITHit.bulkSelected(event)',
-            'icon_class' => "fa fa-share-alt",
+            'icon_class' => "fa fa-share-alt n-color",
             'title' => t('Manage locations of this document')
           ));
         } else {
@@ -2167,7 +2168,7 @@ function gofast_views_get_node_available_actions($node, $browser_path = NULL, $f
             'text' => t('Share/Edit locations', array(), array('context' => 'gofast:gofast_views')),
             'link_id' => "manage-locations",
             'link_class' => 'btn btn-sm',
-            'icon_class' => "fa fa-share-alt",
+            'icon_class' => "fa fa-share-alt n-color",
             'disabled' => true
           ));
         }
@@ -2380,47 +2381,212 @@ function gofast_views_get_node_available_actions($node, $browser_path = NULL, $f
         $more[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
       }
       break;
-    case 'article':
-      if ($node->status === strval(NODE_PUBLISHED)) {
-        if (node_access("update", $node) && !$archived_node) {
-          $actions[] = theme('gofast_link_add_article_page', array('node' => $node));
-        } else {
-          $actions[] = theme('gofast_link_add_article_page', array('node' => $node, 'disabled' => true));
-        }
-        $permalink_link = theme('gofast_link_generic', array(
-          'text' => t('Permalink', array(), array('context' => 'gofast:gofast_views')),
-          'link_id' => "permalink",
-          'link_class' => 'btn btn-sm permalink',
-          'href' => '/node/' . $node->nid,
-          'icon_class' => "fa fa-external-link"
-        ));
+   case 'article':
+        //Open article location in GFB
+        if(!$browser_path){
+	    $main_location = gofast_cmis_get_first_available_location($node);
+	    $actions[] = theme('gofast_link_generic', array(
+		'text' => t('Open file\'s location', array(), array('context' => 'gofast')),
+		'link_id' => "browse",
+		'link_class' => 'btn btn-sm',
+		'href' => '/gofast/browser?path=' . rawurlencode($main_location),
+		'icon_class' => "fa fa-external-link",
+		'target' => '_blank',
+	      ));
+	}
+
+        //Add article
         $actions[] = 'divider:';
-        $actions[] = theme('gofast_link_add_comment', array('node' => $node));
-        if (node_access("update", $node) && !$archived_node) {
-          $actions[] = 'divider:';
-          $actions[] = theme('gofast_link_edit', array('node' => $node));
-          $actions[] = 'divider:';
-          $actions[] = $permalink_link;
-        } else {
-          $actions[] = 'divider:';
-          $actions[] = theme('gofast_link_edit', array('node' => $node, 'disabled' => true));
-          $actions[] = 'divider:';
-          $actions[] = $permalink_link;
+        if($node->status === strval(NODE_PUBLISHED)) {
+            if (node_access("update", $node) && !$archived_node /*&& !$retention_node*/) {
+              $actions[] = theme('gofast_link_add_article_page', array('node' => $node));
+
+            }else{
+                $actions[] = theme('gofast_link_add_article_page', array('node' => $node, 'disabled' => true));
+            }
+            //Modifier l'article
+            if (node_access("update", $node) && !$archived_node) {
+                $actions[] = 'divider:';
+                $actions[] = theme('gofast_link_edit', array('node' => $node));
+            }else{
+                $actions[] = 'divider:';
+                $actions[] = theme('gofast_link_edit', array('node' => $node, 'disabled' => true));
+            }
+
+
+	    $permalink_link = theme('gofast_link_generic', array(
+	      'text' => t('Permalink', array(), array('context' => 'gofast:gofast_views')),
+	      'link_id' => "permalink",
+	      'link_class' => 'btn btn-sm permalink',
+	      'href' => '/node/' . $node->nid,
+	      'icon_class' => "fa fa-external-link"
+	    ));
+
+            //Commentaires
+	    $actions[] = 'divider:';
+            if(!$browser_path){
+                $actions[] = theme('gofast_link_add_comment',array('node' => $node));
+                $actions[] = 'divider:';
+                }else{
+                    $actions[] = theme('gofast_link_add_comment',array('node' => $node, 'disabled' => true));
+                    $actions[] = 'divider:';
+            }
+
+            //Share/Edit locations
+            if (node_access("update", $node) && !$archived_node && !$retention_node && !gofast_cmis_node_is_locked($node)) {
+                $actions[] = theme('gofast_link_generic', array(
+                    'text' => t('Share/Edit locations', array(), array('context' => 'gofast:gofast_views')),
+                    'link_id' => "manage-locations",
+                    'link_class' => 'btn btn-sm ctools-use-modal ctools-use-moal-processed',
+                    'href' => '/modal/nojs/node/' . $node->nid . '/manage-locations',
+                    'onclick' => 'Gofast.ITHit.bulkSelected(event)',
+                    'icon_class' => "fa fa-share-alt n-color",
+                    'title' => t('Manage locations of this document')
+                    ));
+                }else{
+                    $actions[] = theme('gofast_link_generic', array(
+                        'text' => t('Share/Edit locations', array(), array('context' => 'gofast:gofast_views')),
+                        'link_id' => "manage-locations",
+                        'link_class' => 'btn btn-sm',
+                        'icon_class' => "fa fa-share-alt n-color",
+                        'disabled' => true
+                        ));
+                    }
+                $actions[] = theme('gofast_link_share_email', array('node' => $node));
+                $permalink_link = theme('gofast_link_generic', array(
+                    'text' => t('Permalink', array(), array('context' => 'gofast:gofast_views')),
+                    'link_id' => "permalink",
+                    'link_class' => 'btn btn-sm permalink',
+                    'href' => '/node/' . $node->nid,
+                    'icon_class' => "fa fa-external-link"
+                ));
+                $actions[] = $permalink_link;
+
+
+            $actions[] = 'divider:';
+            //Rename
+            if (!gofast_og_is_root_space($node) && !$retention_node && $node->{field_is_homepage}[LANGUAGE_NONE][0]['value'] !== "1" ){
+              if(((!in_array($node->type, $type_spaces) && node_access('update', $node)))){
+                if($browser_path && !$contains_space){
+                    if($from_tree){
+                       $onClick = 'Gofast.ITHit.renameTree(\''.$browser_path.'\')';
+                     }else{
+                       $onClick = 'Gofast.ITHit.rename(\''.$browser_path.'\')';
+                     }
+                    $actions[] = theme('gofast_link_generic', array(
+                       'text' => t('Rename', array(), array('context' => 'gofast')),
+                       'link_id' => "rename",
+                       'link_class' => 'btn btn-sm ' . $class_locked,
+                       'href' => '',
+                       'icon_class' => "fa fa-pencil",
+                       'target' => '_blank',
+                       'onClick' => $onClick,
+                     ));
+                    $actions[] = 'divider:';
+                }else if($node->type != 'userlist' && node_access("update", $node)){
+                $onClick = 'jQuery(\'span.xeditable_field_wrapper.field-title > a\').trigger(\'click\');';
+                $more[] = theme('gofast_link_generic', array(
+                       'text' => t('Rename', array(), array('context' => 'gofast')),
+                       'link_id' => "rename",
+                       'link_class' => 'btn btn-sm ' . $class_locked,
+                       'href' => '',
+                       'icon_class' => "fa fa-pencil",
+                       'onClick' => $onClick,
+                     ));
+                }
+            }else if($node->type != 'userlist' && !node_access("update", $node)){
+                $onClick = 'jQuery(\'span.xeditable_field_wrapper.field-title > a\').trigger(\'click\');';
+                $more[] = theme('gofast_link_generic', array(
+                       'text' => t('Rename', array(), array('context' => 'gofast')),
+                       'link_id' => "rename",
+                       'link_class' => 'btn btn-sm ' . $class_locked,
+                       'icon_class' => "fa fa-pencil",
+                       'disabled' => true,
+                     ));
+                }
         }
-        if (node_access('delete', $node) && !$archived_node && !$retention_node) {
-          $more[] = theme('gofast_link_delete_modal', array('node' => $node));
-          $more[] = "<li role='separator' class='divider'></li>";
+           /* if(node_access('delete', $node) && !$archived_node && !$retention_node){
+                $more[] = theme('gofast_link_delete_modal', array('node' => $node));
+                $more[] = "<li role='separator' class='divider'></li>";
+            }else{
+                $more[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
+                $more[] = "<li role='separator' class='divider'></li>";
+            }*/
+            if (node_access("update", $node) && !$archived_node && !$retention_node) {
+                if(gofast_cmis_user_can_publish($node)) {
+                    $actions[] = theme('gofast_link_publication', array('node' => $node, 'class' => array($class_locked)));
+                }else{
+                    $actions[] = theme('gofast_link_publication', array('node' => $node, 'disabled' => true));
+                }
+            }else{
+                $actions[] = theme('gofast_link_publication', array('node' => $node, 'disabled' => true));
+            }
+
+        $more[] = theme('gofast_download_link',array('node' => $node));
+        if (node_access('update', $node) && node_access("delete", $node) )
+           // && og_user_access("node", $node->nid, 'archive space', NULL , FALSE , TRUE))
+        {
+          //$more[] = $archived_node ? theme('gofast_link_unarchive', array('node' => $node)) : theme('gofast_link_archive', array('node' => $node, 'class' => array($class_locked)));
+        }else{
+          //$more[] = $archived_node ? theme('gofast_link_unarchive', array('node' => $node , 'disabled' => true)) : theme('gofast_link_archive', array('node' => $node, 'disabled' => true));
+	}
+
+        $node_is_publication = (gofast_cmis_get_publication_source($node)) != FALSE;
+        if(node_access('delete', $node) && !$archived_node && !$node_is_publication && !$retention_node){
+	    if($browser_path){
+		$onClick = 'Gofast.ITHit.deleteSelected(event, \''.$browser_path.'\')';
+		$more[] = theme('gofast_link_generic', array(
+		  'text' => t('Delete', array(), array('context' => 'gofast')),
+		  'link_id' => "delete",
+		  'link_class' => 'btn btn-sm on-node-lock-disable' . $class_locked,
+		  'href' => '',
+		  'icon_class' => "fa fa-trash",
+		  'target' => '_blank',
+		  'onClick' => $onClick,
+		 ));
+	    }else{
+	      $more[] = theme('gofast_link_delete_modal', array('node' => $node, 'class' => array($class_locked)));
+	    }
+        }else{
+	    $more[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
+	}
+
+        if (node_access("update", $node) && !$archived_node && !$retention_node) {
+            $more[] = theme('gofast_link_manage_translations', array('node' => $node, 'class' => array($class_locked)));
+	}else{
+	    $more[] = theme('gofast_link_manage_translations',array('node' => $node , 'disabled' => true));
+	}
+	$more[] = "<li role='separator' class='divider'></li>";
+
         } else {
-          $more[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
-          $more[] = "<li role='separator' class='divider'></li>";
-        }
-      } else {
-        if (node_access('delete', $node) && !$archived_node && !$retention_node) {
-          $actions[] = theme('gofast_link_delete_modal', array('node' => $node));
-        } else {
-          $actions[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
-        }
+        if(node_access('delete', $node) && !$archived_node && !$retention_node){
+          if($browser_path){
+            $onClick = 'Gofast.ITHit.deleteSelected(event, \''.$browser_path.'\')';
+            $more[] = theme('gofast_link_generic', array(
+              'text' => t('Delete', array(), array('context' => 'gofast')),
+              'link_id' => "delete",
+              'link_class' => 'btn btn-sm on-node-lock-disable' . $class_locked,
+              'href' => '',
+              'icon_class' => "fa fa-trash",
+              'target' => '_blank',
+              'onClick' => $onClick,
+             ));
+          }else{
+	    $actions[] = theme('gofast_link_delete_modal', array('node' => $node, 'class' => array($class_locked)));
+	      }
+        }else{
+	    $actions[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
+	}
       }
+
+
+	/*}else{
+            if(node_access('delete', $node) && !$archived_node && !$retention_node){
+                $actions[] = theme('gofast_link_delete_modal', array('node' => $node));
+            }else{
+                $actions[] = theme('gofast_link_delete_modal', array('node' => $node, 'disabled' => true));
+            }
+        }*/
       break;
     case 'forum':
       if ($node->status === strval(NODE_PUBLISHED)) {
@@ -2548,6 +2714,41 @@ function gofast_views_get_node_available_actions($node, $browser_path = NULL, $f
 
           $actions[] = theme("gofast_link_move_space", array('node' => $node));
 
+          //We add some delay to rebuild contextual actions menu
+          $article_homepage = gofast_og_get_article_homepage($node);
+          if($article_homepage->status == 1) {
+              $actions[] = theme('gofast_link_generic', array(
+                  'text' => t('Delete homepage', array(), array('context' => 'gofast:gofast_views')),
+                  'link_id' => 'file_browser_tooolbar_new_article',
+                  'link_class' => 'btn btn-sm center-block sidebar-items ctools-use-modal',
+                  'href' => '/modal/nojs/node/' . $article_homepage->nid . '/manage',
+                  'icon_class' => 'fa fa-newspaper-o',
+                  'onClick' => "setTimeout(function(){
+                      Gofast.gofast_refresh_fast_actions_node(" . $node->nid . ")
+                      }, 5000);"
+               ));
+              //Edit the homepage
+              if(!$browser_path){
+                  $actions[] = theme('gofast_link_generic', array(
+                      'text' => t('Edit home page', array(), array('context' => 'gofast')),
+                      'link_id' => "edit-resume",
+                      'link_class' => 'btn btn-sm center-block sidebar-items ctools-use-modal',
+                      'href' => '/modal/ajax/article/' . $article_homepage->nid . '/edit',
+                      'icon_class' => "fa fa-pencil",
+                      'onClick' => '',
+                      'title' => t('Customize the Home tab of this Space')
+                    ));
+                }
+          }else{
+              $actions[] = theme('gofast_link_generic', array(
+                  'text' => t('Restore homepage', array(), array('context' => 'gofast:gofast_views')),
+                  'link_id' => 'file_browser_tooolbar_new_article',
+                  'link_class' => 'btn btn-sm center-block sidebar-items ctools-use-modal',
+                  'href' => '/modal/nojs/node/' . $article_homepage->nid . '/manage',
+                  'icon_class' => 'fa fa-newspaper-o',
+                  'onClick' => 'Gofast.gofast_refresh_fast_actions_node(' . $node->nid . ')'
+               ));
+          }
 
           if ($node->type != 'organisation') {
             if (gofast_group_is_archive($node)) {
@@ -2772,7 +2973,8 @@ function gofast_dropdown_link($label, $href = '', $link_id = '', $link_class = '
   }
 
   $attr['class'] = isset($attr['class']) ? $attr['class'] : array();
-  $attr['class'] = array_merge($btn_cls, $attr['class']);
+  $attr['class'] = $link_class ? array_merge($attr['class'], explode(' ', $link_class)) : $attr['class'];
+  //$attr['class'] = array_merge($btn_cls, $attr['class']);
   $title = $attr['title'];
 
   $link_identifier = trim($link_id);
@@ -2856,15 +3058,6 @@ function gofast_modal_user_blocked($js, $uid)
   );
 
   $commands = ctools_modal_form_wrapper($form_id, $form_state);
-  $commands[] = ajax_command_html(
-    '#ctools-add-js',
-    "<script type='text/javascript'>
-          var delayInMilliseconds = 200;
-          setTimeout(function() {
-          modalContentResize();
-          }, delayInMilliseconds);
-          </script>"
-  );
 
   if ($form_state['executed']) {
     $commands[] = gofast_command_processAjax($_SERVER['HTTP_REFERER']);
@@ -2897,15 +3090,6 @@ function gofast_modal_user_unblocked($js, $uid)
   );
 
   $commands = ctools_modal_form_wrapper($form_id, $form_state);
-  $commands[] = ajax_command_html(
-    '#ctools-add-js',
-    "<script type='text/javascript'>
-          var delayInMilliseconds = 200;
-          setTimeout(function() {
-          modalContentResize();
-          }, delayInMilliseconds);
-          </script>"
-  );
 
   if ($form_state['executed']) {
     $commands[] = gofast_command_processAjax($_SERVER['HTTP_REFERER']);
@@ -2938,15 +3122,6 @@ function gofast_modal_user_leave($js, $uid)
   );
 
   $commands = ctools_modal_form_wrapper($form_id, $form_state);
-  $commands[] = ajax_command_html(
-    '#ctools-add-js',
-    "<script type='text/javascript'>
-          var delayInMilliseconds = 200;
-          setTimeout(function() {
-          modalContentResize();
-          }, delayInMilliseconds);
-          </script>"
-  );
 
   if ($form_state['executed']) {
     $commands[] = gofast_command_processAjax($_SERVER['HTTP_REFERER']);
@@ -2979,15 +3154,6 @@ function gofast_modal_user_unleave($js, $uid)
   );
 
   $commands = ctools_modal_form_wrapper($form_id, $form_state);
-  $commands[] = ajax_command_html(
-    '#ctools-add-js',
-    "<script type='text/javascript'>
-          var delayInMilliseconds = 200;
-          setTimeout(function() {
-          modalContentResize();
-          }, delayInMilliseconds);
-          </script>"
-  );
 
   if ($form_state['executed']) {
     $commands[] = gofast_command_processAjax($_SERVER['HTTP_REFERER']);
@@ -3031,6 +3197,7 @@ function gofast_views_remove_relationship_modal($js, $uid, $rid)
 
   //Hide No button
   $modal = ctools_modal_form_wrapper('user_relationships_ui_remove', $form_state);
+  $modal = gofast_normalize_string_from_ajaxifying($modal);
   $modal[0]['output'] = str_replace('<a href="/relationships" id="edit-cancel">' . t('No') . '</a>', '', $modal[0]['output']);
   $new_user_menu = "";
   if ($form_state['submitted']) {
@@ -3081,10 +3248,6 @@ function gofast_views_requested_relationship_modal($js, $uid, $rid, $action)
     '#ctools-add-js',
     "<script type='text/javascript'>
               jQuery('#modalBackdrop').remove();
-              var delayInMilliseconds = 500;
-              setTimeout(function() {
-              modalContentResize();
-              }, delayInMilliseconds);
               </script>"
   );
   $new_user_menu = "";
@@ -3170,15 +3333,9 @@ function gofast_views_modal_user_delete($js, $uid)
   );
 
   $commands = ctools_modal_form_wrapper($form_id, $form_state);
-  $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
-          var delayInMilliseconds = 200;
-          setTimeout(function() {
-          modalContentResize();
-          }, delayInMilliseconds);
-          </script>");
 
   if ($form_state['executed']) {
-    $commands[] = gofast_command_processAjax('user_listing_tab');
+    $commands[] = gofast_command_processAjax('directory/users');
     $commands[] = gofast_command_toast_message(t("The user has been deleted", array(), array('context' => 'gofast:gofast_views')));
     $commands[] = ctools_modal_command_dismiss();
   }
@@ -3309,6 +3466,18 @@ function template_preprocess_gofast_block_user(&$variables)
     $variables['text'] = t('Block this user', array(), array('context' => 'gofast'));
   } else {
     $variables['class'] = 'ctools-use-modal bloc-user-icon';
+  }
+}
+
+function template_preprocess_gofast_link_edit_picture_user(&$variables)
+{
+  $user = $variables['uid'];
+  $variables['href'] = "/gofast/nojs/user/edit-avatar/{$user}";
+  if ($variables['only_icon'] == NULL) {
+    $variables['class'] = ' ctools-use-modal';
+    $variables['text'] = t('Edit the picture', array(), array('context' => 'gofast'));
+  } else {
+    $variables['class'] = ' ctools-use-modal ctools-modal-cropping-avatar-modal-style';
   }
 }
 
@@ -3542,168 +3711,59 @@ function template_preprocess_gofast_link_webform_results(&$variables)
 function template_preprocess_gofast_node_icon_format(&$variables)
 {
   $node = $variables['node'];
-  $src = 'fa ';
+  $src = "fas ";
   if (isset($node->field_format['und'][0]['tid'])) {
     $term_id = $node->field_format['und'][0]['tid'];
     $icons = gofast_taxonomy_load_icons();
     $icon = isset($icons[$term_id]) ? $icons[$term_id] : '';
-    $src .= empty($icon) ? 'file-o' : $icon;
+    $src .= empty($icon) ? 'fa-file' : $icon;
+    
+    $src = gofast_utils_transform_to_fa5_icone($icon);
+    
     // Sometimes we use a processed node with formatted title.
     $variables['title'] = strip_tags($node->title);
-  } else {
-    $src .= 'file-o';
-    $variables['title'] = 'Unknown format';
   }
-  $variables['src'] = 'fa ' . $src;
-  $variables['width'] = '24';
-  $variables['height'] = '24';
+  else {
+    $src .= "fa-file";
+    $variables['title'] = "Unknown format";
+  }
+  $variables['src'] = $src;
+  $variables['width'] = "24";
+  $variables['height'] = "24";
 }
 
-function gofast_views_preprocess_page(&$variables)
+
+function template_preprocess_gofast_type_icon_format(&$variables)
 {
+  $tid = $variables['tid'];
+  $src = "fas ";
+  
+  $icons = gofast_taxonomy_load_icons();
+  $icon = '';
+  if (isset($icons[$tid])) {  
+    
+    //TODO : need rework in 4.0.0_R3
+    $icon = isset($icons[$tid]) ? $icons[$tid] : '';
+    $src .= empty($icon) ? 'fa-file' : $icon;
 
-  $path = drupal_get_path('module', 'gofast_views');
+    $src = gofast_utils_transform_to_fa5_icone($icon);
 
-
-  /*$name = 'flag_bookmarks_tab';
-  $display_id = 'mybookmarks';
-  $view = views_get_view($name);
-  drupal_add_js($path . '/js/gofast_mybookmarks_popup.js');
-
-  if ($view && $view->access($display_id)) {
-    $title = $view->display[$display_id]->display_options['title'];
-    $output = '<h2 class="gofast_popup_title">' . $title . '</h2>';
-    $output .= trim($view->preview($display_id));
-    $stngs = array('data_tree' => $output);
-    drupal_add_js(array('gofast_mybookmarks_tree' => $stngs), 'setting');
+    // Sometimes we use a processed node with formatted title.
+    $variables['title'] = ''; 
+  }else{
+    $src .= "fa-file";
+    $variables['title'] = "Unknown format";
   }
-
-  $name = 'gofast_aggregator';
-  $display_id = 'block_1';
-  $view = views_get_view($name);
-  drupal_add_js($path . '/js/gofast_headlines_popup.js');
-
-  if ($view && $view->access($display_id)) {
-//    $title = $view->display[$display_id]->display_options['title'];
-//    $output = '<h2 class="gofast_popup_title">' . $title . '</h2>';
-    $output = '<h2 class="gofast_popup_title"></h2>';
-    $output .= trim($view->preview($display_id));
-    $stngs = array('data_tree' => $output);
-    drupal_add_js(array('gofast_headlines_popup' => $stngs), 'setting');
-  }
-
-  $name = 'gofast_privatemsg';
-  $display_id = 'gofast_notifications';
-  $view = views_get_view($name);
-  drupal_add_js($path . '/js/gofast_notifications_popup.js');
-
-  if ($view && $view->access($display_id)) {
-    $title = $view->display[$display_id]->display_options['title'];
-    $output = '<h2 class="gofast_popup_title">' . $title . '</h2>';
-    $output .= trim($view->preview($display_id));
-    $output = delete_all_between("<thead>", "</thead>", $output);
-//    $output = preg_replace( array("/\r|\n/", "~>\s+<~m"), array("", "><"), $output);
-//    $output = set_all_between_in_end('<div class="view-filters"><form', '</form></div>', $output);
-    $stngs = array('data_tree' => $output);
-    drupal_add_js(array('gofast_notifications_tree' => $stngs), 'setting');
-  }
-
-  $name = 'gofast_privatemsg';
-  $display_id = 'gofast_inbox';
-  $view = views_get_view($name);
-  drupal_add_js($path . '/js/gofast_inbox_popup.js');
-
-  if ($view && $view->access($display_id)) {
-    $title = $view->display[$display_id]->display_options['title'];
-    $output = '<h2 class="gofast_popup_title">' . $title . '<a href="/gofast/nojs/messages/new" class="btn btn-xs btn-info ctools-use-modal" style="float: right;" title="' . t('Compose') . '"><span class="glyphicon glyphicon-send" style="margin: 1px 8px 0 0;"></span>' . t('Compose') . '</a>' . '</h2>';
-    $output .= trim($view->preview($display_id));
-    $output = delete_all_between("<thead>", "</thead>", $output);
-//    $output = preg_replace( array("/\r|\n/", "~>\s+<~m"), array("", "><"), $output);
-//    $output = set_all_between_in_end('<div class="view-filters"><form', '</form></div>', $output);
-    $sttngs = array('data_tree' => $output);
-    drupal_add_js(array('gofast_pm_tree' => $sttngs), 'setting');
-  }*/
-
-  /*drupal_add_js($path . '/js/gofast_book_block.js');
-
-  libraries_load('ztree');
-
-  $json_books = gofast_get_json_books();
-  $permisssion=false;
-  if (user_access('create new books')) $permisssion=true;
-
-  $settings = array('data_tree' => $json_books, 'user_permisssion' => $permisssion);
-  drupal_add_js(array('gofast_book_tree' => $settings), 'setting');
-  drupal_add_css('#gofast_book_content { width: 24%; position: absolute; display: none; padding: 10px 10px 10px 10px; z-index: 500; }', array('group' => CSS_THEME, 'type' => 'inline', 'weight' => 999));
-//  drupal_add_css('.gofast_book_content { position: absolute; background: black; color: white; margin-left: 407px; z-index: 500; display: none; }', array('group' => CSS_THEME, 'type' => 'inline', 'weight' => 999));*/
-  //  $arr = module_invoke('gofast_views', 'block_view', 'gofast_book_blocks');
-  //  $variables['gofast_book_blocks'] = drupal_render($arr['content']);
-  //  $variables['gofast_book_blocks'] = render($arr['content']);
-
-  //  $block->subject = $arr['subject'];
-  //  $block->content = $arr['content'];
-  //  $block->delta = 'gofast_book_blocks';
-  //  $block->module = 'gofast_views';
-  //  $block->region = 'sidebar_second';
-  //
-  //debug($block, '', true);
-  // $variables['gofast_book_blocks'] = theme('block', array('block' => $block));
-  //  drupal_add_js
+  $variables['src'] = $src;
+  $variables['width'] = "24";
+  $variables['height'] = "24";
+  
 }
 
-//function gofast_views_form_privatemsg_delete_alter(&$form, &$form_state, $form_id) {
-////  debug(array($form, $form_state, $form_id), 'test form', true);
-//  array_unshift($form['#submit'], 'gofast_privatemsg_delete_submit');
-//  variable_set('debug_ilyas', $form_state);
-////  debug($form_state['input'], 'before', true);
-//}
-//
-//function gofast_privatemsg_delete_submit(&$form, &$form_state, $form_id) {
-//  variable_set('debug_ilyas', $form_state);
-//  debug($form_state);
-//}
 
-//function gofast_views_form_book_admin_edit_alter(&$form, &$form_state, $form_id) {
-////  debug(array($form, $form_state, $form_id), 'test form', true);
-//  array_unshift($form['#submit'], 'gofast_book_admin_edit_submit');
-//
-////  debug($form_state['input'], 'before', true);
-////  debug($form_state, 'before', true);
-//}
-//
-//function gofast_book_admin_edit_submit($form, &$form_state) {
-////  $form_state['input']['table'] = Array(
-////                                        'book-admin-111' => Array(
-////                                                'title' => 'test',
-////                                                'weight' => 0,
-////                                                'plid' => 1361,
-////                                                'mlid' => 1362
-////                                            )
-////                                        ,'book-admin-89' => Array(
-////                                                'title' => 'Test accès article',
-////                                                'weight' => -15,
-////                                                'plid' => 1362,
-////                                                'mlid' => 1369
-////                                            )
-////                                        ,'book-admin-61' => Array(
-////                                                'title' => 'myTest',
-////                                                'weight' => -14,
-////                                                'plid' => 1362,
-////                                                'mlid' => 1367
-////                                            )
-////                                        ,'book-admin-14' => Array(
-////                                                'title' => 'test article 2',
-////                                                'weight' => -13,
-////                                                'plid' => 1362,
-////                                                'mlid' => 1368
-////                                            )
-////                                      );
-////  $form_state['values']['table']['book-admin-14']['plid'] = 1362;
-//   watchdog("TEST SUBMIT", "FORM");
-//  debug($form_state, 'after', true);
-////  debug($form_state['values'], 'after', true);
-//}
-
+function gofast_views_preprocess_page(&$variables) {
+  $path = drupal_get_path('module', 'gofast_views');
+}
 
 
 function template_preprocess_gofast_bookmarks_favorites_folders(&$variables)
@@ -3717,6 +3777,10 @@ function template_preprocess_gofast_bookmarks_favorites_folders(&$variables)
     $item = gofast_cmis_item_get($display_reference);
     $display_path = $item->properties['cmis:path'];
     $path = $item->properties['cmis:path'];
+    // if the alfresco item is mirrored
+    if (!$path) {
+      $path = $display_path = gofast_cmis_get_mirrored_path_by_alf_ref($display_reference, $item->properties['cmis:name']);
+    }
     if (substr($display_path, -1, 1) == "/") {
       $display_path = substr($display_path, 0, -1);
     }
@@ -3820,29 +3884,74 @@ function gofast_views_views_post_execute(&$view)
   }
 }
 
-function gofast_get_favorites_folders()
-{
+function gofast_get_favorites_folders() {
+    global $user;
+    global $base_url;
 
-  $name = 'gofast_flag_bookmarks';
-  $display_id = 'gofast_bookmarks_folders';
-  $bookmarks_view = views_embed_view($name, $display_id);
-  $navigation = '<nav class="text-center" style="margin-top:15px;">
-        <ul class="pagination" style="margin-top:25px;margin-bottom:5px;" id="path_pager_bookmarks_folders"></ul>
-    </nav>';
-  $render_data = $bookmarks_view . $navigation;
-  print $render_data;
-  exit;
+    $folder_bookmarks = db_query("SELECT fbid,folder_reference FROM gofast_bookmark_folder WHERE uid=" . $user->uid)->fetchAll();
+    $array_folders = array();
+    foreach($folder_bookmarks as $folder_bookmark){
+
+        $display_reference = $folder_bookmark->folder_reference;
+        $item = gofast_cmis_item_get($display_reference);
+        $display_path = $item->properties['cmis:path'];
+        $path = $item->properties['cmis:path'];
+        // if the alfresco item is mirrored
+        if (!$path) {
+        $path = $display_path = gofast_cmis_get_mirrored_path_by_alf_ref($display_reference, $item->properties['cmis:name']);
+        }
+        if(substr($display_path, -1, 1) == "/"){
+            $display_path = substr($display_path, 0, -1);
+        }
+        $folder_name = array_pop(explode("/", $display_path));
+
+        $final_path = array();
+        $unencoded_path = $path;
+        $path = rawurlencode($path);
+
+        $private_space_nid = gofast_og_get_user_private_space($user)->nid;
+        
+        $final_path["folder_name"] = $folder_name;
+        $final_path["unthemed_link"] = $base_url . "/node/{$private_space_nid}?&path=" . $path;
+
+        $final_path["delete"] = theme('gofast_unflag_folder', [
+            'link_href' => '/gofast/unflag_folder/' . $folder_bookmark->fbid,
+            'link_title' => t('Remove this content from your favorites', [], ['context' => 'gofast:gofast_views']),
+            'link_classes' => '',
+            ]);
+        $final_path["icon"] = 'fa file-o fa-folder';
+        $array_folders[] = $final_path;
+     }
+    print theme('gofast_menu_topbar_favorites_folders', array('folders' => $array_folders));
+    exit;
+
 }
 
-function gofast_get_favorites_contents()
-{
+function gofast_get_favorites_contents() {
+    global $user;
+    $flag = flag_get_flag('bookmarks');
 
-  $name = 'gofast_flag_bookmarks';
-  $display_id = 'gofast_flag_bookmarks';
-  $bookmarks_view = views_embed_view($name, $display_id);
-  $render_data = $bookmarks_view;
-  print $render_data;
-  exit;
+    $query_flags = db_query("SELECT entity_id FROM flagging WHERE uid = :uid AND fid = :fid", array(':uid' => $user->uid, ':fid' => $flag->fid));
+
+    if (isset($_POST["gid"])) { // if we only get subscribed contents from a given space
+        $gid = gofast_xss_clean($_POST["gid"]);
+        $query_flags = db_query("SELECT entity_id FROM flagging LEFT JOIN og_membership ON og_membership.entity_type = 'node' AND og_membership.etid = flagging.entity_id WHERE og_membership.gid = $gid AND uid = :uid AND fid = :fid", array(':uid' => $user->uid, ':fid' => $flag->fid));
+    }
+
+    $favorites_contents = array();
+    foreach($query_flags as $flagged_content) {
+        $node = new stdClass();
+        $n = node_load($flagged_content->entity_id);
+        $node->title = $n->title;
+        $node->nid = $n->nid;
+        $node->icon = gofast_taxonomy_icon_filename($n->field_format[LANGUAGE_NONE][0]['tid']);
+        $node->delete = $flag->theme($flag->is_flagged($flagged_content->entity_id) ? 'unflag' : 'flag', $flagged_content->entity_id, ['after_flagging' => TRUE]);
+        $favorites_contents[$node->title] = $node;
+
+    }
+    sort($favorites_contents);
+    print theme('gofast_menu_topbar_favorites_contents', array('contents' => $favorites_contents, 'inMainContent' => isset($_POST["gid"])));
+    exit;
 }
 
 /**
@@ -3926,4 +4035,25 @@ function template_preprocess_gofast_user_display_user_gofast_role(&$variables)
   } else {
     $variables['text'] = t('Standard');
   }
+}
+
+function gofast_views_audit()
+{
+  $theme_view_audit = views_embed_view('gofast_audit','page');
+  $subheader = theme('gofast_menu_header_subheader');
+  $gofast_audit_filter = theme('gofast_audit_filter');
+  //theme('gofast_content', ['container' => $container, 'subheader' => $subheader]);
+  $container =  gofast_create_page_content($theme_view_audit, 'content-block-right', $gofast_audit_filter);
+  return $container;
+}
+
+function gofast_views_remove_favorite_folder($fbid) {
+    global $user;
+    //Prevent abnormal cases
+    if($fbid==NULL) return;
+    $folder_bookmarks = db_delete('gofast_bookmark_folder')
+            ->condition('fbid', $fbid)
+            ->condition('uid', $user->uid)
+            ->execute();
+    return;
 }

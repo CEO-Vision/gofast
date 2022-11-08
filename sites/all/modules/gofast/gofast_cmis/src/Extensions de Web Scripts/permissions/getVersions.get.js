@@ -65,13 +65,13 @@ logger.log(args.newfunction);
                         return version;
                 }
 
-                function nodeToObject(node) {
-                        var version = {};
+                 function nodeToObject(node) {
+                        var version = {};                    
                         var history = node.getVersionHistory();
-                        if(node.properties["modifier"] != history[0].creator){
+                        //if(node.properties["modifier"] != history[0].creator){
                                 node.properties["modifier"] = history[0].creator;
                                 node.properties["modified"] = history[0].createdDate;
-                        }
+                       // }
                         version.label = node.properties["versionLabel"];
                         version.createdDate = utils.toISO8601(node.properties["created"]);
                         version.modifiedDate = utils.toISO8601(node.properties["modified"]);

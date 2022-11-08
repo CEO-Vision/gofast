@@ -31,4 +31,7 @@ CKEDITOR.editorConfig = function(config) {
     * config.extraCss = 'body {color:#FF0000;}';
     */
   config.extraCss = '';
+  
+  config.extraPlugins = 'textmatch,textwatcher,autocomplete';
+
   }

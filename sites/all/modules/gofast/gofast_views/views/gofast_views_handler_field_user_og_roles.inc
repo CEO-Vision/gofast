@@ -2,7 +2,7 @@
 
 /**
  * @file
- * 
+ *
  *  Defines gofast_views_handler_field_user_og_roles.
  */
 
@@ -77,7 +77,7 @@ class gofast_views_handler_field_user_og_roles extends views_handler_field_prere
     else{
       $role_names = array(GOFAST_OG_ROLE_ADMIN, GOFAST_OG_ROLE_STANDARD, GOFAST_OG_ROLE_READ_ONLY);
     }
-    
+
     foreach ($values as $result) {
       $uids[] = $this->get_value($result, NULL, TRUE);
     }
@@ -92,8 +92,8 @@ class gofast_views_handler_field_user_og_roles extends views_handler_field_prere
         $og_role_gid = og_is_group_default_access($group_type, $gid) ? 0 : $gid;
 
         // As soon as an OG membership argument is present we know the current
-        // values are the corresponding uids (OG members), so we don't have to 
-        // test user membership at this point, just collect roles. However we 
+        // values are the corresponding uids (OG members), so we don't have to
+        // test user membership at this point, just collect roles. However we
         // need to join og membership table to grab ogm ids.
         $og_infos = array();
         foreach($role_names as $role_name){
@@ -124,7 +124,7 @@ class gofast_views_handler_field_user_og_roles extends views_handler_field_prere
             $this->items[$info->uid][$info->rid]['og_title'] = $space->title;
             $this->items[$info->uid][$info->rid]['ogm_id'] = $info->id;
           }
-          
+
           //GOFAST-5111 We need to check if all users has been affected to a role. If it's not the case we need to
           //override the result of the queries and affect them a read only role
          foreach($uids as $uid){
@@ -134,25 +134,25 @@ class gofast_views_handler_field_user_og_roles extends views_handler_field_prere
                   $this->items[$uid][$rid]['rid'] = $rid;
                   $this->items[$uid][$rid]['uid'] = $uid;
                   $this->items[$uid][$rid]['og_title'] = $space->title;
-                  $ogmid = db_query("select * from og_membership where gid=" . $gid . " AND etid=" . $uid . " AND entity_type='user'")->fetchAll()[0];
+                  $ogmid = db_query("select * from og_membership where gid=:gid AND etid=:uid AND entity_type='user'", array(":gid" => $gid, ":uid" => $uid))->fetchAll()[0];
                   $this->items[$uid][$rid]['ogm_id'] = $ogmid->id;
                   $this->items[$uid][$rid]['not_pending'] = TRUE;
               }
           }
-          
+
       }
     }
   }
 
   function render_item($count, $item) {
-    global $user;    
+    global $user;
     if (!isset($this->view->args[0])) {
       return;
     }
-    
+
     //$output = $item['og_title'] . ' : ';
     $output = '';
-    
+
     $gid = $this->view->args[0];
     $perm = in_array(GOFAST_OG_ROLE_ADMIN, gofast_og_get_user_final_roles_for_space('node', $gid, $user->uid), true);
     $target_role = gofast_og_get_user_roles($gid, $item['uid']); //gofast_og_get_user_final_roles_for_space('node', $gid, $item['uid']);
@@ -176,12 +176,12 @@ class gofast_views_handler_field_user_og_roles extends views_handler_field_prere
         ));
       }
       else {
-        $output .= theme('gofast_link_generic', array(
-          'text' => t('Edit role', array(), array('context' => 'gofast')),
-          'link_id' => "edit-role-" . $item['ogm_id'],
-          'link_class' => 'btn btn-sm ctools-use-modal',
-          'href' => "/spaces/nojs/node/{$gid}/admin/people/edit-membership/{$item['ogm_id']}",
-          'icon_class' => "fa fa-cog"
+        $output .= theme('gofast_keen_button', array(
+          'button_text' => t('Edit role', array(), array('context' => 'gofast')),
+          'button_id' => "edit-role-" . $item['ogm_id'],
+          'button_classes' => 'btn btn-primary btn-sm mr-3 ctools-use-modal',
+          'button_href' => "/spaces/nojs/node/{$gid}/admin/people/edit-membership/{$item['ogm_id']}",
+          'icon_classes' => "fa fa-cog"
         ));
         //$output .= l(t('Edit role'), "spaces/nojs/node/{$gid}/admin/people/edit-membership/{$item['ogm_id']}", $attributes);
       }

@@ -136,10 +136,10 @@ function gofast_features_global_flag_default_flags() {
     ),
     'api_version' => 3,
   );
-  // Exported flag: "Public bookmark".
+  // Exported flag: "Space bookmark".
   $flags['flag_public'] = array(
     'entity_type' => 'node',
-    'title' => 'Public bookmark',
+    'title' => 'Space bookmark',
     'global' => 1,
     'types' => array(
       0 => 'alfresco_item',
@@ -148,12 +148,12 @@ function gofast_features_global_flag_default_flags() {
       3 => 'book',
       4 => 'forum',
     ),
-    'flag_short' => 'Add public bookmark',
+    'flag_short' => 'Add space bookmark',
     'flag_long' => 'Add this content to Groups/Organisations \'s favorites',
-    'flag_message' => 'This post has been added to the public bookmarks',
-    'unflag_short' => 'Remove public bookmark',
+    'flag_message' => 'This post has been added to the space bookmarks',
+    'unflag_short' => 'Remove space bookmark',
     'unflag_long' => '',
-    'unflag_message' => 'This post has been removed from the public bookmarks',
+    'unflag_message' => 'This post has been removed from the space bookmarks',
     'unflag_denied_text' => '',
     'link_type' => 'toggle',
     'weight' => -6,
@@ -397,9 +397,9 @@ function gofast_features_global_node_info() {
       'help' => '',
     ),
     'article' => array(
-      'name' => t('Page Intranet'),
+      'name' => t('Wiki article'),
       'base' => 'node_content',
-      'description' => t('Utilisez les <em>articles</em> pour des contenus possédant une temporalité tels que des actualités, des communiqués de presse ou des billets de blog.'),
+      'description' => t('Use the <em>Wiki articles</em> for content with temporality such as news, press releases or blog posts.'),
       'has_title' => '1',
       'title_label' => t('Title'),
       'help' => '',
@@ -512,6 +512,14 @@ function gofast_features_global_node_info() {
       'name' => t('Formulaire'),
       'base' => 'node_content',
       'description' => t('Créer un nouveau formulaire ou questionnaire accessible aux utilisateurs. Les soumissions et leurs statistiques sont enregistrées et accessibles aux utilisateurs privilégiés.'),
+      'has_title' => '1',
+      'title_label' => t('Title'),
+      'help' => '',
+    ),
+    'dashboard_article' => array(
+      'name' => t('Dashboard article'),
+      'base' => 'node_content',
+      'description' => t('More rudimentary type than wiki article, intended to be displayed on the dashboard.'),
       'has_title' => '1',
       'title_label' => t('Title'),
       'help' => '',

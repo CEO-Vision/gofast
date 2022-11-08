@@ -1,0 +1,8 @@
+.gofastCalendar {
+    .fc-content:before {
+        display: none !important;
+    }
+}
+.bootstrap-datetimepicker-widget .datepicker .datepicker-days table tbody tr > td:not(.old) {
+    color: black;
+}

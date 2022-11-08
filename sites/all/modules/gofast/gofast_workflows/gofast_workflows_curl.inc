@@ -321,6 +321,26 @@ function gofast_workflows_curl_get_group($cookie_name, $parent_path, $group_name
 
 }
 
+function gofast_workflows_curl_get_userlist($cookie_name, $ulid){
+    $url = URL_BONITA."API/identity/group";
+    $params = "?p=0&c=100&f=name%3d" . "ul_" . $ulid;
+
+    //connect
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_VERBOSE, true);
+    curl_setopt($ch, CURLOPT_COOKIEFILE, "sites/default/files/swf/".$cookie_name);
+    curl_setopt($ch, CURLOPT_URL, $url.$params);
+    $buf = gofast_workflows_curl_exec($ch);
+    $array_results = json_decode($buf, true);
+
+    if(isset($array_results[0])){
+         return $array_results[0];
+    }else{
+        return null;
+    }
+
+}
 
 function gofast_workflows_curl_get_members_group_bonita($bonita_groupid){
     $url = URL_BONITA."API/identity/user";
@@ -535,7 +555,7 @@ function gofast_workflows_deploy_gofast_application(){
             curl_setopt($ch2, CURLOPT_PROXY, '');
             curl_exec($ch2);
         }
-        if($available_page['urlToken'] == "custompage_LightDashboardDocument"){
+        if($available_page['urlToken'] == "custompage_LightDashboardDocumentMy"){
             //Bind the page
             $ch2 = curl_init();
             curl_setopt($ch2, CURLOPT_HTTPHEADER, array(
@@ -549,7 +569,95 @@ function gofast_workflows_deploy_gofast_application(){
             $data = array(
                     "applicationId" => $application_id,
                     "pageId" => $available_page['id'],
-                    "token" => "lightDashboardDocument",
+                    "token" => "lightDashboardDocumentMy",
+                );
+            curl_setopt($ch2, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch2, CURLOPT_COOKIEFILE, 'sites/default/files/swf/'.$cookie_name);
+            curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch2, CURLOPT_PROXY, '');
+            curl_exec($ch2);
+        }
+        if($available_page['urlToken'] == "custompage_LightDashboardDocumentOther"){
+            //Bind the page
+            $ch2 = curl_init();
+            curl_setopt($ch2, CURLOPT_HTTPHEADER, array(
+                'Content-Type: application/json;charset=UTF-8',
+                )
+            );
+
+            curl_setopt($ch2, CURLOPT_VERBOSE, true);
+            curl_setopt($ch2, CURLOPT_URL, $baseURL.'API/living/application-page');
+            curl_setopt($ch2, CURLOPT_POST, 1);
+            $data = array(
+                    "applicationId" => $application_id,
+                    "pageId" => $available_page['id'],
+                    "token" => "lightDashboardDocumentOther",
+                );
+            curl_setopt($ch2, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch2, CURLOPT_COOKIEFILE, 'sites/default/files/swf/'.$cookie_name);
+            curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch2, CURLOPT_PROXY, '');
+            curl_exec($ch2);
+        }
+        if($available_page['urlToken'] == "custompage_LightDashboardDocumentHistory"){
+            //Bind the page
+            $ch2 = curl_init();
+            curl_setopt($ch2, CURLOPT_HTTPHEADER, array(
+                'Content-Type: application/json;charset=UTF-8',
+                )
+            );
+
+            curl_setopt($ch2, CURLOPT_VERBOSE, true);
+            curl_setopt($ch2, CURLOPT_URL, $baseURL.'API/living/application-page');
+            curl_setopt($ch2, CURLOPT_POST, 1);
+            $data = array(
+                    "applicationId" => $application_id,
+                    "pageId" => $available_page['id'],
+                    "token" => "lightDashboardDocumentHistory",
+                );
+            curl_setopt($ch2, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch2, CURLOPT_COOKIEFILE, 'sites/default/files/swf/'.$cookie_name);
+            curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch2, CURLOPT_PROXY, '');
+            curl_exec($ch2);
+        }
+        if($available_page['urlToken'] == "custompage_LightDashboardMy"){
+            //Bind the page
+            $ch2 = curl_init();
+            curl_setopt($ch2, CURLOPT_HTTPHEADER, array(
+                'Content-Type: application/json;charset=UTF-8',
+                )
+            );
+
+            curl_setopt($ch2, CURLOPT_VERBOSE, true);
+            curl_setopt($ch2, CURLOPT_URL, $baseURL.'API/living/application-page');
+            curl_setopt($ch2, CURLOPT_POST, 1);
+            $data = array(
+                    "applicationId" => $application_id,
+                    "pageId" => $available_page['id'],
+                    "token" => "lightDashboardMy",
+                );
+            curl_setopt($ch2, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch2, CURLOPT_COOKIEFILE, 'sites/default/files/swf/'.$cookie_name);
+            curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch2, CURLOPT_PROXY, '');
+            curl_exec($ch2);
+        }
+        if($available_page['urlToken'] == "custompage_LightDashboardOther"){
+            //Bind the page
+            $ch2 = curl_init();
+            curl_setopt($ch2, CURLOPT_HTTPHEADER, array(
+                'Content-Type: application/json;charset=UTF-8',
+                )
+            );
+
+            curl_setopt($ch2, CURLOPT_VERBOSE, true);
+            curl_setopt($ch2, CURLOPT_URL, $baseURL.'API/living/application-page');
+            curl_setopt($ch2, CURLOPT_POST, 1);
+            $data = array(
+                    "applicationId" => $application_id,
+                    "pageId" => $available_page['id'],
+                    "token" => "lightDashboardOther",
                 );
             curl_setopt($ch2, CURLOPT_POSTFIELDS, json_encode($data));
             curl_setopt($ch2, CURLOPT_COOKIEFILE, 'sites/default/files/swf/'.$cookie_name);
@@ -952,4 +1060,71 @@ function gofast_workflows_get_actor_members_list($actor_id){
     }
     return $string_result;
 
+}
+
+
+function gofast_workflows_put_task_assignee($task_id, $bonita_uid){
+        
+    $url = URL_BONITA."API/bpm/userTask/" . $task_id;
+    
+    // get cookie
+    gofast_workflows_get_cookie(true);
+    $cookie_name = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
+
+    // Set new assignee id
+    $data = array("assigned_id" => $bonita_uid);
+        
+    //connect
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+        'Content-Type: application/json',
+        'Content-Length: ' . strlen(json_encode($data)))
+    );
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_VERBOSE, true);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+    curl_setopt($ch, CURLOPT_COOKIEFILE, "sites/default/files/swf/".$cookie_name);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    curl_setopt($ch, CURLOPT_URL, $url);
+    
+    $buf = gofast_workflows_curl_exec($ch);
+    $result = json_decode($buf, true);
+    return $result;
+}
+
+function gofast_workflows_reassign_user_tasks_to_someone($user_uid, $target_bonita_uid){
+    $tasks = gofast_workflows_get_list_actives_tasks(false,false,true,false,true,$user_uid);
+    foreach($tasks as $id => $task){
+        $taskId = $task['id'];
+        gofast_workflows_put_task_assignee($taskId, $target_bonita_uid);
+    }
+}
+
+function gofast_workflows_get_infos_task_count_rest_api(){
+    global $user;
+
+    if($user->uid == 0 || $user->uid == 1){
+       $cookie_name = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
+       $bonita_user_id = true;
+    }else{
+       gofast_workflows_get_cookie();
+       $cookie_name = "cookie_bonita".$user->name.".txt";
+       $bonita_user_id = gofast_workflows_get_user_id($user);
+
+    }
+       $ch = curl_init();
+       curl_setopt($ch, CURLOPT_HEADER, 0);
+       curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
+       curl_setopt($ch, CURLOPT_POST, 0);
+       curl_setopt($ch, CURLOPT_COOKIEFILE, "sites/default/files/swf/".$cookie_name);
+
+        $url = URL_BONITA."API/extension/tasksCount";
+        curl_setopt($ch, CURLOPT_URL, $url);
+        $buf = gofast_workflows_curl_exec($ch);
+
+        $array_results = json_decode($buf, true);
+          
+    return $array_results;
+    
 }

@@ -91,6 +91,109 @@ function gofast_og_update_7100(){
     }
 }
 
+/*
+ * Implements hook_update
+ */
+function gofast_og_update_7200(){
+  // GOFAST-7890
+  module_load_include('inc', 'gofast_og', 'gofast_og.bulk');
+  gofast_og_publish_all_home_pages();
+}
+
+/*
+ * Implements hook_update
+ */
+function gofast_og_update_7300(){
+  // GOFAST-8408
+  usurp(1);
+  set_time_limit(0);
+  
+  $homepages = db_query("SELECT entity_id FROM field_data_field_is_homepage WHERE field_is_homepage_value=1")->fetchAll();
+
+  foreach($homepages as $homepage){
+    $nid = $homepage->entity_id;
+    $node = node_load($nid);
+    $ref = $node->field_reference['und'][0]['value'];
+    $og = $node->og_group_content_ref['und'][0]['target_id'];
+    gofast_cmis_webservice_item_assign_homepage_permissions($ref, [$og]);
+  }
+}
+
+/**
+ * Implements hook_update
+ * Should fix perms on root_space for users and userlist
+ *
+ * @return void
+ */
+function gofast_og_update_7400(){
+  
+  watchdog('gofast_og', '%name() --- START -- REBUILD PERMISSION ON ROOT SPACES ---', array('%name' => __FUNCTION__));
+  module_load_include('inc', 'gofast_og', 'gofast_og.bulk');
+  
+  $adm_role_name = GOFAST_OG_ROLE_ADMIN;
+  $ro_role_name = GOFAST_OG_ROLE_READ_ONLY;
+  $root_spaces = gofast_og_get_root_spaces(TRUE, TRUE);
+  
+  foreach($root_spaces as $root_space){
+    if($root_space->type == 'public'){
+      continue; // do nothing 
+    }
+    
+    //Retreive and clean users
+    $query = db_select('og_users_roles', 'ogur');
+    $query->innerJoin('og_role', 'ogr', 'ogur.rid = ogr.rid');
+
+    $rids = $query
+        ->fields('ogur', array('uid'))
+        ->condition('ogur.gid', $root_space->nid, '=')
+        ->condition('ogr.name', array($adm_role_name), 'IN')
+        ->execute();
+
+    foreach ($rids as $item) {
+        if (!gofast_user_is_business_admin(null, $item->uid)) {
+            //revoke admin role for the root space
+            $ro_role_rid = array_key_first(gofast_og_space_admin_get_node_role('node', $root_space->nid, $ro_role_name));
+            $adm_role_rid = array_key_first(gofast_og_space_admin_get_node_role('node', $root_space->nid, $adm_role_name));
+
+            og_role_revoke('node', $root_space->nid, $item->uid, $adm_role_rid);
+            og_role_grant('node', $root_space->nid, $item->uid, $ro_role_rid);
+            
+            watchdog('gofast_og', '%name() User [uid=%uid] is not BusinessAdmin => revoking administration of root space[gid=%gid]', 
+                  array('%name' => __FUNCTION__, '%uid' => $item->uid, '%gid' =>$root_space->nid ));
+
+        }
+    }
+    
+     //Retreive and clean userlist
+     $query2 = db_select('gofast_og_userlists_roles', 'ogur');
+     $query2->innerJoin('og_role', 'ogr', 'ogur.rid = ogr.rid');
+
+     $userlist_rids = $query2
+         ->fields('ogur', array('ulid'))
+         ->condition('ogur.gid', $root_space->nid, '=')
+         ->condition('ogr.name', array($adm_role_name), 'IN')
+         ->execute();
+         
+      foreach ($userlist_rids as $item) {
+          //revoke admin role for the root space
+          $ro_role_rid = array_key_first(gofast_og_space_admin_get_node_role('node', $root_space->nid, $ro_role_name));
+          $adm_role_rid = array_key_first(gofast_og_space_admin_get_node_role('node', $root_space->nid, $adm_role_name));
+
+          gofast_userlist_og_role_revoke_userlist('node', $root_space->nid, $item->ulid, $adm_role_rid);
+          gofast_userlist_og_role_grant_userlist('node', $root_space->nid, $item->ulid, $ro_role_rid);
+          
+          watchdog('gofast_og', '%name() Userlist [ulid=%uid] => revoking administration of root space[gid=%gid]', 
+                  array('%name' => __FUNCTION__, '%ulid' => $item->ulid, '%gid' =>$root_space->nid ));
+
+      }
+    
+    drupal_static_reset('gofast_userlist_og_get_userlist_roles');
+    gofast_userlist_og_invalidate_cache();
+  }
+  
+  watchdog('gofast_og', '%name() --- END --', array('%name' => __FUNCTION__));
+  
+}
 
 function gofast_og_uninstall() {
   field_delete_field(GOFAST_OG_CONTENT_VISIBILITY);

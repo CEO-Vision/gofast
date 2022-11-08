@@ -71,5 +71,4 @@ function stateLoading(state){
 }
 
 checkState();
-modalContentResize();
 </script>

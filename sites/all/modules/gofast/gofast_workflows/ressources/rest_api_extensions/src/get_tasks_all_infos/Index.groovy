@@ -79,7 +79,7 @@ public class Index implements RestApiController {
                                             
                                             myTask.type = "kanban";
                                             
-                                            finalListHumanTaskInstance.push(myTask);
+                                            finalListHumanTaskInstance.add(myTask);
                                         }else{
                                             it = it as int;
 
@@ -193,7 +193,7 @@ public class Index implements RestApiController {
 
                                             }
 
-                                            finalListHumanTaskInstance.push(myTask);				
+                                            finalListHumanTaskInstance.add(myTask);				
                                         }
 			}
 		   

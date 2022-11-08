@@ -1,0 +1,28 @@
+<?php
+
+
+/**
+ * Fill all forum "taxonomy_forums" fields
+ */
+function gofast_forum_update_7000()
+{
+   $nodes = node_load_multiple(array(), array('type' => 'forum'));
+   $vid_forums = reset(taxonomy_get_term_by_name("General discussion", 'forums'))->vid;
+ 
+   if(count($nodes) > 0){
+       foreach($nodes as $node){
+            if($node->taxonomy_forums[LANGUAGE_NONE][0]['tid'] == "" ){
+                $node->taxonomy_forums[LANGUAGE_NONE][0]['tid'] = $vid_forums;
+                $node = gofast_prepare_node_save_technically($node);
+                $ruid = $node->revision_uid;
+                node_save($node);
+                db_update('node_revision')
+                  ->fields(array('uid' => $ruid))
+                  ->condition('nid', $node->nid)
+                  ->execute();
+                cache_clear_all("field:node:$node->nid", 'cache_field');     
+            }
+       }
+
+    }
+}

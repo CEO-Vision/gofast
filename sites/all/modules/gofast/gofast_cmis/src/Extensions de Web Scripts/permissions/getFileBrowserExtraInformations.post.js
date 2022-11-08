@@ -120,10 +120,16 @@ function getFinalPermission(user_groups, permissions, node, ownerifro) {
 }
 
 //Get request content
-var requestcontent = decodeURIComponent(decodeURIComponent(requestbody.content));
+var requestcontent = requestbody.content;
 
 //Extract files and folders part
 var requestparams = requestcontent.split("&");
+
+// Decode each parts of request params
+for (var index = 0; index < requestparams.length; index++) {
+    requestparams[index] = decodeURIComponent(decodeURIComponent(requestparams[index]));
+}
+
 var requestfiles = requestparams[0].substr(6);
 var requestfolders = requestparams[1].substr(8);
 
@@ -135,6 +141,7 @@ var output_files_dates = [];
 var output_files_permissions = [];
 var output_files_visibility = [];
 
+var output_folders_visibility = [];
 var output_folders_permissions = [];
 
 var output_current_folder_permissions = [];
@@ -204,6 +211,7 @@ if (folders !== null) {
         var node = companyhome.childByNamePath(folders[i]);
 
         if (node === null) {
+            output_folders_visibility.push(null)
             output_folders_permissions.push(null);
         } else {
 
@@ -216,6 +224,21 @@ if (folders !== null) {
             } catch (e) {
                 logger.log(e);
                 output_folders_permissions.push(null);
+            }
+
+            try {
+                //Retrieve visibility
+                var parents = node.getParents();
+                var visibility = [];
+
+                for (vi = 0; vi < parents.length; vi++) {
+                    visibility.push(parents[vi].getWebdavUrl());
+                }
+
+                output_folders_visibility.push(visibility);
+            } catch (e) {
+                logger.log(e);
+                output_folders_visibility.push(null);
             }
         }
     }
@@ -248,7 +271,8 @@ var output = {
         visibility: output_files_visibility
     },
     folders: {
-        permissions: output_folders_permissions
+        permissions: output_folders_permissions,
+        visibility: output_folders_visibility
     },
     current_folder: {
         permissions: output_current_folder_permissions

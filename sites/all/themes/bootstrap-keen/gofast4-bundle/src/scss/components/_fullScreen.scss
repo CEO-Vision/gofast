@@ -1,0 +1,34 @@
+.fullScreen {
+  // this min and max stuff seems weird but this hack lets us animate height and width
+  // unfortunately, due to elements popping in and out in the context
+  // for this to work smoothly, we'll have to define height and width statically
+  // calculating their initial value using JS
+  // transition: all .3s linear;
+  // min-height: 100%;
+  // max-height: 100%;
+  // & .mainContent {
+  // transition: all .3s linear;
+  //   min-width: 100%;
+  //   max-width: 100%;
+  // }
+  &.active {
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    min-height: 100vh;
+    z-index: 1000;
+    overflow: auto;
+    justify-content: center;
+    background: #eaf1f7;
+    padding: 0 1rem;
+    & .mainContent {
+      min-width: 99vw;
+    }
+
+    .fullScreen__col {
+      flex: 0 0 100% !important;
+      max-width: 100% !important;
+      margin-bottom: 15px;
+    }
+  }
+}

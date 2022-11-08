@@ -16,34 +16,40 @@
   
   //Ajaxify the configuration form submit
   $('#webform-configure-form > div > .form-actions > .btn-success').addClass('ctools-use-modal');
+  $("#form-builder-webform-save-form").ajaxForm(() =>  Gofast.toast(Drupal.t("Webform successfully submitted", {}, {context: 'gofast:gofast_webform'}), "success"));
   
   //Prepend info message
-  $("#form-builder-webform-save-form > div > .form-actions").prepend("<p><i class='fa fa-info' style='color: #269abc;'></i> " + Drupal.t("No changes will be saved until you click the 'Save' button.", {}, {context: 'gofast:gofast_webform'}) + "</p>");
-  
+  if (!$("#form-builder-webform-save-form .fa-info").length) {
+    $("<p><i class='fa fa-info' style='color: #269abc;'></i> " + Drupal.t("No changes will be saved until you click the 'Save' button.", {}, {context: 'gofast:gofast_webform'}) + "</p>").insertBefore($("#form-builder-webform-save-form > div > .form-actions"));
+  }
   Drupal.behaviors.webform_publish_button = {
       attach: function(){
-          //Clear publish/unpublish button
-          $(".gofast-webform-publish-unpublish").remove();
-          
-          //Attach a button to publish or unpublish the form
+        //Clear publish/unpublish button
+        $(".gofast-webform-publish-unpublish").remove();
+
+        $("#form-builder-webform-save-form > div > .form-actions").css({display: "flex", gap: "1rem"});
+        $("#form-builder-webform-save-form > div > .form-actions").append("<button class='btn btn-info icon-before gofast-webform-publish-unpublish'><span class='fa fa-share' aria-hidden='true'></span> " + Drupal.t("Unpublish", {}, {context: 'gofast:gofast_webform'}) + "</button>");
+        //Attach a button to publish or unpublish the form
         if($("#edit-status > div:first() > label > input").is(":checked")){
-            $("#form-builder-webform-save-form > div > .form-actions").append("<button class='btn btn-sm btn-info icon-before gofast-webform-publish-unpublish'><span class='fa fa-share' aria-hidden='true'></span> " + Drupal.t("Unpublish", {}, {context: 'gofast:gofast_webform'}) + "</button>").click(function(e){
+            $(".gofast-webform-publish-unpublish").click(function(e){
                 e.preventDefault();
                 //Publish the form
                 $("#edit-status > div:last() > label > input").prop('checked', true);
                 $("#webform-configure-form > div > .form-actions > button").click();
             });
         }else{
-            $("#form-builder-webform-save-form > div > .form-actions").append("<button class='btn btn-sm btn-info icon-before gofast-webform-publish-unpublish'><span class='fa fa-share' aria-hidden='true'></span> " + Drupal.t("Publish", {}, {context: 'gofast:gofast_webform'}) + "</button>").click(function(e){
+            $(".gofast-webform-publish-unpublish").click(function(e){
                 e.preventDefault();
                 //Publish the form
                 $("#edit-status > div:first() > label > input").prop('checked', true);
                 $("#webform-configure-form > div > .form-actions > button").click();
             });
         }
+        if ($(".gofast-webform-delete").length == 0) {
+            $("#form-builder-webform-save-form > div > .form-actions").append("<a class='ctools-use-modal' href='/modal/nojs/node/" + Gofast.get("node").id + "/manage'><button class='btn btn-danger icon-before gofast-webform-delete'><span class='fa fa-trash' aria-hidden='true'></span>&nbsp;" + Drupal.t("Delete", {}, {context: 'gofast'}) + "</button></a>");
+        }
       }
   };
-  
   //Attach Drupal behaviors to process the rendered builder
   Drupal.attachBehaviors();
   

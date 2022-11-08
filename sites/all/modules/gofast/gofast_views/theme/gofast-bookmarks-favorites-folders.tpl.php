@@ -25,7 +25,7 @@
     </div>
   </div>
   <div class="panel-body dashboard-folders-placeholder">
-   <?php global $language ?>
+   <?php global $language; ?>
     <table id="table_favorite_path" class="table table-hover table-striped" style="margin-bottom: -8px;" >
         <thead></thead>
         <tbody>
@@ -54,9 +54,9 @@
   </div>
 </div>
 
-  <script type='text/javascript'>
-   jQuery(document).ready(function(){
-         jQuery('#table_favorite_path > tbody').pager({pagerSelector : '#path_pager', perPage: 9, numPageToDisplay : 5, showPrevNext: true});
-    });
-    
-  </script>
+<?php
+$script = "jQuery(document).ready(function(){
+  jQuery('#table_favorite_path > tbody').pager({pagerSelector : '#path_pager', perPage: 9, numPageToDisplay : 5, showPrevNext: true});
+});";
+drupal_add_js($script, "inline");
+?>

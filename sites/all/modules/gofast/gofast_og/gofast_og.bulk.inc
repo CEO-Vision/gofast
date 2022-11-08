@@ -388,8 +388,8 @@ function gofast_og_space_admin_delete_membership($gid, $uid){
  * @param type $role
  */
 function gofast_og_space_admin_update_membership($gid, $uid, $role){
-  $new_og_role = gofast_og_space_admin_get_node_role('node', $gid, $role);
-  $new_rid = key($new_og_role);
+    $new_og_role = gofast_og_space_admin_get_node_role('node', $gid, $role);
+    $new_rid = key($new_og_role);
   $old_og_role = og_get_user_roles('node', $gid, $uid, FALSE, TRUE);
   $old_rid = key($old_og_role);
   if(isset($old_rid)){
@@ -471,4 +471,30 @@ function gofast_og_space_admin_get_node_role($node_type, $group_id, $default_rol
     }
   }
   return $role;
+}
+
+
+/**
+ * Make sure all spaces home pages are visible to the users
+ */
+function gofast_og_publish_all_home_pages() {
+  $query = new EntityFieldQuery();
+  $query->entityCondition("entity_type", "node")
+  ->entityCondition('bundle', 'article')
+  ->entityCondition('deleted', 0)
+  ->propertyCondition('status', NODE_NOT_PUBLISHED)
+  ->fieldCondition('field_is_homepage', 'value', 1);
+  $result = $query->execute();
+  foreach ($result['node'] as $node) {
+    $node = node_load($node->nid);
+    $node = gofast_prepare_node_save_technically($node);
+    $ruid = $node->revision_uid;
+    $node->status = NODE_PUBLISHED;
+    node_save($node);
+    db_update('node_revision')
+          ->fields(array('uid' => $ruid))
+          ->condition('nid', $node->nid)
+          ->execute();
+        cache_clear_all("field:node:$node->nid", 'cache_field');
+  }
 }

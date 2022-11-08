@@ -414,26 +414,30 @@ $edited_fields = array();
 }
 
 function gofast_message_ext_api_field_target_id_get_mids_from_nid($nid){
-    global $list_field_target_id_value;
-    if(count($list_field_target_id_value) == 0){
-        $entity_ids = db_query('select entity_id,field_target_id_value from {field_data_field_target_id}')->fetchAllKeyed();
-        $list_field_target_id_value = $entity_ids;
-        $mids = array_keys($entity_ids, $nid);
-    }else{
-        $mids = array_keys($list_field_target_id_value, $nid);
+    $list_field_target_id_value_final = array();
+    $entity_ids = db_query('select entity_id,field_target_id_value from {field_data_field_target_id} where field_target_id_value= '.$nid.'')->fetchAllKeyed();
+    $list_field_target_id_value = $entity_ids;
+    if(count( $list_field_target_id_value) > 0){
+         foreach($list_field_target_id_value as $mid=>$mynid){
+               $list_field_target_id_value_final[] = $mid;
+         }
     }
+    $mids = $list_field_target_id_value_final;
+
     return $mids;
 }
 
 function gofast_message_ext_api_field_node_id_get_mids_from_nid($nid){
-    global $list_field_node_id_value;
-    if(count($list_field_node_id_value) == 0){
-        $entity_ids = db_query('select entity_id,field_node_id_value from {field_data_field_node_id}')->fetchAllKeyed();
-        $list_field_node_id_value = $entity_ids;
-        $mids = array_keys($entity_ids, $nid);
-    }else{
-        $mids = array_keys($list_field_node_id_value, $nid);
+    $list_field_node_id_value_final = array();
+    $entity_ids = db_query('select entity_id,field_node_id_value from {field_data_field_node_id} where field_node_id_value = '.$nid.'')->fetchAllKeyed();
+    $list_field_node_id_value = $entity_ids;
+    if(count( $list_field_node_id_value) > 0){
+         foreach($list_field_node_id_value as $mid=>$mynid){
+               $list_field_node_id_value_final[] = $mid;
+         }
     }
+    $mids = $list_field_node_id_value_final;
+
     return $mids;
 }
 
@@ -448,7 +452,7 @@ function gofast_message_ext_api_field_node_id_get_mids_from_nid($nid){
  *  A formated string describing the last event of a node.
  *
  */
-function gofast_message_ext_api_get_last_event2($nid){
+function gofast_message_ext_api_get_last_event2($nid, $enforced_timestamp = FALSE){
   $result = NULL;
 
   $query_exe['message'] = gofast_message_ext_api_field_target_id_get_mids_from_nid($nid);
@@ -605,6 +609,12 @@ function gofast_message_ext_api_get_last_event2($nid){
     $user_name = $user_loaded_displayname;
     //********************************************************************************
 
+    $enforced = FALSE;
+    if ($enforced_timestamp && (abs($enforced_timestamp - $timestamp) > 300)) {
+      $enforced = TRUE;
+      $timestamp = $enforced_timestamp;
+    }
+
     if($timestamp < (time()-86400)){
       $date = format_date($timestamp, 'long');
     }
@@ -619,9 +629,15 @@ function gofast_message_ext_api_get_last_event2($nid){
         $date = t("@hour hour(s) and @min min ago", array('@hour' => $hours, '@min' => $minutes));
       }
     }
+
+    if ($enforced) {
+      $result['message'] = t("updated @date.", array('@date' => $date));
+      return $result;
+    }
+
     switch($event){
       case 'NCON':
-        $result['message'] = "<span style='color:red'>".t("New content. ", array(), array('context' => 'gofast'))."</span>".t("Created by @user on @date.", array('@user' => $user_name, '@date' => $date), array('context' => 'gofast'));
+        $result['message'] = "<span class='font-weight-bolder text-primary'>".t("New content. ", array(), array('context' => 'gofast'))."</span>".t("Created by @user on @date.", array('@user' => $user_name, '@date' => $date), array('context' => 'gofast'));
         $result['event'] = $event;
         break;
       case 'ECON':
@@ -635,7 +651,7 @@ function gofast_message_ext_api_get_last_event2($nid){
         $result['event'] = $event;
         $result['title'] = $message_data['title']['value'];
         $result['body'] = $message_data['body']['value'];
-        $result['message'] = "<span style='color:red'>".t("New comment. ", array(), array('contexy' => 'gofast'))."</span>".t(" added by @user on @date.", array('@user' => $user_name, '@date' => $date), array('context' => 'gofast'));
+        $result['message'] = "<span class='font-weight-bolder text-primary'>".t("New comment. ", array(), array('contexy' => 'gofast'))."</span>".t(" added by @user on @date.", array('@user' => $user_name, '@date' => $date), array('context' => 'gofast'));
         break;
       case 'ECOM':
         $result['event'] = $event;
@@ -663,7 +679,7 @@ function gofast_message_ext_api_get_last_event2($nid){
         }
         break;
       case 'linksharing':
-        $array_dest = explode(";", $message_data['dest']['value']);
+        $array_dest = explode(";", $message_data['desti_uid']['value']);
         unset($array_dest[count($array_dest)-1]);
         $result['version'] = $message_data['version']['value'];
         $result['dest_uid'] = $message_data['desti_uid']['value'];
@@ -905,9 +921,9 @@ function gofast_message_ext_api_comment_is_valid($message){
         return FALSE;
     }
 
-    $comment_exists = count(db_query("select cid from comment where cid=" . $cid)->fetchAll()) > 0;
+    $comment_exists = count(db_query("select cid from comment where cid=:cid", array(":cid" => $cid))->fetchAll()) > 0;
 
-    $comment_is_public = count(db_query("select field_comment_is_private_value from field_data_field_comment_is_private where entity_id=" . $cid . " AND field_comment_is_private_value=1")->fetchAll()) == 0;
+    $comment_is_public = count(db_query("select field_comment_is_private_value from field_data_field_comment_is_private where entity_id=:cid AND field_comment_is_private_value=1", array(":cid" => $cid))->fetchAll()) == 0;
 
     if(!$comment_exists || !$comment_is_public){
         return FALSE;
@@ -1049,176 +1065,188 @@ function gofast_message_ext_api_render_event($event){
                     $from = $edition['from'];
                     $to = $edition['to'];
                   }
+
                   if($from == NULL && $to != NULL){ //Case: New
-                    $edit .= '<div class="panel panel-primary"><div class="panel-heading">'.t(ucfirst($edition['field']), array(), array('context' => 'gofast')).'</div><div class="panel-body">';
-                    $edit .= '<div class="panel panel-success"><div class="panel-heading">'.t('New').'</div><div class="panel-body">';
+
+                    $edit_card = "<span>".t(ucfirst($edition['field']), array(), array('context' => 'gofast'))."</span>";
+
                     if($edition['field'] == 'body' || $edition['field'] == 'summary'){
-                      $edit .= $to;
+                      $content_card = $to;
                     }
                     else{
-                      $edit .= t($to, array(), array('context' => 'gofast'));
+                      $content_card = t($to, array(), array('context' => 'gofast'));
                     }
-                    $edit .= '</div></div></div></div>';
+                    $edit_content = theme('gofast_card_template', ['class' => 'bg-success', 'title' => t('New'), 'content' => $content_card, 'child_content' => true]);
+                    $edit .= theme('gofast_card_template', ['class' => 'gofastPopoverHeader', 'title' => $edit_card, 'content' => $edit_content]);
+
                   }
                   if($from != NULL && $to == NULL){ //Case: Removed
-                    $edit .= '<div class="panel panel-primary"><div class="panel-heading">'.t(ucfirst($edition['field']), array(), array('context' => 'gofast')).'</div><div class="panel-body">';
-                    $edit .= '<div class="panel panel-danger"><div class="panel-heading">'.t('Removed').'</div><div class="panel-body">';
-                    if($edition['field'] == 'body' || $edition['field'] == 'summary'){
-                      $edit .= $from;
-                    }
-                    else{
-                      $edit .= t($from, array(), array('context' => 'gofast'));
-                    }
-                    $edit .= '</div></div></div></div>';
+
+                   $edit_card .= "<span>" . t(ucfirst($edition['field']), array(), array('context' => 'gofast')) . "</span>";
+                        if($edition['field'] == 'body' || $edition['field'] == 'summary'){
+                          $content_card = $from;
+                        }
+                        else{
+                         $content_card = t($from, array(), array('context' => 'gofast'));
+                        }
+                  $edit_content = theme('gofast_card_template', ['class' => 'bg-danger', 'title' => t('Removed'), 'content' => $content_card, 'child_content' => true]);
+                  $edit .= theme('gofast_card_template', ['class' => 'gofastPopoverHeader', 'title' => $edit_card, 'content' => $edit_content]);
                   }
                   if($from != NULL && $to != NULL){ //Case: Edition
                    $is_todolist_field = gofast_kanban_is_todolist_field($edition['field']);
                    if($is_todolist_field){
                         $edition['field'] = gofast_kanban_get_readable_name_specific_fields($edition['field'], true);
                    }
+                    $edit_card = "<span>" . t(ucfirst($edition['field']), array(), array('context' => 'gofast')) . "</span>";
 
-
-                    $edit .= '<div class="panel panel-primary"><div class="panel-heading">'.t(ucfirst($edition['field']), array(), array('context' => 'gofast')).'</div><div class="panel-body">';
-                    $edit .= '<div class="panel panel-danger"><div class="panel-heading">'.t('Old').'</div><div class="panel-body">';
                     if($edition['field'] == 'body' || $edition['field'] == 'summary'){
-                      $edit .= $from;
+                     $content_card .= $from;
                     }
                     else{
-                      $edit .= t($from, array(), array('context' => 'gofast'));
+                      $content_card .= t($from, array(), array('context' => 'gofast'));
                     }
-                    $edit .= '</div></div>';
-                    $edit .= '<div class="panel panel-success"><div class="panel-heading">'.t('New').'</div><div class="panel-body">';
+                    $edit_content .= theme('gofast_card_template', ['class' => 'bg-danger mb-2', 'title' => t('Old'), 'content' => $content_card, 'child_content' => true]);
+                     $content_card = "";
                     if($edition['field'] == 'body' || $edition['field'] == 'summary'){
-                      $edit .= $to;
+                      $content_card .= $to;
                     }
                     else{
-                      $edit .= t($to, array(), array('context' => 'gofast'));
+                     $content_card .= t($to, array(), array('context' => 'gofast'));
                     }
-                    $edit .= '</div></div></div></div>';
+                     $edit_content .= theme('gofast_card_template', ['class' => 'bg-success', 'title' => t('New'), 'content' => $content_card, 'child_content' => true]);
+                     $edit .= theme('gofast_card_template', ['class' => 'gofastPopoverHeader', 'title' => $edit_card, 'content' => $edit_content]);
                   }
                   break;
                 case 'NCOM':
-                  $edit .= '<div class="panel panel-primary"><div class="panel-heading">'.t("New comment", array(), array('context' => 'gofast')).' - '.$event['title'].'</div><div class="panel-body">';
-                  $edit .=strip_tags($event['body'], '<br><a><p><center><span><strong><s><em><h1><h2><h3><h4><u>');
-                  $edit .= '</div></div>';
+                   $title_card = t("New comment", array(), array('context' => 'gofast')) . ' - ' . $event['title'];
+                   $content_card =strip_tags($event['body'], '<br><a><p><center><span><strong><s><em><h1><h2><h3><h4><u>');
+                   $edit .= theme('gofast_card_template', ['class' => 'gofastPopoverHeader m-0', 'title' =>  $title_card, 'content' => $content_card]);
                   break;
                 case 'ECOM':
-                  $edit .= '<div class="panel panel-primary"><div class="panel-heading">'.t("Edited comment", array(), array('context' => 'gofast')).' - '.$event['title'].'</div><div class="panel-body">';
-                  $edit .=strip_tags($event['body'], '<br><a><p><center><span><strong><s><em><h1><h2><h3><h4><u>');
-                  $edit .= '</div></div>';
+                  $title_card = t("Edited comment", array(), array('context' => 'gofast')) . ' - ' . $event['title'];
+                  $content_card = strip_tags($event['body'], '<br><a><p><center><span><strong><s><em><h1><h2><h3><h4><u>');
+                  $edit .= theme('gofast_card_template', ['class' => 'gofastPopoverHeader m-0', 'title' =>  $title_card, 'content' => $content_card]);
                   break;
                 case 'linksharing':
-                  $edit .= '<div class="panel panel-primary"><div class="panel-heading">'.t("Information of linksharing", array(), array('context' => 'gofast')).'</div><div class="panel-body">';
-                  $edit .= '<div class="panel panel-info"><div class="panel-heading">'.t('Sent to: ', array(), array('context' => 'gofast')).'</div><div class="panel-body">';
-
-                  foreach($edition as $key=>$event2){// If we need to put the message on the audit
-                      if($key == "to"){
-                          $name_dest = $event2;
-                          $array_id_sharing = explode(";", $name_dest);
-                          foreach($array_id_sharing as $id_sharing){
-                            if ($id_sharing != ''){
-                                if (is_numeric($id_sharing)){
-                                    $edit .=  theme('user_picture', array( 'account' => user_load($id_sharing), 'popup' => TRUE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
-                                    ) . ':   ' .  gofast_message_ext_api_get_user_name($id_sharing) . '</br>';
-                                }else{
-                                    $edit .=  theme('user_picture', array( 'account' => user_load($id_sharing), 'popup' => TRUE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
-                                    ) . ':   ' .  $id_sharing . '</br>';
-                                }
-                            }
-                          }
+                  if (!empty($event['dest_uid'])) {
+                    $dest_array_uids = json_decode($event['dest_uid'], 1);
+                    $array_id_sharing = [];
+                    foreach ($dest_array_uids as $dest_arrays) {
+                      foreach ($dest_arrays as $key => $dest_item) {
+                        if ($key === 'type' && $dest_item === 'user') {
+                          $array_id_sharing[] = $dest_arrays['value'];
+                        }
                       }
-                  }
-                  foreach($event as $key=>$event3){ //If we need to put the message ext last event
-                      if($key == "dest_uid"){
-                          $name_dest = $event3;
-                          $array_id_sharing = explode(";", $name_dest);
-                          foreach($array_id_sharing as $id_sharing){
-
-                            if ($id_sharing != ''){
-                                if(is_numeric($id_sharing)){
-                                    $edit .=  theme('user_picture', array( 'account' => user_load($id_sharing), 'popup' => TRUE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
-                                    ) . ':   ' .  gofast_message_ext_api_get_user_name($id_sharing) . '</br>';
-                                }else{
-                                    $edit .= theme('user_picture', array( 'account' => user_load(0), 'popup' => TRUE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
-                                    ) . ':   ' .  $id_sharing . '</br>';
-                                }
-                            }
-                          }
+                    }
+                    foreach ($array_id_sharing as $id_sharing) {
+                      $content_card .= '<div class="d-inline-flex align-items-center"';
+                      if ($id_sharing != '') {
+                        if (is_numeric($id_sharing)) {
+                          $content_card .= theme('user_picture', [
+                                'account' => user_load($id_sharing),
+                                'popup' => FALSE,
+                                'dimensions' => [
+                                  'width' => '25px',
+                                  'height' => '25px',
+                                ],
+                              ]
+                            ) . '<div class="pl-3"> ' . l(gofast_message_ext_api_get_user_name($id_sharing), '/user/' . $id_sharing) . '</div>';
+                        }
+                        else {
+                          $content_card .= theme('user_picture', [
+                                'account' => user_load(0),
+                                'popup' => FALSE,
+                                'dimensions' => [
+                                  'width' => '25px',
+                                  'height' => '25px',
+                                ],
+                              ]
+                            ) . '<div class="pl-3"> ' . $id_sharing;
+                        }
                       }
-                  }
-                  $edit .= '</div></div>';
-                  $edit .= '<div class="panel panel-info"><div class="panel-heading">'.t('Shared document version: ').'</div><div class="panel-body">';
-                  foreach($event as $key=>$event3){
-                      if($key == "version" && $key != '0' ){
-                          $edit .= '<code><strong>' .$event3 . '</strong></code>' ;
+                      $content_card .= '</div></br>';
+                    }
+                    $edit .= theme('gofast_card_template', [
+                      'class' => 'gofastPopoverHeader m-0',
+                      'title' => t('Sent to: ', [], ['context' => 'gofast']),
+                      'content' => $content_card,
+                    ]);
+                    $content_card = '';
+                    foreach ($event as $key => $event3) {
+                      if ($key == "version" && $key != '0') {
+                        $content_card .= '<code><strong>' . $event3 . '</strong></code>';
                       }
+                    }
+                    $edit .= theme('gofast_card_template', [
+                      'class' => 'gofastPopoverHeader m-0',
+                      'title' => t('Shared document version: '),
+                      'content' => $content_card,
+                    ]);
                   }
-                  $edit .= '</div></div></div></div>';
                   break;
                 case 'sharing_dl':
 
-                  $edit .= '<div class="panel panel-primary"><div class="panel-heading">'.t("Detail of the shared document download", array(), array('context' => 'gofast')).'</div><div class="panel-body">';
-                  $edit .= '<div class="panel panel-info"><div class="panel-heading">'.t('IP of the downloader : ').'</div><div class="panel-body">';
+                 $edit .= "<div class='text-dark-65'>" . t("Detail of the shared document download", array(), array('context' => 'gofast')) . "</div>";
+                 $content_card = '';
                   foreach($edition as $key=>$event4){
-			if($key == "addr_ip"){
-			    if(empty(user_load($event4))){
-                               $edit .= '<code><strong>' .$event4 . '</strong></code>' ;
-			    }else{
-                                    $edit .=  theme('user_picture', array( 'account' => user_load($event4), 'popup' => TRUE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
-                                    ) . ':   ' .  gofast_message_ext_api_get_user_name($id_sharing) . '</br>';
-			    }
-			}
+                    if($key == "addr_ip"){
+                        if(empty(user_load($event4))){
+                           $content_card .= '<code><strong>' .$event4 . '</strong></code>' ;
+                        }else{
+                           $content_card .=  theme('user_picture', array( 'account' => user_load($event4), 'popup' => TRUE, 'dimensions' => array('width' => '25px', 'height' => '25px'))) . ':   ' .  gofast_message_ext_api_get_user_name($id_sharing) . '</br>';
+                        }
+                    }
                   }
-                  $edit .= '</div></div>';
-                  $edit .= '<div class="panel panel-info"><div class="panel-heading">'.t('Version : ').'</div><div class="panel-body">';
+                  $edit .= theme('gofast_card_template', ['class' => 'bg-info', 'title' => t('IP of the downloader : '), 'content' => $content_card]);
+                 $content_card = '';
                   foreach($event as $key=>$event5){
                       if($key == "version" && $key != '0'){
-                               $edit .= '<code><strong>' .$event5 . '</strong></code>' ;
+                         $content_card .= '<code><strong>' .$event5 . '</strong></code>' ;
                             }
                   }
-                  $edit .= '</div></div></div></div>';
+                   $edit .= theme('gofast_card_template', ['class' => 'bg-info', 'title' => t('Version : '), 'content' => $content_card]);
                   break;
                 case 'user_blocked':
                 case 'user_leave':
                     $uid_to_block = $edition['uid_to_block'];
-                    $edit .= '<div class="panel panel-danger"><div class="panel-heading">'.t('User blocked : ').'</div><div class="panel-body">';
-                        $edit .=  theme('user_picture', array( 'account' => user_load($uid_to_block), 'popup' => TRUE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
+                    $content_card =  theme('user_picture', array( 'account' => user_load($uid_to_block), 'popup' => TRUE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
                         ) . ':   ' .  gofast_message_ext_api_get_user_name($uid_to_block) . '</br>';
-                    $edit .= '</div></div>';
+                    $edit .= theme('gofast_card_template', ['class' => 'bg-danger', 'title' => t('User blocked : '), 'content' => $content_card]);
                     break;
                 case 'user_unblocked':
                 case 'user_unleave':
-                     $uid_to_block = $edition['uid_to_block'];
-                    $edit .= '<div class="panel panel-success"><div class="panel-heading">'.t('User unblocked : ').'</div><div class="panel-body">';
-                        $edit .=  theme('user_picture', array( 'account' => user_load($uid_to_block), 'popup' => TRUE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
+                    $uid_to_block = $edition['uid_to_block'];
+                    $content_card =  theme('user_picture', array( 'account' => user_load($uid_to_block), 'popup' => TRUE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
                         ) . ':   ' .  gofast_message_ext_api_get_user_name($uid_to_block) . '</br>';
-                    $edit .= '</div></div>';
+                    $edit .= theme('gofast_card_template', ['class' => 'bg-success', 'title' => t('User unblocked : '), 'content' => $content_card]);
                     break;
                 case 'delete_folder':
                     $path = $edition['path'];
-                    $edit .= '<div class="panel panel-danger"><div class="panel-heading">'.t('Delete folder : ').'</div><div class="panel-body">';
-                        $edit .= str_replace("/alfresco/webdav/","", rawurldecode($path));
-                    $edit .= '</div></div>';
+                    $content_card = str_replace("/alfresco/webdav/","", rawurldecode($path));
+                    $edit .= theme('gofast_card_template', ['class' => 'bg-danger', 'title' => t('Delete folder : '), 'content' => $content_card]);
                     break;
                 case 'delete_node':
                   $nodesPath = $edition['node_path'];
-                  $edit .= '<div class="panel panel-danger"><div class="panel-heading">' . t('Delete node location : ') . '</div><div class="panel-body">';
                   if (!empty($nodesPath) && $nodesPath != [""]) {
                       foreach ($nodesPath as $Path) {
-                        $edit .= $Path ." </br>";
+                   $content_card  = $Path ." </br>";
                       }
                   }else{
-                        $edit .= "Pas de path definie";
+                    $content_card = "Pas de path definie";
                   }
-                  $edit .= '</div></div>';
+                  $edit .= theme('gofast_card_template', ['class' => 'bg-danger', 'title' =>t('Delete node location : '), 'content' => $content_card]);
                   break;
                 case 'create_user':
                     $user_uid = $edition['user_create'];
-                    $edit .= '<div class="panel panel-success"><div class="panel-heading">'.t('Created user : ').'</div><div class="panel-body">';
-                        $edit .=  theme('user_picture', array( 'account' => user_load($user_uid), 'popup' => TRUE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
+                     $content_card =  theme('user_picture', array( 'account' => user_load($user_uid), 'popup' => TRUE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
                         ) . ':   ' .  gofast_message_ext_api_get_user_name($user_uid) . '</br>';
-                    $edit .= '</div></div>';
+                     $edit .= theme('gofast_card_template', ['class' => 'bg-success', 'title' => t('Created user : '), 'content' => $content_card]);
                     break;
+                case 'delete_user':
+                    $user_delete_name = $edition['user_delete_name'];
+                   $content_card  =  theme('user_picture', array('popup' => TRUE, 'dimensions' => array('width' => '25px', 'height' => '25px'))) . ':   ' .  $user_delete_name . '</br>';
+                   $edit .= theme('gofast_card_template', ['class' => 'bg-success', 'title' => t('Deleted user : '), 'content' => $content_card]);
+                  break;
                 case 'add_member':
                     if (isset($edition['user_name'])){
                         $user_name = $edition['user_name'];
@@ -1233,37 +1261,53 @@ function gofast_message_ext_api_render_event($event){
                     }else{
                         $user_role = $edition['userlist_role'];
                     }
-                    $edit .= '<div class="panel panel-primary"><div class="panel-heading">'.t("Detail of the added member", array(), array('context' => 'gofast')).'</div><div class="panel-body">';
+
+                   $edit .= "<div class='text-dark-65'>" . t("Detail of the added member", array(), array('context' => 'gofast')) . "</div>";
 
                     if (isset($edition['user_name'])){
-                        $edit .= '<div class="panel panel-info"><div class="panel-heading">'.t('Added member : ').'</div><div class="panel-body">';
-                        $edit .=  theme('user_picture', array( 'account' => user_load($user_name), 'popup' => FALSE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
+                        $titre_card = t('Added member : ');
+                        $content_card =  theme('user_picture', array( 'account' => user_load($user_name), 'popup' => FALSE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
                             ) . ':   ' .  gofast_message_ext_api_get_user_name($user_name) . '</br>';
                     }else if(isset($edition['array_members'])){
                         $userlist_name = 'test';
-                        $edit .= '<div class="panel panel-info"><div class="panel-heading">' . t('Added member (from userlist %userlist): ', array('%userlist' => $userlist_name)) . '</div><div class="panel-body">';
+                        $titre_card = t('Added member (from userlist %userlist): ', array('%userlist' => $userlist_name));
                         foreach ($user_name as $user_uid) {
-                          $edit .=  theme('user_picture', array('account' => user_load($user_uid), 'popup' => FALSE, 'dimensions' => array('width' => '25px', 'height' => '25px'))) . ':   ' .  gofast_message_ext_api_get_user_name($user_uid) . '</br>';
+                          $content_card =  theme('user_picture', array('account' => user_load($user_uid), 'popup' => FALSE, 'dimensions' => array('width' => '25px', 'height' => '25px'))) . ':   ' .  gofast_message_ext_api_get_user_name($user_uid) . '</br>';
                         }
                     }else{
                         $userlist_name = $edition['userlist_name'];
-                        $edit .= '<div class="panel panel-info"><div class="panel-heading">'.t('Added member (from userlist %userlist): ', array('%userlist' => $userlist_name )).'</div><div class="panel-body">';
+                        $titre_card = t('Added member (from userlist %userlist): ', array('%userlist' => $userlist_name));
                         foreach($user_name as $user_uid){
-                            $edit .=  theme('user_picture', array( 'account' => user_load($user_uid), 'popup' => FALSE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
+                           $content_card =  theme('user_picture', array( 'account' => user_load($user_uid), 'popup' => FALSE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
                                 ) . ':   ' .  gofast_message_ext_api_get_user_name($user_uid) . '</br>';
                         }
                         if(count($user_name) == 0){
-                          $edit .= t('Empty userlist', array(), array('context' => 'gofast_audit'));
+                            $content_card = t('Empty userlist', array(), array('context' => 'gofast_audit'));
                         }
                     }
-                    $edit .= '</div></div>';
-                    $edit .= '<div class="panel panel-info"><div class="panel-heading">'.t('Role : ').'</div><div class="panel-body">';
+
+                    $edit .= theme('gofast_card_template', ['class' => 'bg-success', 'title' => $titre_card, 'content' => $content_card]);
+
                     $role_name = og_get_user_roles_name($user_role);
-
-                    $edit .= t(reset($role_name) , array() , array('context' => 'gofast_audit'));
-
-                    $edit .= '</div></div>';
+                    $content_card = t(reset($role_name) , array() , array('context' => 'gofast_audit'));
+                    $edit .= theme('gofast_card_template', ['class' => 'bg-info', 'title' => t('Role : '), 'content' => $content_card]);
                     break;
+                case 'workflow_add':
+                  $content_card = $edition['worklow_name'] . " </br>";
+                  $edit .= theme('gofast_card_template', ['class' => 'bg-info', 'title' => t('Creating workflow name : '), 'content' => $content_card]);
+                  break;
+                case 'workflow_delete':
+                  $content_card = $edition['worklow_name'] . " </br>";
+                  $edit .= theme('gofast_card_template', ['class' => 'bg-danger', 'title' => t('Delete workflow name : '), 'content' => $content_card]);
+                  break;
+                case 'card_add':
+                    $content_card = $edition['card_name'] . " </br>";
+                    $edit .= theme('gofast_card_template', ['class' => 'bg-info', 'title' => t('Creating card name : '), 'content' => $content_card]);
+                  break;
+                case 'card_delete':
+                    $content_card = $edition['card_name'] . " </br>";
+                    $edit .= theme('gofast_card_template', ['class' => 'bg-danger', 'title' =>t('Delete card name : '), 'content' => $content_card]);
+                  break;
                 case 'delete_member':
 
                   if (isset($edition['user_name'])) {
@@ -1273,43 +1317,43 @@ function gofast_message_ext_api_render_event($event){
                   }else {
                     $user_name = $edition['userlist_members'];
                   }
-//                  if (isset($edition['user_role'])) {
-//                    $user_role = $edition['user_role'];
-//                  } else {
-//                    $user_role = $edition['userlist_role'];
-//                  }
-                  $edit .= '<div class="panel panel-primary"><div class="panel-heading">' . t("Detail of the deleted member", array(), array('context' => 'gofast')) . '</div><div class="panel-body">';
+
+
+                  $edit .= "<div class='text-dark-65'>" .  t("Detail of the deleted member", array(), array('context' => 'gofast')) . "</div>";
 
                   if (isset($edition['user_name'])) {
-                    $edit .= '<div class="panel panel-info"><div class="panel-heading">' . t('Deleted member : ') . '</div><div class="panel-body">';
-                    $edit .= theme('user_picture', array('account' => user_load($user_name), 'popup' => FALSE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
+                    $title_card = t('Deleted member : ');
+                    $content_card = theme('user_picture', array('account' => user_load($user_name), 'popup' => FALSE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
                         ) . ':   ' . gofast_message_ext_api_get_user_name($user_name) . '</br>';
                   } else if (isset($edition['array_members'])) {
                     $userlist_name = 'test';
-                    $edit .= '<div class="panel panel-info"><div class="panel-heading">' . t('Deleted member (from userlist %userlist): ', array('%userlist' => $userlist_name)) . '</div><div class="panel-body">';
+                    $title_card = t('Deleted member (from userlist %userlist): ', array('%userlist' => $userlist_name));
                     foreach ($user_name as $user_uid) {
-                      $edit .=  theme('user_picture', array('account' => user_load($user_uid), 'popup' => FALSE, 'dimensions' => array('width' => '25px', 'height' => '25px'))) . ':   ' .  gofast_message_ext_api_get_user_name($user_uid) . '</br>';
+                      $content_card=  theme('user_picture', array('account' => user_load($user_uid), 'popup' => FALSE, 'dimensions' => array('width' => '25px', 'height' => '25px'))) . ':   ' .  gofast_message_ext_api_get_user_name($user_uid) . '</br>';
                     }
                   } else {
-                    $userlist_name = $edition['userlist_name'];
-                    $edit .= '<div class="panel panel-info"><div class="panel-heading">' . t('Deleted member (from userlist %userlist): ', array('%userlist' => $userlist_name)) . '</div><div class="panel-body">';
+                     $userlist_name = $edition['userlist_name'];
+                     $title_card = t('Deleted member (from userlist %userlist): ', array('%userlist' => $userlist_name));
                     foreach ($user_name as $user_uid) {
-                      $edit .= theme('user_picture', array('account' => user_load($user_uid), 'popup' => FALSE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
+                      $content_card = theme('user_picture', array('account' => user_load($user_uid), 'popup' => FALSE, 'dimensions' => array('width' => '25px', 'height' => '25px'))
                           ) . ':   ' . gofast_message_ext_api_get_user_name($user_uid) . '</br>';
                     }
                     if(count($user_name) == 0){
-                      $edit .= t('Empty userlist', array(), array('context' => 'gofast_audit'));
+                      $content_card .= t('Empty userlist', array(), array('context' => 'gofast_audit'));
                     }
                   }
-                  $edit .= '</div></div>';
-//                  $edit .= '<div class="panel panel-info"><div class="panel-heading">' . t('Role : ') . '</div><div class="panel-body">';
-//                  $role_name = og_get_user_roles_name($user_role);
-//
-//                  $edit .= t(reset($role_name), array(), array('context' => 'gofast_audit'));
-//
-//                  $edit .= '</div></div>';
+                     $edit .= theme('gofast_card_template', ['class' => 'bg-danger', 'title' => $title_card, 'content' => $content_card]);
+
                   break;
-              }
+                  case 'create_room':
+                       $content_card = $edition['room_name'] . " </br>";
+                       $edit .= theme('gofast_card_template', ['class' => 'bg-info', 'title' =>t('Creating room name : '), 'content' => $content_card]);
+                      break;
+                  case 'delete_room':
+                       $content_card = $edition['room_name'] . " </br>";
+                       $edit .= theme('gofast_card_template', ['class' => 'bg-danger', 'title' => t('Delete room name : '), 'content' => $content_card]);
+                      break;
+                }
             }
           }
           $output .= theme('gofast-message-ext-last-event', array('output_prepare' => $event['message'], 'edit' => $edit));

@@ -451,6 +451,8 @@ function user_profile_form_submit($form, &$form_state) {
      */
     if(isset($_SESSION['pass_reset_' . $account->uid])){
         unset($_SESSION['pass_reset_' . $account->uid]);
+        global $pass_just_reseted;
+        $pass_just_reseted = true;
         user_logout_current_user();
     }
   }

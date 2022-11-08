@@ -277,7 +277,7 @@ function gofast_workflows_api_validate_access_document(){
 
 
 
-
+/** @todo remove this function after sufficient testing */
 function gofast_workflows_api_sendmail(){
 
     //on n'autorise que les requetes internes (entre le serveur et lui même)
@@ -304,6 +304,18 @@ function gofast_workflows_api_sendmail(){
    if(is_numeric($login)){
        $drupal_uid = gofast_workflows_get_drupalid_from_bonitaid($login);
        $last_actor = user_load($drupal_uid);
+   }else if(strpos($login, "USERLIST_") === 0){ //Check if the recepient is a userlist
+       $ulid = explode("_", trim($login))[1];
+       $group_members = gofast_userlist_get_members($ulid);
+       
+       foreach ($group_members as $uid => $member) {
+          $user_members = user_load($uid);
+          // Get only users active to send mail
+          if ($user_members->status == 1){
+            $last_actor = user_load($uid);
+            $liste_destinataires[$uid] = $last_actor;
+          }
+       }
    }else{
        //on verifie si $login est juste un username ou une liste de username separé par ;
        $array_login = explode(";", $login);
@@ -342,8 +354,6 @@ function gofast_workflows_api_sendmail(){
         //d'abord on recupere l'object du case qui viens de se terminé
         //$caseObject = ceo_vision_get_list_actives_cases(false, $array_data["caseId"], false, true);
 
-
-
         if($started_by_object->uid !== $last_actor->uid){
             //$liste_destinataires[] = $started_by_object;
              watchdog("GoFast Workflow sendmail author", $started_by_object->uid);
@@ -358,7 +368,7 @@ function gofast_workflows_api_sendmail(){
                 $message_author = $array_data["message"];
             }
             $message_author = gofast_workflows_replace_email_masks(rawurldecode($message_author), $rootcaseObject);
-            $generic_message = gofast_workflows_api_sendmail_gettext_linkdashboard($caseObject["rootCaseId"]);
+            // $generic_message = gofast_workflows_api_sendmail_gettext_linkdashboard($caseObject["rootCaseId"]);
 
             $subject_author = t("Process", array(), array('context' => 'gofast:gofast_workflows'))." : ".$subject_author;
             $recpt = array(array('recpt' => $started_by_object->uid,
@@ -368,7 +378,7 @@ function gofast_workflows_api_sendmail(){
               'body' => str_replace("+", " ", rawurldecode($message_author)),
               'title' => "GOFAST",
               'subject' => str_replace("+", " ", rawurldecode($subject_author)),
-              'footer' => ""
+              'footer' => t('Workflow powered by GoFAST', array(), array('context' => 'gofast:gofast_workflows')),
             );
             gofast_mail_queue_api_queue_ext($mail,  $recpt, time());
 
@@ -397,6 +407,173 @@ function gofast_workflows_api_sendmail(){
 
    }
 
+}
+
+function gofast_workflows_api_sendmail_taskdone(){
+
+    //on n'autorise que les requetes internes (entre le serveur et lui même)
+    if(gofast_workflows_is_external_api()){
+        drupal_access_denied();
+        exit;
+    }
+    gofast_workflows_get_cookie(true);
+    $cookie_name = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
+    $bonita_user_id = true;
+
+    $caseObject = gofast_workflows_api_get_case_object($_GET["caseId"], true);
+   
+    $title_process = $_GET["title"];
+    $step = $_GET["step"];
+    $started_by = $caseObject["started_by"];      
+    if($step !== "end_process"){
+         print('OK');
+        fastcgi_finish_request();
+        usurp(1);
+        sleep(20);
+    }else{    
+        usurp(1);    
+    }
+
+   //get all wf actors
+   $case_variables = gofast_workflows_get_case_variables_from_id($caseObject["rootCaseId"]);
+   if(isset($_GET["destinataire"])){
+    $liste_destinataires[] = $_GET["destinataire"];
+   }else{
+    $liste_destinataires = explode(",",str_replace(array("[", "]"), array("", ""),$case_variables["list_all"]["value"]));
+   }
+   foreach($liste_destinataires as $destinataire){
+      $destinataire_object = user_load_by_name(trim($destinataire));
+      $_POST['langcode'] = $destinataire_object->language;
+      $recpt = array(array('recpt' => $destinataire_object->uid,
+                            'method' => 'to'));
+      
+        switch($step){
+            case "task_done":
+                $subject = "[{{Workflow}} " . variable_get('site_name') . "] {{Document broadcast}} : {{A user finished a task}} " .$title_process;
+                break;
+            case "task_assigned":
+                $subject = "[{{Workflow}} " . variable_get('site_name') . "] {{Document broadcast}} : {{You have been assigned on a task}} " .$title_process;
+                break;
+            case "remind_task_assigned":
+                 $subject = "[{{Workflow}} " . variable_get('site_name') . "] {{Document broadcast}} : {{Process deadline tomorrow}} ";
+                break;
+            case "end_process":
+                $subject = "[{{Workflow}} " . variable_get('site_name') . "] {{Document broadcast}} : {{process finished}} " .$title_process;
+                break;
+            default:
+               $subject = "[{{Workflow}} " . variable_get('site_name') . "] {{Document broadcast}} : {{A user finished a task}} " .$title_process;
+               break;
+        }
+   
+      //now this function must be contextual to the step ( see "subject" previous ).
+      $message = gofast_workflow_api_sendmail_taskdone_build_body($caseObject, $destinataire_object->name, $step);
+
+      //on remplace certains "masques" du contenu (par exemple le nom de domaine).
+      $subject = gofast_workflows_replace_email_masks($subject, $caseObject);
+
+      // $generic_message = gofast_workflows_api_sendmail_gettext_linkdashboard($caseObject["rootCaseId"]);
+    
+    
+    $mail = array(
+        'body' => $message,
+        'title' => t("Workflow", array(), array('context' => "gofast:gofast_workflows")),
+        'subject' => $subject,
+        'footer' =>  t('Workflow powered by GoFAST', array(), array('context' => 'gofast:gofast_workflows')),
+    );
+    gofast_mail_queue_api_queue_ext($mail,  $recpt, time());
+
+   }
+   
+    if($step == "end_process"){
+          print('OK');
+          exit;
+    }
+}
+
+function gofast_workflow_api_sendmail_taskdone_build_body($caseObject, $login, $step){
+    $assignee = user_load_by_name($login);
+    $bonita_assignee_id =  gofast_workflows_get_user_id($assignee);
+    $my_author =  gofast_workflows_get_drupalid_from_bonitaid($caseObject["started_by"], true);
+
+    //we get all pending "human tasks" for this case
+    $tasks_from_pid = gofast_workflows_get_list_actives_tasks(false, $caseObject["rootCaseId"], false, false, true);
+    
+    $list_tasks = array();
+    $list_tasks_assigned_user = array();
+    if(count($tasks_from_pid) > 0){
+        foreach($tasks_from_pid as $task){
+            if($task["assigned_id"] == $bonita_assignee_id){
+                array_push($list_tasks_assigned_user, $task);
+                continue;
+            }
+            if($task["name"] == "Etape faite" || $task["name"] == "Acceptation Refus" || $task["name"] == "Signature Yousign"){
+                $assigned = gofast_workflows_get_drupalid_from_bonitaid($task["assigned_id"], true);
+                $assignedDisplayName = gofast_user_display_name($assigned);
+                array_push($list_tasks, array("name" => $task["name"], "displayName" => $task["displayName"], "assignedDisplayName" => $assignedDisplayName, "login" => $assigned->name, "dueDate" => $task["assigned_date"]));
+            }
+        }
+    }
+
+    $author_comment = "";
+    $process_current = gofast_workflows_get_processcurrent_from_pid($caseObject["rootCaseId"]);
+    // $process_current_infos = gofast_workflows_get_processcurrent_infos_from_pid($caseObject["rootCaseId"]);
+    if(count($process_current) > 0){
+        foreach($process_current as $process_current_item){
+            if($process_current_item->TYPE == "string" && $process_current_item->NAME == "Comment"){
+                    $author_comment = $process_current_item->CONTENT_VALUE;
+            }
+        }
+    }
+
+    $processHistory = gofast_workflows_get_processhistory_from_pid($caseObject["rootCaseId"]);
+    foreach ($processHistory as $index => $historyItem) {
+        $query = "select * from CONTENTHISTORY WHERE persistenceId=(SELECT MAX(CONTENTHISTORY_PID) FROM LINEHISTORY_CONTENTS WHERE  LINEHISTORY_PID = ".$historyItem->LINEHISTORY_PID.");";
+        $results =  ceo_vision_workflow_execute_bonita_query_bdm($query);
+        $processHistory[$index]->TASK_COMMENT = "";
+        foreach($results as $result) {
+            if($result->TYPE == "string" && $result->NAME == "Comment"){
+                $processHistory[$index]->TASK_COMMENT = $result->CONTENT_VALUE;
+            }
+        }
+    }
+    // $processHistoryInfos = gofast_workflows_get_processhistory_infos_from_pid($caseObject["rootCaseId"]);
+    // $case_variables = gofast_workflows_get_case_variables_from_id($caseObject["rootCaseId"]);
+    
+    //Fetch into history (connector)
+    $history = array_reverse(array_map(function ($item) {
+        $taskItem = json_decode($item->TASK_OBJECT);
+        $taskItem->comment = $item->TASK_COMMENT;
+        return $taskItem;
+    }, $processHistory));
+
+    //Fetch into all retrieved documents (connector)
+    $documents_info = array();
+    foreach($process_current as $process_current_item){
+        if($process_current_item->TYPE == "node"){
+            $documents_info[] = $process_current_item->CONTENT_VALUE;
+        }
+    }
+
+    $author = user_load($my_author);
+
+    $author_pic = '<a href="/user/' . $author->uid . '" title="View user profile."><img style="border-radius: 5px; width:14px;" typeof="foaf:Image" src="' . gofast_get_url_picture_by_id($author->picture->fid) . '" alt="' . t("@user's picture", array('@user' => format_username($author)), array('context' => 'gofast:gofast_user')) . '" title="' . t("@user's picture", array('@user' => format_username($author)), array('context' => 'gofast:gofast_user')) . '" /></a>';
+
+    $body = theme("gofast_workflows_email_taskdone_body", array(
+        "process_name" => $caseObject["processDefinitionId"]["displayName"],
+        "assignee_language" => $assignee->language,
+        "assignee_firstname" => $assignee->ldap_user_givenname[LANGUAGE_NONE][0]['value'],
+        "assignee_fullname" => gofast_user_display_name($assignee),
+        "author_fullname" => gofast_user_display_name($my_author),
+        "author_pic" => $author_pic,
+        "author_comment" => $author_comment,
+        "list_tasks_assigned_user" => $list_tasks_assigned_user,
+        "documents_info" => $documents_info,
+        "list_tasks" => $list_tasks,
+        "history" => $history,
+        "step" => $step,
+    ));
+
+    return $body;
 }
 
 
@@ -438,6 +615,11 @@ function gofast_workflows_replace_email_masks($message, $rootcaseObject){
         $node_icon = theme('node_title', array('node' => node_load($match[1]), 'link' => FALSE));
         return gofast_mail_queue_fa_png(str_replace('<span>', '<span style="display:none;">', $node_icon));
     }, $message);
+    
+    $message = preg_replace_callback("/%node_title:(.*?)%/", function($match){
+        $node_title = gofast_get_node_title($match[1]);
+        return $node_title;
+    }, $message);
 
     $message = preg_replace_callback("/%timestamp_to_date:(.*?)%/", function($match){
         if($_POST['langcode'] == 'en'){
@@ -453,6 +635,10 @@ function gofast_workflows_replace_email_masks($message, $rootcaseObject){
         }else{
             return format_date(intval((int)$match[1]/1000), 'custom', "D, d/m/y - H:i", NULL, $_POST['langcode']);
         }
+    }, $message);
+    
+    $message = preg_replace_callback("/%site_name%/", function($match){
+        return variable_get('site_name');
     }, $message);
 
     usurp(FALSE);
@@ -571,7 +757,7 @@ function gofast_workflows_api_sendmail_gettext_linkdashboard($task_id = ""){
 
 function gofast_workflows_api_liste_emplacements(){
      //on n'autorise que les requetes internes (entre le serveur et lui même)
-    if($_SERVER['REMOTE_ADDR'] !== "127.0.0.1" && $_SERVER['REMOTE_ADDR'] !== "localhost" && $_SERVER['REMOTE_ADDR'] !== "::1"){
+     if(gofast_workflows_is_external_api()){
         drupal_access_denied();
         exit;
     }
@@ -605,7 +791,7 @@ function gofast_workflows_api_liste_emplacements(){
 function gofast_workflows_api_move_document(){
     watchdog("debug move", "debug");
     //on n'autorise que les requetes internes (entre le serveur et lui même)
-    if($_SERVER['REMOTE_ADDR'] !== "127.0.0.1" && $_SERVER['REMOTE_ADDR'] !== "localhost" && $_SERVER['REMOTE_ADDR'] !== "::1"){
+    if(gofast_workflows_is_external_api()){
         drupal_access_denied();
         exit;
     }
@@ -742,9 +928,9 @@ function gofast_workflows_api_move_document(){
 function gofast_workflows_api_update_history(){
 
   //on n'autorise que les requetes internes (entre le serveur et lui même)
-    if($_SERVER['REMOTE_ADDR'] !== "127.0.0.1" && $_SERVER['REMOTE_ADDR'] !== "localhost" && $_SERVER['REMOTE_ADDR'] !== "::1"){
-        drupal_access_denied();
-        exit;
+  if(gofast_workflows_is_external_api()){
+    drupal_access_denied();
+    exit;
     }
 
     if(isset($_GET["pid"])){

@@ -1,0 +1,231 @@
+<mjml>
+  <mj-head>
+    <mj-style>
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 400;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-Regular.otf") format("opentype");
+      }
+
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 600;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-SemiBold.otf") format("opentype");
+      }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#EAF1F7" width="992px">
+    <mj-raw>
+      <!-- SubHeader -->
+    </mj-raw>
+    <mj-section padding-left="10px" padding-top="10px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%">
+        <mj-text padding-left="0" font-size="18px" font-weight="600">
+          Hello User Name,
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-raw>
+      <!-- User Account Creation-->
+    </mj-raw>
+    <mj-section padding="0" padding-left="10px" padding-top="10px" background-color="white">
+      <mj-column width="90%" background-color="#337ab7" border-radius="5px">
+        <mj-text color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/info-circle-solid-white.png" alt="Information Icon" width="18" />
+                </td>
+                <td><span style="color: #ffffff; font-size: 18px; font-weight: 600;">&nbsp;Informations</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-top="10px" padding-bottom="10px" background-color="white">
+      <mj-group width="90%">
+        <mj-column width="10%" vertical-align="middle">
+          <mj-image padding="0" src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" alt="Author Picture" align="left" />
+        </mj-column>
+        <mj-column padding-top="10px" width="90%" vertical-align="middle">
+          <mj-text font-size="14px" font-weight="400">
+            Other Username has created a new account for you on
+            <a href="#" style="color: #337ab7; text-decoration: none;">GoFAST</a>.
+          </mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-top="10px" background-color="white">
+      <mj-column width="90%" background-color="#F3F6F9" border-radius="5px">
+        <mj-text color="#3699ff" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/user-solid-primary.png" alt="Information Icon" width="18" />
+                </td>
+                <td><span style="color: #3699ff; font-size: 18px; font-weight: 600;">&nbsp;Your new account</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-top="10px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%" vertical-align="middle">
+        <mj-text font-size="14px" font-weight="400">
+          Here are your connection informations:
+        </mj-text>
+        <mj-text font-size="14px" font-weight="400" padding-top="0">
+          ID <span style="color: #666666;">Test Login</span>
+        </mj-text>
+        <mj-text font-size="14px" font-weight="400" padding-top="0">
+          Pass <span style="color: #666666;">Test Pass</span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-left="10px" padding-top="10px" background-color="white">
+      <mj-column width="90%" background-color="#F3F6F9" border-radius="5px">
+        <mj-text color="#3699ff" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/scroll-solid-primary.png" alt="Information Icon" width="18" />
+                </td>
+                <td><span style="color: #3699ff; font-size: 18px; font-weight: 600;">&nbsp;Message</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" background-color="white">
+      <mj-column width="90%" vertical-align="middle">
+        <mj-text padding-top="0" font-size="14px" font-weight="400">
+          Test Message
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-left="10px" padding-top="10px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%" background-color="#de6502" border-radius="5px">
+        <mj-text color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/exclamation-triangle-solid-white.png" alt="Information Icon" width="18" />
+                </td>
+                <td><span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;Warning</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-left="10px" padding-top="0" background-color="white">
+      <mj-column width="90%" vertical-align="middle">
+        <mj-text font-size="14px" font-weight="400">
+          Please change your account password immediately using <a href="#" style="color: #337ab7; text-decoration: none;">this link</a>.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-left="10px" padding-top="0" background-color="white">
+      <mj-column width="90%" background-color="#F3F6F9" border-radius="5px">
+        <mj-text color="#3699ff" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/pen-solid-primary.png" alt="Information Icon" width="18" />
+                </td>
+                <td><span style="color: #3699ff; font-size: 18px; font-weight: 600;">&nbsp;Notes</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-left="10px" padding-top="0" background-color="white">
+      <mj-column width="90%" width="90%" vertical-align="middle">
+        <mj-text font-size="14px" font-weight="400">
+          To help you get started, here is a list of important things to know about the online documentation of our platform.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-left="10px" padding-top="0" background-color="white">
+      <mj-group width="90%">
+        <mj-column width="25%">
+          <mj-text padding="0" padding-top="10px" font-size="14px" font-weight="400" align="center">
+            Profile
+            <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+              <tbody>
+                <tr>
+                  <td style="padding-top: 5px;">
+                    <a href="#"><img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/user-border.png" alt="Profile Picture" width="40" /></a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </mj-text>
+        </mj-column>
+        <mj-column width="25%">
+          <mj-text padding="0" padding-top="10px" font-size="14px" font-weight="400" align="center">
+            Collaborative spaces
+            <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+              <tbody>
+                <tr>
+                  <td style="padding-top: 5px;">
+                    <a href="#"><img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/collaborative-border.png" alt="Profile Picture" width="40" /></a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </mj-text>
+        </mj-column>
+        <mj-column width="25%">
+          <mj-text padding="0" padding-top="10px" font-size="14px" font-weight="400" align="center">
+            Content creation
+            <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+              <tbody>
+                <tr>
+                  <td style="padding-top: 5px;">
+                    <a href="#"><img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/content-border.png" alt="Profile Picture" width="40" /></a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </mj-text>
+        </mj-column>
+        <mj-column width="25%">
+          <mj-text padding="0" padding-top="10px" font-size="14px" font-weight="400" align="center">
+            Subscription
+            <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+              <tbody>
+                <tr>
+                  <td style="padding-top: 5px;">
+                    <a href="#"><img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/subscribe-border.png" alt="Profile Picture" width="40" /></a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+    <mj-section padding-left="10px" padding-top="0" background-color="white">
+      <mj-column width="90%" padding-top="10px" width="90%" vertical-align="middle">
+        <mj-text align="center" color="#666666" font-size="14px" font-weight="400">
+          If you want information on something else, here is <a href="" style="color: #666666;">the link</a> to the online documentation.
+        </mj-text>
+        <mj-text align="center" color="#666666" font-size="14px" font-weight="400">
+          If you have more questions about GoFAST features, please post them on the <a href="" style="color: #666666;">GoFAST community forum</a>.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

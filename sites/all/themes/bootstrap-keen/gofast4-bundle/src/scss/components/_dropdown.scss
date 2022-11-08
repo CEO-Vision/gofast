@@ -1,0 +1,74 @@
+.dropdown-submenu a::after {
+transform: rotate(-90deg);
+position: absolute;
+right: 6px;
+top: .8em;
+}
+
+.dropdown-submenu .dropdown-menu {
+top: 0;
+left: 100%;
+margin-left: .1rem;
+margin-right: .1rem;
+}
+
+.gofast-mobile {
+    .dropdown-submenu .dropdown-menu {
+        left: -20%;
+    }
+}
+
+.gofastDropdown {
+
+    &.dropdown {
+        position: relative;
+        &:hover {
+            &>.dropdown-menu{
+                display: block;
+            }
+        }
+        &.show{
+            display: flex !important;
+            &>.dropdown-menu{
+                top: 8px !important;
+            }
+        }
+        &>.dropdown-menu{
+            top: inherit !important;
+            bottom: -1.25rem;
+            max-height: calc(1300% + 1.25rem); // beyond 12 items, let submenu overflows and scrolls to avoid overflowing off screen
+            overflow: scroll;
+            &.dropleft {
+                left: calc(-100% - .8rem);
+            }
+        }
+    }
+}
+
+
+.gofast-node-actions {
+    &.actions-wrapper .dropdown-menu {
+        width: 100%;
+        max-width: none;
+    }
+
+    & .dropdown-menu {
+        width: 280px;
+        max-width: 280px;
+    }
+}
+
+#activity-feed {
+    & .dropdown-menu {
+        width: 320px;
+        max-width: 320px;
+    }
+}
+
+.search-tooltip > .tooltip-inner {
+    min-width: max-content !important;
+}
+
+.navi-icon .fa-users::before {
+    color: #B5B5C3;
+}

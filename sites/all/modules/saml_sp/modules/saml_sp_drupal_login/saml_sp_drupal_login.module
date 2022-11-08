@@ -145,6 +145,12 @@ function saml_sp_drupal_login__saml_authenticate($is_valid, OneLogin\Saml2\Respo
     $idp = saml_sp_drupal_login__get_idp();
     // Get the NameID value from response
     $name_id = $saml_response->getNameId();
+     
+    
+    /* @CEO-Vision patch : some IDP ( for exemple Shibboleth ) doesn't send NameId into url but into attributes */
+    if(user_load_by_name($name_id)->uid == null && isset($attributes["urn:oid:0.9.2342.19200300.100.1.1"])){
+         $name_id = $attributes["urn:oid:0.9.2342.19200300.100.1.1"][0];
+    }
 
     // If email address is not used to identify user,
     // it has to be in the attributes
@@ -189,6 +195,7 @@ function saml_sp_drupal_login__saml_authenticate($is_valid, OneLogin\Saml2\Respo
       $account_ldap_informations = gofast_ldap_get_user_informations($email);
       usurp(1);
       $account = gofast_user_user_create($email, $account_ldap_informations['givenname'], $account_ldap_informations['sn'],user_password(30), $account_ldap_informations['mail'],variable_get(VARIABLE_NAME_REPLICATION_MAIN_ORGA, ""));
+      gofast_ldap_sasl_auth_on($account);
       usurp(FALSE);
       /*$account = user_save($account, $new_user);
       if (module_exists('entity')) {
@@ -263,7 +270,8 @@ function saml_sp_drupal_login__saml_authenticate($is_valid, OneLogin\Saml2\Respo
     $selectVersion = isset($_COOKIE["gofast_version_login_selected"]) ? $_COOKIE["gofast_version_login_selected"] : variable_get('gofast_admin_interface', GOFAST_COMPLETE_VERSION);
 
     $token = variable_get("gofast_token_user_login");
-    $request_uri = str_replace($_SERVER['REQUEST_SCHEME'] . "://" . $_SERVER['SERVER_NAME'], "", $_SERVER['HTTP_REFERER']);
+    // we get just the request uri, regardless of the idp domain
+    $request_uri = $_SERVER['REQUEST_URI'];
 
     if (gofast_mobile_is_mobile_domain() && $selectVersion == GOFAST_COMPLETE_VERSION) {
       header('Location: ' . $standard_prefix_url . '/gofast/user/login/redirect/' . $token . '/' . $uid . "?request_uri=" . urlencode($request_uri));
@@ -445,7 +453,11 @@ function saml_sp_user_logout($account) {
       // Destroy session before doing redirect.
       session_destroy();
     }
-    drupal_goto($url);
+    
+    global $pass_just_reseted;
+    if($pass_just_reseted !== true){
+        drupal_goto($url);
+    }
   }
 }
 

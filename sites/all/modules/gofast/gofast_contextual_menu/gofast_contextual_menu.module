@@ -1,0 +1,59 @@
+<?php
+
+module_load_include('inc', 'gofast_contextual_menu', 'gofast_contextual_menu.utils');
+
+/**
+ * Implements hook_theme().
+ */
+function gofast_contextual_menu_theme() {
+  $items = [];
+
+  $items = [
+    'gofast_contextual_menu_dropdown_items' => [
+      'template' => 'tpl/gofast-contextual-menu-dropdown-items'
+    ]
+  ];
+
+  return $items;
+}
+
+/**
+ * Implement hook_init
+ */
+function gofast_contextual_menu_init(){
+  drupal_add_css(drupal_get_path('module', 'gofast_contextual_menu') . '/css/gofast_contextual_menu.css');
+}
+
+/**
+ * Alter the javascript structure that describes the flag operation.
+ *
+ * @param array $info
+ *   The info array before it is returned from flag_build_javascript_info().
+ * @param flag_flag $flag
+ *   The full flag object.
+ *
+ * @see flag_build_javascript_info()
+ */
+function gofast_contextual_menu_flag_javascript_info_alter(&$info, $flag) {
+    //An associative array to be able to get the correct icon depdending on the flag
+    $flag_icons = [
+        'bookmarks' => 'fa fa-star',
+        'flag_public' => 'fa fa-star',
+        'cart' => 'fas fa-shopping-basket',
+        'subscribe_node' => 'fa fa-rss',
+        'subscribe_user' => 'fa fa-rss'
+    ];
+    $menu_flag = gofast_contextual_menu_create_flag($flag->name, $flag_icons[$flag->name], array('alfresco_item', 'article'), FALSE,  $info['contentId']);
+    $info['newLink'] = theme('gofast_link_generic', array(
+              'text' => $menu_flag['text'],
+              'link_id' => $menu_flag['link_id'],
+              'link_class' => $menu_flag['link_class'],
+              'href' => $menu_flag['href'],
+              'icon_class' => $menu_flag['icon_class'],
+              'target' => $menu_flag['target'],
+              'onClick' => $menu_flag['onClick'],
+              'title' => $menu_flag['title'],
+              'flag' => $menu_flag['flag'],
+              'divider' => $menu_flag['divider']
+            ));
+}

@@ -12,6 +12,9 @@
     return;
   }
 
+  Drupal.gofast_modal = Drupal.gofast_modal || {};
+
+
   /**
    * Click function for modals that can be cached.
    */
@@ -28,7 +31,7 @@
     Gofast.addLoading();
     Drupal.CTools.Modal.show(Drupal.CTools.Modal.getSettings(this));
     return false;
-  };  
+  };
 
   Drupal.CTools.Modal.show = function(choice) {
     var opts = {};
@@ -66,7 +69,7 @@
         overflow: 'auto'
       },
       draggable: true,
-      resizable: true      
+      resizable: true
     };
 
     var settings = {};
@@ -79,65 +82,6 @@
 
     Drupal.CTools.Modal.currentSettings = settings;
     Drupal.CTools.Modal.initSettings = settings;
-    
-    var resize = function(e) {
-      if (e && e.target && e.target !== window) {
-        return;
-      }
-      
-      // Refresh settings.
-      var settings = Drupal.CTools.Modal.currentSettings;
-      
-      // When creating the modal, it actually exists only in a theoretical
-      // place that is not in the DOM. But once the modal exists, it is in the
-      // DOM so the context must be set appropriately.
-      var context = e ? document : Drupal.CTools.Modal.modal;
-      var width = 0;
-      var height = 0;
-
-      //  Handle fixed navbars. Grab the body top offset in pixels.
-      var topOffset = parseInt($('body').css("padding-top"), 10);
-
-      if (settings.modalSize.type === 'scale') {
-        width = $(window).width() * settings.modalSize.width;
-        height = ($(window).height() - topOffset) * settings.modalSize.height;
-      }
-      else {
-        width = settings.modalSize.width;
-        height = settings.modalSize.height;
-      }
-
-      // Add padding for the offset.
-      $('#modalContent').css('padding-top', topOffset + 'px');
-      
-      // Use the additionol pixels for creating the width and height.
-      var mDialogW = width, mDialogH = height,
-          mBodyW = width, mBodyH = height;
-  
-      if (width === 'auto') {
-        // Try to rely on the main content width (that is reponsive).
-        var section = $('.main-container section:first');
-        width = section.length && section.width() || width;
-      }
-  
-      if (width !== 'auto') {
-        mDialogW = width + settings.modalSize.addWidth/* + 'px'*/;
-        mBodyW = (width - settings.modalSize.contentRight)/* + 'px'*/;
-      }
-      if (height !== 'auto') {
-        mDialogH = height + settings.modalSize.addHeight/* + 'px'*/;
-        mBodyH = (height - settings.modalSize.contentBottom)/* + 'px'*/;
-      }
-      
-      $('div.ctools-modal-dialog', context).css({width: mDialogW, height: mDialogH});
-      $('div.ctools-modal-dialog .modal-body', context).css({width: mBodyW, height: mBodyH});
-      
-      if (!e) {
-        // Remember processed width & height on init.
-        Gofast.apply(settings.modalContentOptions, {width: mBodyW, height: mBodyH});        
-        Gofast.apply(Drupal.CTools.Modal.initSettings, settings);
-      }
-    };
 
     if (!Drupal.CTools.Modal.modal) {
       Drupal.CTools.Modal.modal = $(Drupal.theme(settings.modalTheme));
@@ -147,24 +91,24 @@
 //      }
     }
 
+    if ($(".dropdown-menu")) $(".dropdown-menu").removeClass("show");
+
     $('body').addClass('modal-open');
 
-    resize();
-    
     //Close any opened menu
     $(".gofast-node-actions").removeClass('open').addClass('close');
 
     $('.modal-title', Drupal.CTools.Modal.modal).html(settings.loadingText);
     Drupal.CTools.Modal.modalContent(Drupal.CTools.Modal.modal, settings.modalOptions, settings.animation, settings.animationSpeed);
     $('#modalContent .modal-body').html(Drupal.theme(settings.throbberTheme));
-    
+
     $(document).bind('keydown', function(event) {
       if (event.keyCode == 27 && !$('#modalContent').length) {
         $('body').removeClass('modal-open');
         return false;
       }
     });
-    
+
     if (settings.modalSize.type !== 'scale') {
       Gofast.apply(settings.modalContentOptions, {
         'max-height': Gofast.getWindowHeight() *.8,
@@ -172,9 +116,9 @@
       });
     }
 
-    $('#modal-content').css(settings.modalContentOptions);    
+    $('#modal-content').css(settings.modalContentOptions);
   };
-  
+
   /**
    * modalContent
    * @param content string to display in the content box
@@ -298,6 +242,10 @@
         return true;
       }
       else {
+        var tabbableElements = getTabbableElements();
+        if (!tabbableElements.length) {
+          return;
+        }
         getTabbableElements()[0].focus();
       }
 
@@ -360,155 +308,39 @@
     $('body').bind('keydown', modalTabTrapHandler);
 
     // Create our content div, get the dimensions, and hide it
-    var modalContent = $('#modalContent').css('top','-1000px');
+    var modalContent = $('#modalContent').remove();
 
-    $('#modalBackdrop').css(css).css('top', 0).css('height', docHeight + 'px').css('width', docWidth + 'px');
+  }
 
-    // Bind a click for closing the modalContent
-    modalContentClose = function(){close(); return false;};
-    $('.close').bind('click', modalContentClose);
+  Drupal.CTools.Modal.closeOnBlur = function(bool) {
+    $(".modal:not('#gofastKanbanModal')").first().data("bs.modal")._config.backdrop = bool ? true : "static";
+  }
 
-    // Bind a keypress on escape for closing the modalContent
-    modalEventEscapeCloseHandler = function(event) {
-      if (event.keyCode == 27) {
-        close();
-        return false;
-      }
-    };
-
-    $(document).bind('keydown', modalEventEscapeCloseHandler);
-
-    // Per WAI-ARIA 1.0 Authoring Practices, initial focus should be on the
-    // close button, but we should save the original focus to restore it after
-    // the dialog is closed.
-    var oldFocus = document.activeElement;
-    $('.close').focus();
-
-    // Close the open modal content and backdrop
-    function close() {
-      // Unbind the events
-      $(window).unbind('resize',  modalContentResize);
-      $('body').unbind( 'focus', modalEventHandler);
-      $('body').unbind( 'keypress', modalEventHandler );
-      $('body').unbind( 'keydown', modalTabTrapHandler );
-      $('.close').unbind('click', modalContentClose);
-      $('body').unbind('keypress', modalEventEscapeCloseHandler);
-      $(document).trigger('CToolsDetachBehaviors', $('#modalContent'));
-
-      // Set our animation parameters and use them
-      if ( animation == 'fadeIn' ) animation = 'fadeOut';
-      if ( animation == 'slideDown' ) animation = 'slideUp';
-      if ( animation == 'show' ) animation = 'hide';
-
-      // Close the content
-      modalContent.hide()[animation](speed);
-
-      // Remove the content
-      $('#modalContent').remove();
-      $('#modalBackdrop').remove();
-
-      // Restore focus to where it was before opening the dialog
-      $(oldFocus).focus();
-    };
-
-    // Move and resize the modalBackdrop and modalContent on window resize.
-    modalContentResize = function(e,verticaly, horizontaly) {
-      if(verticaly == undefined){
-          verticaly = false;
-      }
-      if(horizontaly == undefined){
-          horizontaly = false;
-      }
-      if (e && e.target && e.target !== window) {
-        return;
-      }
-      
-      var settings = Drupal.CTools.Modal.currentSettings;
-      
-      if (settings.resizable) {
-        if (verticaly == true){
-            $('#modalContent .ui-resizable').css({height:'auto'});
-        }else if(horizontaly == true){
-            $('#modalContent .ui-resizable').css({width:'auto'});
-        }else{
-            $('#modalContent .ui-resizable').css({width:'auto', height:'auto'});
-        }
-        if (Drupal.CTools.Modal.delayedTask) {
-          clearTimeout(Drupal.CTools.Modal.delayedTask);
-        }
-        Drupal.CTools.Modal.delayedTask = setTimeout(function() {
-          $('#modalContent .ui-resizable').css({
-            height: function(){ return $(this).height() },
-            width: function(){ return $(this).width() }
-          });
-          $('#modalContent').add('.ctools-modal-dialog', '#modal-content').css({width: 'auto', 'max-width': 'none'});
-        }, 100);
-      }
-      
-      // Reset the backdrop height/width to get accurate document size.
-      $('#modalBackdrop').css('height', '').css('width', '');
-
-      // Position code lifted from:
-      // http://www.quirksmode.org/viewport/compatibility.html
-      var wt = 0;
-      if (self.pageYOffset) { // all except Explorer
-        wt = self.pageYOffset;
-      } else if (document.documentElement && document.documentElement.scrollTop) { // Explorer 6 Strict
-        wt = document.documentElement.scrollTop;
-      } else if (document.body) { // all other Explorers
-        wt = document.body.scrollTop;
-      }
-
-      // Get our heights
-      var docHeight = $(document).height(),
-          docWidth = $(document).width(),
-          winHeight = $(window).height(),
-          winWidth = $(window).width();
-      if ( docHeight < winHeight ) docHeight = winHeight;
-
-      // Get where we should move content to
-      var modalContent = $('#modalContent'),
-          mdcTop = wt + ( winHeight / 2 ) - ( modalContent.outerHeight() / 2),
-          mdcLeft = ( winWidth / 2 ) - ( modalContent.outerWidth() / 2);
-
-      // Apply the changes
-      $('#modalBackdrop').css('height', docHeight + 'px').css('width', docWidth + 'px').show();
-      modalContent.css('top', mdcTop + 'px').css('left', mdcLeft + 'px').show();
-     
-      var initWidth = Drupal.CTools.Modal.initSettings.modalContentOptions.width,
-          initHeight = Drupal.CTools.Modal.initSettings.modalContentOptions.width,
-          css = {};
-      if (initWidth > winWidth*.9) css['max-width'] = winWidth *.9;
-      if (initHeight > winHeight*.9) css['max-height'] = winHeight *.9;
-      if (!$.isEmptyObject(css)) $('#modal-content').css(css);
-           
-    $('#cke_edit-body-value .cke_resizer_vertical ').css('display','none');
-    //Get height of Ckeditor for resizing when the modal is resize
-    Gofast.ckeditor_size = $('.cke_contents').height();
-    };
- 
-  }; 
-  
-
-  
-  
   /**
    * AJAX responder command to place HTML within the modal.
    */
   Drupal.CTools.Modal.modal_display = function(ajax, response, status) {
-    if ($('#modalContent').length == 0) {
-      Drupal.CTools.Modal.show(Drupal.CTools.Modal.getSettings(ajax.element));
+    var target = "#gofast_basicModal";
+
+    if (ajax.allowStretch != undefined && ajax.allowStretch == true) {
+      $("#modal-content").removeClass("w-100");
     }
 
+    // Recenter modal
+    $(target).css({
+      top: 0,
+      left: 0
+    });
+
     $('#modal-title').html(response.title);
+
+    /// In some cases classes are added to the object, then we deleted to prevent CSS override (exemple : modal-workflow)
+    $(target + ' #modal-content').removeClass();
+    $(target + ' #modal-content').addClass('modal-body');
     // Simulate an actual page load by scrolling to the top after adding the
     // content. This is helpful for allowing users to see error messages at the
     // top of a form, etc.
     $('#modal-content').html(response.output).scrollTop(0);
-
-    // Attach behaviors within a modal dialog.
-    var settings = response.settings || ajax.settings || Drupal.settings;
-    Drupal.attachBehaviors('#modalContent', settings);
 
     if ($('#modal-content').hasClass('ctools-modal-loading')) {
       $('#modal-content').removeClass('ctools-modal-loading');
@@ -520,150 +352,73 @@
       // button by the show() function called above.)
       $('#modal-content :focusable:first').focus();
     }
-    
-    var modalContent = $('#modalContent'),
-        currentSettings = Drupal.CTools.Modal.currentSettings,
-        docHeight = $(document).height() + 50,
-        winHeight = $(window).height(),
-        winWidth = $(window).width();
 
-    if (docHeight < winHeight) docHeight = winHeight;
-    
-    // Apply UI behavior before processing modal display to avoid some quirks.
-    if (currentSettings.draggable) {
-      $('#modalContent').draggable({handle: '.modal-header'});      
+    // Render modal draggable
+    $(target).draggable({ handle: '.modal-header' });
+
+    if($('#modal-content #remove_from_cart').length) {
+        const linkRemoved = $('#remove_from_cart').detach();
+        const btnCartActions = $('#cart_toolbar_manage').detach();
+        const btnCart = $('#modal-content button').detach();
+
+        $('#modal-footer').html(btnCartActions);
+        $('#modal-footer').append(btnCart);
+        $('#modal-footer').append(linkRemoved);
+    }else{
+      var button = $('#modal-content .btn:not(.no-footer)').clone();
+      $('#modal-content .btn:not(.no-footer)').hide();
+      $('#modal-footer').html(button);
+
+      // Remove form actions from content
+      $('.node-forum-form .card-footer').attr('style', 'display: none !important')
+      $('#modal-footer button').click(function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var _buttonIdFooter = $(this).attr('id');
+        var _buttonIdContent = $('#modal-content #' + _buttonIdFooter);
+
+        // Fix probleme on some modals with submit button with mousedown event
+        var events = $._data(_buttonIdContent[0], "events");
+        if(events != undefined && events.mousedown != undefined && events.mousedown.length != 0){
+          $(_buttonIdContent).trigger('mousedown');
+        }
+
+        $(_buttonIdContent).trigger('click');
+      });
     }
-    if (currentSettings.resizable && $('.modal-content > .ui-resizable').length <= 0) {
-      Drupal.CTools.Modal.resizable();
+
+    //Allow to put custom elements in the footer
+    if($('.modal-footer-element').length){
+      var footer_element = $('.modal-footer-element');
+      footer_element.detach().appendTo($('#modal-footer'));
     }
-    
-    // Release modal content width settings so that resize can work properly, it
-    // also removes superficial padding.
-    $('#modalContent').add('.ctools-modal-dialog'/*, #modal-content'*/).css({width: 'auto', 'max-width': 'none'});
-    
-    // Position code lifted from http://www.quirksmode.org/viewport/compatibility.html
-    var wt = 0;
-    if (self.pageYOffset) { // all except Explorer
-      wt = self.pageYOffset;
-    } else if (document.documentElement && document.documentElement.scrollTop) { // Explorer 6 Strict
-      wt = document.documentElement.scrollTop;
-    } else if (document.body) { // all other Explorers
-      wt = document.body.scrollTop;
+
+    // Change size of modal (depend of content)
+    $(target + " .modal-dialog").addClass('modal-xl');
+
+    if($('#modal-content #bonita_form_process').length != 0 || $('#modal-content #bonita_form').length != 0){
+        setTimeout(function(){$('.modal-content').css("min-width", "850px");}, 1800);
+         setTimeout(function(){$('.modal-content').css("width", "auto");}, 1800);
     }
-    
-    var mdcTop = wt + ( winHeight / 2 ) - (  modalContent.outerHeight() / 2);
-    var mdcLeft = ( winWidth / 2 ) - ( modalContent.outerWidth() / 2);    
-    
-    // Replace the loading backdrop/throbber with the modal backdrop.
+    Drupal.attachBehaviors();
+
     Gofast.removeLoading();
-    if (currentSettings.modalOptions.background !== 'none') {
-      $('#modalBackdrop').show();
+    $(target).modal('show').data('triggered', false);
+
+    //Remove backdrop when we have a comment modal
+    if($('.comment-form').length>0) {
+        $('.modal-backdrop.fade.show').hide();
+        Drupal.CTools.Modal.closeOnBlur(false);
+        return;
     }
-        
-    // Place the modal and display it.
-    $("div > a#edit-cancel").hide();
-    modalContent.css({top: mdcTop + 'px', left: mdcLeft + 'px'}).hide();
-    $('.modal-dialog', modalContent).css({visibility: 'visible'});
-    modalContent[currentSettings.animation](currentSettings.speed);
-   
+    Drupal.CTools.Modal.closeOnBlur(true);
   };
-  
-  Drupal.CTools.Modal.resizable = function() {
-    $('#modal-content')
-            .wrap('<div/>')
-            .parent()
-            .css({
-              display: 'inline-block',
-              overflow: 'hidden',
-              //overflow: 'visible',
-              height: function(){return $(this).height();},
-              width: function(){return $(this).width();}
-            })
-            .resizable({
-              create: function(e, ui) {
-                Gofast.initial_size = $('#modalContent .ui-resizable').height();
-                Gofast.textarea_size = $('#edit-message').height();
-              },
-              start: function (e, ui) {
-                Gofast.initial_size = $('#modalContent .ui-resizable').height();
-                $('#modal-content').css({'max-width':'', 'max-height':''});
-              },
-              stop: function (e, ui) {
-                $('#modal-content').css({
-                  'max-height': function(){return $('#modalContent .ui-resizable').height();},
-                  'max-width': function(){return $('#modalContent .ui-resizable').width();}     
-                })
-              }
-            })
-            .resize(function(){
-                Gofast.size_resizing = $('#modalContent .ui-resizable').height();
-                Gofast.final_size = Gofast.size_resizing - Gofast.initial_size; 
-                Gofast.textarea_size_final = Gofast.textarea_size + Gofast.final_size;
-                Gofast.ckeditor_size_final = Gofast.ckeditor_size + Gofast.final_size;
-                $('#edit-message').css('height', Gofast.textarea_size_final);
-                $('.cke_contents').css('height', Gofast.ckeditor_size_final);
-            })  
-            .find('#modal-content')
-            .css({
-              overflow:'auto',
-              //overflow: 'visible',
-              width:'100%',
-              height:'100%'
-            });
-              //Hide resize parts of textarea in linksharing
-      $('.resizable-textarea > #edit-message').css('resize','none');
-      $('.resizable-textarea > .grippie').css('display','none');
-      $('.ui-resizable-e, .ui-resizable-s').css({width: 'auto', height: 'auto'});
-      $('.ui-resizable-se').css({'margin-bottom': '-6px'});
-  };
+
+
 
   Drupal.CTools.Modal.dismiss = function() {
-    if (Drupal.CTools.Modal.modal) {
-      $('body').removeClass('modal-open');
-      Drupal.CTools.Modal.unmodalContent(Drupal.CTools.Modal.modal);
-    }
-  };
-
-  /**
-   * Provide the HTML to create the modal dialog in the Bootstrap style.
-   */
-  Drupal.theme.prototype.CToolsModalDialog = function () {
-    var html = '';
-    html += '<div id="ctools-modal">';
-    html += '  <div class="ctools-modal-dialog modal-dialog" style="visibility:hidden;">';
-    html += '    <div class="modal-content">';
-    html += '      <div class="modal-header">';
-    html += '        <button type="button" class="close ctools-close-modal" aria-hidden="true">&times;</button>';
-    html += '        <h5 id="modal-title" class="modal-title">&nbsp;</h5>';
-    html += '      </div>';
-    html += '      <div id="modal-content" class="modal-body">';
-    html += '      </div>';
-    html += '    </div>';
-    html += '  </div>';
-    html += '</div>';
-
-    return html;
-  };
-
-  /**
-   * Provide the HTML to create the uploading modal dialog in the Bootstrap style.
-   */
-  Drupal.theme.prototype.uploading_dragdrop = function() {
-    var html = '';
-    html += '<div id="ctools-modal">';
-    html += '  <div id="uploading-modal-dialog" class="ctools-modal-dialog modal-dialog" style="visibility:hidden;">';
-    html += '    <div class="modal-content">';
-    html += '      <div class="modal-header">';
-    html += '        <button type="button" class="close ctools-close-modal" aria-hidden="true">&times;</button>';
-    html += '        <h4 id="modal-title" class="modal-title">&nbsp;</h4>';
-    html += '      </div>';
-    html += '      <div id="modal-content" class="modal-body">';
-    html += '      </div>';
-    html += '    </div>';
-    html += '  </div>';
-    html += '</div>';
-
-    return html;
+    var target = "#gofast_basicModal";
+    $(target).modal('hide');
   };
 
   /**
@@ -679,72 +434,50 @@
 
     return html;
   };
-  
-  $(function() {
-    Drupal.ajax.prototype.commands.modal_display = Drupal.CTools.Modal.modal_display;
-    Drupal.ajax.prototype.commands.modal_dismiss = Drupal.CTools.Modal.modal_dismiss;
-  });
-  
-  Drupal.behaviors.modalAutoResize = {
-    resizeModal: function (modal, ov, ovY) {
-      var room = 150,
-          modalHeight = modal.innerHeight(),
-          modalContentHeight = 0;
 
-      $.each(modal.children(), function(key){
-        modalContentHeight += $(this).innerHeight();
+  Gofast.manage_archive_process = function() {
+    var panels = $(".manage-archive-panel");
+    var panelsProgressBar = $("#archives-panels-progress .progress-bar");
+    var numberOfPanels = panels.length;
+    var processedPanels = 0;
+
+    //For each panel, process the request and check the result
+    $.each(panels, function(i, panel) {
+      var nid = $(panel).find('#nid').text();
+      $.post(location.origin + "/cmis/manage_archives/process", { process_nid : nid }).done(function(data) {
+        let success = false;
+        if(data == "succesfully_archived") {
+            $(panel).find('.panel-body').find('ul').find('li').append("<i class='fa fa-check' style='color:green' aria-hidden='true'></i>");
+            $(panel).find('.panel-body').find(".manage-archive-info").html("<i class='fa fa-check' style='color:red' aria-hidden='true'></i> " + Drupal.t("This document has succesfully been archived", {}, {context: 'gofast:cmis'}));
+            success = true;
+        }
+        if (data == "already_archived") {
+            $(panel).find('.panel-body').find('ul').find('li').append("<i class='fa fa-times' style='color:red' aria-hidden='true'></i>");
+            $(panel).find('.panel-body').find(".manage-archive-info").html("<i class='fa fa-times' style='color:red' aria-hidden='true'></i> " + Drupal.t("This document is already an archive!", {}, {context: 'gofast:cmis'}));
+            success = true;
+        }
+        if (success) {
+            // update progress bar
+            processedPanels++;
+            const progressWidth = Math.round((100 / numberOfPanels) * processedPanels);
+            panelsProgressBar.css({width: progressWidth + "%"});
+            panelsProgressBar.attr("aria-valuenow", progressWidth);
+            // panelsProgressBar.html(processedPanels + " / " + numberOfPanels);
+            panelsProgressBar.html(progressWidth + "%");
+        }
       });
-  
-      if(modalHeight > modalContentHeight) {
-        var newHeight = modalContentHeight + 50;
-        modal.parent().height(modalHeight).animate({height: newHeight}, {duration: 200, queue: false});
-      }
+    });
+  }
 
-      if (Gofast.getWindowHeight() > modalHeight + room) {
-        ov = Gofast.checkOverflow(modal);
-
-        if (ov && ov.y && ov.y > ovY) {
-          var newHeight = Math.min(Gofast.getWindowHeight() - room, modalHeight + (ov.y - ovY));
-
-          modal.animate({height: newHeight, maxHeight: newHeight}, {duration: 400, queue: false});
-
-          if (modal.parent().hasClass('ui-resizable')) {
-            var uirHeight = modal.parent().height() + (newHeight - modalHeight);
-            modal.parent().animate({height: uirHeight}, {duration: 400, queue: false});
-          }
-        }
-      }
-    },
+  Drupal.behaviors.cancelButton = {
     attach: function (context, settings) {
-      var modalAutoResizeBehavior = this;
-      
-      if ($(context).attr('id') !== 'modalContent')
-        return;
-
-      $(context).find('.modal-body').once('modalAutoResize', function () {
-        var modal = $(this),
-                ov = Gofast.checkOverflow(modal),
-                ovY = ov && ov.y || 0;
-
-        modal.find('input.autocomplete').on('autocomplete', function () {
-          //modalAutoResizeBehavior.resizeModal(modal, ov, ovY);
-        });
-        
-        modal.find('.panel-heading a').on('click', function () {
-          setTimeout(function() {
-            modalAutoResizeBehavior.resizeModal(modal, ov, ovY);
-          }, 200);
-        });
-
-        if (typeof CKEDITOR !== 'undefined') {
-          CKEDITOR.on('instanceReady', function () {
-            modalAutoResizeBehavior.resizeModal(modal, ov, ovY);
-          });
-        }
+      $('#modal-content #edit-cancel').click(function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        Drupal.CTools.Modal.dismiss();
       });
     }
-  };
-  
+  };        
   
   $(document).ready(function() {
     $(document).on('flagGlobalAfterLinkUpdate', function(e, data) {
@@ -755,5 +488,11 @@
         }
       }
     });
+    $(document).on("hidden.bs.modal", function(e) {
+      $('#modal-footer').removeClass('d-none').addClass('d-flex');
+      $("#modal-content").addClass("w-100"); // put modal width back to default
+    });
   });
+
+
 })(jQuery, Drupal, Gofast);

@@ -11,7 +11,7 @@ require_once('gofast_subscription_ui_form.inc');
  */
 function gofast_subscription_ui_menu() {
   $items = array();
-  
+
   $items['modal/%ctools_js/subscriptions'] = array(
     'title' => t('Subscriptions', array(), array('context' => 'gofast:subscription_ui')),
     'description' => t('Subscriptions', array(), array('context' => 'gofast:subscription_ui')),
@@ -34,6 +34,14 @@ function gofast_subscription_ui_menu() {
     'access arguments' => array('access content'),
     'access callback' => 'user_access',
   );
+  $items['subscriptions_async'] = array(
+    'title' => t('Subscriptions', array(), array('context' => 'gofast:subscription_ui')),
+    'description' => t('Get subscriptions asynchronously', array(), array('context' => 'gofast:subscription_ui')),
+    'page callback' => 'gofast_subscription_ui_async_display_ui',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
   $items['admin/subscriptions/%'] = array(
     'title' => t('Manage users subscriptions', array(), array('context' => 'gofast:subscription_ui')),
     'description' => t('Manage users subscriptions', array(), array('context' => 'gofast:subscription_ui')),
@@ -50,7 +58,7 @@ function gofast_subscription_ui_menu() {
  */
 function gofast_subscription_ui_manage_subscriptions($action){
   drupal_add_js(drupal_get_path('module', 'gofast_subscription_ui')."/js/gofast_subscription_ui_reset_subscriptions.js");
-  
+
   switch($action){
     case 'reset':
       $info = t("You are going to erase and rebuild the subscriptions of everyone. This operation cannot be undone. Are you sure you want to continue ?", array(), array('context' => 'gofast:subscription_ui'));
@@ -74,63 +82,103 @@ function gofast_subscription_ui_manage_subscriptions($action){
   return $page;
 }
 
+function gofast_subscription_ui_async_display_ui(){
+  global $user;
+  $currentPage = gofast_xss_clean($_GET['pagination']['page']);
+  $pageSize = gofast_xss_clean($_GET['pagination']['perpage']);
+  $offset = ($currentPage - 1) * $pageSize;
+
+  $sort = gofast_xss_clean($_GET['sort']);
+
+  $items = gofast_subscription_ui_get_user_subscriptions($user->uid, $pageSize, $offset, $sort['field'], $sort['sort']);
+  $rows = [];
+
+  // even with server-side pagination, we still need the total number of items to display the right number of pages
+  $count_query_string = "SELECT COUNT(entity_id), taxonomy_term_data.name FROM flagging INNER JOIN flag ON flagging.fid = flag.fid LEFT JOIN taxonomy_term_data ON flagging.entity_id = taxonomy_term_data.tid AND flagging.entity_type = 'taxonomy_term' WHERE flagging.uid = :uid AND (flag.name = 'subscribe_node' OR flag.name = 'subscribe_user' OR (flag.name = 'subscribe_term' AND taxonomy_term_data.name IS NOT NULL) OR flag.name='subscribe_og')";
+  $count_query = db_query($count_query_string, array(':uid' => $user->uid));
+  $total_subscriptions = $count_query->fetchField();
+
+  foreach($items as $item){
+    // keep track of items array size to keep right number of pages
+    if (empty($item)) {
+      $rows[] = [];
+      continue;
+    }
+    
+    //Get form in *_frequency_form.inc to manage frequency parameter
+    $form = drupal_get_form('gofast_subscription_ui_frequency_form', $item['fid'], $item['machine_type'], $item['frequency'] ?? FALSE);
+    $comments_form = drupal_get_form('gofast_subscription_ui_comments_frequency_form', $item['fid'], $item['machine_type'], $item['comments_frequency'] ?? FALSE);
+
+    //Split user's subscriptions datas into the table
+    $rows[] = [
+      "actions"               => $item['x_link'],
+      "type"                  => $item['type'],
+      "name"                  => $item['name_id'],
+      "frequency"             => drupal_render($form),
+      "comments_frequency"     => drupal_render($comments_form),
+      //"method"                =>t("Mail", array(), array('context' => 'gofast:subscription')), //TODO: Create a 'method' field + Get user's sending method
+    ];
+  }
+
+  // data expected by KTDatatable to handle directory size
+  $meta = [
+    "page" => $currentPage,
+    "pages" => ceil($total_subscriptions / $pageSize),
+    "perpage" => $pageSize,
+    "total" => $total_subscriptions,
+    "sort" => $sort['sort'] ?: "",
+    "field" => $sort['field'] ?: "",
+  ];
+
+  $jsonData = json_encode(["data" => $rows, "meta" => $meta]);
+  $jsonData = preg_replace('/<!--(.|\s)*?-->/', '', $jsonData); //Remove unwanted HTML comments from this JSON
+  print $jsonData;
+  exit();
+}
+
 /**
  * Get user subscriptions according to the current UID
- * 
+ *
  * Display a table
  */
 function gofast_subscription_ui_display_ui(){
-  global $user;
-  //Get an array of user's subscriptions
-  $items = gofast_subscription_ui_get_user_subscriptions($user->uid);
+  // global $user;
   
-  //No subscription case
-  if($items == NULL){
-    $page = t("You haven't any subscription !", array(), array('context' => 'gofast:gofast_subscription_ui'));
-  }
-  
-  else{
-    //Build a table
-    $header = array(t('Manage', array(), array('context' => 'gofast:subscription')), t('Type', array(), array('context' => 'gofast:subscription')), t('Name', array(), array('context' => 'gofast:subscription')), t('Frequency', array(), array('context' => 'gofast:subscription')), t('Method', array(), array('context' => 'gofast:subscription')));
-    $rows = array();
-    
-    foreach($items as $item){
-      //String replacement
-      if($item['type'] == "Term"){
-          $item['type'] = t("Tag");
-      }
-      //Get form in *_frequency_form.inc to manage frequency parameter
-      $form = drupal_get_form('gofast_subscription_ui_frequency_form', $item['fid'], $item['machine_type']);
-      //Split user's subscriptions datas into the table
-      $rows[] = array(
-        $item['x_link'],
-        $item['type'],
-        $item['name_id'],
-        drupal_render($form),
-        t("Mail", array(), array('context' => 'gofast:subscription')), //TODO: Create a 'method' field + Get user's sending method
-      );
-    }
-    
-    $page = theme('table', array('header' => $header, 'rows' => $rows, 'sticky' => FALSE)); 
-    }
+  //Include table JS
+  drupal_add_js(drupal_get_path('module', 'gofast_subscription_ui') . "/js/gofast_subscription_ui_table.js");
 
-  return($page);
+  //Build table header
+  $columns = [];
+  
+  //$columns['method'] = t('Method', array(), array('context' => 'gofast:subscription'));
+  $columns['frequency'] = t('Frequency (contents)', array(), array('context' => 'gofast:subscription'));
+  $columns['comments_frequency'] = t('Frequency (comments)', array(), array('context' => 'gofast:subscription'));
+  $columns['name'] = t('Name', array(), array('context' => 'gofast:subscription'));
+  $columns['type'] = t('Type', array(), array('context' => 'gofast:subscription'));
+  $columns['actions'] = t('Manage', array(), array('context' => 'gofast:subscription'));
+  
+  $jsonColumns = json_encode($columns);
+
+  $page = theme("gofast_subscription_ui_table", ["columns" => $jsonColumns]);
+  
+  return $page;
 }
 
 /*
  * Modal for subscription UI
  */
 function gofast_subscription_ui_display_modal($js){
+  drupal_get_messages();
   ctools_include('ajax');
   ctools_include('modal');
-  
+
   if (!$js) {
     return drupal_goto('subscriptions');
   }
   $render = gofast_subscription_ui_display_ui();
   $modal = ctools_modal_form_render(NULL, $render);
   print ajax_render($modal);
-  return;
+  exit;
 }
 
 /*
@@ -138,10 +186,16 @@ function gofast_subscription_ui_display_modal($js){
  */
 function gofast_subscription_ui_theme(){
   $themes = array (
-		'gofast_subscription_ui_reset_subscriptions' => array(
+		'gofast_subscription_ui_reset_subscriptions' => [
 			'template' => 'theme/gofast-subscription-ui-reset-subscriptions',
 			'arguments' => array(),
-		),
+    ],
+    'gofast_subscription_ui_table' => [
+      'template' => 'theme/gofast-subscription-ui-table',
+    ],
+    'gofast_subscription_ui_unflag' => [
+      'template' => 'theme/gofast-subscription-ui-unflag',
+    ],
 	);
 	return $themes;
 }
@@ -155,27 +209,27 @@ function gofast_subscription_ui_og_membership_insert($og_membership){
   if(gofast_og_is_root_space($node) || $node->type == "public"){
     return;
   }
-  
+
   if($og_membership->entity_type == 'user'){
     $uid = $og_membership->etid;
     $og_flag = flag_get_flag('subscribe_og');
     if(! $og_flag->is_flagged($gid, $uid)){
-      $og_flag->flag('flag', $gid, user_load($uid)); 
-    } 
-    
+      $og_flag->flag('flag', $gid, user_load($uid));
+    }
+
   }else if ($og_membership->entity_type == 'userlist'){
     $ulid = $og_membership->etid;
-    
-    $uids = gofast_userlist_get_members($ulid);   
+
+    $uids = gofast_userlist_get_members($ulid);
     foreach($uids as $uid => $member){
       //check if user is member of space without userlist
-      if( !(og_get_membership('node', $gid, 'user', $uid))){       
+      if( !(og_get_membership('node', $gid, 'user', $uid))){
         $og_flag = flag_get_flag('subscribe_og');
-        $og_flag->flag('flag', $gid, user_load($uid)); 
+        $og_flag->flag('flag', $gid, user_load($uid));
       }
-    }   
+    }
   }
- 
+
 }
 
 /*
@@ -187,30 +241,30 @@ function gofast_subscription_ui_og_membership_delete($og_membership){
   if(gofast_og_is_root_space($node) || $node->type == "public"){
     return;
   }
-  
+
   if($og_membership->entity_type == 'user'){
     $uid = $og_membership->etid;
-    
+
     $ulids = gofast_userlist_get_userlists_by_user(user_load($uid));
     $member_from_userlist = FALSE;
     foreach($ulids as $ulid=> $userlist){
       if( (og_get_membership('node', $gid, 'userlist', $ulid))){
         $member_from_userlist = TRUE;
       }
-    }    
+    }
     if(! $member_from_userlist){
       gofast_subscription_ui_api_delete_subscriptions_by_uid_gid($uid, $gid);
     }
-    
+
   }else if ($og_membership->entity_type == 'userlist'){
     $ulid = $og_membership->etid;
-    $uids = gofast_userlist_get_members($ulid);   
+    $uids = gofast_userlist_get_members($ulid);
     foreach($uids as $uid => $member){
       //check if user is member of space without userlist
       if( !(og_get_membership('node', $gid, 'user', $uid))){
          gofast_subscription_ui_api_delete_subscriptions_by_uid_gid($uid, $gid);
       }
-    }  
+    }
   }
-  
+
 }

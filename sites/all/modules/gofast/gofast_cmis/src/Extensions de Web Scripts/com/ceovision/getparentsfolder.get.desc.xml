@@ -1,0 +1,6 @@
+<webscript>
+  <shortname>Get all parents of a folder</shortname>
+  <description>Get all parents of a folder</description>
+  <url>/getparentsfolder?folder={folder}</url>
+  <authentication>user</authentication>
+</webscript>

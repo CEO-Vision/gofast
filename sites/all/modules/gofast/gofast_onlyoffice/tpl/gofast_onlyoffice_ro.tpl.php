@@ -35,7 +35,7 @@
               Gofast.docEditor = new DocsAPI.DocEditor("iframeEditor",
                         {
                           width: "100%",
-                          height: "800",
+                          height: "95%",
                           type: "desktop",
                           documentType: documentType,
                           document: {
@@ -97,7 +97,7 @@
       }, 500);
     </script>
     
-    <form id="form1">
+    <form id="form1" class="h-100">
       <div id="iframeEditor">
       </div>
     </form>

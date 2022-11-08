@@ -125,7 +125,7 @@ function gofast_ajaxification_callback($js = FALSE) {
 
   $temps_o_debut = microtime(true);
 
-  $language_switcher = gofast_get_lang_switcher_content();
+  $language_switcher = gofast_get_flag_lang_switcher_content();
   $page_handler = menu_execute_active_handler($url, FALSE);
   $block_main_content = render(block_get_blocks_by_region("content"));
 
@@ -148,10 +148,6 @@ function gofast_ajaxification_callback($js = FALSE) {
    }
 
     $title = $node->title;
-    if(!gofast_mobile_is_mobile_domain()){
-      $breadcrumb = '<div class="breadcrumb gofast breadcrumb-gofast">&nbsp;</div>';
-      $breadcrumb_alt = gofast_get_breadcrumbs_alt($node);
-    }
 
   } else if (is_numeric($page_handler)) {
     switch ($page_handler) {
@@ -212,7 +208,7 @@ function gofast_ajaxification_callback($js = FALSE) {
   $block_main_content = gofast_normalize_string_from_ajaxifying($block_main_content);
   $renderd_html = gofast_normalize_string_from_ajaxifying($renderd_html);
   //print($blocks_sidebar_second);exit();
-  $ajax_content_div_start = '<div id="ajax_content">';
+  $ajax_content_div_start = '<div id="ajax_content" class="h-100">';
   if($url === 'node') {
     $ajax_content_div_start .= '<a id="main-content"></a><div class="region region-content well">';
   }
@@ -221,18 +217,19 @@ function gofast_ajaxification_callback($js = FALSE) {
     $ajax_content_div_end .= '</div>';
   }
 
-  $message_placeholder = "<div id='messages-placeholder'></div>";
+  $gofast_over_content_start = '<div id="gofast_over_content" class="h-100">';
+  $gofast_over_content_end = '</div>';
 
 
   if ($js == TRUE) {
     $commands = array();
     $commands = gofast_ajaxification_get_toast_messages();
-    $commands[] = ajax_command_html('#gofast-lang-switch', $language_switcher);
+    $commands[] = ajax_command_html('#gofast-flag-lang-switch', $language_switcher);
     if($no_sidebar == false){
         //$commands[] = ajax_command_html('.mCSB_container', $blocks_sidebar_second);
         $commands[] = ajax_command_html('.col-sm-3', '<div class="region region-sidebar-second"> '.$blocks_sidebar_second."</div>");
     }
-    $commands[] = ajax_command_html('#gofast_over_content', $message_placeholder . $ajax_content_div_start . $breadcrumb . $breadcrumb_alt . $block_main_content . $renderd_html . $ajax_content_div_end);
+    $commands[] = ajax_command_replace('#gofast_over_content', $gofast_over_content_start . $block_main_content . $renderd_html . $gofast_over_content_end);
     $setting['gofast_ajaxification'] = $title;
     $setting['title'] = !empty($node) ? $node->title : '';
     $setting['selectedFolder'] = str_replace('/Sites', '', gofast_ajax_file_browser_get_alfresco_item_accessible_location($node));
@@ -252,6 +249,11 @@ function gofast_ajaxification_callback($js = FALSE) {
             }
 
            </script>");
+      }
+    }else{
+      if(in_array($node->type, array('group', 'organisation', 'extranet', 'public', 'private_space'))){
+        $path = gofast_cmis_space_get_webdav_path($node->nid);
+        $commands[] = gofast_command_processAjax('/home_page_navigation?&path=' . rawurlencode($path) . "#navBrowser");
       }
     }
 
@@ -285,4 +287,11 @@ function gofast_ajaxification_ajax_render_alter(&$commands) {
    if(isset($commands[0]["settings"]["gofast"]["user"]->data)){
         $commands[0]["settings"]["gofast"]["user"]->data = "";
    }
+   
+   if(!gofast_request_is_ajax()){
+       watchdog("debug ajaxification", json_encode(gofast_request_is_ajax()));
+       $msg = t('Internal error', array(), array('context' => 'gofast'));
+       drupal_set_message($msg, 'error');
+       drupal_goto("/");
+   } 
 }

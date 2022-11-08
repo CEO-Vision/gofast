@@ -333,11 +333,14 @@ try{
               logger.log("unable to access parent, trying next");
         }	
       }
-      
         /*var parent_space = document.parent; */      
         if(parent_space !== null){
             while (!nodeIsGroup(parent_space)) {
-              parent_space = parent_space.parent;
+				if(parent_space.parent.hasPermission("Read")){
+					parent_space = parent_space.parent;
+				}else{					
+					break;
+				}
             }
             var parent_name = encodeURIComponent(parent_space.name);
             var space = parent_space.properties['{gofast.model}nid'];

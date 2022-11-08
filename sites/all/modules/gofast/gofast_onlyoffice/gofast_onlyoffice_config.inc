@@ -15,14 +15,20 @@ function gofast_onlyoffice_viewable_document_extensions() {
 }
 
 function gofast_onlyoffice_editable_document_extensions() {
-  $editable_extensions = array("docx", "doc", "docm", "odt", "xlsx", "xlsm", "xls", "ods", "odp", "csv", "pptx", "ppt", "ppsx", "rtf", "mht", "html", "htm");
-  // Disabled for now because onlyoffice is not able to convert from docx (output after edit) to txt
-  //$editable_extenstions[] = "txt";
+  $editable_extensions = array("docx", "odt", "xlsx", "ods", "odp", "pptx", "ppsx", "txt");
   return $editable_extensions;
+}
+
+function gofast_onlyoffice_old_ms_extensions() {
+  return array("doc", "xls", "ppt", "pps");
 }
 
 function gofast_onlyoffice_convertible_document_extensions() {
   return array("doc", "odt", "xls", "ods", "ppt", "pps", "odp", "rtf", "mht", "html", "htm", "epub");
+}
+
+function gofast_onlyoffice_previewable_document_extensions() {
+  return array("docx", "dotx", "pptx", "ppsx");
 }
 
 function gofast_onlyoffice_spreadsheet_extensions() {

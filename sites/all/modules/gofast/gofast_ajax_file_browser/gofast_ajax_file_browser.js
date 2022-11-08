@@ -13,6 +13,10 @@
      */
     ready: false,
     /*
+     * Tells if all Gofast.ITHit methods are ready
+     */
+    fullReady: false,
+    /*
      * Contains the File Browser tree object
      */
     tree: false,
@@ -86,7 +90,7 @@
       var index = usedPath.indexOf('/', usedPath.lastIndexOf('/_') + 1);
       //case where the user clicked on a folder
       if (index !== -1) {
-        folderPath = usedPath.substring(index, usedPath.lenngth);
+        folderPath = usedPath.substring(index, usedPath.length);
         usedPath = usedPath.substring(0, index);
       }
       //getting node
@@ -95,40 +99,41 @@
         if (Gofast.get("node")["id"] !== data || Gofast.ITHit.locationChanged) {
           if (Gofast.get("node")["id"] === data) Gofast.ITHit.locationChanged = false;
           else Gofast.ITHit.locationChanged = true;
-          if (refreshPage && Gofast.get("node")["id"] !== data) {
-            if (typeof Gofast.processAjax !== "undefined") {
-              Gofast.processAjax("/node/" + data + "?&path=" + usedPath + folderPath + location.hash);
-            } else {
-              window.location.href = window.location.origin + "/node/" + data + "?&path=" + usedPath + folderPath + location.hash;
-            }
-
-          }
-          else {
-            //getting breadcrumb
-            $.post(baseUrl + '/gofast/node-breadcrumb/' + data, function (breadcrumb) {
-              //update the breadcrumb
-              $("div.breadcrumb.gofast.breadcrumb-gofast").replaceWith(breadcrumb);
-              Drupal.attachBehaviors();
-
-              //Toggle members button
-              if ($(breadcrumb).find("div").text().indexOf("»") == "-1" || $(breadcrumb).find("div").text().split("»")[0] == "Public ") {
-                //Disable members button
-                $('a[href="#ogmembers"]').attr("id", "tab_ogmembers_disabled");
-                $('a[href="#ogmembers"]').css("pointer-events", "none");
-                $('a[href="#ogmembers"]').addClass("disabled");
-                $('a[href="#ogmembers"]').parent().addClass("disabled");
-              } else {
-                //Enable members button
-                $('a[href="#ogmembers"]').attr("id", "");
-                $('a[href="#ogmembers"]').css("pointer-events", "initial");
-                $('a[href="#ogmembers"]').removeClass("disabled");
-                $('a[href="#ogmembers"]').parent().removeClass("disabled");
+          if (Gofast.get("node")["id"] !== data && refreshPage && typeof Gofast.processAjax !== "undefined") {
+            // reloads
+            Gofast.processAjax("/node/" + data + "?&path=" + usedPath + folderPath + location.hash);
+          } else {
+              if (Gofast.get("node")["id"] !== data) {
+                // use History API not to actually trigger a reload
+                history.pushState({}, "", "/node/" + data + "?&path=" + usedPath + folderPath + location.hash);
+                // window.location.href = window.location.origin + "/node/" + data + "?&path=" + usedPath + folderPath + location.hash;
               }
+              //getting breadcrumb
+              $.post(baseUrl + '/gofast/node-breadcrumb/' + data, function(breadcrumb){
+                //update the breadcrumb
+                Gofast.breadcrumb_gid = data;
+                $(".breadcrumb-gofast").replaceWith(breadcrumb);
+                  Drupal.attachBehaviors();
 
-              $.post(baseUrl + '/gofast/node-breadcrumb/' + data + "?only_actions=true", function (breadcrumb) {
-                $("#breadcrumb-alt-actions").replaceWith(breadcrumb);
-                Drupal.attachBehaviors();
-              });
+                //Toggle members button
+                if ($(breadcrumb).find('.breadcrumb-item').find('i').hasClass('fa-home') || Gofast.ITHit.currentPath == "/alfresco/webdav/Sites/_Groups" || Gofast.ITHit.currentPath == "/alfresco/webdav/Sites/_Organisations" || Gofast.ITHit.currentPath == "/alfresco/webdav/Sites/_Extranet" || $(breadcrumb).find('.breadcrumb-item').find('i').hasClass('fa-share-alt'))  {
+                  //Disable members button
+                  $('a[href="#gofastSpaceMembers"]').attr("id", "tab_ogmembers_disabled");
+                  $('a[href="#gofastSpaceMembers"]').css("pointer-events", "none");
+                  $('a[href="#gofastSpaceMembers"]').addClass("disabled");
+                  $('a[href="#gofastSpaceMembers"]').parent().addClass("disabled");
+                } else {
+                  //Enable members button
+                  $('a[href="#gofastSpaceMembers"]').attr("id", "");
+                  $('a[href="#gofastSpaceMembers"]').css("pointer-events", "initial");
+                  $('a[href="#gofastSpaceMembers"]').removeClass("disabled");
+                  $('a[href="#gofastSpaceMembers"]').parent().removeClass("disabled");
+                }
+
+                $.post(baseUrl + '/gofast/node-actions/' + data, {fromBrowser: true}, function (actions) {
+                  $("#breadcrumb-alt-actions").replaceWith(actions);
+                  Drupal.attachBehaviors();
+                });
             });
           }
         }
@@ -176,9 +181,47 @@
         }
 
         //Init the files loader
-        NProgress.configure({ parent: '#file_browser_full_toolbar' });
+        if ( Gofast.isMobile()) {
+          NProgress.configure({ parent: '#file_browser_mobile_header' });
+        } else {
+          NProgress.configure({ parent: '#file_browser_full_toolbar' });
+        }
         NProgress.configure({ showSpinner: false });
       }
+    },
+    /** Allows to add "fake" nodes to browser with disabling and tooltip */
+    addItem: async function(nodePath, newNodeName, resourceType = "Folder", disabled = false, tooltip = false) {
+      nodePath = nodePath.includes("/alfresco/webdav") ? nodePath : "/alfresco/webdav" + nodePath;
+      var item = {
+        DisplayName: newNodeName,
+        Href: nodePath,
+        ResourceType: resourceType,
+        LastModified: new Date()
+      };
+      // use arrow function to keep original context
+      var waitForFileBrowserInterval = setInterval(async () => {
+        if (!this.fullReady || !$(".file_browser_full_files_element ").length) {
+          return;
+        }
+        clearInterval(waitForFileBrowserInterval);
+        //Format the new item
+        var itemHTML = Gofast.ITHit._formatItem(item);
+        //Add the item to the list
+        var processedItem = $('#file_browser_full_files_table').find('tbody:last-child').append(itemHTML);
+        processedItem = processedItem.find('tr').last();
+        Gofast.ITHit.reset_full_browser_size();
+        if (disabled) {
+          $(".file_browser_full_files_element ").last().find("*").prop("disabled", true);
+          $(".file_browser_full_files_element ").last().find("*").addClass("text-muted");
+          $(".file_browser_full_files_element ").last().find("*").css("cursor", "not-allowed");
+
+        }
+        if (tooltip) {
+          $(".file_browser_full_files_element ").last().tooltip({title: tooltip, placement: "top", trigger: "hover"});
+        }
+      });
+      // add to tree and return new treeNode
+      return await Gofast.ITHit.tree.addFakeNode(nodePath, newNodeName, disabled, tooltip);
     },
     /*
      * Authentify to Alfresco
@@ -214,7 +257,7 @@
     navigate: function (path, onlyTree, noRecursion, noPush, selectItem, deleteTree) {
       clearInterval(Gofast.ITHit.refreshBreadcrumbTimeout);
       NProgress.start();
-      path = path.replace(/%2F/g, '/');
+      path = path.replace(/%2F/g, '/').replace(/\+/g, ' ');
       if (path.indexOf('/alfresco/webdav') !== 0) {
         path = "/alfresco/webdav" + path;
       }
@@ -286,8 +329,10 @@
                   $('#file_browser_tooolbar_new_alfresco_item').removeClass('gofast_display_none');
                 }
                 NProgress.set(0.6);
-
+                
                 var items = asyncResult.Result;
+                
+                
                 if (!onlyTree) {
                   Gofast.ITHit._processItems(items, fullPath);
 
@@ -312,14 +357,15 @@
                   //Disable copy and cut buttons
                   $('#file_browser_tooolbar_copy').prop('disabled', true);
                   $('#file_browser_tooolbar_cut').prop('disabled', true);
+                  $('#file_browser_tooolbar_cart_button').prop('disabled', true);
                   //Disable manage button
-                  $('#file_browser_tooolbar_manage').prop('disabled', true);
+                  $('#file_browser_full_container #file_browser_tooolbar_manage').addClass("disabled").removeClass("btn-white").attr("data-toggle", "tooltip").tooltip();
                   //Disable cart button
                   $('#file_browser_tooolbar_cart_button').prop('disabled', true);
                   //Disable contextual actions
                   $('#file_browser_tooolbar_contextual_actions').prop('disabled', true);
 
-                  if (location.hash === "#ogdocuments") {
+                  if (location.hash.startsWith("#ogdocuments")) {
                     //setting an interval to avoid multiple useless calls
                     Gofast.ITHit.refreshBreadcrumbTimeout = setTimeout(function () {
                       Gofast.ITHit.refreshBreadcrumb(path.substring(16, path.length), false);
@@ -339,8 +385,45 @@
 
               }
             );
+            // GOFAST-5946 : add "magic" checkbox to select/unselect all documents in current folder
+            const gofastBrowserMagicCheckbox = document.querySelector("#gofastBrowserMagicCheckbox");
+            if (gofastBrowserMagicCheckbox) {
+              const toggleAllGofastCheckboxes = () => {
+                $('.gfb-cbx').each(function () {
+                  // If the Magic Checkox is checked, we check all the checkboxes in the current folder
+                  if (gofastBrowserMagicCheckbox.checked) {
+                    $(this).prop('checked', true);
+                    $(this).parents('.file_browser_full_files_element').addClass('selected');
+                  } else {
+                    $(this).prop('checked', false);
+                    $(this).parents('.file_browser_full_files_element').removeClass('selected');
+                  }
+                  if (gofastBrowserMagicCheckbox.checked) {
+                    $('#file_browser_tooolbar_copy').prop('disabled', false);
+                    $('#file_browser_tooolbar_cut').prop('disabled', false);
+                    $('#file_browser_tooolbar_cart_button').prop('disabled', false);
+                    $('#file_browser_full_container #file_browser_tooolbar_manage').removeClass("disabled").addClass("btn-white").attr("data-toggle", "tooltip").tooltip();
+                    $('#file_browser_tooolbar_contextual_actions').prop('disabled', false);
+                  } else {
+                    $('#file_browser_tooolbar_copy').prop('disabled', true);
+                    $('#file_browser_tooolbar_cut').prop('disabled', true);
+                    $('#file_browser_tooolbar_cart_button').prop('disabled', true);
+                    $('#file_browser_full_container #file_browser_tooolbar_manage').addClass("disabled").removeClass("btn-white").attr("data-toggle", "tooltip").tooltip();
+                    $('#file_browser_tooolbar_contextual_actions').prop('disabled', true);
+                  }
+                });
+              };
+              // init magic checkbox initial state
+              gofastBrowserMagicCheckbox.checked = false;
+              gofastBrowserMagicCheckbox.addEventListener("click", toggleAllGofastCheckboxes);
+            }
           }
         );
+      }
+      Gofast.ITHit.handleDropZonePermission(path);
+      // uncheck magic checkbox
+      if ($("#gofastBrowserMagicCheckbox")) {
+        $("#gofastBrowserMagicCheckbox").prop("checked", false);
       }
     },
     /*
@@ -417,12 +500,12 @@
       });
       $("#file_browser_full_files_table").on('keyup', function (e) {
         if (e.keyCode == 46) { //Suppr pressed
-          if ($("#rename-form").length !== 0) {
+          if ($("#rename-form").length !== 0 || $("#new-folder-form").length !== 0) {
             return;
           }
           //Retrieve all selected items
           var data = [];
-          var selected = $('#file_browser_full_files_table').find('.selected').find('.item-path');
+          var selected = $('.gfb-cbx:checked').parents('.file_browser_full_files_element').find('.item-path');
           var noDelete = false;
           $.each(selected, function (k, elem) {
             var path = elem.innerText;
@@ -585,7 +668,7 @@
       //Bind the resize events
       $('#name_header').resize(function (e) {
         e.stopPropagation();
-        if (!$("#ogtab_documents").parent().hasClass('active') && window.location.pathname.indexOf("/gofast/browser") === -1) {
+        if (!(new URLSearchParams(window.location.search)).has("path")) {
           return;
         }
         var icon_width = $('#file_browser_full_files_header').find('th:first').innerWidth();
@@ -647,7 +730,7 @@
       });
       $('#size_header').resize(function (e) {
         e.stopPropagation();
-        if (!$("#ogtab_documents").parent().hasClass('active') && window.location.pathname.indexOf("/gofast/browser") === -1) {
+        if (!(new URLSearchParams(window.location.search)).has("path")) {
           return;
         }
         var icon_width = $('#file_browser_full_files_header').find('th:first').innerWidth();
@@ -696,7 +779,7 @@
       });
       $('#type_header').resize(function (e) {
         e.stopPropagation();
-        if (!$("#ogtab_documents").parent().hasClass('active') && window.location.pathname.indexOf("/gofast/browser") === -1) {
+        if (!(new URLSearchParams(window.location.search)).has("path")) {
           return;
         }
         var icon_width = $('#file_browser_full_files_header').find('th:first').innerWidth();
@@ -757,6 +840,55 @@
       }
 
     },
+    getPathParam: function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      let currentPath = "";
+      for (const pair of urlParams.entries()) {
+        if (pair[0] !== "path") continue;
+        currentPath = pair[1];
+        break;
+      }
+      return currentPath;
+    },
+    handleDropZoneClickEvent: function(canUpload = false) {
+      if (canUpload) {
+        jQuery("#file_browser_full_upload_label_container").css("cursor", "pointer");
+        jQuery("#file_browser_full_upload_label_container").on("click", Gofast.ITHit.triggerFileInput);
+        return;
+      }
+      jQuery("#file_browser_full_upload_label_container").css("cursor", "auto");
+      jQuery("#file_browser_full_upload_label_container").off("click");
+    },
+    handleDropZoneLabel: function(currentPath = "", canUpload = false) {
+      let itemLabel = '<td id="file_browser_full_upload_label" style="width: 100%; display: inline-block; border-top: none; color: var(--gray-dark);" class="text-center py-1">' + Drupal.t("You can't upload documents or folders in this space", {}, {context : "gofast:gofast_ajax_file_browser"}) + '</td>';
+      if (canUpload) itemLabel = '<td id="file_browser_full_upload_label" style="width: 100%; display: inline-block; border-top: none; color: var(--gray-dark);" class="text-center py-1">' + Drupal.t("Click or drag your documents or folders here to share in:", {}, {context: "gofast:gofast_ajax_file_browser"}) + '<br><strong>' + decodeURIComponent(currentPath) +'</strong></td>';
+
+      if (document.getElementById("file_browser_full_upload_label")) document.getElementById("file_browser_full_upload_label").remove();
+      document.querySelector("#file_browser_full_upload_table_head + tr").insertAdjacentHTML("afterbegin", itemLabel);
+    },
+    /**
+     * Root spaces and non-updatable nodes should not have upload listeners
+     * This must be triggered on navigation and handles two things: labels and upload listeners
+     */
+    handleDropZonePermission: function(currentPath = "") {
+      const dropZone = document.getElementById('file_browser_full_upload');
+      if (!dropZone) {
+        return;
+      }
+      if (currentPath.length === 0) currentPath = Gofast.ITHit.getPathParam();
+      currentPath = currentPath.replace("/alfresco/webdav", "").replace("/Sites/", "").replaceAll("_", "");
+
+      Gofast.ITHit.Uploader.Queue.RemoveListener('OnQueueChanged', '_UploadQueueChanged', this);
+      if(["/Sites", "Groups", "Extranet", "Organisations", "Public"].some(val => val == currentPath)) {
+        Gofast.ITHit.handleDropZoneLabel(currentPath);
+        Gofast.ITHit.handleDropZoneClickEvent();
+        return;
+      }
+
+      Gofast.ITHit.Uploader.Queue.AddListener('OnQueueChanged', '_UploadQueueChanged', this);
+      Gofast.ITHit.handleDropZoneLabel(currentPath, true);
+      Gofast.ITHit.handleDropZoneClickEvent(true);
+    },
     /*
      * Reload the current path
      */
@@ -788,11 +920,17 @@
       var name_element = processedItem.find('.item-name');
 
       //We are secure to edit
-      name_element.html('<input id="new-folder-form" class="form-control form-text" value="' + name_element.text() + '" style="height:20px;width:80%;float:left"><div class="btn-group" role="group"><button style="height:20px;padding-left:5px;padding-right:5px;padding-top:0px;padding-bottom:0px;" type="button" class="btn btn-success"><i class="fa fa-check"></i></button><button type="button" style="height:20px;padding-left:5px;padding-right:5px;padding-top:0px;padding-bottom:0px;" class="btn btn-danger"><i class="fa fa-times"></i></button>');
+      name_element.html('<input id="new-folder-form" class="form-control form-text" value="' + name_element.text() + '" style="padding-bottom:12px;height:20px;width:80%;float:left;margin-top:0px;"><div class="badge badge-success"><i class="fa fa-check" style="color:white;"></i></div><div class="badge badge-danger"><i class="fa fa-times" style="color:white;"></i></div>');
 
       //Scroll to the bottom of the table
       $("#file_browser_full_files_table").mCustomScrollbar("scrollTo", "bottom", { scrollInertia: 0 });
+
+      //GOFAST-6757 - Couldn't d&d a file after going out of a rename in the gfb (caused because no refresh when we don't submit a new name)
+      $('.file_browser_full_files_element').attr('draggable', 'false'); //sets the attribute to false
+
       name_element.find('input:text').select();
+
+      name_element.focus();
 
       //Bind the enter event to the input
       name_element.find('input').on('keyup', function (e) {
@@ -815,7 +953,7 @@
         }
       });
       //Bind the validate button event
-      name_element.find('.btn-success').on('click', function (e) {
+      name_element.find('.badge-success').on('click', function (e) {
         var new_name = name_element.find('input').val();
 
         //Delete spaces at the beginning and end of the name
@@ -834,7 +972,7 @@
         Gofast.ITHit._processCreateFolder(path, new_name, processedItem, name_element);
       });
       //Bind the cancel button event
-      name_element.find('.btn-danger').on('click', function (e) {
+      name_element.find('.badge-danger').on('click', function (e) {
         processedItem.remove();
       });
     },
@@ -861,7 +999,11 @@
             element.remove();
             return;
           } else {
-            Gofast.toast(Drupal.t("You are not the administrator of this space and therefore cannot create a template inside.", {}, { context: 'gofast:ajax_file_browser' }), "warning", Drupal.t("Your folder cannot be created", {}, { context: 'gofast:ajax_file_browser' }));
+            Gofast.toast(
+              path.includes("TEMPLATES")
+                ? Drupal.t("You are not the administrator of this space and therefore cannot create a template inside.", {}, { context: 'gofast:ajax_file_browser' })
+                : Drupal.t("You are not the administrator of this space and therefore cannot create a folder inside.", {}, { context: 'gofast:ajax_file_browser' }), "warning"
+            );
             element.remove();
             return;
           }
@@ -914,8 +1056,12 @@
      * Copy selected content to ITHit variable
      */
     copySelected: function () {
+      if (Gofast.ITHit.currentPath.includes("/Wikis")) {
+        Gofast.toast(Drupal.t("A wiki article cannot be copied outside of its Wikis folder", {}, { context: 'gofast:ajax_file_browser' }), "info");
+        return;
+      }
       //Get selected items
-      var selected = $('#file_browser_full_files_table').find('.selected').find('.item-path');
+      var selected = $('.gfb-cbx:checked').parents('.file_browser_full_files_element').find('.item-path');
 
       if (selected.length == 0) {
         return;
@@ -939,8 +1085,12 @@
      * Cut selected content to ITHit variable
      */
     cutSelected: function () {
+      if (Gofast.ITHit.currentPath.includes("/Wikis")) {
+        Gofast.toast(Drupal.t("A wiki article cannot be cut outside of its Wikis folder", {}, { context: 'gofast:ajax_file_browser' }), "info");
+        return;
+      }
       //Get selected items
-      var selected = $('#file_browser_full_files_table').find('.selected').find('.item-path');
+      var selected = $('.gfb-cbx:checked').parents('.file_browser_full_files_element').find('.item-path');
 
       if (selected.length == 0) {
         return;
@@ -964,6 +1114,10 @@
      * Paste content from ITHit variable
      */
     paste: function () {
+      if (Gofast.ITHit.currentPath.includes("/Wikis")) {
+        Gofast.toast(Drupal.t("There can be only wiki articles in the Wikis folder", {}, { context: 'gofast:ajax_file_browser' }), "info");
+        return;
+      }
       if (Gofast.ITHit.copyType === 'C') { //Copy
         //Queue items to be copied
         $.each(Gofast.ITHit.itemsCopied, function (k, path) {
@@ -1102,6 +1256,7 @@
      * Upload item queue changed
      */
     _UploadItemQueueChanged: function (change) {
+      if ($("#file_browser_full_upload_label")) $("#file_browser_full_upload_label").remove();
       //Get queue item by path
       var index = Gofast.ITHit.queue.findIndex(function (e) {
         return e !== null && e.operation === "upload" && e.path === change.Sender._UploadProvider.Url._OriginalUrl;
@@ -1176,10 +1331,12 @@
           }
 
           //Check if the item is already present in the file browser
-          var browser_item = $('#file_browser_full_files_table').find('td:contains("' + item.Href + '")');
+          var browser_item = $('#file_browser_full_files_table').find('td:contains("' + item.DisplayName + '")');
           if (browser_item.length > 0) {
             if (item.ResourceType === "Resource") {
-              Gofast.ITHit.selectItem(item.Href, true);
+              // decodeURIComponent doesn't do the trick since the item-path is somehow partially encoded
+              let item_path = item.Href.replaceAll("%5F", "_").replaceAll("%2D", "-");
+              Gofast.ITHit.selectItem(item_path, true);
             }
           } else {
             //Format the new item
@@ -1211,9 +1368,14 @@
           //Gofast.ITHit.reload();
         }
         Gofast.ITHit.queue[index].progression = 100;
-        setTimeout(function () {
-          Gofast.ITHit.queue[index] = null;
-        }, 1000);
+        Gofast.ITHit.queue.splice(index, 1);
+        // setTimeout(function () {
+        //   Gofast.ITHit.queue.splice(index, 1);
+        //   // if this was the last item of the queue, we trigger the metadata modal
+        //   if (Gofast.ITHit.queue.length == 0) document.getElementById(Drupal.t('Manage Metadata', {}, {context: 'gofast'})).click();
+        //   // if we need to generate some buttons afterwards
+        //   // const processedElement = $('<tr style="width: 100%; display: inline-block;"><td style="width: 100%; display: inline-block; border-top: none;" class="d-flex justify-content-center"><a><button class="btn btn-outline-success btn-sm">' + Drupal.t("Fill in additional informations for", {}, {context: "gofast:gofast_ajax_file_browser"}) + ' ' + item.DisplayName + '</button></a></td></tr>').insertAfter( "#file_browser_full_upload_table_head");
+        // }, 1000);
       }
 
       //Update failed, clear the queue and process the item
@@ -1238,6 +1400,8 @@
           }, 1500);
         }
       }
+
+      Gofast.ITHit.handleDropZonePermission();
     },
     /*
      *
@@ -1322,7 +1486,36 @@
       //Instenciate zTree
       var tree = $("#file_browser_full_tree_element");
       Gofast.ITHit.tree = $.fn.zTree.init(tree, settings, treeNodes);
-
+      Gofast.ITHit.tree.addFakeNode = async function(parentPath, newNodeName, disabled = false, tooltip = false) {
+        var zTreeObj = this;
+        var parentNode;
+        var newNode;
+        parentPath = parentPath.includes("/alfresco/webdav") ? parentPath : "/alfresco/webdav" + parentPath;
+        // we can't return the new node before it has been set so we have to await
+        await new Promise((resolve, reject) => {
+          var waitForParentInterval = setInterval(function() {
+            parentNode = zTreeObj.getNodeByParam("path", parentPath);
+            if (parentNode == null) {
+              return;
+            }
+            clearInterval(waitForParentInterval);
+            newNode = {...parentNode, ...{name: newNodeName, children: []}};
+            zTreeObj.addNodes(parentNode, -1, [newNode]);
+            if (disabled) {
+              $("#" + parentNode.tId + " > ul > li:last-of-type > a").css("cursor", "not-allowed");
+              $("#" + parentNode.tId + " > ul > li:last-of-type > a").removeAttr("treenode_a onclick target");
+              $("#" + parentNode.tId + " > ul > li:last-of-type > [treenode_switch]").addClass("invisible");
+              $("#" + parentNode.tId + " > ul > li:last-of-type > a > span:last-of-type").addClass("ml-5 text-muted");
+              $("<span class='spinner spinner-primary spinner-sm'></span>").insertBefore($("#" + parentNode.tId + " > ul > li:last-of-type > a > span:last-of-type"));
+            }
+            if (tooltip) {
+              $("#" + parentNode.tId + " > ul > li:last-of-type").tooltip({title: tooltip, placement: "top", trigger: "hover"});
+            }
+            resolve();
+          }, 250);
+        })
+        return newNode;
+      };
     },
     /*
      *
@@ -1346,7 +1539,10 @@
 
       //Get elements
       var splitPath = path.split('/');
-      var nodes = Gofast.ITHit.tree.getSelectedNodes();
+      var nodes = [];
+      if (Gofast.ITHit.tree) {
+        nodes = Gofast.ITHit.tree.getSelectedNodes();
+      }
       if (deleteTree === true) {
         Gofast.ITHit.tree.removeNode(nodes[0]);
       }
@@ -1361,6 +1557,22 @@
           Gofast.ITHit._processTreePart(item, splitPath);
         })
       }
+      const makeDroppable = !path.includes("/Wikis");
+      Gofast.ITHit._processZTreeDropZones(makeDroppable);
+    },
+    _processZTreeDropZones: function(makeDroppable = true) {
+      var nodes = $("#file_browser_full_tree").find("a");
+      var nodeDragEvents = makeDroppable ? {over: "Gofast.ITHit.moveDragOver(event)", leave: "Gofast.ITHit.moveDragLeave(event)"} :  {over: "", leave: ""};
+
+      //Add drop events
+      nodes.attr("ondragover", nodeDragEvents.over);
+      nodes.attr("ondragleave", nodeDragEvents.leave);
+
+      //Set drag and drop zone for upload
+      nodes.each(function (k, elem) {
+        makeDroppable ? elem.addEventListener("drop", Gofast.ITHit.moveDrop) : $(elem).off("drop");
+        makeDroppable ? Gofast.ITHit.Uploader.DropZones.AddById(elem.id) :Gofast.ITHit.Uploader.DropZones.RemoveById(elem.id);
+      });
     },
     /*
      * Called in zTree processing for each opened folder
@@ -1390,7 +1602,7 @@
               path = decodeURIComponent(path);
 
               //Search where to put the elements in zTree
-              var node_parent = Gofast.ITHit.tree.getNodeByParam("path", path);
+              var node_parent = Gofast.ITHit.tree ? Gofast.ITHit.tree.getNodeByParam("path", path) : null;
 
               //Order nodes before processing them, regarding their names
               items.sort(function (a, b) {
@@ -1400,6 +1612,7 @@
               });
 
               //Process items in zTree
+                            
               for (var i = 0; i < items.length; i++) {
                 var item = items[i];
                 //If it's not a folder, continue
@@ -1415,7 +1628,7 @@
                 }
 
                 //Search if our wanted node exists
-                if (Gofast.ITHit.tree.getNodeByParam("path", item.Href) === null) {
+                if (Gofast.ITHit.tree && Gofast.ITHit.tree.getNodeByParam("path", item.Href) === null) {
                   //Need to add the node to the tree
                   var name = item.Href.split('/');
                   name = name.pop();
@@ -1444,31 +1657,8 @@
 
               //Add nodes to the tree if needed
               if (nodes_to_add.length > 0) {
-                Gofast.ITHit.tree.addNodes(node_parent, nodes_to_add);
-                //Configure custom scrollbar to replace the legacy
-                var pathname = window.location.pathname; // Returns path
-                var excludeScrolbarTheme = pathname.indexOf("home_page_navigation"); // path exist only on mobile domain
-                if (excludeScrolbarTheme == -1) {
-                  $("#file_browser_full_tree_element").mCustomScrollbar({
-                    axis: "xy",
-                    theme: "dark-thin"
-                  });
-                }
-
-                $('.mCSB_container_wrapper .mCSB_container').css('left', '0px');
-                //Add drop events
-                var nodes = $("#file_browser_full_tree").find("a");
-                nodes.attr("ondragover", "Gofast.ITHit.moveDragOver(event)");
-                nodes.attr("ondragleave", "Gofast.ITHit.moveDragLeave(event)");
-
-
-                //Set drag and drop zone for upload
-                nodes.each(function (k, elem) {
-                  elem.addEventListener("drop", Gofast.ITHit.moveDrop);
-                  Gofast.ITHit.Uploader.DropZones.AddById(elem.id);
-                });
+                Gofast.ITHit.tree.addNodes(node_parent, nodes_to_add)
               }
-
               //Iterate again if needed
               if (split.length > 0) {
                 Gofast.ITHit._processTreePart(path + "/" + split.shift(), split);
@@ -1507,7 +1697,7 @@
         } else if (name == "TEMPLATES") { //This is a templates folder
           var icon = "/sites/all/modules/gofast/gofast_ajax_file_browser/img/folder_template.png";
         } else { //This is a folder
-          var icon = "/sites/all/modules/gofast/gofast_ajax_file_browser/img/folder.png";
+            var icon = "/sites/all/modules/gofast/gofast_ajax_file_browser/img/folder.png";
         }
       }
       if (type == "fa") {
@@ -1529,15 +1719,15 @@
           }
         } else if (name === "TEMPLATES") {
           var icon = "TEMPLATE";
-        } else { //This is a folder
-          var icon = "fa-folder";
+        }else{
+            var icon = "fa-folder";
         }
       }
       return icon;
     },
     /*
      * Process items into the file browser when it's loaded
-     * Called when navigation occures
+     * Called when navigation occurs
      */
     _processItems: function (items, fullPath) {
       if (Gofast.ITHit.processingItems) {
@@ -1586,6 +1776,7 @@
         //Get the documents paths
         var Hrefs_files = resources.map(function (item) { return item.Href.replace("/alfresco/webdav/", ""); });
         var Hrefs_folders = folders.map(function (item) { return item.Href.replace("/alfresco/webdav/", ""); });
+        
         //Send a request to Alfresco to map versionning dates
         $.ajax({
           url: location.origin + '/alfresco/service/post/file_browser_extra_informations?alf_ticket=' + Drupal.settings.ticket,
@@ -1610,6 +1801,7 @@
      */
     _processItemsAfterAsync: function (folders, resources, response) {
       NProgress.set(0.9);
+      Gofast.ITHit.mirrorFolders = [];
       if (response !== null && typeof response !== "undefined" && typeof response.status === "undefined") {
 
         if (response.files && response.files.dates && response.files.dates.length > 0) {
@@ -1640,6 +1832,17 @@
           for (var j = 0; j < folders.length; j++) {
             if (response.folders.permissions[j]) {
               folders[j].Permission = response.folders.permissions[j];
+            }
+          }
+        }
+        if (response.folders && response.folders.visibility && response.folders.visibility.length > 0) {
+          for (var j = 0; j < folders.length; j++) {
+            if (response.folders.visibility[j]) {
+              folders[j].Visibility = response.folders.visibility[j];
+            }
+            // Keep mirror folders paths
+            if(response.folders.visibility[j] && response.folders.visibility[j].length > 1){
+              Gofast.ITHit.mirrorFolders =  Gofast.ITHit.mirrorFolders.concat(decodeURI(folders[j].Href));
             }
           }
         }
@@ -1683,22 +1886,19 @@
 
         //Configure custom scrollbar to replace the legacy
         $("#file_browser_full_files_table").mCustomScrollbar({
+          axis: "y",
           theme: "dark-thin",
           callbacks: {
             onInit: function () {
               //Trigger the auto sizing of columns
-              $('#name_header').trigger('resize');
-              $('#size_header').trigger('resize');
-              $('#type_header').trigger('resize');
+              Gofast.ITHit.reset_full_browser_size();
             }
           },
         });
       }
 
       //Trigger the auto sizing of columns
-      $('#name_header').trigger('resize');
-      $('#size_header').trigger('resize');
-      $('#type_header').trigger('resize');
+      Gofast.ITHit.reset_full_browser_size();
 
       //Make the folders dropable
       var folders = $(".file_browser_full_files_element").find('.item-real-type:contains("Folder")').parent();
@@ -1709,6 +1909,7 @@
         elem.addEventListener("drop", Gofast.ITHit.insideDrop);
       });
       NProgress.done();
+      this.fullReady = true;
     },
     /*
      * Set info icon for the current path
@@ -1867,9 +2068,11 @@
         tdIconSize = "5%;";
         tdNameSize = "35%;";
       }
+      
       itemHTML += "<tr draggable='true' ondragstart='Gofast.ITHit.moveDragStart(event)' class='file_browser_full_files_element " + HTMLClass + "' style='" + trStyle + " display: block;white-space: nowrap;'>";
+      
       //checkbox to select multiple
-      itemHTML += "<td style='width:5%'><input id='cbxSelect' type='checkbox'></td>"
+      itemHTML += "<td style='width:5%'><input id='cbxSelect' class='gfb-cbx' type='checkbox'></td>"
       //Icon
       itemHTML += "<td title='" + item.DisplayName + "' style='width:" + tdIconSize + "; height:75px;' class='item-icon'>";
       if (item.ResourceType == "Folder") { //It's a folder
@@ -1881,29 +2084,36 @@
         }
         if (icon === "TEMPLATE") {
           icon = "fa-folder";
-          var color = "#f0685a";
+          var color = "#F0685A";
         } else {
-          color = "#3498db";
+          var color = "#3498db";
         }
-        itemHTML += "<span class='fa " + icon + "' style='color:" + color + "'></span>";
+        itemHTML += "<span class='n-color fas " + icon + "' style='color:" + color + "'></span>";
+        //Get extension
+        var ext = item.DisplayName.split('.').pop().toLowerCase();
+        //toLowerCase extension GOFAST-4662
+        //Get font
+        var font = Drupal.settings.ext_map[ext];
       } else { //It's a document, use mapping to find the proper icon
         //Get extension
         var ext = item.DisplayName.split('.').pop().toLowerCase();
         //toLowerCase extension GOFAST-4662
-
         //Get font
         var font = Drupal.settings.ext_map[ext];
-
-        if (typeof font !== "undefined") { //Known
-          if (font === "fa-file-image-o" && Gofast.ITHit.display == "icons") {
-            //Load image
-            itemHTML += "<img height=\"75px\" src='" + location.origin + item.Href + "' />";
-          } else {
-            itemHTML += "<span class='fa " + font + "'></span>";
-          }
-        } else { //Unknown
-          itemHTML += "<span class='fa fa-file-o file-other'></span>";
-        }
+          //Get type
+          var typeForArticle = Gofast.ITHit._getTypeFromRessourceType(item.DisplayName, item.Href, item.ResourceType, item.ContentType);
+          if(typeForArticle === 'Article') { //Article icon
+              itemHTML += "<span class='far fa-ballot'></span>";
+          }else if(typeof font !== "undefined"){ //Known
+              if(font === "fa-file-image-o" && Gofast.ITHit.display == "icons"){
+                  //Load image
+                  itemHTML += "<img height=\"75px\" src='" + location.origin + item.Href + "' />";
+              }else{
+                  itemHTML += "<span class='fa " + font + "'></span>";
+              }
+          }else { //Unknown
+               itemHTML += "<span class='fa fa-file-o file-other'></span>";
+         }
       }
 
       if (typeof item.ActiveLocks !== "undefined" && item.ActiveLocks.length !== 0) {
@@ -1917,7 +2127,7 @@
 
       //Name
       itemHTML += "<td class='item-name' title='" + item.DisplayName + "' style='width:" + tdNameSize + "'>";
-      itemHTML += item.DisplayName;
+      itemHTML += decodeURIComponent(encodeURIComponent(item.DisplayName)); // display name is sometimes "half encoded", so we must finish the encoding before decoding
       itemHTML += "</td>";
 
       //Size
@@ -1929,7 +2139,8 @@
 
       //Type
       itemHTML += "<td class='item-type' style='width:15%;'>";
-      itemHTML += Gofast.ITHit._getTypeFromRessourceType(item.DisplayName, item.Href, item.ResourceType);
+        let normalHTML = Gofast.ITHit._getTypeFromRessourceType(item.DisplayName, item.Href, item.ResourceType, item.ContentType);
+        itemHTML += (normalHTML == "Article") ? Drupal.t('Web Page', {}, {context: 'gofast:ajax_file_browser'}) : normalHTML;
       itemHTML += "</td>";
 
       //Type
@@ -1955,6 +2166,12 @@
       itemHTML += "<td class='item-info' style='width:10%;'>";
       if (!item.Timeout) {
         itemHTML += Gofast.ITHit._formatInfo(item.Permission, item.Visibility, item.ResourceType);
+        // Change mirroring icon
+        if(Gofast.ITHit.mirrorFolders.indexOf(decodeURI(item.Href)) != -1 ){
+          // Replace old icon by the new one
+          itemHTML = itemHTML.replace(icon, "fa-folders");
+        }
+        
       } else {
         var title = Drupal.t("Unable to retrieve the informations because there are to many elements or the request took too long", {}, { context: "gofast:gofast_ajax_file_browser" });
         itemHTML += "<i title=\"" + title + "\" class='fa fa-question' style='margin-right: 3px; color: #777;'></i>";
@@ -2033,11 +2250,21 @@
         if (visibility && visibility.length === 1) {
           output += "";
         } else if (visibility && visibility.length > 1) {
-          var title = Drupal.t("This content is in multiple locations : ", {}, { context: "gofast:gofast_ajax_file_browser" }) + decodeURIComponent(visibility.join(", ")).replace(/\/webdav\/Sites/g, "");
+          var title = Drupal.t("This content is in multiple locations : ", {}, { context: "gofast:gofast_ajax_file_browser" }) + "\r\n" + decodeURIComponent(visibility.join("\r\n")).replace(/\/webdav\/Sites/g, "");
           output += "<i title=\"" + title + "\" class='fa fa-share-alt' style='margin-right: 3px; color: #777;'></i>";
         } else if (typeof permission !== "undefined") {
           var title = Drupal.t("This content is in multiple locations but you don't have access to all these locations.", {}, { context: "gofast:gofast_ajax_file_browser" });
           output += "<i title=\"" + title + "\" class='fa fa-share-alt' style='margin-right: 3px; color: #777;'></i>";
+        }
+      }else{
+        if (visibility && visibility.length === 1) {
+          output += "";
+        } else if (visibility && visibility.length > 1) {
+          var title = Drupal.t("This folder is in multiple locations : ", {}, { context: "gofast:gofast_ajax_file_browser" }) + "\r\n" + decodeURIComponent(visibility.join("\r\n")).replace(/\/webdav\/Sites/g, "");
+          output += "<i title=\"" + title + "\" class='fas fa-exchange-alt' style='margin-right: 3px; color: #777;'></i>";
+        } else if (typeof permission !== "undefined") {
+          var title = Drupal.t("This folder is in multiple locations but you don't have access to all these locations.", {}, { context: "gofast:gofast_ajax_file_browser" });
+          output += "<i title=\"" + title + "\" class='fas fa-exchange-alt' style='margin-right: 3px; color: #777;'></i>";
         }
       }
 
@@ -2046,41 +2273,47 @@
     /*
      *
      */
-    _getTypeFromRessourceType: function (name, path, type) {
-      if (type === "Resource") {
-        return name.split('.').pop().toUpperCase()
-      } else {
-        if (name.substr(0, 1) === '_') { //This is a space
-          //Now, we get the type of the space, regarding the path
-          var pathSplit = path.split('/');
-          var space = pathSplit[4];
-          //Then, set the type
-          if (space === "_Groups") {
-            return Drupal.t('Group', {}, { context: 'gofast:ajax_file_browser' });
-          } else if (space === "_Organisations") {
-            return Drupal.t('Organisation', {}, { context: 'gofast:ajax_file_browser' });
-          } else if (space === "_Extranet") {
-            return Drupal.t('Extranet', {}, { context: 'gofast:ajax_file_browser' });
-          } else if (space === "_Public") {
-            return Drupal.t('Public space', {}, { context: 'gofast:ajax_file_browser' });
-          } else {
-            return Drupal.t('Private space', {}, { context: 'gofast:ajax_file_browser' });
+    _getTypeFromRessourceType: function(name, path, type, content_type){
+      if(type === "Resource"){
+         //Checks if we either have an alfresco_item (has an extension) or an article (no extension)
+         var nametab = name.split('.');
+          let item_path = path.split('/');
+          if(item_path[item_path.length-2] == 'Wikis' && content_type == 'text/html') {
+              return "Article";
           }
-        } else if (name == "TEMPLATES") {
-          return Drupal.t('Templates folder', {}, { context: 'gofast:ajax_file_browser' });
-        } else { //This is a folder
-          return Drupal.t('Folder', {}, { context: 'gofast:ajax_file_browser' });
-        }
+        return nametab.pop().toUpperCase();
+      }else{
+            if (name.substr(0, 1) === '_'){ //This is a space
+              //Now, we get the type of the space, regarding the path
+              var pathSplit = path.split('/');
+              var space = pathSplit[4];
+              //Then, set the type
+              if (space === "_Groups"){
+                return Drupal.t('Group', {}, {context: 'gofast:ajax_file_browser'});
+              } else if (space === "_Organisations"){
+                return Drupal.t('Organisation', {}, {context: 'gofast:ajax_file_browser'});
+              } else if (space === "_Extranet"){
+                return Drupal.t('Extranet', {}, {context: 'gofast:ajax_file_browser'});
+              } else if (space === "_Public"){
+                return Drupal.t('Public space', {}, {context: 'gofast:ajax_file_browser'});
+              } else{
+                return Drupal.t('Personal space', {}, {context: 'gofast:ajax_file_browser'});
+              }
+            } else if(name == "TEMPLATES"){
+              return Drupal.t('Templates folder', {}, {context: 'gofast:ajax_file_browser'});
+            }else{ //This is a folder
+              return Drupal.t('Folder', {}, {context: 'gofast:ajax_file_browser'});
+            }
       }
     },
     /*
      * Get an Queued Item and return the corresponding HTML
      * Called when queue items are processed
      */
-    _formatQueueItem: function (item) {
+    _formatQueueItem: function (item, originalIndex) {
       var cancellable = false;
       var itemHTML = "";
-      itemHTML += "<tr class='file_browser_full_upload_element' style='width:100%; display: inline-block;'>";
+      itemHTML += "<tr class='file_browser_full_upload_element' id='file_browser_full_upload_element" + originalIndex + "' style='width:100%; display: inline-block;'>";
       //Icon
       //Set icon regarding the status
       var fa_icon = "";
@@ -2101,7 +2334,7 @@
         color = '#5cb85c';
       }
       itemHTML += "<td style='width:5%;'>";
-      itemHTML += "<span class='fa " + fa_icon + "' style='color:" + color + "'></span>";
+      itemHTML += "<span class='fas " + fa_icon + "' style='color:" + color + "'></span>";
       itemHTML += "</td>";
 
       //Name + Path
@@ -2116,11 +2349,11 @@
 
       //Progression
       itemHTML += "<td style='width:18%;height:22px;'>";
-      itemHTML += '<div class="progress" style="display:block; width:70%;">';
+      itemHTML += '<div class="progress" style="width:70%;">';
       itemHTML += '<div class="progress-bar bg-success" role="progressbar" style="width: ' + item.progression + '%" aria-valuenow="' + item.progression + '" aria-valuemin="0" aria-valuemax="100">' + item.progression + '%</div>';
       itemHTML += '</div>';
       if (cancellable && item.operation === "upload") { //Waiting or in progress uploads are cancellable
-        itemHTML += '<button type="button" style="height:20px;padding-left:5px;padding-right:5px;padding-top:0px;padding-bottom:0px;float:right;margin-top:-35px;" onClick="Gofast.ITHit.cancelUpload(\'' + item.uuid + '\')" class="btn btn-danger"><i class="fa fa-times"></i></button>';
+        itemHTML += '<button type="button" style="right: 2.8%;margin-top: -15px;position: absolute;z-index: 2;" onClick="Gofast.ITHit.cancelUpload(\'' + item.uuid + '\')" class="btn btn-danger btn-xs btn-icon"><i class="fa fa-times"></i></button>';
       }
       itemHTML += "</td>";
 
@@ -2202,8 +2435,9 @@
               //add class disabled on copy and cut options
               $('#file_browser_tooolbar_copy').prop('disabled', true);
               $('#file_browser_tooolbar_cut').prop('disabled', true);
+              $('#file_browser_tooolbar_cart_button').prop('disabled', true);
               //disable manage button
-              $('#file_browser_tooolbar_manage').prop('disabled', true);
+              $('#file_browser_full_container #file_browser_tooolbar_manage').addClass("disabled").removeClass("btn-white").attr("data-toggle", "tooltip").tooltip();
               //disable contextual actions
               $('#file_browser_tooolbar_contextual_actions').prop('disabled', true);
             }
@@ -2213,68 +2447,56 @@
             //Remove class disabled on copy and cut options
             $('#file_browser_tooolbar_copy').prop('disabled', false);
             $('#file_browser_tooolbar_cut').prop('disabled', false);
-            //Enable manage button
-            var path = $(processedItem[0]).find('td.item-path').text();
-            var type = $(processedItem[0]).find('td.item-type').text();
-
-            if (path === '/alfresco/webdav/Sites/_Groups/' || path === '/alfresco/webdav/Sites/_Extranet/' || path === '/alfresco/webdav/Sites/_Organisations/' || path === '/alfresco/webdav/Sites/_Public/'
-              || Gofast._settings.gofast_ajax_file_browser.archived_spaces.indexOf(path.substring(0, path.length - 1)) !== -1 || type === "Folder" || type === "Group" || type === "Organisation") {
-              $('#file_browser_tooolbar_manage').prop('disabled', true);
-
-            } else {
-              if ($('.file_browser_full_files_element.selected').length > 0) {
-                $('.file_browser_full_files_element.selected').each(function () {
-                  if ($(this).find('.item-real-type').text() === "Folder" || $(this).find('.item-real-type').text() === "Group" || $(this).find('.item-real-type').text() === "Organisations" || $(this).find('.item-real-type').text() === "Templates folder" || $(this).find('.item-real-type').text() === "Extranet" || $(this).find('.item-real-type').text() === "Public space") {
-                    $('#file_browser_tooolbar_manage').prop('disabled', true);
-                    return false;
-                  } else {
-                    $('#file_browser_tooolbar_manage').prop('disabled', false);
-                  }
-                });
-              } else {
-                $('#file_browser_tooolbar_manage').prop('disabled', false);
-              }
-            }
+            $('#file_browser_tooolbar_cart_button').prop('disabled', false);
             //Enable contextual actions
             $('#file_browser_tooolbar_contextual_actions').prop('disabled', false);
 
-            if (Drupal.settings.isMobile) {
-              //Check the box
+            if (Gofast.isTablet() || Gofast.isMobile()){
+             //Check the box
               $(this).prop("checked", true);
             }
           }
         });
         processedItem.find("td>input[type=checkbox]").on('mouseup touchend', function (e) {
-          if ($('.file_browser_full_files_element.selected').length > 0) {
-            $('.file_browser_full_files_element.selected').each(function () {
-              if ($(this).find('.item-real-type').text() === "Folder" || $(this).find('.item-real-type').text() === "Group" || $(this).find('.item-real-type').text() === "Organisations" || $(this).find('.item-real-type').text() === "Templates folder" || $(this).find('.item-real-type').text() === "Extranet" || $(this).find('.item-real-type').text() === "Public space") {
-                $('#file_browser_tooolbar_manage').prop('disabled', true);
-                return false;
-              } else {
-                $('#file_browser_tooolbar_manage').prop('disabled', false);
-              }
-            });
+          //Uncheck magic checkbox if all items are not checked
+          const gofastMagicCheckbox = document.querySelector("#gofastBrowserMagicCheckbox");
+          if ($('.file_browser_full_files_element.selected').length  === $('.file_browser_full_files_element:not(#file_browser_back_button)').length) {
+            if (gofastMagicCheckbox) gofastMagicCheckbox.checked = true;
           } else {
-            $('#file_browser_tooolbar_manage').prop('disabled', true);
+            if (gofastMagicCheckbox) gofastMagicCheckbox.checked = false;
+          }
+        });
+        // checkboxes are actually checked _after_ the mousedown event so we need a differentiated event for this
+        processedItem.find("td>input[type=checkbox]").on("change", function() {
+          //Enable manage button
+          var path = $(processedItem[0]).find('td.item-path').text();
+          // var type = $(processedItem[0]).find('td.item-type').text();
+
+          if (path === '/alfresco/webdav/Sites/_Groups/' || path === '/alfresco/webdav/Sites/_Extranet/' || path === '/alfresco/webdav/Sites/_Organisations/' || path === '/alfresco/webdav/Sites/_Public/'
+            || Gofast._settings.gofast_ajax_file_browser.archived_spaces.indexOf(path.substring(0, path.length - 1)) !== -1) {
+            $('#file_browser_full_container #file_browser_tooolbar_manage').addClass("disabled").removeClass("btn-white").attr("data-toggle", "tooltip").tooltip();
+          } else {
+            if ($('.gfb-cbx:checked').length > 0) {
+              $('.gfb-cbx:checked').each(function () {
+                if ($(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Folder" || $(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Group" || $(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Organisations" || $(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Templates folder" || $(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Extranet" || $(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Public space") {
+                  $('#file_browser_full_container #file_browser_tooolbar_manage').addClass("disabled").removeClass("btn-white").attr("data-toggle", "tooltip").tooltip();
+                  return false;
+                } else {
+                  $('#file_browser_full_container #file_browser_tooolbar_manage').removeClass("disabled").addClass("btn-white").attr("data-toggle", "dropdown").tooltip("dispose");
+                }
+              });
+            } else {
+              $('#file_browser_full_container #file_browser_tooolbar_manage').addClass("disabled").removeClass("btn-white").attr("data-toggle", "dropdown").tooltip("dispose");
+            }
           }
         });
         processedItem.on('mousedown touchstart', function (e) {
           //Remove class disabled on copy and cut options
           $('#file_browser_tooolbar_copy').prop('disabled', false);
           $('#file_browser_tooolbar_cut').prop('disabled', false);
-          //Enable manage button
-          var path = $(processedItem[0]).find('td.item-path').text();
-          var type = $(processedItem[0]).find('td.item-type').text();
-          if (path === '/alfresco/webdav/Sites/_Groups/' || path === '/alfresco/webdav/Sites/_Extranet/' || path === '/alfresco/webdav/Sites/_Organisations/' || path === '/alfresco/webdav/Sites/_Public/'
-            || Gofast._settings.gofast_ajax_file_browser.archived_spaces.indexOf(path.substring(0, path.length - 1)) !== -1 || type === "Folder" || type === "Group" || type === "Organisation" || type === "Templates folder") {
-            $('#file_browser_tooolbar_manage').prop('disabled', true);
-
-          } else {
-            $('#file_browser_tooolbar_manage').prop('disabled', false);
-          }
+          $('#file_browser_tooolbar_cart_button').prop('disabled', false);
           //Enable contextual actions
           $('#file_browser_tooolbar_contextual_actions').prop('disabled', false);
-
           if (e.shiftKey) {
             if ($(".selected").length > 0) {
               if (processedItem.hasClass('selected')) {
@@ -2287,7 +2509,7 @@
                 $(".selected").last().nextUntil(processedItem, "tr").not('.search-hidden').addClass('selected');
               }
               processedItem.addClass('selected');
-              processedItem.find("td>input[type=checkbox]").prop('checked', true);
+              processedItem.find("td>input[type=checkbox]").prop('checked', true); 
             } else {
               $(".selected").removeClass("selected");
               processedItem.addClass('selected');
@@ -2306,16 +2528,9 @@
               processedItem.addClass('selected');
               $("td>input[type=checkbox]:checked").prop('checked', false);
               processedItem.find("td>input[type=checkbox]").prop('checked', true);
-            } else if (processedItem.find("#rename-form").length === 0 && $(".selected").length === 1 && e.which === 1) {
-              /*if (((new Date().getTime()) - touchtimerename) > 500) {
-                  clearTimeout(Gofast.willRenameElement);
-                  Gofast.willRenameElement = setTimeout(function(){ //Prevent dbl click to trigger this
-                      Gofast.ITHit.rename(item.Href);
-                  }, 500);
-              }*/
             }
-            //touchtimerename = new Date().getTime();
           }
+          processedItem.find("td>input[type=checkbox]").trigger('change'); // will enable the manage button by triggering the "change" event
           //Enable cart button if no folder are selected, else disable it
           if ($('.selected').filter(function (k, i) { return $(i).find('.item-real-type').text() === "Folder"; }).length === 0) {
             $('#file_browser_tooolbar_cart_button').prop('disabled', false);
@@ -2344,17 +2559,12 @@
           } else {
             $('#file_browser_tooolbar_cart_button').prop('disabled', true);
           }
-          if ($('.file_browser_full_files_element.selected').length > 0) {
-            $('.file_browser_full_files_element.selected').each(function () {
-              if ($(this).find('.item-real-type').text() === "Folder" || $(this).find('.item-real-type').text() === "Group" || $(this).find('.item-real-type').text() === "Organisations" || $(this).find('.item-real-type').text() === "Templates folder" || $(this).find('.item-real-type').text() === "Extranet" || $(this).find('.item-real-type').text() === "Public space") {
-                $('#file_browser_tooolbar_manage').prop('disabled', true);
-                return false;
-              } else {
-                $('#file_browser_tooolbar_manage').prop('disabled', false);
-              }
-            });
+          //Uncheck magic checkbox if all items are not checked
+          const gofastMagicCheckbox = document.querySelector("#gofastBrowserMagicCheckbox");
+          if ($('.gfb-cbx:checked').length === $('.file_browser_full_files_element:not(#file_browser_back_button)').length) {
+            if (gofastMagicCheckbox) gofastMagicCheckbox.checked = true;
           } else {
-            $('#file_browser_tooolbar_manage').prop('disabled', true);
+            if (gofastMagicCheckbox) gofastMagicCheckbox.checked = false;
           }
         });
 
@@ -2439,7 +2649,7 @@
 
       //Display the loader, waiting the ajax request to get the menu and positioning
       //dynamically the menu
-      var menu = $('<div class="gofast-node-actions"><ul class="dropdown-menu gofast-dropdown-menu" role="menu"><li><div class="loader-activity-menu-active"></div></li></ul></div>').appendTo("#file_browser_full_files");
+      var menu = $('<div class="gofast-node-actions"><div class="dropdown-menu dropdown-menu-md py-5" aria-labelledby="dropdown-"><ul class="navi navi-hover navi-link-rounded-lg px-1"><li><div class="loader-activity-menu-active"></div></li></ul></div></div>').appendTo("#file_browser_full_files");
 
       //Show the menu and position it
       menu.addClass('open');
@@ -2462,12 +2672,14 @@
         //Remove the item
         menu.remove();
       });
-
+      
       //Get the selected elements
       var data = [];
       var fromTree = 0;
       if (typeof node === "undefined") { //From files
-        var selected = $('#file_browser_full_files_table').find('.selected').find('.item-path');
+        
+        // Get elements with the checkbox checked
+        var selected = $('.gfb-cbx:checked').parents('.file_browser_full_files_element').find('.item-path');
         $.each(selected, function (k, elem) {
           data.push(elem.innerText);
         });
@@ -2515,7 +2727,7 @@
         var old_name = name_element.text();
 
         //We are secure to edit
-        var input_group = name_element.html('<input id="rename-form" class="form-control form-text"  value="' + name_element.text() + '" style="line-height:0px;height:20px;width:80%;float:left" ><div class="btn-group" role="group"><button style="height:20px;padding-left:5px;padding-right:5px;padding-top:0px;padding-bottom:0px;" type="button" class="btn btn-success"><i class="fa fa-check"></i></button><button type="button" style="height:20px;padding-left:5px;padding-right:5px;padding-top:0px;padding-bottom:0px;" class="btn btn-danger"><i class="fa fa-times"></i></button>');
+        var input_group = name_element.html('<input id="rename-form" class="form-control form-text"  value="' + name_element.text() + '" style="padding-bottom:12px;height:20px;width:80%;float:left;margin-top:0px;"><div class="badge badge-success"><i class="fa fa-check" style="color:white;"></i></div><div class="badge badge-danger"><i class="fa fa-times" style="color:white;"></i></div>');
 
         //GOFAST-6757 - Couldn't d&d a file after going out of a rename in the gfb (caused because no refresh when we don't submit a new name)
         $('.file_browser_full_files_element').attr('draggable', 'false'); //sets the attribute to false
@@ -2546,8 +2758,9 @@
           }
         });
         //Bind the validate button event
-        name_element.find('.btn-success').on('click', function (e) {
+        name_element.find('.badge-success').on('click', function (e) {
           var new_name = name_element.find('input').val();
+
 
           //delete spaces at the beginning and end of the name
           new_name = new_name.trim();
@@ -2565,7 +2778,7 @@
           Gofast.ITHit._processRename(href, old_name, new_name, name_element, "ressource");
         });
         //Bind the cancel button event
-        name_element.find('.btn-danger').on('click', function (e) {
+        name_element.find('.badge-danger').on('click', function (e) {
           name_element.text(old_name);
           $('.file_browser_full_files_element').attr('draggable', 'true'); //sets the attribute to true
         });
@@ -2586,7 +2799,7 @@
 
         //Display the input field
         $("#rename-popup").remove();
-        var input_group = $('#file_browser_full_tree').prepend('<div id="rename-popup"><input id="rename-form" class="form-control form-text" value="' + name + '" style="line-height:0px;height:20px;width:80%;float:left"><div class="btn-group" role="group"><button style="height:20px;padding-left:5px;padding-right:5px;padding-top:0px;padding-bottom:0px;" type="button" class="btn btn-success"><i class="fa fa-check"></i></button><button type="button" style="height:20px;padding-left:5px;padding-right:5px;padding-top:0px;padding-bottom:0px;" class="btn btn-danger"><i class="fa fa-times"></i></button></div>');
+        var input_group = $('#file_browser_full_tree').prepend('<div id="rename-popup"><input id="rename-form" class="form-control form-text" value="' + name + '" style="line-height:0px;height:20px;"><div class="btn-group" role="group"><button style="height:20px;padding-left:5px;padding-right:5px;padding-top:0px;padding-bottom:0px;" type="button" class="btn btn-success"><i class="fa fa-check"></i></button><button type="button" style="height:20px;padding-left:5px;padding-right:5px;padding-top:0px;padding-bottom:0px;" class="btn btn-danger"><i class="fa fa-times"></i></button></div>');
         var name_element = $("#rename-popup");
 
         name_element.css('width', $("#file_browser_full_tree_element").width());
@@ -2645,9 +2858,9 @@
         path = path.substring(0, path.length - 1);
       }
 
-      //Prevent move of a space
-      if (old_name.substr(0, 1) === "_") {
-        Gofast.toast(Drupal.t("You can only rename a space from it's page.", {}, { context: 'gofast:ajax_file_browser' }), "warning");
+      //Prevent move of a space, except if the rename comes from the ztree so it's definitely not a move operation
+      if (old_name.substr(0, 1) === "_" && typeof zElement === "undefined") {
+        Gofast.toast(Drupal.t("You cannot rename a space from the filebrowser", {}, { context: 'gofast:ajax_file_browser' }), "warning");
         name_element.text(old_name);
         return;
       }
@@ -2702,7 +2915,7 @@
 
             //We got the folder, we can process the rename action
             item.MoveToAsync(folder, new_name, false, null, function (asyncResult) {
-              if (asyncResult.Error instanceof ITHit.WebDAV.Client.Exceptions.PreconditionFailedException) {
+              if (asyncResult.Error instanceof ITHit.WebDAV.Client.Exceptions.PreconditionFailedException || (asyncResult.Status && asyncResult.Status.Code == 412)) {
                 Gofast.toast(new_name + " " + Drupal.t("already exists in this folder", {}, { context: 'gofast:ajax_file_browser' }), "warning");
                 var selectedNode = Gofast.ITHit.tree.getSelectedNodes()[0];
                 if (typeof zElement === "undefined") {
@@ -2739,18 +2952,22 @@
                     Gofast.ITHit.tree.editName(zElement);
                     Gofast.ITHit.tree.removeChildNodes(zElement);
                     zElement.isParent = true;
-                    zElement.icon = saveIcon;
+                    if(typeof saveIcon != "undefined"){
+                      zElement.icon = saveIcon;
+                    }
                     Gofast.ITHit.tree.refresh();
                     Gofast.ITHit.tree.selectNode(selectedNode);
                   }
-
+                  Gofast.ITHit.currentPath = Gofast.ITHit.currentPath.replace(decodeURIComponent(folder.Href + old_name), decodeURIComponent(folder.Href + new_name));
                   Gofast.ITHit.reload();
                 } else {
                   var selectedNode = Gofast.ITHit.tree.getSelectedNodes()[0];
                   zElement.name = new_name;
                   zElement.path = decodeURIComponent(folder.Href + new_name);
                   Gofast.ITHit.tree.editName(zElement);
-                  zElement.icon = saveIcon;
+                  if(typeof saveIcon != "undefined"){
+                    zElement.icon = saveIcon;
+                  }
                   Gofast.ITHit.tree.removeChildNodes(zElement);
                   zElement.isParent = true;
                   Gofast.ITHit.tree.refresh();
@@ -2801,7 +3018,7 @@
           fileName = fileName.split('/');
           fileName = decodeURIComponent(fileName.pop());
           $.post(location.origin + "/gofast/audit/delete/folder", { folder: path }, function (data) {
-            console.log('Delete folder successfull');
+            console.log('Delete folder successful');
           });
           $.post(location.origin + "/gofast/browser/check_favorite_folders", { folder: path }, function (data) {
             if (data == 1) {
@@ -2828,9 +3045,9 @@
         //Disable copy and cut buttons
         $('#file_browser_tooolbar_copy').prop('disabled', true);
         $('#file_browser_tooolbar_cut').prop('disabled', true);
+        $('#file_browser_tooolbar_cart_button').prop('disabled', true);
         //Disable manage button
-        $('#file_browser_tooolbar_manage').prop('disabled', true);
-        //Disable cart button
+        $('#file_browser_full_container #file_browser_tooolbar_manage').addClass("disabled").removeClass("btn-white").attr("data-toggle", "tooltip").tooltip(); //Disable cart button
         $('#file_browser_tooolbar_cart_button').prop('disabled', true);
         //Disable contextual actions
         $('#file_browser_tooolbar_contextual_actions').prop('disabled', true);
@@ -2841,7 +3058,16 @@
 
         var title = Drupal.t("Delete files", {}, { context: "gofast:ajax_file_browser" });
 
-        var html = "<h4>" + Drupal.t("Are you sure you want to delete?", {}, { context: "gofast:ajax_file_browser" }) + "</h4>";
+        var html = "<div class='alert alert-custom alert-notice alert-light-warning fade show' role='alert'>"
+          html += "<div class='alert-icon'><i class='flaticon-warning'></i></div>"
+          html += "<div class='alert-text'>"
+            html += "<ul>"
+              html += "<li>" + Drupal.t("These files will also be removed from all their locations.", {}, { context: 'gofast' }) + "</li>"
+              html += "<li>" + Drupal.t("Files with ", {}, { context: 'gofast' }) + '<i class="fa fa-question-circle"></i>' + Drupal.t(" have more than one emplacements", {}, { context: 'gofast' }) + "</li>"
+            html += "</ul>"
+          html += "</div>"
+        html += "</div>"
+        html += "<h4>" + Drupal.t("Are you sure you want to delete?", {}, { context: "gofast:ajax_file_browser" }) + "</h4>";
         html += "<br /><ul style='max-height: 320px;overflow-y: scroll;'>";
         var int = 0;
         items.forEach(function (path) {
@@ -2854,17 +3080,15 @@
               var data = result.theme_list_documents;
               var int = result.int;
               $('.delete-loader-actions-' + int).replaceWith(data);
-              $("body").tooltip({ selector: '[data-toggle=tooltip]' });
+              $("body").tooltip({ selector: '[data-toggle=tooltip]', trigger: 'hover' });
             }
           );
           $.get(location.origin + "/ajax_file_browser/get_icon", { folder_path: drupalPath, int: int },
             function (data) {
               var result = JSON.parse(data);
-              var data = result.icon;
-              var locations = result.locations
+              var icon = result.icon;
               var int = result.int;
-              $('.delete-locations-' + int + ' span').replaceWith(data);
-              $('.delete-locations-' + int + ' i').replaceWith(locations);
+              $('.delete-locations-' + int + ' span').replaceWith(icon);
             }
           );
           html += '<li class="delete-locations-' + int + '">';
@@ -2872,19 +3096,17 @@
           html += path;
           html += '<i></i>';
           html += '</li>';
-          html += "<div id='delete-loader-actions' class='delete-loader-actions-" + int + " loader-actions' style='width:50px;height:50px;'></div>"
           int += 1;
         });
         html += "</ul>";
-        html += '<i class="fa fa-exclamation-triangle" style="color:red;"></i> ' + Drupal.t("These files will also be removed from all their locations.", {}, { context: 'gofast' });
-        html += "<br />";
-        html += '<i class="fa fa-exclamation-triangle" style="color:red;"></i> ' + Drupal.t("Files with ", {}, { context: 'gofast' }) + '<i class="fa fa-question-circle"></i>' + Drupal.t(" have more than one emplacements", {}, { context: 'gofast' });
-        html += "<br /><br />";
+        // html += '<i class="fa fa-exclamation-triangle" style="color:red;"></i> ' + Drupal.t("These files will also be removed from all their locations.", {}, { context: 'gofast' });
+        // html += "<br />";
+        // html += '<i class="fa fa-exclamation-triangle" style="color:red;"></i> ' + Drupal.t("Files with ", {}, { context: 'gofast' }) + '<i class="fa fa-question-circle"></i>' + Drupal.t(" have more than one emplacements", {}, { context: 'gofast' });
+        // html += "<br /><br />";
         data = data.replace(/"/g, '&quot;');
         html += '<button id="deleteButton" class="btn btn-danger btn-sm icon-before" type="submit" onClick="Gofast.ITHit.delete(\'' + data + '\', true)"><span class="icon glyphicon glyphicon-trash"></span>' + ' ' + Drupal.t('Delete') + '</button>';
 
         Gofast.modal(html, title);
-        $("#deleteButton").focus();
       }
     },
     /*
@@ -2902,6 +3124,39 @@
       }
       e.preventDefault();
       e.stopPropagation();
+    },
+    /*
+    * Duplicate item
+    */
+    duplicate: function (node_id) {
+
+      //Get selected item
+      var selected = $('#file_browser_full_files_table').find('.selected');
+
+      if (selected.length) { //if selector exists (that mean we are on space pages)
+      //Push to queue
+      var path = $(selected).find('.item-path').text();
+      var fileName = $(selected).find('.item-name').text();
+      Gofast.ITHit.queue.push({
+        uuid: Gofast.ITHit.generate_uuid(),
+        path: path,
+        destination: Gofast.ITHit.currentPath,
+        displayNamePath: fileName + ' (' + decodeURIComponent(path.replace('/alfresco/webdav/Sites/', '')) + ')',
+        fileName: fileName,
+        operation: 'duplicate',
+        displayOperation: Drupal.t('duplicate', {}, { context: 'gofast:ajax_file_browser' }),
+        progression: 0,
+        status: 0
+      });
+      }
+
+      //Display toast
+      Gofast.toast(Drupal.t("File duplicated", {}, { context: 'gofast:ajax_file_browser' }), "info");
+
+      // Duplicate function for only one file
+      $.post(location.origin + "/cmis/duplicate", { node_id: node_id, destination: Gofast.ITHit.currentPath}, function (data) {
+        console.log('Duplicate file successfull');
+      });
     },
     /*
      * Move selected items
@@ -2929,8 +3184,9 @@
       //Disable copy and cut buttons
       $('#file_browser_tooolbar_copy').prop('disabled', true);
       $('#file_browser_tooolbar_cut').prop('disabled', true);
+      $('#file_browser_tooolbar_cart_button').prop('disabled', true);
       //Disable manage button
-      $('#file_browser_tooolbar_manage').prop('disabled', true);
+      $('#file_browser_full_container #file_browser_tooolbar_manage').addClass("disabled").removeClass("btn-white").attr("data-toggle", "tooltip").tooltip();
       //Disable cart button
       $('#file_browser_tooolbar_cart_button').prop('disabled', true);
       //Disable contextual actions
@@ -2949,13 +3205,19 @@
         var path = $(elem).find('.item-path').text();
         var fileName = $(elem).find('.item-name').text();
 
-        if ($(elem).find('.item-real-type').text() !== 'Resource') {
-          Gofast.toast(Drupal.t("Can't download ", {}, { context: 'gofast:ajax_file_browser' }) + " " + fileName, "warning");
-        } else {
+        if($(elem).find('.item-real-type').text() !== 'Resource'){
+          Gofast.toast(Drupal.t("Can't download ", {}, {context: 'gofast:ajax_file_browser'}) + " " + fileName, "warning");
+        }else{
+
+          totalPath = decodeURIComponent(path).replace('/alfresco/webdav/Sites/', '');
+
+          // audit
+          Gofast.auditAction.downloadSelected(totalPath);
+
           Gofast.ITHit.queue.push({
             uuid: Gofast.ITHit.generate_uuid(),
-            path: path,
-            displayNamePath: fileName + ' (' + decodeURIComponent(path).replace('/alfresco/webdav/Sites/', '') + ')',
+            path : path,
+            displayNamePath: fileName + ' (' + totalPath + ')',
             fileName: fileName,
             operation: 'download',
             displayOperation: Drupal.t('Download', {}, { context: 'gofast:ajax_file_browser' }),
@@ -3072,7 +3334,7 @@
               if (destination === Gofast.ITHit.currentPath) {
                 Gofast.ITHit.reload();
               }
-            } else if (oAsyncResult.Error instanceof ITHit.WebDAV.Client.Exceptions.PreconditionFailedException) {
+            } else if (oAsyncResult.Error instanceof ITHit.WebDAV.Client.Exceptions.PreconditionFailedException || oAsyncResult.Status.Code == 412) {
               Gofast.toast(Drupal.t("Can't move", {}, { context: 'gofast:ajax_file_browser' }) + " " + fileName + " " + Drupal.t("because this item already exists in the destination folder.", {}, { context: 'gofast:ajax_file_browser' }), "warning");
               Gofast.ITHit.queue[index] = null;
               return;
@@ -3140,7 +3402,7 @@
 
               //Reload file browser
               Gofast.ITHit.reload();
-            } else if (oAsyncResult.Error instanceof ITHit.WebDAV.Client.Exceptions.PreconditionFailedException) {
+            } else if (oAsyncResult.Error instanceof ITHit.WebDAV.Client.Exceptions.PreconditionFailedException || oAsyncResult.Status.Code == 412) {
               Gofast.toast(Drupal.t("Can't copy/paste", {}, { context: 'gofast:ajax_file_browser' }) + " " + fileName + " " + Drupal.t("because this item already exists in the destination folder.", {}, { context: 'gofast:ajax_file_browser' }), "warning");
               Gofast.ITHit.queue[index] = null;
               return;
@@ -3209,6 +3471,18 @@
       }
     },
     /*
+    * Process a duplicate operation on an item in the queue
+    */
+    _processDuplicate: function (index) {
+
+      setTimeout(function () {
+        Gofast.ITHit.queue[index].progression = 75;
+        Gofast.ITHit.reload();
+        Gofast.ITHit.queue[index] = null;
+      }, (2000));
+      Gofast.ITHit.queue[index].progression = 50;
+    },
+    /*
      * Ask Drupal for an Alfresco reference
      */
     getReference: function (path, callback) {
@@ -3233,6 +3507,7 @@
         return false;
       }
     },
+
     /*
      * Ask Drupal to know if the document is internal
      */
@@ -3285,7 +3560,7 @@
             data: 'href=' + href.replace(/\&/g, "%26").replace(/\+/g, "%2B"),
             dataType: 'json'
           }).done(function (data) {
-            $(".ctools-close-modal").trigger("click");
+            $(".modal button.close").trigger("click");
             if (newtab) {
               var win = window.open("/node/" + data, '_blank');
             } else {
@@ -3323,13 +3598,25 @@
           return;
         }
         Gofast.ITHit.activeQueue = true;
-        var items = Gofast.ITHit.queue.filter(function (e) {
-          return e !== null;
+        // we map the original index so we can add it to the item DOM element, gaining the ability to treat the item DOM and item queue simultaneously
+        var items = Gofast.ITHit.queue
+          .map(function (e, i) {
+              return {originalIndex: i, originalItem: e}
+          })
+          .filter(function (e) {
+          return e.originalItem !== null;
         });
 
+        var upload_message_elem = $("#file_browser_full_upload_label").parent();
         if (items.length === 0) {
           //Clear index as there is no item in the queue
           Gofast.ITHit.queue = [];
+
+          //Display upload informative message
+          upload_message_elem.removeClass('d-none');
+        }else{
+          //Hide upload informative message
+          upload_message_elem.addClass('d-none');
         }
 
         //Prevent graphic overload
@@ -3349,8 +3636,9 @@
         for (var i = 0; i < itemsLength; i++) {
           //Format the item
           itemHTML = "";
-          var item = items[i];
-          var itemHTML = Gofast.ITHit._formatQueueItem(item);
+          var item = items[i].originalItem;
+          var originalIndex = items[i].originalIndex;
+          var itemHTML = Gofast.ITHit._formatQueueItem(item, originalIndex);
 
           //Add the item to the list after removing the current items of the list
           var processedItem = $('#file_browser_full_upload_table').find('tbody:last-child').append(itemHTML);
@@ -3421,7 +3709,10 @@
           Gofast.ITHit.queue[item_index].progression = 25;
 
           //Now, we can send the item to the proper processing function
-          switch (Gofast.ITHit.queue[item_index].operation) {
+          switch(Gofast.ITHit.queue[item_index].operation){
+            case 'duplicate':
+              Gofast.ITHit._processDuplicate(item_index);
+              break;
             case 'delete':
               Gofast.ITHit._processDelete(item_index);
               break;
@@ -3627,7 +3918,7 @@
         data.push({ url: path, type: "Folder" });
       } else {
         //Get selected elements
-        var selected = $('#file_browser_full_files_table').find('.selected').find('.item-path');
+        var selected = $('.gfb-cbx:checked').parents('.file_browser_full_files_element').find('.item-path');
         if (selected.length == 0) {
           var selected = $('#file_browser_mobile_files_table').find('.selected').find('.item-path');
         }
@@ -3663,16 +3954,8 @@
         }
       });
     },
-    linkToFolder: function (path) {
-      var url = "";
-
-      if (path.indexOf('/alfresco/webdav') !== -1) {
-        //This is a folder
-        Gofast.copyToClipboard(Gofast.get('baseUrl') + "/gofast/browser?path=" + path);
-      } else {
-        //This is a space
-        Gofast.copyToClipboard(Gofast.get('baseUrl') + path);
-      }
+    linkToFolder: function (path,nid) {
+      Gofast.copyToClipboard(Gofast.get('baseUrl') + "/node/"+nid+"?path=" + path);
     },
     /*
      * Wait for the upload modal to be processed and then, tells to ITHit lib to
@@ -3680,8 +3963,8 @@
      */
     attachInputEvents: function () {
       var waitProcess = setInterval(function () {
-        if ($("#gofast_file_browser_upload_input").length) {
-          Gofast.ITHit.Uploader.Inputs.AddById('gofast_file_browser_upload_input');
+        if ($("[id^=edit-gofast-file-browser-upload-input]").length) {
+          Gofast.ITHit.Uploader.Inputs.AddById($("[id^=edit-gofast-file-browser-upload-input]")[0].id);
           clearInterval(waitProcess);
         }
       }, 200);
@@ -3730,12 +4013,73 @@
         }
       });
     },
+
+    /*
+     * Add new article
+     */
+    addArticle: function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        Gofast.addLoading();
+        var browser_location = window.location.href;
+        var browser_path = Gofast.getAllUrlParams(browser_location).path;
+        $.post(location.origin + '/gofast/browser/path/get_rules' , {href:browser_path} ,function(data){
+        if (data == 2){
+            Gofast.removeLoading();
+            Gofast.toast(Drupal.t('You don\'t have write permission in this group'),"warning");
+        }else if (data == 1){
+            Gofast.removeLoading();
+            Gofast.toast(Drupal.t('You can\'t write to this group because it is archived'),"warning");
+        }else{
+            var browser_href = '/node/add/article?path=' + browser_path;
+            Gofast.processAjax(browser_href);
+        }
+        });
+    },
+
     /*
      * Resize the browser in the full browser page
      */
-    resize_full_browser: function () {
-      var size = window.innerHeight - 100;
-      $(file_browser_full_container).height(size);
+    reset_full_browser_size: function () {
+      if (!(new URLSearchParams(window.location.search)).has("path")) {
+        return;
+      }
+      var size = window.innerHeight - 400;
+      if (document.URL.includes(Drupal.settings.mobile_prefix_url)) {
+        size += 80;
+      }
+
+      // height
+      $("#file_browser_tree_and_files").height(size);
+      $("#file_browser_full_tree_container").height(size);
+      $("#file_browser_full_tree_element").height(size);
+      $("#file_browser_full_files_container").height(size);
+
+      // width
+      $("#file_browser_full_tree_container").width("30%");
+      $("#file_browser_full_files_container").width("70%");
+      $("#file_browser_full_files_container table").width($("#file_browser_full_files_container").width() - 20);
+      $("#file_browser_full_files_container").css("margin-left", "30%");
+      $('#name_header').width('35%');
+      $('#size_header').width('10%');
+      $('#type_header').width('10%');
+      $('#modified_header').width('10%');
+
+      // columns
+      $('#name_header').trigger('resize');
+      $('#size_header').trigger('resize');
+      $('#type_header').trigger('resize');
+    },
+
+    /*
+     * Add item to upload queue by triggering a file input
+     */
+    triggerFileInput: function() {
+      if (!$("#file_browser_full_upload_table_file_input")) {
+        return;
+      }
+      Gofast.ITHit.Uploader.Inputs.AddById('file_browser_full_upload_table_file_input');
+      $("#file_browser_full_upload_table_file_input").trigger('click');
     }
   };
   $(document).ready(function () {
@@ -3744,6 +4088,8 @@
 
     //Handle path changes in URL when clicking on back/forward button
     $(document).on('urlChanged', function (e, oldLocation) {
+      //bypass for the moment, already manage into gofast_file_browser_mobile js
+      return;
       var params = {};
       if (location.search) {
         var parts = location.search.substring(1).split('&');
@@ -3756,7 +4102,10 @@
       }
 
       if (typeof params.path !== "undefined" && params.path !== "") {
-        Gofast.ITHit.navigate('/alfresco/webdav' + params.path, null, null, true);
+          //trigger the navigation only if the 2 hashes are the same. If not it means that we just change bootstrap tab
+          if(location.hash == oldLocation.hash){
+                Gofast.ITHit.navigate('/alfresco/webdav' + params.path, null, null, true);
+          }
       }
     });
   });
@@ -3826,29 +4175,16 @@
   });
 
   $(document).ready(function () {
-    //Resize browser if we are on the full browser page
-    if (location.pathname === "/gofast/browser") {
-      Gofast.ITHit.resize_full_browser();
-    }
-
-    $(window).resize(function () {
-      $('#name_header').trigger('resize');
-      $('#size_header').trigger('resize');
-      $('#type_header').trigger('resize');
-
-      //Resize browser if we are on the full browser page
-      if (location.pathname === "/gofast/browser") {
-        Gofast.ITHit.resize_full_browser();
+    $(window).resize(function (e) {
+      if (typeof e === "undefined") {
+        return;
       }
+      if (typeof e.target.classList !== "undefined" && e.target.classList.contains("ui-resizable")) {
+        return;
+      }
+
+      Gofast.ITHit.reset_full_browser_size();
     });
-
-    Drupal.behaviors.resize_full_browser = {
-      attach: function (context) {
-        if (location.pathname === "/gofast/browser" && $("#file_browser_full_container").length !== 0) {
-          Gofast.ITHit.resize_full_browser();
-        }
-      }
-    }
 
     //Implements translations
     Drupal.t("Unable to find this space's folder", {}, { context: 'gofast:ajax_file_browser' });

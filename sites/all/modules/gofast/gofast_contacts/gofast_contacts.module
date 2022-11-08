@@ -10,7 +10,17 @@ function gofast_contacts_init() {
 }
 
 function gofast_contacts_theme() {
-    $output = array();
+    $output = array(
+      'page_contact_node_form' => array(
+        'template' => 'tpl/gofast-contacts-contact-node-form-page',
+        'variables' => array('form' => NULL)
+      ),
+      'contact_node_form' => array(
+        'render element' => 'form',
+        'path' => drupal_get_path('theme', 'bootstrap_keen') . '/templates',
+        'template' => 'contact_node_form'
+      ),
+    );
 
     return $output;
 }
@@ -23,35 +33,47 @@ function gofast_contacts_theme() {
  * @param type $form_state
  * 
  */
-function gofast_contacts_form_alter(&$form, &$form_state) {  
-    //Rename form label + translation
-    $form['title']['#title'] = t('Title', array(), array('context' => 'gofast_contacts'));
-    $form['body'][LANGUAGE_NONE][0]['value']['#title'] = t('Body', array(), array('context' => 'gofast_contacts'));
-    $form['field_contact_name'][LANGUAGE_NONE][0]['value']['#title'] = t('Last name', array(), array('context' => 'gofast_contacts'));
-    $form['field_contact_firstname'][LANGUAGE_NONE][0]['value']['#title'] = t('First name', array(), array('context' => 'gofast_contacts'));   
-    $form['field_contact_email'][LANGUAGE_NONE][0]['value']['#title'] = t('Email', array(), array('context' => 'gofast_contacts'));   
-    $form['field_contact_phone'][LANGUAGE_NONE][0]['value']['#title'] = t('Mobile', array(), array('context' => 'gofast_contacts'));   
-    $form['field_contact_entity'][LANGUAGE_NONE][0]['value']['#title'] = t('Entity', array(), array('context' => 'gofast_contacts'));   
-    $form['field_contact_address'][LANGUAGE_NONE][0]['value']['#title'] = t('Address', array(), array('context' => 'gofast_contacts'));   
-    
-    //Hide fields that we don't need now
-    if($form['#id'] == 'contact-node-form') {
-        $form['title']['#access'] = FALSE;
-        $form['title']['#required'] = FALSE;
-        $form['body']['#access'] = FALSE;
-        $form['field_contact_address']['#access'] = FALSE;
-        $form['actions']['preview']['#access'] = FALSE;
-        $form['actions']['delete']['#access'] = FALSE;     
-    }
-    
-    $form['#submit'][] = 'gofast_contacts_form_submit';
+function gofast_contacts_form_alter(&$form, &$form_state) {
+  //Hide fields that we don't need now
+  if(strpos($form['#id'],'contact-node-form') === FALSE) {
+    return;
+  }
+  $form['#attributes']['class'][] = 'GofastForm GofastForm__ContactItem';
+  $form['title']['#title'] = t('Title', [], ['context' => 'gofast_contacts']);
+  $form['body'][LANGUAGE_NONE][0]['value']['#title'] = t('Body', [], ['context' => 'gofast_contacts']);
+  $form['field_contact_name'][LANGUAGE_NONE][0]['value']['#title'] = t('Last name', [], ['context' => 'gofast_contacts']);
+  $form['field_contact_firstname'][LANGUAGE_NONE][0]['value']['#title'] = t('First name', [], ['context' => 'gofast_contacts']);
+  $form['field_contact_email'][LANGUAGE_NONE][0]['value']['#title'] = t('Email', [], ['context' => 'gofast_contacts']);
+  $form['field_contact_phone'][LANGUAGE_NONE][0]['value']['#title'] = t('Mobile', [], ['context' => 'gofast_contacts']);
+  $form['field_contact_phone'][LANGUAGE_NONE][0]['value']['#required'] = TRUE;
+  $form['field_contact_entity'][LANGUAGE_NONE][0]['value']['#title'] = t('Entity', [], ['context' => 'gofast_contacts']);
+  $form['field_contact_address'][LANGUAGE_NONE][0]['value']['#title'] = t('Address', [], ['context' => 'gofast_contacts']);
+  $form['title']['#access'] = FALSE;
+  $form['title']['#required'] = FALSE;
+  $form['body']['#access'] = FALSE;
+  $form['field_contact_address']['#access'] = FALSE;
+  $form['actions']['preview']['#access'] = FALSE;
+  $form['actions']['delete']['#access'] = FALSE;
+  $form['#validate'][] = 'gofast_contacts_contact_node_form_validate';
+  $form['#submit'][] = 'gofast_contacts_form_submit';
+}
 
+function gofast_contacts_contact_node_form_validate(&$form, &$form_state) {
+  if (!valid_email_address($form_state['values']['field_contact_email'][LANGUAGE_NONE][0]['value'])) {
+    form_set_error('field_contact_email', t('Please enter a valid email address.'));
+  }
+  $phone_regex = '/^[0-9\+]{1,}[0-9\-]{3,15}$/';
+  if (!preg_match($phone_regex, $form_state['values']['field_contact_phone'][LANGUAGE_NONE][0]['value'])) {
+    form_set_error('field_contact_phone', t('Please enter a valid phone number.'));
+  }
 }
 
 function gofast_contacts_form_submit(&$form, &$form_state) {
-    if($form['#id'] == 'contact-node-form') { 
-        $form_state['values']['title'] = $form_state['values']['field_contact_name'][LANGUAGE_NONE][0]['value'] . ' ' . $form_state['values']['field_contact_firstname'][LANGUAGE_NONE][0]['value'];
-    }
+
+  if($form['#id'] == 'contact-node-form') {
+    $form_state['values']['title'] = $form_state['values']['field_contact_name'][LANGUAGE_NONE][0]['value'] . ' ' . $form_state['values']['field_contact_firstname'][LANGUAGE_NONE][0]['value'];
+  }
+
 }
 
 /**
@@ -98,4 +120,47 @@ function gofast_contacts_replace_display($contents) {
           
     print $output;
  
+}
+
+/**
+ * Implements hook_menu_alter.
+ */
+function gofast_contacts_menu_alter(&$items) {
+  $items['node/add/contact']['page callback'] = 'gofast_contacts_node_add_contact_page'; //GOFAST-7350
+}
+
+/**
+ * @return string
+ * @throws \Exception
+ * GOFAST-7350.
+ */
+function gofast_contacts_node_add_contact_page() {
+  $node = new stdClass();
+  $node->type = "contact";
+  $contact_node_form = drupal_get_form('contact_node_form', $node);
+  $content = theme('page_contact_node_form', ['form' => $contact_node_form]);
+  return gofast_create_page_content($content, 'contact');
+}
+
+function gofast_contacts_ajax_submit(&$form, &$form_state) {
+  $commands = array();
+  if ($errors = form_get_errors()) {
+    $form_state['rebuild'] = TRUE;
+    $error_msg = theme('status_messages');
+    $output = drupal_rebuild_form($form['#form_id'], $form_state, $form);
+    $output = $error_msg . render($output);
+    $output = gofast_normalize_string_from_ajaxifying($output);
+
+    $commands[] = array(
+      'command' => 'error_creating_node',
+      'form' => $output,
+      'errors' => $errors,
+      'wrapper' => '#ajax_content'
+    );
+  } else {
+    gofast_user_form_submit($form, $form_state);
+    $commands[] = gofast_command_processAjax("/directory/contacts-listing");
+  }
+
+  return array('#type' => 'ajax', '#commands' => $commands);
 }

@@ -5,6 +5,6 @@ core = 7.x
 dependencies[] = gofast
 dependencies[] = ctools
 configure=admin/config/gofast/user
-version = "7.x-3.10.0_r2"
+version = "7.x-4.0.0_r3"
 
 scripts[] = js/gofast_user.js

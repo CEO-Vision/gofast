@@ -1,0 +1,18 @@
+/*
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+*/
+/*
+    Created on : 9 août 2021, 11:52:29
+    Author     : Cyril DELABRE
+*/
+.GofastAdminConfig {
+  #gofastAdminTabContent .checkbox .text-muted {
+    clear: both;
+  }
+}
+
+#gofastAdminTabContent legend + div {
+  margin-bottom: 1rem;
+}

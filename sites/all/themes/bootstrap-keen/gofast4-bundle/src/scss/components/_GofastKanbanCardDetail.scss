@@ -1,0 +1,136 @@
+.gofastKanbanCardDetail {
+    overflow: auto;
+
+    .Detail__container {
+
+        position: relative;
+
+        .bootstrap-select {
+            .dropdown-toggle { 
+                height: 32.52px;
+            }
+        }
+        
+
+        &.inline-label {
+            display: flex;
+            align-items: center;
+            height: 30px;
+            & > span {
+                margin-right: 1rem;
+            }
+        }
+
+        &.edition {
+            .Detail__content {
+                display: none;
+            }
+            .Detail__control {
+                display: block;
+            }
+            .Detail__edit {
+                .submit, .cancel {
+                    display: inline-flex;
+                }
+            }
+        }
+        .Detail__edit {
+            position: absolute;
+            right: 0;
+            top: -6px;
+
+            .submit , .cancel, .edit {
+                display: none;
+            }
+        }
+
+        &:not(.edition):hover {
+
+            .Detail__content {
+                cursor: pointer;
+            }
+
+            .Detail__edit {
+                .edit {
+                    display: inline-flex;
+                }
+            }
+        }
+        
+        .Detail__control {
+            display: none;
+            position: relative;
+
+            .form-loader {
+                display: none;
+                position: absolute;
+                height: 100%;
+                width: 100%;
+                z-index: 1001;
+                
+                .spinner {
+                    top: 50%;
+                    left: 50%;
+                }
+                &.loading {
+                    display: block;
+                }
+            }
+
+            .select2 {
+                width: 100% !important;
+            }
+
+        }
+    }
+
+    .KanbanCard {
+
+        &__documents {
+
+            .documentsList {
+                display: flex;
+                flex-direction: column;
+                flex-wrap: wrap;
+                max-height: 90px;
+                overflow: auto;
+            }
+        }
+        &__timeline {
+            .action-details{
+                position: relative;
+                border-radius: 0.42rem;
+                padding: 1rem 1.5rem;
+                background-color: #F3F6F9;
+            }
+        }
+    }
+    
+    .KanbanCard_rightCol {
+        box-shadow: inset 1px 0px 1px 0px rgba(228, 230, 239, 1);
+        
+        .col-12-lg{
+            padding-left: 0;
+            padding-right: 0;
+        }
+        
+        .tab-content.scrollable {
+            height: 70vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+    }
+    .KanbanCard_leftCol {
+        padding-right: 2rem !important;
+    }
+    
+    .KanbanCard__InputEditable .EditableInput__value{
+        padding-left: 0;
+    }
+         
+}
+
+:root {
+ --ck-z-default:10555 !important;
+ --ck-z-modal:calc(var(--ck-z-default) + 999)! important;
+}

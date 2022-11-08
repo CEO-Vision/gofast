@@ -1,0 +1,27 @@
+.view-gofast-userlist-creator-contributor > div > table > tbody > tr {
+  display: inline-block;
+  margin-bottom: 25px;
+}
+
+.view-gofast-userlist-creator-contributor > div > table > tbody > tr > td {
+  width: 160.5px !important;
+  display: inline-block;
+  text-align: center;
+}
+
+@media (max-width: 1400px) {
+  .view-gofast-userlist-creator-contributor > div > table > tbody > tr > td {
+    width: 130.5px !important;
+  }
+}
+
+.view-display-id-gofast_userlist_creator .user_admin_message {
+  font-size: 16px;
+  padding: 10px;
+  font-weight: 500;
+  text-align: start;
+}
+.view-display-id-gofast_userlist_creator > div > table > tbody > tr,
+.view-display-id-gofast_userlist_creator > div > table > tbody > tr > td {
+  width: 100% !important;
+}

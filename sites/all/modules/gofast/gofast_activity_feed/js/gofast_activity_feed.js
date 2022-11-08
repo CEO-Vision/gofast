@@ -1,67 +1,108 @@
 (function ($, Gofast, Drupal) {
   'use strict';
+
+  Gofast.blurDropdown = function() {
+    $(".dropdown-menu").hide();
+    $(document).off("click", Gofast.blurDropdown);
+  }
+
+  Gofast.fixDropdownPosition = function(e) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    e.stopPropagation();
+
+    const dropdown = e.relatedTarget;
+    const $dropdownMenus = $(dropdown).parent().find(".dropdown-menu");
+
+    // for the menu element to actually have a size
+    $dropdownMenus[0].style.display = "initial";
+
+    let { x: dropdownX, y: dropdownY } = dropdown.getBoundingClientRect();
+    let dropdownWidth = $dropdownMenus[0].clientWidth;
+    let dropdownHeight = $dropdownMenus[0].clientHeight;
+
+    $(".dropdown-menu").hide();
+
+    const mustBePositionedLeft = (dropdownX > (3/5 * window.innerWidth));
+
+    // defaults to middle position
+    let verticalPosition = Math.floor(dropdownY - (dropdownHeight / 2));
+    // if overflows top or is about to overflow top, put it 10px below window top
+    if (verticalPosition <= 10) {
+      verticalPosition = 10;
+    }
+    // if overflows bottom or is about to overflow bottom, put it 10px above window bottom
+    if ((dropdownY + dropdownHeight) >= (window.innerHeight - 10)) {
+      verticalPosition = (window.innerHeight - dropdownHeight - 10);
+    }
+
+    const originalBottomPosition = window.innerHeight - (verticalPosition + dropdownHeight);
+
+    for (let i = 0; i < $dropdownMenus.length; i++) {
+      $dropdownMenus[i].style.display = "initial";
+      // we admit there are no sub-submenus and sub-menus links are stacked in top of each other, so horizontalFactor is at level 0 or 1 while verticalFactor is incremental
+      const horizontalFactor = i > 0 ? 1 : 0;
+      const verticalFactor = $dropdownMenus.length - i - 1;
+      let subpanelXOffset = mustBePositionedLeft ? -(dropdownWidth * (horizontalFactor + 1)) : dropdownWidth * horizontalFactor; // we offset the subpanels to the left or right depending on the position of the previous panel
+      let verticalPositionString = "top:" + verticalPosition + "px !important;";
+      if (i > 0) {
+        let subpanelYOffset = verticalFactor * 50;
+        verticalPositionString = "bottom:" + (originalBottomPosition + subpanelYOffset) + "px !important;";
+        subpanelXOffset += mustBePositionedLeft ? 5 : -5; // slight overlap to avoid a gap triggering a mouseleave event
+      }
+      $($dropdownMenus[i]).css("cssText",
+      (i === 0 ? "display: block; " : "") + "position: fixed; height: max-content; " + verticalPositionString + " left: " + Math.floor(dropdownX + subpanelXOffset) + "px;");
+    }
+    $(document).on("click", Gofast.blurDropdown);
+  }
+
   Drupal.behaviors.gofastReloadMenu = {
     attach: function(context, settings){
       //Polling
-      if($("#activity-feed-container").length || $(".apachesolr_search-results").length){
+      if($("#activity-feed-container").length || $(".apachesolr_search-results").length || $("#gofastDirectorySpacesTable").length){
         //Load menu asyncly
         $(".dropdown-placeholder").not(".dropdown-processed").addClass("dropdown-processed").click(function(){
           if(! $(this).hasClass("dropdown-processing")){
             var nid = this.id.substring(21);
-	    if($(this).parents('#gofast-node-actions-microblogging').length > 0){
-		var microblogging = true;
-	    }
+            if($(this).parents('#gofast-node-actions-microblogging').length > 0){
+              var microblogging = true;
+            }
             var div = $(this).parent();
             var container = div.parent();
 
             //Animation
             $(this).addClass("dropdown-processing");
+
             $("#dropdownactive-placeholder-" + nid).show();
-	    if(microblogging === true){
-		jQuery.post(location.origin+"/activity/ajax/microblogging/menu/"+nid, function(data){
-		    var newdiv = div.replaceWith(data);
-		    Drupal.attachBehaviors();
-		    container.find(".gofast-node-actions").addClass("open");
-
-		    //Align menu
-		    console.log(Gofast.last_menu_align);
-		    if(Gofast.last_menu_align === "up"){
-			$(".gofast-dropdown-menu:not(.dropdown-menu-right)").css("top", "100%").css("bottom", "inherit");
-			$(".gofast-dropdown-menu.dropdown-menu-right").css("top", "inherit").css("bottom", "0px");
-		    }else{
-			$(".gofast-dropdown-menu:not(.dropdown-menu-right)").css("bottom", "100%").css("top", "inherit");
-			$(".gofast-dropdown-menu.dropdown-menu-right").css("top", "inherit").css("bottom", "0px");
-		    }
-		});
-	    }else{
-		//Load menu
-		jQuery.post(location.origin+"/activity/ajax/menu/"+nid, function(data){
-		  var newdiv = div.replaceWith(data);
-		  Drupal.attachBehaviors();
-		  container.find(".gofast-node-actions").addClass("open");
-
-		  //Align menu
-		  console.log(Gofast.last_menu_align);
-		  if(Gofast.last_menu_align === "up"){
-		    $(".gofast-dropdown-menu:not(.dropdown-menu-right)").css("top", "100%").css("bottom", "inherit");
-		    $(".gofast-dropdown-menu.dropdown-menu-right").css("top", "inherit").css("bottom", "0px");
-		  }else{
-		    $(".gofast-dropdown-menu:not(.dropdown-menu-right)").css("bottom", "100%").css("top", "inherit");
-		    $(".gofast-dropdown-menu.dropdown-menu-right").css("top", "inherit").css("bottom", "0px");
-		  }
-		});
-	    }
+            if(microblogging === true){
+              $.post(location.origin+"/activity/ajax/microblogging/menu/"+nid,).done(function(data){
+                const newDropdown = $(div.replaceWithPush(data)).closest(".dropdown");
+                newDropdown.off("click");
+                newDropdown.on("show.bs.dropdown", Gofast.fixDropdownPosition);
+                Drupal.attachBehaviors();
+                container.find(".gofast-node-actions > a").click();
+              });
+            } else {
+              //Load menu
+              $.post(location.origin+"/activity/ajax/menu/"+nid, {isFromActivityFeed: true}).done(function(data){
+                const newDropdown = $(div.replaceWithPush(data)).closest(".dropdown");
+                newDropdown.off("click");
+                newDropdown.on("show.bs.dropdown", Gofast.fixDropdownPosition);;
+                Drupal.attachBehaviors();
+                container.find(".gofast-node-actions > a").click();
+              });
+            }
           }
         });
 
         if(Gofast.ActivityPolling && $(".loader-activity-items").length){
-          activityPolling(true);
+         // activityPolling(true);
         }
         if(!Gofast.ActivityPolling){
           Gofast.ActivityPolling = true;
           activityPolling();
-        }
-        if(! $("#activity-feed-container").hasClass("processed")){
+        }   
+        if(!$("#activity-feed-container").hasClass("processed") && $("#activity-feed-container").length){
           getPagination();
           $("#activity-feed-container").addClass("processed");
         }
@@ -86,7 +127,25 @@
     }
   };
 
-  function loadPage(e){
+  Drupal.behaviors.applyPopoverOnAuditPage = {
+    attach: function (context, settings) {
+      if ($(".gofast__popover").length) {
+        $('.gofast__popover').popover();
+      }
+    }
+  };
+
+  function loadPage(e, fromPoll = false){  
+    if (!fromPoll) {
+      //Remove all <tr> elements from the table except the table header
+      $("#activity-feed-container").find("tr").not(":first").remove();
+
+      // Insert spinner after #activity-feed 
+    // Insert spinner after #activity-feed 
+      // Insert spinner after #activity-feed 
+      $(".GofastActivityFeed__table").after('<div class="GofastActivityFeed__loader"><div class="spinner spinner-track spinner-primary d-inline-flex gofast-spinner-xxl"></div></div>');
+    }
+
     if(e !== "filter"){ //Click on pagination button
       e.preventDefault();
       //Retrieve the clicked page
@@ -104,8 +163,6 @@
       }
       var newUrl = newUrl + "?page=" + page;
       window.history.pushState({url: "newUrl"},"",newUrl);
-      //loader in pagination item
-      $("#" + e.target.id).html("<div class='loader-paginate'></div>");
     }
     else{ //Click on a filter
       //Retrieve the current page
@@ -118,47 +175,49 @@
     }
 
     //Retrieve the filters to pass through request's params
-    if($(".check-display-blog").hasClass('selected')){
-      var display_blog = 1;
-    }
-    if(! $(".no_filter").hasClass('selected')){
+    if(typeof getFiltersFromCookies !== "undefined"){
+      var { no_filter, space_filters, type_filters, state_filters, actors_filters, display_blog, user_filter } = getFiltersFromCookies();
       var spaces = [];
       var states = [];
       var types = [];
-      //var users = [];
+      var actors = [];
+      var blog = 0;
+      var private_filter = 0;
 
-      var spaces_filter = $(".og_contents_filter").not(".state_contents_filter").not(".type_contents_filter").filter(".selected");
-      var states_filter = $(".state_contents_filter").filter(".selected");
-      //var users_filter = $(".users_contents_filter").filter(".selected");
-      var types_filter = $(".type_contents_filter").filter(".selected");
+      if(no_filter != true) {
+        blog = display_blog ? 1 : 0;
+        private_filter = user_filter ? 1 : 0;
 
-      spaces_filter.each(function(i, e){
-          if(this.id != ""){
-                spaces.push(this.id);
-            }
-      });
-      spaces = JSON.stringify(spaces);
+        space_filters.forEach(filter => {
+          spaces.push(filter.id);
+        });
 
-      states_filter.each(function(i, e){
-        states.push(this.getAttribute('ids'));
-      });
-      states = JSON.stringify(states);
+        spaces = private_filter ? [] : JSON.stringify(spaces);
 
-//      users_filter.each(function(i, e){
-//        users.push(this.getAttribute('ids'));
-//      });
-//      users = JSON.stringify(users);
+        state_filters.forEach(filter => {
+          states.push(filter.id);
+        });
+        
+        if(actors_filters == undefined){
+          actors_filters = [];
+        }
+        actors_filters.forEach(filter => {
+          actors.push(filter.id);
+        });
 
-      types_filter.each(function(i, e){
-        types.push(this.getAttribute('id'));
-      });
-      types = JSON.stringify(types);
+        states = JSON.stringify(states);
+
+        actors = JSON.stringify(actors);
+
+        types = JSON.stringify(type_filters);
+      }
     }
     if(Gofast._settings.isMobile == false || typeof Gofast._settings.isMobile == 'undefined'){
       var mobile = 0;
     }else{
       var mobile = 1;
     }
+    $('.gofast__popover').popover('dispose');
     //Push the ajax request
     $.ajax({
       url : Drupal.settings.gofast.baseUrl+'/activity/page',
@@ -169,15 +228,17 @@
         'page' : page,
         'spaces' : spaces,
         'states' : states,
-       // 'users' : users,
+        'private_filter' : private_filter,
+        'actors' : actors,
         'types' : types,
-        'display_blog' : display_blog,
+        'display_blog' : blog,
         'mobile' : mobile
       },
       success : function(content, status){
-        $("#activity-feed-page").remove();
         $("#activity-feed").replaceWith(content);
+        $(".GofastActivityFeed__loader").remove();
         getPagination(spaces, states, types /*, users*/);
+        $('.gofast__popover').popover();
         Drupal.attachBehaviors();
 
         //remove tooltip
@@ -194,6 +255,11 @@
     $('.tooltip').each(function(key, elt){
       $(elt).remove();
     });
+  }
+
+  Gofast.reload_activity_feed = function() {
+    loadPage("filter");
+    console.log('############# Reload Activity');
   }
 
   function getPagination(spaces, states, types/*, users*/){
@@ -228,29 +294,29 @@
         for(var i=0; i<pages; i++){
           if((current_page-i) > 6 ){ //Too early according to the current page to display
             if(i == 0){
-              $("#activity-feed-pagination").append("<li ><a id='page_" + (i+1) + "' class='activity-feed-page-button' href='#'><< "+ Drupal.t("First", {}, {'context': 'gofast:activity_feed'}) +"</a></li>");
+              $("#activity-feed-pagination").append("<a id='page_" + (i+1) + "' class='activity-feed-page-button btn btn-icon btn-sm border-0 btn-light mr-2 my-1' href='#'><<</a>");
             }
           }
           else if((i-current_page) > 4 ) { //Too far according to the current page to display
             if(i == (pages-1)){
-              $("#activity-feed-pagination").append("<li ><a id='page_" + (i+1) + "' class='activity-feed-page-button' href='#'>>> "+ Drupal.t("Last", {}, {'context': 'gofast:activity_feed'}) +"</a></li>");
+              $("#activity-feed-pagination").append("<a id='page_" + (i+1) + "' class='activity-feed-page-button btn btn-icon btn-sm border-0 btn-light mr-2 my-1' href='#'>>></a>");
             }
           }
           else{
             if( (i+1) == current_page){
-              $("#activity-feed-pagination").append("<li class='active' ><a id='page_" + (i+1) + "' class='activity-feed-page-button' href='#'>" + (i+1) + "</a></li>");
+              $("#activity-feed-pagination").append("<a id='page_" + (i+1) + "' class='activity-feed-page-button btn btn-icon btn-sm border-0 btn-light btn-hover-primary active mr-2 my-1' href='#'>" + (i+1) + "</a>");
             }
             else{
-              $("#activity-feed-pagination").append("<li ><a id='page_" + (i+1) + "' class='activity-feed-page-button' href='#'>" + (i+1) + "</a></li>");
+              $("#activity-feed-pagination").append("<a id='page_" + (i+1) + "' class='activity-feed-page-button btn btn-icon btn-sm border-0 btn-light mr-2 my-1' href='#'>" + (i+1) + "</a>");
             }
           }
         }
         $("#activity-feed-pagination").show();
         $("#activity-feed-pagination").find("a").on('click', function(e){
-            e.stopImmediatePropagation();
+            e.stopImmediatePropagation();          
             loadPage(e);
         });
-        $(".loader-activity-feed").hide();
+        Gofast.removeLoading();
       }
     });
   }
@@ -285,7 +351,26 @@
 
     if($("#activity-feed-container").length){
         if(document.hidden == false){
-            loadPage('filter');
+              if(Gofast._settings.isMobile == false || typeof Gofast._settings.isMobile == 'undefined'){
+                var mobile = 0;
+              }else{
+                var mobile = 1;
+              }
+             if(mobile == 1){
+               const tabIds = ["mobileHomeTab_activity", "mobileHomeTab_filebrowser", "mobileHomeTab_dashboard"];
+               for (const tabId of tabIds) {
+                if($("#" + tabId).hasClass("active")){
+                  loadPage('filter', true);
+                }else{                   
+                    $("#" + tabId).click(function(){                     
+                        loadPage('filter', true);
+                    })
+                } 
+               }
+               loadPage('filter', true);
+             }else{
+               loadPage('filter', true);
+             }         
         }else{
              console.log("Activity feed not loaded because of non focused tab");
         }

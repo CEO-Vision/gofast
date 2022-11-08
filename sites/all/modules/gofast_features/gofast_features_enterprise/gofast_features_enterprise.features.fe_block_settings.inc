@@ -45,6 +45,12 @@ if ($detect->isMobile() || $detect->isTablet()){
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 0,
       ),
+      'bootstrap_keen' => array(
+        'region' => 'riot',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => 0,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,

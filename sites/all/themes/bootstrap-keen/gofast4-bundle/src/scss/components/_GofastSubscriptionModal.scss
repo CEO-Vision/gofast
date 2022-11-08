@@ -1,0 +1,36 @@
+.subscription-modal-element{
+  padding: 0px;
+}
+
+.subscription-modal-element > div > i{
+  margin-top: -15px;
+}
+
+.form-item-frequency, .form-item-frequency-comment{
+  margin-bottom: 0px;
+}
+
+#subscriptionSelectedElementsActions{
+  position: absolute;
+  right: 28px;
+  bottom: -8px;
+}
+
+.subscriptionSelectedElementsAction{
+  display: inline-block;
+  margin-left: 15px;
+  
+  form{
+    div{
+      div{
+        .select2{
+          .selection{
+            .select2-selection{
+              min-width: 190px;
+            }
+          }
+        }
+      }
+    }
+  }
+}

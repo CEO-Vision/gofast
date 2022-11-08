@@ -11,7 +11,7 @@ function gofast_vote_enable() {
           ->fields(array('weight' => $vote_up_down_weight + 1))
           ->condition('name', 'gofast_vote')
           ->execute();
- 
+
 }
 
 function gofast_vote_menu() {
@@ -23,7 +23,7 @@ function gofast_vote_menu() {
     'page callback'    => 'gofast_vote_vote',
     'page arguments'   => array(1, 2, 3, 4, 5, 6),
     'access callback'  => 'vud_access_callback',
-    'access arguments' => array('use vote up/down', 1, 2, 3, 4),
+    'access arguments' => array('access comments', 1, 2, 3, 4),
     'type'             => MENU_CALLBACK
   );
 
@@ -32,10 +32,10 @@ function gofast_vote_menu() {
     'page callback'    => 'gofast_vote_reset',
     'page arguments'   => array(1, 2, 3, 4, 5, 6),
     'access callback'  => 'vud_access_callback',
-    'access arguments' => array('reset vote up/down votes', 1, 2, 3, 4),
+    'access arguments' => array('access comments', 1, 2, 3, 4),
     'type'             => MENU_CALLBACK
   );
-  
+
   return $items;
 }
 
@@ -50,7 +50,7 @@ function gofast_vote_theme() {
 
 function gofast_vote_widget_proxy($variables) {
   global $user;
- 
+
   $plugin = vud_widget_get($variables['widget_theme']);
   if (empty($plugin) || empty($plugin['widget template'])) {
     return;
@@ -127,8 +127,8 @@ function gofast_vote_widget_proxy($variables) {
         $up_access = true;
         $down_access = true;
       }
-      
-      
+
+
 
       if (!$up_access && !$down_access) {
         // Although implementing modules have requested a not readonly widget,
@@ -174,7 +174,7 @@ function gofast_vote_widget_proxy($variables) {
       $variables['link_down'] = url("votereset/$type/$entity_id/$tag/$widget_theme/$token_reset/-1");
       $variables['link_class_down'] .= ' use-ajax';
     }
-    
+
   }
   elseif ($readonly && $message_on_deny) {
     // Readonly widget, but with a deny messgae.
@@ -239,9 +239,8 @@ function gofast_vote_widget_proxy($variables) {
       $variables['class'] = 'neutral';
     }
   }
-  $variables['vote_label'] = '';
 
-  $template_file = vud_pseudo_theming($type, 'widget', $plugin, $variables);
+  $template_file = "sites/all/modules/gofast/gofast_vote/tpl/gofast_vud.tpl.php";
   return $plugin['render function']($template_file, $variables);
 }
 
@@ -253,7 +252,7 @@ function gofast_vote_vote($type, $entity_id, $value, $tag, $widget, $token, $aja
   if (!is_numeric($value) || !drupal_valid_token($token, "vote/$type/$entity_id/$value/$tag/$widget", TRUE)) {
     return MENU_ACCESS_DENIED;
   }
-  
+
   $vote = array();
   $casted_vote_criteria = array(
     'entity_type' => $type,
@@ -290,14 +289,14 @@ function gofast_vote_vote($type, $entity_id, $value, $tag, $widget, $token, $aja
     return;
   }
   votingapi_set_votes($votes);
-  
+
   $entity = entity_load($type, array($entity_id));
-  
+
   userpoints_userpointsapi(array(
     'uid'     => $entity[$entity_id]->uid,
     'points'  => $value
   ));
-  
+
   if ($ajax == 'ajax') {
     $plugin = vud_widget_get($widget);
     $commands = array();
@@ -320,10 +319,10 @@ function gofast_vote_vote($type, $entity_id, $value, $tag, $widget, $token, $aja
         $commands[] = ajax_command_replace("#votes-$type-$entity_id", theme('vud_votes', $variables));
       }
     }
-    
-    
-    
-    
+
+
+
+
     print ajax_render($commands);
     exit;
   }
@@ -344,7 +343,7 @@ function gofast_vote_reset($type, $entity_id, $tag, $widget, $token, $point, $aj
     ) + votingapi_current_user_identifier();
     votingapi_delete_votes(votingapi_select_votes($criteria));
     votingapi_recalculate_results($type, $entity_id);
-    
+
     $entity = entity_load($type, array($entity_id));
     userpoints_userpointsapi(array(
       'uid'     => $entity[$entity_id]->uid,
@@ -381,7 +380,7 @@ function gofast_vote_reset($type, $entity_id, $tag, $widget, $token, $point, $aj
           $commands[] = ajax_command_replace("#votes-$type-$entity_id", theme('vud_votes', $variables));
         }
       }
-      
+
       print ajax_render($commands);
       exit;
     }

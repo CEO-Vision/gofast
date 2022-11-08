@@ -100,9 +100,9 @@
   * Alter themes configuration variables to manage jquery_update versions
   */
   function gofast_update_7328() {
-      $variable = variable_get("theme_bootstrap_gofast_settings", array());
+      $variable = variable_get("theme_bootstrap_keen_settings", array());
       $variable["jquery_update_jquery_version"] = "3.1";
-      variable_set("theme_bootstrap_gofast_settings", $variable);
+      variable_set("theme_bootstrap_keen_settings", $variable);
 
       $variable = variable_get("theme_bootstrap_gofast_mobile_settings", array());
       $variable["jquery_update_jquery_version"] = "3.1";
@@ -146,4 +146,9 @@ function gofast_update_7331()
       menu_link_delete($item["mlid"]);
     }
   }
+}
+
+function gofast_update_7332()
+{
+    variable_set('gofast_admin_visibility', GOFAST_ADMIN_VISIBILITY_DEFAULT);
 }

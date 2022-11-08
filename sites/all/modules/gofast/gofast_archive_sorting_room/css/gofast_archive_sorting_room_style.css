@@ -1,0 +1,23 @@
+/*
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+*/
+/*
+    Created on : 15 sept. 2020, 11:38:13
+    Author     : KHELLAFI Ismahane
+*/
+#alfresco-item-node-form #edit-field-archive-transfer-name,
+#alfresco-item-node-form #edit-field-archive-transfer-num,
+#alfresco-item-node-form #edit-field-archive-final-action,
+#alfresco-item-node-form #edit-field-archive-date-entry-sr,
+#alfresco-item-node-form #edit-field-archive-date-exit-sr,
+#alfresco-item-node-form #edit-field-archive-transfer-actor,
+#alfresco-item-node-form #edit-field-archive-certi-destr-num,
+#alfresco-item-node-form #edit-field-archive-depo-slip-num,
+#alfresco-item-node-form #edit-field-archive-quote,
+#alfresco-item-node-form #edit-field-archive-old-emplacements
+{
+    display: none ;
+
+}

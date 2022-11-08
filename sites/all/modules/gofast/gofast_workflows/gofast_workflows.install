@@ -190,3 +190,9 @@ function gofast_workflows_update_7303(){
   db_create_table('gofast_wf_profil', $schema['gofast_wf_profil']);
 }
  
+/*
+ * Implements userlists replication
+ */
+function gofast_workflows_update_7304(){
+    gofast_workflows_synchro_all_userlists();
+}

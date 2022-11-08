@@ -1,0 +1,258 @@
+<mjml>
+  <mj-head>
+    <mj-style>
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 400;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-Regular.otf") format("opentype");
+      }
+
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 600;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-SemiBold.otf") format("opentype");
+      }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#EAF1F7" width="992px">
+    <mj-raw>
+      <!-- SubHeader -->
+    </mj-raw>
+    <mj-section padding="0" padding-top="10px" background-color="white">
+      <mj-column width="100%">
+        <mj-text align="left" color="#337ab7" font-family="Poppins" font-size="18px" font-weight="600">
+          Utilisateur
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" background-color="white">
+      <mj-column width="100%" vertical-align="middle">
+        <mj-text align="left" font-size="14px" font-weight="400">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/user-solid.png" alt="User Icon" width="18" />
+                </td>
+                <td>
+                  <span style="font-family: Poppins; font-size: 14px; font-weight: 400;">&nbsp;Vous êtes invité à une nouvelle réunion GoFAST.</span>
+                </td>
+              <tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-bottom="10px" background-color="white">
+      <mj-column width="100%">
+        <mj-divider border-width="1px" border-color="#666666" />
+      </mj-column>
+    </mj-section>
+    <mj-raw>
+      <!-- Body -->
+    </mj-raw>
+    <mj-section padding="0" background-color="white">
+      <mj-column width="100%">
+        <mj-text align="left" font-family="Poppins" font-size="18px" font-weight="600">
+          Nom de la réunion
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" background-color="white">
+      <mj-column width="25%" vertical-align="middle">
+        <mj-image padding="0" align="center" alt="Calendar Icon" src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/calendar-alt-solid.png" width="18px" />
+        <mj-text padding="3px" align="center" font-family="Poppins" font-size="14px">
+          Début de la réunion
+        </mj-text>
+        <mj-text padding="3px" align="center" font-family="Poppins" font-size="14px" color="#666666">
+          Heure
+        </mj-text>
+      </mj-column>
+      <mj-column width="25%" vertical-align="middle">
+        <mj-image padding="0" align="center" alt="Calendar Icon" src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/calendar-alt-solid.png" width="18px" />
+        <mj-text padding="3px" align="center" font-family="Poppins" font-size="14px">
+          Fin de la réunion
+        </mj-text>
+        <mj-text padding="3px" align="center" font-family="Poppins" font-size="14px" color="#666666">
+          Heure
+        </mj-text>
+      </mj-column>
+      <mj-column width="25%" vertical-align="middle">
+        <mj-image padding="0" align="center" alt="Clock Icon" src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/clock-regular.png" width="18px" />
+        </mj-image>
+        <mj-text padding="3px" align="center" font-family="Poppins" font-size="14px">
+          Durée
+        </mj-text>
+        <mj-text padding="3px" align="center" font-family="Poppins" font-size="14px" color="#666666">
+          Durée
+        </mj-text>
+      </mj-column>
+      <mj-column width="25%" vertical-align="middle">
+        <mj-image padding="0" align="center" alt="Map Icon" src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/map-marker-alt-solid.png" width="25px" />
+        <mj-text padding="3px" align="center" font-family="Poppins" font-size="14px">
+          Lieu
+        </mj-text>
+        <mj-text padding="3px" align="center" font-family="Poppins" font-size="14px" color="#666666">
+          En ligne
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" background-color="white">
+      <mj-column width="100%">
+        <mj-divider border-width="1px" border-color="#666666" />
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" background-color="white">
+      <mj-column width="50%">
+        <mj-text color="#de6502" font-family="Poppins" font-size="18px" font-weight="600">
+          Organisateur
+        </mj-text>
+        <mj-text align="left" font-family="Poppins" font-size="14px">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png" alt="User Icon" width="40" />
+                </td>
+                <td>
+                  <span style="font-family: Poppins; font-size: 14px;">&nbsp;Utilisateur Nom</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="padding-top: 5px;"><a style="color: #666666;; font-family: Poppins; font-size: 14px; text-decoration: none;" href="#">utilisateur.nom@un-domaine.net</a></div>
+        </mj-text>
+
+      </mj-column>
+      <mj-column width="50%">
+        <mj-text color="#de6502" font-family="Poppins" font-size="18px" font-weight="600">
+          Participants
+        </mj-text>
+        <mj-text align="left" font-size="14px">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png" alt="User Icon" width="40" />
+                </td>
+                <td>
+                  <span style="font-family: Poppins; font-size: 14px;">&nbsp;Utilisateur Nom</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="padding-top: 5px;"><a style="color: #666666;; font-family: Poppins; font-size: 14px; text-decoration: none;" href="#">utilisateur.nom@un-domaine.net</a></div>
+        </mj-text>
+        <mj-text align="left" font-size="14px">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png" alt="User Icon" width="40" style="vertical-align: bottom;" />
+                </td>
+                <td>
+                  <span style="font-family: Poppins; font-size: 14px;">&nbsp;Utilisateur Nom</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="padding-top: 5px;"><a style="color: #666666;; font-family: Poppins; font-size: 14px; text-decoration: none;" href="#">utilisateur.nom@un-domaine.net</a></div>
+        </mj-text>
+        <mj-text align="left" font-size="14px">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png" alt="User Icon" width="40" />
+                </td>
+                <td>
+                  <span style="font-family: Poppins; font-size: 14px;">&nbsp;Utilisateur Nom</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="padding-top: 5px;"><a style="color: #666666;; font-family: Poppins; font-size: 14px; text-decoration: none;" href="#">utilisateur.nom@un-domaine.net</a></div>
+        </mj-text>
+        <mj-text align="left" font-size="14px">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png" alt="User Icon" width="40" />
+                </td>
+                <td>
+                  <span style="font-family: Poppins; font-size: 14px;">&nbsp;Utilisateur Nom</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="padding-top: 5px;"><a style="color: #666666;; font-family: Poppins; font-size: 14px; text-decoration: none;" href="#">utilisateur.nom@un-domaine.net</a></div>
+        </mj-text>
+        <mj-text align="left" font-size="14px">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png" alt="User Icon" width="40" />
+                </td>
+                <td>
+                  <span style="font-family: Poppins; font-size: 14px;">&nbsp;Utilisateur Nom</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="padding-top: 5px;"><a style="color: #666666;; font-family: Poppins; font-size: 14px; text-decoration: none;" href="#">utilisateur.nom@un-domaine.net</a></div>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" background-color="white">
+      <mj-column width="100%">
+        <mj-button border-radius="5px" href="https://gofast-dev-gf4.ceo-vision.com/" font-family="Poppins" font-size="14px" font-weight="600" background-color="#159992">
+          Démarrer la réunion
+        </mj-button>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" background-color="white">
+      <mj-column width="100%">
+        <mj-text align="center" font-family="Poppins" font-size="12px" font-weight="300" color="#666666">
+          <a href="#" style="color: #666666; text-decoration: none;">Cliquez ici si ça ne marche pas</a>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" background-color="white">
+      <mj-column width="100%">
+        <mj-divider border-width="1px" border-color="#666666" />
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" background-color="white">
+      <mj-column width="100%">
+        <mj-text align="left" font-family="Poppins" font-size="18px" font-weight="600">
+          Documents liés :
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" background-color="white">
+      <mj-column width="100%">
+        <mj-text align="left" font-family="Poppins" font-size="14px" font-weight="400">
+          Coucou je suis un <a style="color: #337ab7; text-decoration: none;" href="#">document lié</span></a>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" background-color="white">
+      <mj-column width="100%">
+        <mj-text align="left" font-family="Poppins" font-size="18px" font-weight="600">
+          Dossiers liés :
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" background-color="white">
+      <mj-column width="100%">
+        <mj-text align="left" font-family="Poppins" font-size="14px" font-weight="400">
+          Coucou je suis un <a style="color: #337ab7; text-decoration: none;" href="#">dossier lié</a>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

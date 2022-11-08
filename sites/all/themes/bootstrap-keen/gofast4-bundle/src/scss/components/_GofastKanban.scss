@@ -1,0 +1,94 @@
+.gofastKanban {
+    &__body {
+        height: 1px;
+        position: relative;
+    }
+
+    &__kanban {
+        display: flex;
+        position: relative;
+        padding-bottom: 1rem;
+        max-height: 100%;
+
+        .gofastKanban__newColumn{
+            width: 360px;
+            min-width: 360px;
+            padding: 0 30px;
+
+            .newColumn__form {
+                width: 100%;
+                
+                .newColumn__actions {
+                    display: none;
+                    opacity: 0;
+                    transition: opacity 0.3s linear
+                }
+
+                &--focus {
+                    transition: height 0.15s linear;
+                    .newColumn__actions {
+                        display: flex;
+                        justify-content: flex-end;
+                        opacity: 1;
+                        margin-top: 1rem;
+                    }
+                }
+
+            }
+
+        }
+
+        .kanban-container {
+            flex-wrap: nowrap !important;
+            width: fit-content !important;
+            width: -moz-fit-content !important;
+        }
+
+        .kanban-board {
+            /*height: 100%;*/
+        }
+
+        .kanban-drag {
+            height: calc(100% - 55px);
+            width: 300px;
+            padding-left: 12px !important;
+            overflow-y: auto;
+
+        }
+
+        .kanban-item{
+            &:last-child{
+                margin-bottom: 100px;
+            }
+            &.hidden {
+                display: none;
+            }
+        }
+        
+        .progress-bar span.empty-progression{
+            position: absolute;
+            z-index: 2;
+            left: 45%;
+            transform: translate(0%,-50%);
+        }
+    }
+
+}
+
+#gofastKanbanModal{
+    .modal-dialog.modal-xl{
+        max-height: calc(100vh - 100px);
+        max-width: calc(100vw - 200px);
+        @media (max-width: 768px) {
+            max-width: calc(100vw);
+        }
+    }
+}
+div#gofastKanban{
+   /* height: 90% !important;*/
+}
+
+.timeline.timeline-3 .timeline-items .timeline-item .timeline-media img,
+.timeline.timeline-2 .timeline-items .timeline-item .timeline-media img{
+    border-radius: 20% !important;
+}

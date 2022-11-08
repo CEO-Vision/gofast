@@ -17,7 +17,7 @@
   });
   
   //Edit actions to format them and use ctools to ajaxify the calls
-  $('#gofast-webform-results-submissions > div > div > table > tbody > tr').each(function(k,v) {
+  $('#webformSubmissions table > tbody > tr').each(function(k,v) {
     $(v).find('td').last().find('a').each(function(ka, va){
       $(va).attr('href', '/gofast/webform' + $(va).attr('href'))
               .addClass('ctools-use-modal').css('color', 'white')
@@ -25,7 +25,7 @@
     });
   });
   
-  $('#gofast-webform-results-submissions > div > div > table > tbody > tr').each(function(k,v) {
+  $('#webformSubmissions table > tbody > tr').each(function(k,v) {
     $(v).find('td').last().find('button').each(function(k,v){
       $(v).click(function(){
         $(v).find('a').click();
@@ -33,11 +33,11 @@
     });
   });
   
-  $('#gofast-webform-results-submissions > div > div > table > tbody > tr').each(function(k,v) {
+  $('#webformSubmissions table > tbody > tr').each(function(k,v) {
     $($(v).find('td').last().find('button')[1]).hide();
   });
   
-  $('#gofast-webform-results-submissions > div > div > table > tbody > tr').each(function(k,v) {
+  $('#webformSubmissions table > tbody > tr').each(function(k,v) {
     $($(v).find('td').last().find('button')[2]).removeClass('btn-primary')
             .addClass('btn-danger')
             .find('i')

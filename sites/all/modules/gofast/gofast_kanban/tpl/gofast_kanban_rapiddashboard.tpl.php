@@ -155,12 +155,12 @@ div.gofast-block-outer.community-rapid-dashboard{
                                 <ul class="pagination" style="margin-top:25px;margin-bottom:5px;" id="path_pager"></ul>
                             </nav>
                             
-                            
-                            <script type='text/javascript'>
-                              jQuery(document).ready(function(){
-                                    jQuery('#gf_kanban_tasks > tbody').pager({pagerSelector : '#path_pager', perPage: 5, numPageToDisplay : 5, showPrevNext: true});
-                               });
-                            </script>
+                            <?php
+                              $configure_pager_script = "jQuery(document).ready(function(){
+                                jQuery('#gf_kanban_tasks > tbody').pager({pagerSelector : '#path_pager', perPage: 5, numPageToDisplay : 5, showPrevNext: true});
+                              });";
+                              drupal_add_js($configure_pager_script, 'inline');
+                            ?>
 
                           </div>
                         </custom-gofast-tasks-table>

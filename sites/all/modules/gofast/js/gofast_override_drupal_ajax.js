@@ -58,7 +58,7 @@
       // /!\ IMPORTANT : Fix the bug "convert null to object" in the admin/structuree/view
       Gofast.xhrPool = Gofast.xhrPool || {};
       Gofast.xhrPool['drupal_ajax_' + Object.keys(Gofast.xhrPool).length] = xmlhttprequest;
-      var disableAjaxLoadingBackground = (typeof options.data === 'string' && (options.data.indexOf('view_name') >= 0 || options.data.indexOf('autorefresh=true') >= 0)) || options.url.indexOf('gofast/poll') >= 0 || decodeURIComponent(options.url).indexOf('gofast/node-info/') >= 0  || options.url.indexOf('vote') >= 0;
+      var disableAjaxLoadingBackground = (typeof options.data === 'string' && (options.data.indexOf('view_name') >= 0 || options.data.indexOf('autorefresh=true') >= 0)) || options.url.indexOf('gofast/poll') >= 0 || decodeURIComponent(options.url).indexOf('gofast/node-info/') >= 0  || options.url.indexOf('vote') >= 0 || options.url.indexOf('gofast/poll') >= 0 ;
       if (!disableAjaxLoadingBackground) {
         Gofast.addLoading();
       }
@@ -132,6 +132,11 @@
      * Handler for the form redirection completion.
      */
     Drupal.ajax.prototype.success = function (response, status) { 
+      // some versions of FF seem to append "=" to the hash, breaking the navigation
+      if (location.hash.length && location.hash.slice(-1) == "=") {
+        location.hash = location.hash.slice(0, -1);
+      }
+
       var disableAjaxLoadingBackground = true;
       $.each(response, function(key, command_js){
         if( typeof(command_js) == "Object" && command_js.command === "triggerEvent" && command_js.eventType === "pollEnd"){ // do not remove Loading throbber after a poll request

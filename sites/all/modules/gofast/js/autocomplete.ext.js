@@ -18,6 +18,18 @@
  */
 
 (function($, Drupal, Gofast) {
+  /**
+   * GOFAST-4758 Force autocomplete popup to hide when clicking elsewhere
+   */
+  window.addEventListener('click', function(e) {
+    const xacBox = document.querySelector('#search-block-form ul#xac-dropdown');
+    if(!xacBox) {
+      return;
+    }
+    if (!xacBox.contains(e.target)) {
+      xacBox.style.display = "none";
+    }
+  });
 
   /**
    * Store original autocomplete objects prototypes.
@@ -331,7 +343,7 @@
       .blur(function () {
         ac.selected = false;
         ac.hidePopup(); 
-        ac.db.cancel(); 
+        ac.db.cancel();
       });
   };
 
@@ -370,6 +382,7 @@
           else {
             this.hidePopup(e.keyCode);
           }
+          this.input.value = "";
           return false;
         case 13:
           return true;
@@ -572,7 +585,7 @@
         if (matches[key].indexOf('<a') === 0 ){
           var element_match = $.parseHTML(matches[key]);
           $(element_match).click(function (e) { e.preventDefault(); });
-          $('<li></li>')
+          $('<li class="dropdown-item"></li>')
           .html($(element_match))
           .mousedown(function () {
             ac.highlight(this);
@@ -586,7 +599,7 @@
           .appendTo(ul);
         }
         else{
-          $('<li></li>')
+          $('<li class="dropdown-item"></li>')
           .html($('<a href="#"></a>').html(matches[key])
             .click(function (e) { e.preventDefault(); })
           )
@@ -631,7 +644,7 @@
         if (matches[key].indexOf('<a') === 0 ){
           var element_match = $.parseHTML(matches[key]);
           $(element_match).click(function (e) { e.preventDefault(); });
-          $('<li></li>')
+          $('<li class="dropdown-item"></li>')
           .html($(element_match))
           .mousedown(function () {
             ac.highlight(this);
@@ -645,7 +658,7 @@
           .appendTo(ul);
         }
         else{
-          $('<li></li>')
+          $('<li class="dropdown-item"></li>')
           .html($('<a href="#"></a>').html(matches[key])
             .click(function (e) { e.preventDefault(); })
           )

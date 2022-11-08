@@ -1,32 +1,32 @@
-<div class="table-responsive" style="overflow:visible;">
+<div class="table-responsive" style="overflow:visible; margin-bottom: 60px;">
     <div ng-if="!ctrl.isArray(final_content)" class="loader-autocomplete">&nbsp;</div>
-    <table class="table" ng-class="{'table-hover': ctrl.isClickable()}">        
+    <table class="table" ng-class="{'table-hover': ctrl.isClickable()}">
          <tbody ng-if="ctrl.isArray(final_content)">
             <tr ng-repeat="row in final_content" ng-click="ctrl.selectRow(row)" ng-class="{'info': ctrl.isSelected(row)}">
                 <td>
-                    
+
                 <div class="task_in_todoliste" style="background-color: #f9f9f9;border: 1px solid #eee;list-style: none;padding: 6px 9px;position: relative;" >
-                    <div class='task_in_todoliste' style='padding-left:35px;' title="{{row.deadline_description}}"><span style='background-color: {{row.deadline_color}};position: absolute;margin-left: -40px;margin-top: -3px;height: 33px;width: 35px;'><i class='fa fa-clock-o fa-2x' style='color:white;margin-top:3px;margin-left:6px;'></i></span>
+                    <div class='task_in_todoliste' style='padding-left:35px;' title="{{row.deadline_description}}"><span style='background-color: {{row.deadline_color}};position: absolute;margin-left: -40px;margin-top: -3px;height: 33px;width: 35px;'><i class='fas fa-clock fa-2x' style='color:white;margin-top:3px;margin-left:4px;'></i></span>
                     <div style="float:right;">
                        <span ng-if="row.is_eligible" class="gofast_workflows_title_task_doit" style="cursor:pointer;" ng-click='ctrl.selectRow(row);ceo_vision_js_task_doit();' title='{{"label.process_doit" | gfTranslate}}'>
                             <button type="button" class="btn btn-default wf-button wf-button-green" style="padding:1px 6px;width:22px;color: #2ecc71;">
-                                <span class="fa fa-play gofast_wf_link"></span>
+                                <span class="fas fa-play gofast_wf_link"></span>
                             </button>
                         </span>
 						<span ng-if="row.is_kanban" style="cursor:pointer;" ng-click='ctrl.selectRow(row);ceo_vision_js_process_pageflow();'>
                             <button type="button" class="btn btn-default wf-button wf-button-blue" style="padding:1px 6px;width:22px;color: #337ab7;">
-                                <span class="fa fa-info gofast_wf_link"></span>
-                            </button> 
+                                <span class="fas fa-info gofast_wf_link"></span>
+                            </button>
                         </span>
                     </div>
                     <div style="padding-left:20px;">
                         <div class="row">
                             <span ng-if="!row.is_kanban" style="color:#337ab7;font-weight: bold;width:165px;white-space: nowrap;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;" title="{{row.displayDescription | gfTranslate}}">
-                                <i class="fa fa-cogs" style="color:#777"></i>
+                                <i class="fas fa-cogs" style="color:#777"></i>
                                 <span class="card-subtitle mb-2 text-muted">{{row.displayDescription | gfTranslate}}</span>
                             </span>
 							<span ng-if="row.is_kanban" style="color:#337ab7;width:165px;white-space: nowrap;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;" title='{{row.title}}'>
-                                <i class="fa {{row.type_icon}}" style="color:#777"></i>
+                                <i class="fab {{row.type_icon}}" style="color:#777"></i>
                                 <span class="card-title" style="color:#777; font-weight: bold;">{{row.title}}</span>
                             </span>
 							<div class="deadline_box_in_rapide_todoliste file_list" style="float:right;max-width:350px;max-height:22px;margin-right:20px;margin-top:2px;overflow:hidden;word-break:break-all;">
@@ -40,11 +40,36 @@
             </tr>
         </tbody>
     </table>
-    <div class="btn-group" style="margin: 0 auto;display: table;">
-        <button page="{{page.number}}" id="page_{{page.number}}" ng-click='change_page($event);' ng-repeat="page in pagination" type="button" class="btn btn-default {{page.btn_class}}" aria-haspopup="true" aria-expanded="false" style="background-color:#fff;color:#337ab7;">
-           {{page.label}}
-        </button>
-    </div>
+
+    <nav class="text-center mt-6 dashboard-pagination-bottom">
+    	<ul class="pagination pagination-sm justify-content-center" id="bookmark_pager_content">
+
+    	    <li style="display: none;">
+    			<a href="#" id="page_first" ng-click='change_page($event);' class="btn btn-icon btn-sm btn-light-primary mr-2 my-1 first_link" aria-label="First">
+    				<span aria-hidden="false">
+    					<i class="fas fa-angle-double-left" ></i>
+    				</span>
+    			</a>
+    		</li>
+    		<li page="{{page.number}}" ng-repeat="page in pagination">
+    			<a href="#" id="page_{{page.number}}" ng-click='change_page($event);' class="btn btn-icon btn-sm border-0 btn-hover-primary mr-2 my-1 page_link  {{page.btn_class}}" style="">
+    			    {{page.label}}
+    			</a>
+    		</li>
+    		<li>
+    			<a href="#" id="page_last" ng-click='change_page($event);' class="btn btn-icon btn-sm btn-light-primary mr-2 my-1 last_link" aria-label="Last">
+    				<span aria-hidden="false">
+    					<i class="fas fa-angle-double-right"></i>
+    				</span>
+    			</a>
+    		</li>
+    	</ul>
+    </nav>
+
+
+
+
+
 </div>
 
 <style>
@@ -71,7 +96,130 @@
     color:#fff!important;
 }
 
+.btn:not(:disabled):not(.disabled):active, .btn:not(:disabled):not(.disabled).active {
+  box-shadow: none;
+}
+
+.btn.btn-light-primary.last_link i, .btn.btn-light-primary.first_link i {
+	font-size: 1.3em;
+}
+
+.btn.btn-light-primary:hover:not(.btn-text):not(:disabled):not(.disabled), .btn.btn-light-primary:focus:not(.btn-text), .btn.btn-light-primary.focus:not(.btn-text) {
+  color: #fff;
+  background-color: #3699ff;
+  border-color: transparent;
+}
+
+.btn i {
+  font-size: 1.3rem;
+  padding-right: .35rem;
+  vertical-align: middle;
+  line-height: 1;
+  display: inline-flex;
+}
+
+.btn:not(:disabled):not(.disabled) {
+
+    cursor: pointer;
+
+}
+.btn.btn-light-primary {
+    color: #3699ff;
+    background-color: #e1f0ff;
+    border-color: transparent;
+
+}
+
 .table{
     margin-bottom:2px!important;
 }
+
+.btn.btn-hover-primary:not(:disabled):not(.disabled).active{
+    color: #fff !important;
+    background-color: #3699ff !important;
+    border-color: #3699ff !important;
+}
+
+.pagination {
+  display: flex;
+  padding-left: 0;
+  list-style: none;
+  border-radius: .42rem;
+  margin: 20px 0;
+  font-size: 1.3rem;
+}
+
+.pagination > li {
+  display: inline;
+}
+
+
+.pagination-sm > li:first-child > a, .pagination-sm > li:first-child > span {
+  border-top-left-radius: 3px;
+  border-bottom-left-radius: 3px;
+  margin-left: 0;
+}
+
+.pagination > li > a, .pagination > li > span {
+  position: relative;
+  float: left;
+  padding: 6px 12px;
+  margin-left: -1px;
+  line-height: 1.42857143;
+  color: #337ab7;
+  text-decoration: none;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  margin-right: 0.5rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+  box-shadow: none;
+  border: 0;
+}
+
+
+.btn.btn-hover-primary:hover:not(.btn-text):not(:disabled):not(.disabled), .btn.btn-hover-primary:focus:not(.btn-text), .btn.btn-hover-primary.focus:not(.btn-text) {
+  color: #fff !important;
+  background-color: #3699ff !important;
+  border-color: #3699ff !important;
+}
+
+.btn:hover:not(.btn-text), .btn:focus:not(.btn-text), .btn.focus {
+  transition: color .15s ease,background-color .15s ease,border-color .15s ease,box-shadow .15s ease;
+}
+
+.btn.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  height: calc(1.5em + 1.3rem + 2px);
+  width: calc(1.5em + 1.3rem + 2px);
+}
+
+.dashboard-pagination-bottom, .view-display-id-upcoming_meetings .text-center {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px !important;
+}
+
+.pagination-sm > li > a, .pagination-sm > li > span {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.btn-sm, .btn-group-sm > .btn {
+  padding: 5px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 3px;
+}
+
+.text-center {
+  text-align: center !important;
+}
+
+
 </style>

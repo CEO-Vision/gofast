@@ -1,4 +1,13 @@
 <?php
+require_once("gofast_forum.utils.inc");
+
+/**
+ * Implements hook_init().
+ */
+function gofast_forum_init() {
+  $path = drupal_get_path('module', 'gofast_forum');
+  drupal_add_js($path . '/js/gofast-forum.js');
+}
 
 /**
  * Overrid the gofast_forum's weight, make sure that gofast_forum's functions are executed after the advanced_forum module.
@@ -14,43 +23,165 @@ function gofast_forum_enable() {
           ->fields(array('weight' => $advanced_forum_weight + 1))
           ->condition('name', 'gofast_forum')
           ->execute();
-  
+
 }
+
+/**
+ * Implements hook_menu_alter.
+ */
+function gofast_forum_menu_alter(&$items) {
+  $items['node/add/forum']['page callback'] = 'gofast_forum_node_add_forum'; //GOFAST-7008
+}
+
+function gofast_forum_node_add_forum() { //GOFAST-7008
+
+    $node = new stdClass();
+    $node->type = "forum";
+    $forum_node_form = drupal_get_form('forum_node_form', $node);
+    $content = theme('page_forum_node_form', ['form' => $forum_node_form]);
+    $pageContent = gofast_create_page_content($content);
+
+    return $pageContent;
+}
+
 /**
  * Hook theme
  * @return string
  */
 function gofast_forum_theme() {
   $themes = array(
+    'gofast_forum' => array(
+      'template' => 'tpl/gofast-forum'
+    ),
     'gofast_forum_simple_author_pane' => array(
       'template' => 'tpl/gofast_forum_simple_author_pane',
       'variables' => array(
         'id' => NULL,
         'displayname' => NULL,
         'avatar' => NULL
+        )
+      ),
+      'gofast_history_tab' => array(
+        'template' => 'tpl/gofast-history-tab',
+        'variables' => array(
+        'version' => NULL,
+        'content_version' => NULL
+        )
+      ),
+      'gofast_comment' => array(
+        'template' => 'tpl/gofast-comment',
+        'variables' => array(
+          'comment' => NULL,
+          'content' => NULL
+        )
+      ),
+      'gofast_comment_item' => array(
+        'template' => 'tpl/gofast-comment-item',
+        'variables' => array(
+          'item' => NULL,
+        )
+      ),
+      'gofast_comment_container' => array(
+        'template' => 'tpl/gofast-comment-container',
+        'variables' => array(
+          'comments' => [],
+          'first_level_comments' => TRUE
+        )
+      ),
+      'gofast_tasks_container' => array(
+        'template' => 'tpl/gofast-tasks-container',
+        'variables' => array(
+          'node' => null,
+        )
+      ),
+      'page_forum_node_form' => array(
+        'template' => 'tpl/gofast-forum-forum-node-form-page',
+        'variables' => array('form' => NULL)
+      ),
+      'forum_node_form' => array(
+        'render element' => 'form',
+        'path' => drupal_get_path('theme', 'bootstrap_keen') . '/templates',
+        'template' => 'simple_node_form'
+      ),
+      'gofast_forum_file_browser' => array(
+          'template' => 'tpl/gofast-forum-file-browser',
+          'variables' => array('forums' => NULL)
+      ),
+      'gofast_forum_file_browser_element' => array(
+          'template' => 'tpl/gofast-forum-file-browser-element',
+          'variables' => array('comments' => NULL)
+      ),
+      'gofast_forum_node_header' => array(
+          'template' => 'tpl/gofast-forum-node-header',
+          'variables' => array('node' => NULL, 'links' => NULL)
       )
-    )
   );
-  
+
   return $themes;
+}
+
+function template_preprocess_gofast_forum_node_header(&$variables) {
+    $user = user_load($variables['node']->uid);
+    $variables['node']->creator_uid = $user->uid;
+    $variables['node']->creator_picture = ($user->picture->uri == null) ? $base_url . '/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png' : file_create_url($user->picture->uri);
+    $variables['node']->creation_date = format_date($variables['node']->created, 'short');
+    unset($variables['links']['print_html']);
+    unset($variables['links']['print_mail']);
+}
+
+function template_preprocess_gofast_forum(&$variables) {
+    $variables['forumDetails'] = ['test' => 'test'];
 }
 
 function gofast_forum_preprocess_node(&$variables) {
   $path = drupal_get_path('module', 'gofast_forum');
-  
+
   if (isset($variables['node']) && $variables['node']->type == 'forum') {
-    $variables['content']['links']['comment']['#links']['comment-add']['title'] = '<span class="fa fa-reply"></span>';
-    
+    $variables['content']['links']['comment']['#links']['comment-add']['title'] = '<span class="fas fa-reply"></span>';
+
     drupal_add_js($path . '/js/gofast_dragdrop_comments.js');
   }
   drupal_add_css($path . '/css/gofast_forum.css');
-  
+
   //check if all the comments are displayed or not
   $total_number_comments = $variables['node']->comment_count;
   $displayed_comments = count($variables["elements"]["comments"]["comments"]) -2;
-  
+
   if($total_number_comments > $displayed_comments){
       $variables['must_load_remaining_comments'] = true;
+  }
+}
+
+function gofast_forum_comment_publish($comment){
+  global $user;
+  global $base_url;
+
+  $node = node_load($comment->nid);
+
+  // Get ckekditor content
+  $body = $comment->comment_body[LANGUAGE_NONE][0]['value'];
+  $href = $base_url . '/node/'.$comment->nid.'#comment-'.$comment->cid;
+
+  // Regex to detect if anybody was mentionned
+  $regex = "(user-autocomplete-[0-9]*)";
+
+  $isMatch = preg_match_all($regex, $body, $matches);
+
+  // Each everyone and send message into Element
+  if(!empty($matches)){
+    foreach ($matches[0] as $match) {
+
+      // User mentionned
+      $id = str_replace('user-autocomplete-', '', $match);
+      $init_user = user_load($user->uid);
+
+      // Body message
+      $display_name = $init_user->ldap_user_displayname[LANGUAGE_NONE][0]['value'];
+      $message = t('@user mentionned you on ', array('@user' => $display_name)) . '<a href="' . $href . '">' . $node->title . "</a>";
+
+      // Send message
+      gofast_riot_api_send_message(NULL, $id, $message);
+    }
   }
 }
 
@@ -68,6 +199,72 @@ function template_preprocess_gofast_forum_simple_author_pane(&$variables) {
     $variables['ldap'] = gofast_ldap_user_attributes($account);
   }
   $variables['avatar'] = theme('user_picture', array('account' => $account));
+}
+
+/**
+ * Implements hook_comment_view_alter().
+ */
+function gofast_forum_comment_view_alter(&$build){
+  global $base_url;
+
+  $comment = $build['comment_body']['#object'];
+
+   $nid = $comment->nid;
+   $user = user_load($comment->uid);
+   $build['comment_body']['#user_picture'] = $user->picture->uri == null ? $base_url . '/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png' : file_create_url($user->picture->uri);
+   $node = node_load($nid);
+
+  $editorId = isset($comment->field_edited_by[LANGUAGE_NONE][0]['value']) ? $comment->field_edited_by[LANGUAGE_NONE][0]['value'] : false;
+  if ($editorId != false && $editorId > 0) {
+      $edit_user = user_load($editorId);
+      $build['comment_body']['#object']->edit_user = $edit_user;
+      $build['comment_body']['#object']->edit_user->user_picture = $edit_user->picture->uri == null ? $base_url . '/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png' : file_create_url($edit_user->picture->uri);
+    }
+
+  $can_edit = user_access('use vote up/down on comments');
+  if ($can_edit || user_access('view vote up/down count on comments')) {
+    $tag = variable_get('vud_tag', 'vote');
+    $widget_theme = variable_get('vud_comment_widget', 'plain');
+
+    $variables = array(
+      'entity_id' => $comment->cid,
+      'type' => 'comment',
+      'tag' => $tag,
+      'widget_theme' => $widget_theme,
+      'readonly' => !$can_edit,
+    );
+    $comment->vud_comment_widget = theme('vud_widget', $variables);
+  }
+
+  $child_cids = db_query('SELECT cid FROM {comment} WHERE pid = :cid', array(':cid' => $comment->cid))->fetchCol();
+  $childs = comment_load_multiple($child_cids);
+  $build['child_comments'] = $childs;
+
+
+
+  if (empty($comment->in_preview)) {
+    $prefix = '';
+    $is_threaded = isset($comment->divs) && variable_get('comment_default_mode_' . $node->type, COMMENT_MODE_THREADED) == COMMENT_MODE_THREADED;
+
+    // Add 'new' anchor if needed.
+    if (!empty($comment->first_new)) {
+      $prefix .= "<a id=\"new\"></a>\n";
+    }
+
+    // Add indentation div or close open divs as needed.
+    if ($is_threaded) {
+      $prefix .= $comment->divs <= 0 ? str_repeat('</div>', abs($comment->divs)) : "\n" . '<div class="timeline-item pl-10">';
+    }
+
+    // Add anchor for each comment.
+    $prefix .= "<a id=\"comment-$comment->cid\"></a>\n";
+    $build['#prefix'] = $prefix;
+
+    // Close all open divs.
+    if ($is_threaded && !empty($comment->divs_final)) {
+      $build['#suffix'] = str_repeat('</div>', $comment->divs_final);
+    }
+  }
 }
 
 /**
@@ -98,7 +295,7 @@ function gofast_forum_links_alter(&$object, $view_mode, $object_type = 'node') {
         'href' => '/modal/nojs/node/' .$node -> nid . '/edit',
         'attributes' =>array( 'class' => array( 'ctools-use-modal')) ,
       );
-      
+
     }
 
     if (node_access('delete', $node)) {
@@ -107,16 +304,16 @@ function gofast_forum_links_alter(&$object, $view_mode, $object_type = 'node') {
         'href' => '/modal/nojs/node/' . $node->nid . '/manage',
         'attributes' =>array( 'class' => array( 'ctools-use-modal')) ,
       );
-      
+
     }
   }
 
   // Change first post from "add comment" to "reply" if it isn't already.
   if (!empty($links['comment-add'])) {
-    $links['comment-add']['title'] = '<span class="fa fa-reply"></span>';
+    $links['comment-add']['title'] = '<span class="fas fa-reply"></span>';
     $links['comment-add']['href'] = "comment/reply/$node->nid";
   }
-  
+
 
   // List the keys we are interested in.
   $affected_keys = array(
@@ -140,7 +337,7 @@ function gofast_forum_links_alter(&$object, $view_mode, $object_type = 'node') {
       } elseif (strpos($key, 'delete')) {
         $classes = 'fa fa-trash-o';
       } elseif (strpos($key, 'add') || strpos($key, 'reply')) {
-        $classes = 'fa fa-reply';
+        $classes = 'fas fa-reply';
       }
       $links[$key]['title'] = '<span class="'.$classes.'"></span>';
       $links[$key]['html'] = TRUE;
@@ -155,18 +352,18 @@ function gofast_forum_links_alter(&$object, $view_mode, $object_type = 'node') {
       $links[$key] = $temp;
     }
   }
-  
+
   // We want to put comment links last.
   unset($object->content['links']['comment']);
   $object->content['links']['comment'] = $comment_links;
 
   // Put links back.
   $object->content['links']['comment']['#links'] = $links;
-  
+
   //unset($object->content['links']['print_html']);
   //unset($object->content['taxonomy_forums']['#object'])
   //$object->content['taxonomy_forums']['#object']->print_display = 0;
-  
+
 }
 
 function gofast_forum_preprocess_comment(&$variables) {
@@ -174,7 +371,7 @@ function gofast_forum_preprocess_comment(&$variables) {
   $comment = $variables['comment'];
   // Fix the comment title. remove <a>, just keep its text as the title
   $variables['title'] = check_plain($comment->subject);
-  
+
   // Fix the permalink link. Not working
   //$variables['permalink'] = l('#1', "node/$node->nid");
 
@@ -204,7 +401,7 @@ function gofast_forum_comment_view($comment, $view_mode, $langcode) {
  */
 function gofast_forum_library() {
   $path = drupal_get_path('module', 'gofast_forum');
-  
+
   $libraries['gofast_forum'] = array(
     'title' => 'Gofast Forum',
     'version' => '1.0',
@@ -217,7 +414,7 @@ function gofast_forum_library() {
       )
     )
   );
-  
+
   return $libraries;
 }
 
@@ -231,27 +428,51 @@ function gofast_forum_hide_text_format(&$form) {
 }
 
 function gofast_forum_form_forum_node_form_alter(&$form, &$form_state, $form_id) {
+
+  $form['#attached']['js'][] = array(
+    'type' => 'file',
+    'group' => JS_THEME + 1,
+    'data' => drupal_get_path('module', 'gofast') . '/js/gofast_ajax_form.js',
+  );
+
   end($form['taxonomy_forums'][LANGUAGE_NONE]['#options']);
   $form['taxonomy_forums'][LANGUAGE_NONE]['#default_value'] = key($form['taxonomy_forums'][LANGUAGE_NONE]['#options']);
   $form['taxonomy_forums']['#attributes']['class'][] = 'gofast_display_none';
   $form['field_target_link']['#attributes']['class'][] = 'gofast_display_none';
+  $form['field_target_link'][LANGUAGE_NONE]['add_more']['#attributes']['class'][] = 'gofast_display_none';
   $form['field_criticity']['#attributes']['class'][] = 'gofast_display_none';
- 
+  $form['field_tags']['#attributes']['class'][] = 'gofast_display_none';
+  $form['field_category']['#attributes']['class'][] = 'gofast_display_none';
   // Set default date to empty
   $form['field_date'][LANGUAGE_NONE][0]['#default_value'] = array();
-  //Display preview button
+  //Hide preview button
   $form['actions']['preview']['#type'] = 'gofast_display_none';
+  //Hide delete button
+  $form['actions']['delete']['#type'] = 'gofast_display_none';
   //For modal edit forum
   if (($form_state['modal']) == TRUE){
-      //Display delete button
-      $form['actions']['delete']['#type'] = 'gofast_display_none';
-      //Display title textfield and selectfield language
+      //Hide title textfield and selectfield language
       $form['wrapper']['#attributes']['class'][]= 'gofast_display_none';
-      //Display File Location/Sharing 
-      $form['og_group_content_ref']['#attributes']['class'][] = 'gofast_display_none';
+      //Hide File Location/Sharing
+      unset($form['og_group_content_ref']);
+      unset($form['wrapper']['language']);
   }
+  $form['#attributes']['class'][] = 'GofastForm GofastForm__Forum';
+  $form['#validate'][] = 'gofast_forum_form_node_form_validate';
 }
 
+function gofast_forum_form_node_form_validate(&$form, &$form_state) {
+    $errors = form_get_errors();
+    if ($errors) {
+      // Clear errors.
+      form_clear_error();
+
+      foreach ($errors as $name => $error_message) {
+        $commands[] = gofast_command_toast_message($error_message, "error");
+      }
+      print ajax_render($commands);exit;
+    }
+}
 
 /** Implements hook_query_TAG_alter().
  *
@@ -280,4 +501,101 @@ $orderby = &$query->getOrderBy();
     $orderby['c.created'] = $direction;
     $orderby['c.cid'] = $direction;
   }
+}
+
+
+function gofast_forum_get_forums_view($encoded = false, $nid = -1){
+    $argument = ($nid==-1) ? arg(1) : $nid;
+    if($argument !== -1 && node_load($argument)->type === 'forum') {
+        $n = node_load($argument);
+        $node->subject = $n->title;
+        $node->cid = -1;
+        $node->uid = $n->uid;
+        $node->nid = $n->nid;
+        $output = gofast_comments_tab($node, TRUE);
+        $forums_output = theme('gofast_forum_file_browser', ['forums' => $output, 'single' => TRUE]);
+        if(!$encoded) {
+            return $forums_output;
+        }
+        print $forums_output;
+        return;
+    }
+    $e = new EntityFieldQuery();
+    $e->entityCondition('entity_type', 'node')->entityCondition('bundle', 'forum')->addTag('node_access');
+    $r = $e->execute();
+    foreach($r['node'] as $node) {
+        $mynode = new stdClass();
+        $result = db_select('node', 'n')
+            ->fields('n', array('title', 'type', 'uid'))
+            ->condition('n.nid', $node->nid, '=')
+            ->execute()
+            ->fetchAssoc();
+         
+        $mynode->subject = $result['title'];
+        $mynode->cid = -1;
+        $mynode->uid = $result['uid'];
+        $mynode->nid = $node->nid;
+
+        $output .= gofast_comments_tab($mynode, TRUE);
+    }
+    $forums_output = theme('gofast_forum_file_browser', ['forums' => $output]);
+    if(!$encoded) {
+        return $forums_output;
+    }
+    print $forums_output;
+}
+
+
+function template_preprocess_gofast_forum_file_browser_element(&$variables) {
+
+  for($i=0;$i<count($variables['comments']);$i++) {
+        $user_commenter = user_load($variables['comments'][$i]->uid);
+        $user_picture = theme('user_picture', array('account' => $user_commenter, 'dimensions' => 25));
+        $variables['comments'][$i]->user_picture = $user_picture;
+
+        //Thread processing so we can retrieve and store parent/child association info
+        $thread = $variables['comments'][$i]->thread;
+        $all_posts = explode('.', $thread);
+        $variables['comments'][$i]->css_indent = count($all_posts) - 1;
+        if(count($all_posts) > 2) {
+            array_pop($all_posts);
+            array_pop($all_posts);
+            $all_posts = implode('.', $all_posts);
+            $parent_thread = $all_posts . '/.';
+            foreach ($variables['comments'] as $c) {
+                if($c->thread == $parent_thread) {
+                    $variables['comments'][$i]->parent_id = $c->cid;
+                    break;
+                }
+            }
+        }else if(count($all_posts) == 2) {
+            $variables['comments'][$i]->parent_id = -1;
+        }
+
+    }
+}
+
+function gofast_forum_menu() {
+    $items = array();
+
+    $items['gofast/forum/explorer/%'] = array(
+        'title' => 'Forum',
+        'page callback' => 'gofast_forum_get_forums_view',
+        'page arguments' => array(true,3),
+        'type' => MENU_CALLBACK,
+        'access callback' => 'user_access',
+        'access arguments' => array('access content'),
+    );
+
+    // quicker endpoint without theming or nested forums
+    $items['space/forum/%'] = array(
+      'title' => 'Get forums inside given space',
+      'page callback' => 'gofast_forum_get_space_content',
+      'page arguments' => array(2),
+      'type' => MENU_CALLBACK,
+      'access callback' => 'user_access',
+      'access arguments' => array('access content'),
+    );
+
+    return $items;
 }

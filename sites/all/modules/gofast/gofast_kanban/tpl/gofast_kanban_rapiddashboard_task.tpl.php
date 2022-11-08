@@ -34,7 +34,7 @@
         <div style="padding-left:20px;">
           <div class="row">
             <span style="color:#777;font-weight: bold;width:200px;white-space: nowrap;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;" title="<?php echo t('Completed up to @completion', array('@completion'  => $task['progress']), array('context' => 'gofast_kanban')); ?>%" >
-              <i class="fa fa-trello"></i>
+              <i class="fab fa-trello"></i>
               <span class="card-title"><?php echo $task['title']; ?></span>
             </span>
             <span style="color:#777;font-weight: bold;width:270px;white-space: nowrap;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;" title="<?php echo $task['first_item_label'];?> ( <?php echo t('Completed up to @completion', array('@completion'  => $task['progress']), array('context' => 'gofast_kanban')); ?>%)">

@@ -6,65 +6,63 @@ function gofast_stats_menu() {
     'page callback' => 'gofast_stats_list_docs',
     'type' => MENU_CALLBACK,
     'access arguments' => array('access content'),
-    'access callback' => 'user_access',  
+    'access callback' => 'user_access',
   );
   $items['gofast_stats/dashboard'] = array(
     'page callback' => 'gofast_stats_dashboard_ui',
     'type' => MENU_CALLBACK,
     'page arguments' => array('gofast_admin_settings'),
-    'access arguments' => array('administer site configuration'),
-    'access callback' => 'user_access',  
+    'access arguments' => array('access statistics'),
   );
   $items['gofast_stats/space_stats'] = array(
     'page callback' => 'gofast_stats_space_stats_genere_file',
     'type' => MENU_CALLBACK,
     'page arguments' => array('gofast_admin_settings'),
     'access arguments' => array('administer site configuration'),
-    'access callback' => 'user_access',  
+    'access callback' => 'user_access',
   );
-  
+
   $items['gofast_stats/global_space_stats'] = array(
     'page callback' => 'gofast_stats_global_space_stats_genere_file',
     'type' => MENU_CALLBACK,
     'page arguments' => array('gofast_admin_settings'),
     'access arguments' => array('administer site configuration'),
-    'access callback' => 'user_access',  
+    'access callback' => 'user_access',
   );
-  
+
   $items['gofast_stats/user_stats'] = array(
     'page callback' => 'gofast_stats_user_stats_genere_file',
     'type' => MENU_CALLBACK,
     'page arguments' => array('gofast_admin_settings'),
     'access arguments' => array('administer site configuration'),
-    'access callback' => 'user_access',  
+    'access callback' => 'user_access',
   );
-  
+
   $items['gofast_stats/download/%'] = array(
     'page callback' => 'gofast_stats_retrieve_file',
     'type' => MENU_CALLBACK,
     'page arguments' => array(2),
     'access arguments' => array('administer site configuration'),
-    'access callback' => 'user_access',  
+    'access callback' => 'user_access',
   );
-  
+
    $items['gofast_stats/space_stats_async'] = array(
     'page callback' => 'gofast_stats_space_stats_async',
     'type' => MENU_CALLBACK,
     'access arguments' => array('access content'),
-    'access callback' => 'user_access',  
+    'access callback' => 'user_access',
   );
-  
- return $items;  
+
+ return $items;
 }
 
 function gofast_stats_space_stats_async(){
     global $base_url;
     $render = '
-      <script type="text/javascript" src="'.$base_url.'/sites/all/modules/gofast/gofast_stats/js/Chart.bundle.min.js" ?>"></script>
-      <script type="text/javascript" src="'.$base_url.'/sites/all/modules/gofast/gofast_stats/js/Chart.min.js" ?>"></script>
+      <script type="text/javascript" src="'.$base_url.'/sites/all/modules/gofast/gofast_stats/js/apexcharts.js" ?>"></script>
       <script type="text/javascript" src="'.$base_url.'/sites/all/modules/gofast/gofast_stats/js/gofast_stats_space.js" ?>"></script>
-     '.theme("gofast_stats_space_dashboard");
-    
+     '.theme("gofast_stats_space_dashboard", ["gid" => gofast_xss_clean($_POST["currentGid"])]);
+
     print $render;
 }
 
@@ -77,9 +75,9 @@ function gofast_stats_init(){
  */
 function gofast_stats_dashboard_ui(){
   $path = drupal_get_path('module', 'gofast_stats');
-  
+
   $output = "";
-  
+
   $dashboard = theme('gofast_stats_global_dashboard');
   $output .= $dashboard;
   return $output;
@@ -87,7 +85,7 @@ function gofast_stats_dashboard_ui(){
 
 function gofast_stats_list_docs(){
   drupal_set_title(t("Export documents list"));
-  $output = drupal_get_form("gofast_stats_list_docs_form"); 
+  $output = drupal_get_form("gofast_stats_list_docs_form");
   return $output;
 }
 
@@ -97,21 +95,24 @@ function gofast_stats_list_docs_form($form, &$form_state){
 
     $all_groups = gofast_og_get_spaces_by_user($myuser);
     $all_titles = gofast_get_node_title_multiple(array_values($all_groups));
-    
-    foreach($all_groups as $gid){
-        if(!in_array($gid, array("4","5","6","7"), TRUE)){
-            $spaces_options[$gid] = $all_titles[$gid];
-        }
+    $i = 0;
+
+    foreach($all_groups as $gid){      
+      if(!in_array($gid, array("4","5","6","7"), TRUE)){
+        $spaces_options[$gid] = $all_titles[$i];
+      }
+      
+      $i++;
     }
     
    $form["og"] = array(
         '#type'=> 'checkboxes',
         '#title' => t("Collaborative space"),
         '#description' => t("Choose one or more collaborative spaces"),
-        '#options' => $spaces_options,       
-        '#multiple' => TRUE,      
+        '#options' => $spaces_options,
+        '#multiple' => TRUE,
     );
-   
+
    //TODO get datepicker
    $form['date'] = array(
       '#type' => 'textfield',
@@ -120,35 +121,35 @@ function gofast_stats_list_docs_form($form, &$form_state){
       '#size' => 10,
       '#required'  => FALSE,
       '#suffix' => '<script type="text/javascript"> jQuery( "#edit-date" ).datepicker({dateFormat : "dd/mm/yy"});</script>',
-      '#weight' => 2, 
+      '#weight' => 2,
    );
-   
+
    $fields_options = gofast_stats_get_available_fields_export_excel();
-   
+
    $form["list_fields"] = array(
         '#type'=>'checkboxes',
         '#title' => t("Fields"),
         '#description' => t("Choose fields you want to export into the generated file"),
-        '#options' => $fields_options,       
-        '#multiple' => TRUE,      
+        '#options' => $fields_options,
+        '#multiple' => TRUE,
     );
-    
+
     $form['submit'] = array(
       '#type' => 'submit',
       '#value' => t("Submit"),
       '#submit' => array('gofast_stats_list_docs_form_submit'),
       '#weight' => 3,
-     
+
    );
-    
+
     return $form;
 }
 
-function gofast_stats_list_docs_form_submit($form,&$form_state){  
+function gofast_stats_list_docs_form_submit($form,&$form_state){
     $a = strptime($form_state["values"]["date"], '%d/%m/%Y');
 
     $timestamp = mktime(0, 0, 0, $a['tm_mon']+1, $a['tm_mday'], $a['tm_year']+1900);
-    
+
     //we add 24h to the timestamp to exclude the selected day
     $timestamp = $timestamp+(1*60*60*24);
 
@@ -157,19 +158,19 @@ function gofast_stats_list_docs_form_submit($form,&$form_state){
                     'operations' => array(
                       array('gofast_stats_list_genere_file_batch', array($form_state["values"]["og"], $timestamp, $form_state["values"]["list_fields"])),
                     ),
-                    'finished' => 'gofast_stats_list_genere_file_finished', 
+                    'finished' => 'gofast_stats_list_genere_file_finished',
                     'progress_message' => "",
                   );
                 batch_set($batch);
                 // Only needed if not inside a form _submit handler.
                 // Setting redirect in batch_process.
                 batch_process("node");
-    
-    
+
+
 }
 
 function gofast_stats_list_genere_file_batch($gid,$date,$list_fields,&$context) {
- 
+
   if (empty($context['sandbox'])) {
     $context['sandbox']['progress'] = 0;
     $context['sandbox']['current_node'] = 0;
@@ -177,7 +178,7 @@ function gofast_stats_list_genere_file_batch($gid,$date,$list_fields,&$context) 
     $context['sandbox']['max'] = count($all_nids);
   }
 
-  
+
   $all_nids = gofast_stats_list_get_nids($gid,$date);
 
   $limit = 50;
@@ -185,7 +186,7 @@ function gofast_stats_list_genere_file_batch($gid,$date,$list_fields,&$context) 
   global $cmis_sudo_admin;
   $cmis_sudo_admin = true;
   $context['results']["params"] = array("gids" => $gid, "date" => $date);
-  foreach($cut_all_nids as $key => $nid){   
+  foreach($cut_all_nids as $key => $nid){
     $node = node_load($nid, NULL, TRUE);
      if($node->type !== "alfresco_item" ){
         $context['sandbox']['progress']++;
@@ -194,25 +195,25 @@ function gofast_stats_list_genere_file_batch($gid,$date,$list_fields,&$context) 
      }
     $repository_id = gofast_cmis_get_repository();
     $doc=cmisapi_getObject($repository_id, $node->reference);
-    $wrapper = entity_metadata_wrapper("node", $node); 
-    
+    $wrapper = entity_metadata_wrapper("node", $node);
+
     $array_infos = array();
 
     //mandatory infos
     $array_infos["nid"]   = $node->nid;
     $array_infos["title"] = $node->title;
-    
+
     $options = array('absolute' => TRUE);
     $url = url('node/' . $node->nid, $options);
     $array_infos["link"]  = $url;
-    
+
     //optionnals infos
     if(isset($list_fields["path"])){
         $parentFolder=cmisapi_getFolderParent($repository_id,  $node->reference);
         $path = $parentFolder->objectList[0]->properties["cmis:path"];
         $array_infos["path"] = $path;
     }
-    if(isset($list_fields["last_version"])){           
+    if(isset($list_fields["last_version"])){
         $array_infos["last_version"] = $doc->properties["cmis:versionLabel"];
     }
     if(isset($list_fields["popularity"])){
@@ -221,36 +222,36 @@ function gofast_stats_list_genere_file_batch($gid,$date,$list_fields,&$context) 
     if(isset($list_fields["views"])){
         $array_infos["views"] = isset(nodeviewcountcount_count_node_views($node, NULL, TRUE)[0]) ? nodeviewcountcount_count_node_views($node, NULL, TRUE)[0]->expression : 0;
     }
-    if(isset($list_fields["state"])){       
+    if(isset($list_fields["state"])){
         $state = $wrapper->{'field_state'}->value();
         $array_infos["state"] = $state ? i18n_taxonomy_localize_terms($state)->name : '';
-    }   
-    if(isset($list_fields["category"])){       
+    }
+    if(isset($list_fields["category"])){
         $category = $wrapper->{'field_category'}->value();
         $array_infos["category"] = $category ? i18n_taxonomy_localize_terms($category)->name : '';
     }
-    if(isset($list_fields["created"])){      
+    if(isset($list_fields["created"])){
         $array_infos["created"] = format_date( $node->created, 'custom', "d/m/Y");
     }
-    if(isset($list_fields["created_by"])){ 
-        $creator = user_load($node->uid);  
+    if(isset($list_fields["created_by"])){
+        $creator = user_load($node->uid);
         $array_infos["created_by"] =  $creator->ldap_user_givenname[LANGUAGE_NONE][0]["value"]." ".$creator->ldap_user_sn[LANGUAGE_NONE][0]["value"];
-    } 
-    if(isset($list_fields["modified"])){      
+    }
+    if(isset($list_fields["modified"])){
         $array_infos["modified"] = format_date( $node->changed, 'custom', "d/m/Y");
-    }    
-    if(isset($list_fields["modified_by"])){ 
-        $modifier = user_load($node->revision_uid);  
+    }
+    if(isset($list_fields["modified_by"])){
+        $modifier = user_load($node->revision_uid);
         $array_infos["created_by"] =  $modifier->ldap_user_givenname[LANGUAGE_NONE][0]["value"]." ".$modifier->ldap_user_sn[LANGUAGE_NONE][0]["value"];
     }
-    
-    
+
+
     $context['results'][$node->nid] = $array_infos ;
     $context['sandbox']['progress']++;
     $context['sandbox']['current_node'] = $key+1;
     $context['message'] = $node->title;
   }
-  
+
   if ($context['sandbox']['progress'] != $context['sandbox']['max']) {
     $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['max'];
   }
@@ -267,51 +268,51 @@ function gofast_stats_list_genere_file_finished($success, $results, $operations)
   drupal_set_message($message);
   // Providing data for the redirected page is done through $_SESSION.
   gofast_stats_list_genere_file($results);
- 
- 
+
+
 }
 
 function gofast_stats_space_stats_get_values(){
   $values = array();
-  
+
   $activity = gofast_api_stats_get_top_spaces(array("params" => array('activity', TRUE)));
   if(!empty($activity['data']['data'])){
       $activity['data'] = $activity['data']['data'];
   }
-  
+
   foreach($activity['data']['labels'] as $id => $label){
     $values['activity'][$label] = $activity['data']['datasets'][0]['data'][$id];
   }
-  
+
   $activity = gofast_api_stats_get_top_spaces(array("params" => array('members', TRUE)));
   if(!empty($activity['data']['data'])){
       $activity['data'] = $activity['data']['data'];
   }
-  
+
   foreach($activity['data']['labels'] as $id => $label){
     $values['members'][$label] = $activity['data']['datasets'][0]['data'][$id];
   }
-  
+
   $activity = gofast_api_stats_get_top_spaces(array("params" => array('content', TRUE)));
   if(!empty($activity['data']['data'])){
       $activity['data'] = $activity['data']['data'];
   }
-  
+
   foreach($activity['data']['labels'] as $id => $label){
     $values['content'][$label] = $activity['data']['datasets'][0]['data'][$id];
   }
-  
+
   return $values;
 }
 
 function gofast_stats_space_stats_genere_file(){
   set_time_limit(0);
-  require_once libraries_get_path('excel_reader').'/Classes/PHPExcel.php';   
+  require_once libraries_get_path('excel_reader').'/Classes/PHPExcel.php';
   /** PHPExcel_Writer_Excel2007 */
   require_once libraries_get_path('excel_reader').'/Classes/PHPExcel/Writer/Excel2007.php';
-  
+
   $fid = rand(0, getrandmax());
-  
+
   //Release Apache session
   print $fid;
   fastcgi_finish_request();
@@ -325,54 +326,54 @@ function gofast_stats_space_stats_genere_file(){
   $objPHPExcel->addSheet(new PHPExcel_Worksheet());
   $objPHPExcel->setActiveSheetIndex(2);
   $objPHPExcel->getActiveSheet()->setTitle(t("Content", array(), array('context' => 'gofast_stats')));
-  
+
   $values = gofast_stats_space_stats_get_values();
-  
+
   //Activity tab
   $objPHPExcel->setActiveSheetIndex(0);
   $objPHPExcel->getActiveSheet()->SetCellValue('A1', "#");
   $objPHPExcel->getActiveSheet()->SetCellValue('B1', t("Space"));
   $objPHPExcel->getActiveSheet()->SetCellValue('C1', t("Activity", array(), array('context' => 'gofast_stats')));
-    
+
   $position = 1;
-  
+
   foreach ($values['activity'] as $title => $activity){
     $objPHPExcel->getActiveSheet()->SetCellValue('A' . ($position+1), $position);
     $objPHPExcel->getActiveSheet()->SetCellValue('B' . ($position+1), $title);
     $objPHPExcel->getActiveSheet()->SetCellValue('C' . ($position+1), $activity);
     $position++;
   }
-  
+
   //Members tab
   $objPHPExcel->setActiveSheetIndex(1);
   $objPHPExcel->getActiveSheet()->SetCellValue('A1', "#");
   $objPHPExcel->getActiveSheet()->SetCellValue('B1', t("Space"));
   $objPHPExcel->getActiveSheet()->SetCellValue('C1', t("Members", array(), array('context' => 'gofast_stats')));
-    
+
   $position = 1;
-  
+
   foreach ($values['members'] as $title => $activity){
     $objPHPExcel->getActiveSheet()->SetCellValue('A' . ($position+1), $position);
     $objPHPExcel->getActiveSheet()->SetCellValue('B' . ($position+1), $title);
     $objPHPExcel->getActiveSheet()->SetCellValue('C' . ($position+1), $activity);
     $position++;
   }
-  
+
   //Activity tab
   $objPHPExcel->setActiveSheetIndex(2);
   $objPHPExcel->getActiveSheet()->SetCellValue('A1', "#");
   $objPHPExcel->getActiveSheet()->SetCellValue('B1', t("Space"));
   $objPHPExcel->getActiveSheet()->SetCellValue('C1', t("Content", array(), array('context' => 'gofast_stats')));
-    
+
   $position = 1;
-  
+
   foreach ($values['content'] as $title => $activity){
     $objPHPExcel->getActiveSheet()->SetCellValue('A' . ($position+1), $position);
     $objPHPExcel->getActiveSheet()->SetCellValue('B' . ($position+1), $title);
     $objPHPExcel->getActiveSheet()->SetCellValue('C' . ($position+1), $activity);
     $position++;
   }
-  
+
   // Save Excel 2007 file
 
     $objWriter = new PHPExcel_Writer_Excel2007($objPHPExcel);
@@ -381,22 +382,22 @@ function gofast_stats_space_stats_genere_file(){
 
 function gofast_stats_global_space_stats_genere_file(){
   set_time_limit(0);
-  require_once libraries_get_path('excel_reader').'/Classes/PHPExcel.php';   
+  require_once libraries_get_path('excel_reader').'/Classes/PHPExcel.php';
   /** PHPExcel_Writer_Excel2007 */
   require_once libraries_get_path('excel_reader').'/Classes/PHPExcel/Writer/Excel2007.php';
-  
+
   $fid = rand(0, getrandmax());
-  
+
   //Release Apache session
   print $fid;
   fastcgi_finish_request();
-  
+
   $filename = "export_".$fid.".xlsx";
   // Create new PHPExcel object
   $objPHPExcel = new PHPExcel();
   $objPHPExcel->getActiveSheet()->setTitle(t("Spaces", array(), array('context' => 'gofast_stats')));
   $objPHPExcel->addSheet(new PHPExcel_Worksheet());
-  
+
   $objPHPExcel->getActiveSheet()->SetCellValue('A1', "#");
   $objPHPExcel->getActiveSheet()->SetCellValue('B1', "ID");
   $objPHPExcel->getActiveSheet()->SetCellValue('C1', t("Title", array(), array('context' => 'gofast_stats')));
@@ -405,19 +406,19 @@ function gofast_stats_global_space_stats_genere_file(){
   $objPHPExcel->getActiveSheet()->SetCellValue('F1', t("Administrators", array(), array('context' => 'gofast_stats')));
   $objPHPExcel->getActiveSheet()->SetCellValue('G1', t("Contributors", array(), array('context' => 'gofast_stats')));
   $objPHPExcel->getActiveSheet()->SetCellValue('H1', t("Read only", array(), array('context' => 'gofast_stats')));
-  
+
   //Get root spaces
   $groups = gofast_ajax_file_browser_get_nid_from_href("/Sites/_Groups");
   $organisations = gofast_ajax_file_browser_get_nid_from_href("/Sites/_Organisations");
   $extranet = gofast_ajax_file_browser_get_nid_from_href("/Sites/_Extranet");
   $public = gofast_ajax_file_browser_get_nid_from_href("/Sites/_Public");
-  
+
   $i = 2;
-  
+
   //Fetch into root spaces
   foreach(array($groups, $organisations, $extranet, $public) as $root_gid){
       $childrens = gofast_og_get_children($root_gid, TRUE, TRUE, TRUE);
-      
+
       //Fetch into childrens
       foreach($childrens as $children){
         //Basic informations
@@ -425,27 +426,27 @@ function gofast_stats_global_space_stats_genere_file(){
         $objPHPExcel->getActiveSheet()->SetCellValue('B' . $i, $children->nid);
         $objPHPExcel->getActiveSheet()->SetCellValue('C' . $i, $children->title);
         $objPHPExcel->getActiveSheet()->SetCellValue('D' . $i, ucfirst($children->type));
-        
+
         //Get path
         $path = gofast_cmis_space_get_webdav_path($children->nid);
         $objPHPExcel->getActiveSheet()->SetCellValue('E' . $i, $path);
-        
+
         //Get space members
         $members = gofast_og_get_members_userlist_included($children, "active");
         $members_role = array();
-        
+
         foreach($members as $memberid){
             $role = gofast_og_get_user_final_roles_for_space("node", $children->nid, $memberid);
             $members_role[array_shift($role)][] = gofast_user_get_login($memberid);
         }
-        
+
         $objPHPExcel->getActiveSheet()->SetCellValue('F' . $i, implode(";", $members_role['administrator member']));
         $objPHPExcel->getActiveSheet()->SetCellValue('G' . $i, implode(";", $members_role['group contributor']));
         $objPHPExcel->getActiveSheet()->SetCellValue('H' . $i, implode(";", $members_role['read only member']));
         $i++;
       }
   }
-  
+
   // Save Excel 2007 file
 
   $objWriter = new PHPExcel_Writer_Excel2007($objPHPExcel);
@@ -457,17 +458,17 @@ function gofast_stats_global_space_stats_genere_file(){
  */
 function gofast_stats_user_stats_genere_file(){
   set_time_limit(0);
-  require_once libraries_get_path('excel_reader').'/Classes/PHPExcel.php';   
+  require_once libraries_get_path('excel_reader').'/Classes/PHPExcel.php';
   /** PHPExcel_Writer_Excel2007 */
   require_once libraries_get_path('excel_reader').'/Classes/PHPExcel/Writer/Excel2007.php';
-  
+
   $fid = rand(0, getrandmax());
-  
+
   //Release Apache session
   print $fid;
   fastcgi_finish_request();
   $filename = "export_".$fid.".xlsx";
-  
+
   //Get filters
   if(!empty($_GET['xid'])){
     $filters = explode(",", $_GET['xid']);
@@ -475,9 +476,9 @@ function gofast_stats_user_stats_genere_file(){
   // Create new PHPExcel object
   $objPHPExcel = new PHPExcel();
   $objPHPExcel->getActiveSheet()->setTitle(t("Users", array(), array('context' => 'gofast_stats')));
-  
+
   $values = entity_load('user');
-  
+
   //Users tab
   $objPHPExcel->setActiveSheetIndex(0);
   $objPHPExcel->getActiveSheet()->SetCellValue('A1', t("User ID", array(), array('context' => 'gofast_stats')));
@@ -488,13 +489,13 @@ function gofast_stats_user_stats_genere_file(){
   $objPHPExcel->getActiveSheet()->SetCellValue('F1', t("Register date", array(), array('context' => 'gofast_stats')));
   $objPHPExcel->getActiveSheet()->SetCellValue('G1', t("Last login"));
   $objPHPExcel->getActiveSheet()->SetCellValue('H1', t("Status", array(), array('context' => 'gofast_stats')));
-  $objPHPExcel->getActiveSheet()->SetCellValue('I1', t("Super admin", array(), array('context' => 'gofast_stats')));
+  $objPHPExcel->getActiveSheet()->SetCellValue('I1', t(GOFAST_ROLE_SUPER_ADMIN_VALUE, array(), array('context' => 'gofast_stats')));
   $objPHPExcel->getActiveSheet()->SetCellValue('J1', t("Space admin", array(), array('context' => 'gofast_stats')));
   $objPHPExcel->getActiveSheet()->SetCellValue('K1', t("Broadcaster", array(), array('context' => 'gofast_stats')));
   $objPHPExcel->getActiveSheet()->SetCellValue('L1', t("Extranet", array(), array('context' => 'gofast_stats')));
-    
+
   $position = 1;
-  
+
   foreach ($values as $user){
     if($user->uid == 0 || $user->uid == 1){
         continue;
@@ -518,16 +519,16 @@ function gofast_stats_user_stats_genere_file(){
     $objPHPExcel->getActiveSheet()->SetCellValue('L' . ($position+1), gofast_user_is_extranet($user));
     $position++;
   }
-  
+
   $i = 1;
   foreach($filters as $filter){
       $space = node_load($filter);
-      
+
       //Add sheet for the space filters
       $objPHPExcel->addSheet(new PHPExcel_Worksheet());
       $objPHPExcel->setActiveSheetIndex($i);
       $objPHPExcel->getActiveSheet()->setTitle($space->title);
-      
+
       //Add first row
       $objPHPExcel->getActiveSheet()->SetCellValue('A1', t("User ID", array(), array('context' => 'gofast_stats')));
       $objPHPExcel->getActiveSheet()->SetCellValue('B1', t("Login", array(), array('context' => 'gofast_stats')));
@@ -535,7 +536,7 @@ function gofast_stats_user_stats_genere_file(){
       $objPHPExcel->getActiveSheet()->SetCellValue('D1', t("First name", array(), array('context' => 'gofast_stats')));
       $objPHPExcel->getActiveSheet()->SetCellValue('E1', t("Last name", array(), array('context' => 'gofast_stats')));
       $objPHPExcel->getActiveSheet()->SetCellValue('F1', t("Role", array(), array('context' => 'gofast_stats')));
-      
+
       $members = gofast_og_get_members_userlist_included($space);
       $j = 1;
       foreach($members as $uid){
@@ -549,7 +550,7 @@ function gofast_stats_user_stats_genere_file(){
         }else{
             $final_role = t(ucfirst($final_role), array(), array('context' => "gofast:gofast_stats"));
         }
-        
+
         //Add members informations
         $objPHPExcel->getActiveSheet()->SetCellValue('A' . ($j+1), $uid);
         $objPHPExcel->getActiveSheet()->SetCellValue('B' . ($j+1), $user->name);
@@ -561,7 +562,7 @@ function gofast_stats_user_stats_genere_file(){
       }
       $i++;
   }
-  
+
   // Save Excel 2007 file
 
     $objWriter = new PHPExcel_Writer_Excel2007($objPHPExcel);
@@ -597,7 +598,7 @@ function gofast_stats_retrieve_file($fid){
 
 function gofast_stats_list_genere_file($results){
     set_time_limit(0);
-    require_once libraries_get_path('excel_reader').'/Classes/PHPExcel.php';   
+    require_once libraries_get_path('excel_reader').'/Classes/PHPExcel.php';
     /** PHPExcel_Writer_Excel2007 */
     require_once libraries_get_path('excel_reader').'/Classes/PHPExcel/Writer/Excel2007.php';
 
@@ -623,11 +624,11 @@ function gofast_stats_list_genere_file($results){
             continue;
         }
        $objPHPExcel->getActiveSheet()->SetCellValue($alphabet[$i].'1', $fields_options[$field_name]);
-       $i++; 
+       $i++;
     }
-    
-    
-    //iterate each result to fill the excel file 
+
+
+    //iterate each result to fill the excel file
     $j = 1;
     foreach($results as $nid=>$result){
         if($j == 1){
@@ -635,9 +636,9 @@ function gofast_stats_list_genere_file($results){
             continue;
         }
         $k = 0;
-        foreach($result as $field_name=>$field_value){            
+        foreach($result as $field_name=>$field_value){
            $objPHPExcel->getActiveSheet()->SetCellValue($alphabet[$k].$j, $field_value);
-           $k++; 
+           $k++;
         }
 
          $j++;
@@ -664,19 +665,19 @@ function gofast_stats_list_genere_file($results){
         exit;
     }
 
- 
+
 }
 
 function gofast_stats_list_get_nids($gid, $date){
     $nids = array();
     $sql_nodes = "SELECT n.nid FROM {node} n INNER JOIN {og_membership} o ON n.nid = o.etid WHERE n.changed > '".$date."' AND n.status = 1 AND o.gid IN (".implode(",",$gid).") AND o.field_name = 'og_group_content_ref' ORDER BY n.changed DESC";
 
-     $result_nodes=db_query($sql_nodes); 
+     $result_nodes=db_query($sql_nodes);
      foreach($result_nodes as $node){
      //while ($row_node = db_fetch_object($result_nodes)) {
          $nids[] = $node->nid ;
      }
-     
+
      return $nids;
 }
 
@@ -684,7 +685,7 @@ function gofast_stats_get_available_fields_export_excel(){
   $fields_options = array("path" => t("Path"), "popularity" => t("Popularity"), "views" => t("Counter views"), "category" => t("Category"),
                            "created" => t("Creation date"), "created_by" => t("Created by"), "modified" => t("Modification date"), "modified_by" => t("Modified by"),
                             "last_version" => t("Current version"));
-       
+
   return $fields_options;
 }
 
@@ -692,6 +693,9 @@ function gofast_stats_theme(){
   return array(
     'gofast_stats_global_dashboard' => array(
       'template'  => 'tpl/global_dashboard',
+    ),
+      'gofast_stats_global_dashboard_content' => array(
+      'template'  => 'tpl/global_dashboard_content',
     ),
     'gofast_stats_space_dashboard' => array(
       'template'  => 'tpl/space_dashboard',
@@ -704,9 +708,9 @@ function gofast_stats_theme(){
  * Implements API gofast_api_RESSOURCE_ACTION
  * @ressource stats
  * @action get_new_users
- * @params 
+ * @params
  *    $period : Can be 1week, 1month, 1year, 2year, 3year
- * 
+ *
  * Return the current gofast version
  */
 function gofast_api_stats_get_users_chart($params){
@@ -715,41 +719,35 @@ function gofast_api_stats_get_users_chart($params){
   $period = empty($params[0]) ? "1week" : $params[0];
   $gid = empty($params[1]) ? null : $params[1];
   $gids = empty($params[2]) ? array() : $params[2];
-    
+
   $output = array();
-  
+
   //Define step between values
   if($period == "1week" || $period == "1month"){
     $step = "day";
   }else{
     $step = "month";
   }
-  
+
   if(!empty($gid)){
     $label = "members";
   }else{
     $label = "users";
   }
-  
+
   $values = array(
     'labels' => gofast_format_date_array(gofast_stats_get_labels_by_period($period), 'privatemsg_years'),
     'datasets' => array(
       array(
-        'label'             => t('New '. $label, array(), array('context' => 'gofast:stats')),
+        'name'             => t('New '. $label, array(), array('context' => 'gofast:stats')),
         'data'              => call_user_func("gofast_stats_get_new_${label}_values", gofast_stats_get_labels_by_period($period), $step, $gid, $gids),
-        'backgroundColor' => gofast_build_array_repeat('rgba(255, 99, 132, 0.2)', gofast_stats_get_repeat_by_period($period)),
-        'borderColor'     => gofast_build_array_repeat('rgba(255,99,132,1)', gofast_stats_get_repeat_by_period($period)),
-        'borderWidth'     => 1,
       ),
       array(
-        'label'             => t('Connected ' . $label, array(), array('context' => 'gofast:stats')),
+        'name'             => t('Connected ' . $label, array(), array('context' => 'gofast:stats')),
         'data'              => gofast_stats_get_active_users_values(gofast_stats_get_labels_by_period($period), $step, $gid, $gids),
-        'backgroundColor' => gofast_build_array_repeat('rgba(54, 162, 235, 0.2)', gofast_stats_get_repeat_by_period($period)),
-        'borderColor'     => gofast_build_array_repeat('rgba(54, 162, 235, 1)', gofast_stats_get_repeat_by_period($period)),
-        'borderWidth'     => 1,
       ),
     ),
-    
+
   );
   gofast_api_success(array('data' => $values));
 }
@@ -758,9 +756,9 @@ function gofast_api_stats_get_users_chart($params){
  * Implements API gofast_api_RESSOURCE_ACTION
  * @ressource stats
  * @action get_top_spaces
- * @params 
+ * @params
  *    $criteria
- * 
+ *
  * Return the 10 top spaces, according to passed criteria
  */
 function gofast_api_stats_get_top_spaces($params){
@@ -768,23 +766,20 @@ function gofast_api_stats_get_top_spaces($params){
   $params = $params['params'];
   $criteria = empty($params[0]) ? "activity" : $params[0];
   $full = empty($params[1]) ? FALSE : $params[1];
-  
+
   $output = array();
     $data = gofast_api_stats_get_top_spaces_values($criteria, $full);
-    
+
     $values = array(
       'labels' => array_values(gofast_get_node_title_multiple(array_keys($data), array(), TRUE)),
       'datasets' => array(
         array(
-          'label'             => array(t(ucfirst($criteria), array(), array('context' => 'gofast:stats'))),
-          'data'              => array_values($data),
-          'backgroundColor' => array('rgba(54, 162, 55, 0.2)', 'rgba(54, 162, 75, 0.2)', 'rgba(54, 162, 95, 0.2)', 'rgba(54, 162, 115, 0.2)', 'rgba(54, 162, 135, 0.2)', 'rgba(54, 162, 155, 0.2)', 'rgba(54, 162, 175, 0.2)', 'rgba(54, 162, 195, 0.2)', 'rgba(54, 162, 210, 0.2)', 'rgba(54, 162, 225, 0.2)'),
-          'borderColor'     => array('rgba(54, 162, 55, 1)', 'rgba(54, 162, 75, 1)', 'rgba(54, 162, 95, 1)', 'rgba(54, 162, 115, 1)', 'rgba(54, 162, 135, 1)', 'rgba(54, 162, 155, 1)', 'rgba(54, 162, 175, 1)', 'rgba(54, 162, 195, 1)', 'rgba(54, 162, 210, 1)', 'rgba(54, 162, 225, 1)'),
-          'borderWidth'     => 1,
+          'name'    => array(t(ucfirst($criteria), array(), array('context' => 'gofast:stats'))),
+          'data'    => array_values($data),
         ),
       ),
     );
-    
+
   return gofast_api_success(array('data' => $values),"200 OK","application/json",null,TRUE);
   }
 
@@ -794,38 +789,38 @@ function gofast_api_stats_get_top_spaces($params){
 function gofast_api_stats_get_top_spaces_values($criteria, $full = FALSE){
   if($criteria === "activity"){
     $activities = array();
-    $activity_documents = db_query("select gid,COUNT(gid) from node_revision INNER JOIN og_membership ON og_membership.etid=node_revision.nid where node_revision.timestamp>=" . (time() - 2629746) . " AND og_membership.field_name='og_group_content_ref' AND gid!=0 group by gid order by COUNT(gid) desc")->fetchAll();
-    $activity_comments = db_query("select gid,COUNT(gid) from comment INNER JOIN og_membership ON og_membership.etid=comment.nid where comment.changed>=" . (time() - 2629746) . " AND og_membership.field_name='og_group_content_ref' AND gid!=0 group by gid order by COUNT(gid) desc")->fetchAll();
-    
+    $activity_documents = db_query("select gid,COUNT(gid) from node_revision INNER JOIN og_membership ON og_membership.etid=node_revision.nid where node_revision.timestamp>=:date AND og_membership.field_name='og_group_content_ref' AND gid!=0 group by gid order by COUNT(gid) desc", array(":date" => (time() - 2629746)))->fetchAll();
+    $activity_comments = db_query("select gid,COUNT(gid) from comment INNER JOIN og_membership ON og_membership.etid=comment.nid where comment.changed>=:date AND og_membership.field_name='og_group_content_ref' AND gid!=0 group by gid order by COUNT(gid) desc", array(":date" => (time() - 2629746)))->fetchAll();
+
     $count_var = "COUNT(gid)";
     foreach($activity_comments as $activity){
       $activities[$activity->gid] = $activity->$count_var;
     }
-    
+
     foreach($activity_documents as $activity){
       $activities[$activity->gid] = $activities[$activity->gid] + $activity->$count_var;
     }
-    
+
     arsort($activities);
     return $full ? $activities : array_slice($activities, 0, 10, TRUE);
   }else if($criteria == "members"){
     $count_var = "COUNT(gid)";
     $top_memebers = db_query("select gid,COUNT(gid) from og_membership INNER JOIN node on og_membership.gid=node.nid where field_name='og_user_node' and node.type!='public' AND gid NOT IN('0', '4', '5', '6', '7') group by gid order by COUNT(gid) desc")->fetchAll();
-    
+
     foreach($top_memebers as $activity){
       $activities[$activity->gid] = $activities[$activity->gid] + $activity->$count_var;
     }
-    
+
     arsort($activities);
     return $full ? $activities : array_slice($activities, 0, 10, TRUE);
   }elseif($criteria == "content"){
     $count_var = "COUNT(gid)";
     $top_content = db_query("select gid,COUNT(gid) from og_membership where field_name='og_group_content_ref' AND gid!=0 group by gid order by COUNT(gid) desc")->fetchAll();
-    
+
     foreach($top_content as $activity){
       $activities[$activity->gid] = $activities[$activity->gid] + $activity->$count_var;
     }
-    
+
     arsort($activities);
     return $full ? $activities : array_slice($activities, 0, 10, TRUE);
   }
@@ -835,11 +830,11 @@ function gofast_api_stats_get_top_spaces_values($criteria, $full = FALSE){
  * Implements API gofast_api_RESSOURCE_ACTION
  * @ressource stats
  * @action get_documents_chart
- * @params 
+ * @params
  *    $period : Can be 1week, 1month, 1year, 2year, 3year
  *    $mode : Evolution or Periodic
  *    $gid : Filter by group ID
- * 
+ *
  * Return the current gofast version
  */
 function gofast_api_stats_get_documents_chart($params){
@@ -848,17 +843,17 @@ function gofast_api_stats_get_documents_chart($params){
   $period = empty($params[0]) ? "1week" : $params[0];
   $mode = empty($params[1]) ? "evolution" : $params[1];
   $gid = empty($params[2]) ? NULL : $params[2];
-  
-  
+
+
   $output = array();
-  
+
   //Define step between values
   if($period == "1week" || $period == "1month"){
     $step = "day";
   }else{
     $step = "month";
   }
-  
+
   if(isset($gid)){
     $funct = "gofast_stats_get_space_documents_values";
   }else{
@@ -868,17 +863,14 @@ function gofast_api_stats_get_documents_chart($params){
     'labels' => gofast_format_date_array(gofast_stats_get_labels_by_period($period), 'privatemsg_years'),
     'datasets' => array(
       array(
-        'label'             => t('Documents', array(), array('context' => 'gofast:stats')),
+        'name'             => t('Documents', array(), array('context' => 'gofast:stats')),
         'data'              => call_user_func($funct, gofast_stats_get_labels_by_period($period), $step, NULL, $mode, $gid),
-        'backgroundColor' => gofast_build_array_repeat('rgba(54, 162, 235, 0.2)', gofast_stats_get_repeat_by_period($period)),
-        'borderColor'     => gofast_build_array_repeat('rgba(54, 162, 235,1)', gofast_stats_get_repeat_by_period($period)),
-        'borderWidth'     => 1,
       ),
     ),
   );
-  
-  $formats = db_query('SELECT tid,name FROM taxonomy_term_data WHERE vid=' . GOFAST_VID_FORMAT);
-  
+
+  $formats = db_query('SELECT tid,name FROM taxonomy_term_data WHERE vid=:vid' , array(":vid" => GOFAST_VID_FORMAT));
+
   while($format = $formats->fetch()){
     $data = call_user_func($funct, gofast_stats_get_labels_by_period($period), $step, $format->tid, $mode, $gid);
     $display = FALSE;
@@ -889,16 +881,12 @@ function gofast_api_stats_get_documents_chart($params){
     }
     if($display === TRUE){
       $values['datasets'][] = array(
-        'label'             => t($format->name, array(), array('context' => 'gofast')),
+        'name'             => t($format->name, array(), array('context' => 'gofast')),
         'data'              => $data,
-        'backgroundColor' => gofast_build_array_repeat('rgba(255,99,132, 0.2)', gofast_stats_get_repeat_by_period($period)),
-        'borderColor'     => gofast_build_array_repeat('rgba(255,99,132, 1)', gofast_stats_get_repeat_by_period($period)),
-        'borderWidth'     => 1,
-        'hidden'          => 1
       );
     }
   }
-  
+
   gofast_api_success(array('data' => $values));
 }
 
@@ -906,10 +894,10 @@ function gofast_api_stats_get_documents_chart($params){
  * Implements API gofast_api_RESSOURCE_ACTION
  * @ressource stats
  * @action get_spaces_chart
- * @params 
+ * @params
  *    $period : Can be 1week, 1month, 1year, 2year, 3year
  *    $mode : Evolution or Periodic
- * 
+ *
  * Return the current gofast version
  */
 function gofast_api_stats_get_spaces_chart($params){
@@ -917,31 +905,28 @@ function gofast_api_stats_get_spaces_chart($params){
   $params = $params['params'];
   $period = empty($params[0]) ? "1week" : $params[0];
   $mode = empty($params[1]) ? "evolution" : $params[1];
-  
+
   $output = array();
-  
+
   //Define step between values
   if($period == "1week" || $period == "1month"){
     $step = "day";
   }else{
     $step = "month";
   }
-  
+
   $values = array(
     'labels' => gofast_format_date_array(gofast_stats_get_labels_by_period($period), 'privatemsg_years'),
     'datasets' => array(
       array(
-        'label'             => t('Spaces', array(), array('context' => 'gofast:stats')),
-        'data'              => gofast_stats_get_spaces_values(gofast_stats_get_labels_by_period($period), $step, NULL, $mode),
-        'backgroundColor' => gofast_build_array_repeat('rgba(54, 162, 235, 0.2)', gofast_stats_get_repeat_by_period($period)),
-        'borderColor'     => gofast_build_array_repeat('rgba(54, 162, 235,1)', gofast_stats_get_repeat_by_period($period)),
-        'borderWidth'     => 1,
+        'name'             => t('Spaces', array(), array('context' => 'gofast:stats')),
+        'data'             => gofast_stats_get_spaces_values(gofast_stats_get_labels_by_period($period), $step, NULL, $mode),
       ),
     ),
   );
-  
+
   $types = array('group', 'organisation', 'public', 'extranet', 'private_space');
-  
+
   foreach($types as $type){
     $data = gofast_stats_get_spaces_values(gofast_stats_get_labels_by_period($period), $step, $type, $mode);
     $display = FALSE;
@@ -965,20 +950,16 @@ function gofast_api_stats_get_spaces_chart($params){
           $label = "Extranet spaces";
           break;
         case 'private_space':
-          $label = "Private spaces";
+          $label = "Personal spaces";
           break;
       }
       $values['datasets'][] = array(
-        'label'             => t($label, array(), array('context' => 'gofast:stats')),
+        'name'             => t($label, array(), array('context' => 'gofast:stats')),
         'data'              => $data,
-        'backgroundColor' => gofast_build_array_repeat('rgba(255,99,132, 0.2)', gofast_stats_get_repeat_by_period($period)),
-        'borderColor'     => gofast_build_array_repeat('rgba(255,99,132, 1)', gofast_stats_get_repeat_by_period($period)),
-        'borderWidth'     => 1,
-        'hidden'          => 1
       );
     }
   }
-  
+
   gofast_api_success(array('data' => $values));
 }
 
@@ -987,19 +968,19 @@ function gofast_api_stats_get_spaces_chart($params){
  * @ressource stats
  * @action get_users_doughnut_state
  * @param gid filter
- * 
+ *
  * Provide informations about the states of the users
  */
 function gofast_api_stats_get_users_doughnut_state($params){
   //Retrieve params
   $params = $params['params'];
   $gid = empty($params[0]) ? NULL : $params[0];
-  $gids = empty($params[1]) ? array() : $params[1];  
-    
+  $gids = empty($params[1]) ? array() : $params[1];
+
   $output = array();
-  
+
   if(!empty($gid)){
-    $filter_uids = db_query("SELECT etid FROM og_membership WHERE gid=".$gid." AND (field_name='og_user_node' OR field_name='og_private')")->fetchAllAssoc("etid");
+    $filter_uids = db_query("SELECT etid FROM og_membership WHERE gid=:gid AND (field_name='og_user_node' OR field_name='og_private')", array(":gid" => $gid))->fetchAllAssoc("etid");
     $filter_uids = array_values($filter_uids);
     foreach($filter_uids as $etid){
       $array_filter_uids[] = $etid->etid;
@@ -1009,7 +990,7 @@ function gofast_api_stats_get_users_doughnut_state($params){
   }else{
     $label = "users";
   }
-  
+
   if(!empty($gids)){
       if(!empty($gid)){
         $sql_filter_space = "AND etid IN (" . implode(",", $array_filter_uids) . ")";
@@ -1022,24 +1003,20 @@ function gofast_api_stats_get_users_doughnut_state($params){
       }
       $sql_filter_uids = "AND uid IN (" . implode(",", $array_filter_uids) . ")";
     }
-  
+
   $count_str = "COUNT(uid)";
   $allowed_users = db_query("SELECT COUNT(uid) FROM users WHERE status=1 ".$sql_filter_uids)->fetch()->$count_str;
-  $blocked_users = db_query("SELECT COUNT(uid) FROM users WHERE status=0 ".$sql_filter_uids)->fetch()->$count_str;
-  
+  $blocked_users = db_query("SELECT COUNT(uid) FROM users LEFT JOIN field_data_field_left ON uid=entity_id WHERE status=0 AND uid>1 AND field_left_value!=1 ".$sql_filter_uids)->fetch()->$count_str;
+  $disabled_users = db_query("SELECT COUNT(uid) FROM users LEFT JOIN field_data_field_left ON uid=entity_id WHERE status=0 AND uid>1 AND field_left_value=1 ".$sql_filter_uids)->fetch()->$count_str;
+
   $values = array(
-    'labels' => array(t("Allowed ".$label, array(), array('context' => 'gofast:stats')), t("Blocked ".$label, array(), array('context' => 'gofast:stats'))),
+    'labels' => array(t("Allowed ".$label, array(), array('context' => 'gofast:stats')), t("Blocked ".$label, array(), array('context' => 'gofast:stats')), t("Disabled ".$label, array(), array('context' => 'gofast:stats'))),
     'datasets' => array(
-      array(
-        'data'              => array($allowed_users, $blocked_users),
-        'backgroundColor' => array('rgba(54, 162, 235, 0.2)', 'rgba(255,99,132, 0.2)'),
-        'borderColor'     => array('rgba(54, 162, 235, 1)', 'rgba(255, 99, 132, 1)'),
-        'borderWidth'     => 1,
-      ),
+        'data'  => array(intval($allowed_users), intval($blocked_users), intval($disabled_users)),
     ),
-    
+
   );
-  
+
   gofast_api_success(array('data' => $values));
 }
 
@@ -1048,25 +1025,27 @@ function gofast_api_stats_get_users_doughnut_state($params){
  * @ressource stats
  * @action get_category
  * @param gid : filter
- * 
+ *
  * Provide informations about the category metadata
  */
 function gofast_api_stats_get_category($params){
   //Retrieve params
   $params = $params['params'];
   $gid = empty($params[0]) ? NULL : $params[0];
-  
+
   $output = array();
   $labels = array();
   $datav = array();
-  
+
   if(isset($gid)){
     $spaces = array_values(gofast_og_get_children($gid, TRUE, FALSE, TRUE));
     $spaces[] = $gid;
     $sql_spaces = implode(",", $spaces);
   }
-  
+
   $formats = db_query('SELECT tid,name FROM taxonomy_term_data WHERE vid=' . GOFAST_VID_CATEGORY);
+  $total = 0;
+  $percentage_associations = [];
   while($format = $formats->fetch()){
     if(isset($gid)){
       $count_var = 'COUNT(DISTINCT(etid))';
@@ -1079,22 +1058,33 @@ function gofast_api_stats_get_category($params){
       continue;
     }
     $labels[] = t($format->name, array(), array('context' => 'gofast'));
-    $datav[] = $data;
+    $datav[] = intval($data);
+    $total += intval($data);
   }
-  
+
+  if(empty($datav)){
+      $datav[] = 1;
+      $total = 1;
+      $labels[] = "N/A";
+  }
+
+  //Associate values with percentages
+  foreach($datav as &$val){
+      $percentage_associations[intval(($val/$total)*100)] = $val;
+      $val = (intval($val/$total*100));
+  }
+
+  $total_label = count($datav) > 1 ? "TOTAL" : $labels[0];
+
   $values = array(
     'labels' => $labels,
     'datasets' => array(
-      array(
-        'label'           => t("Category", array(), array('context' => 'gofast')),
-        'data'            => $datav,
-        'backgroundColor' => array('rgba(54, 162, 235, 0.2)'),
-        'borderColor'     => array('rgba(54, 162, 235, 1)'),
-        'borderWidth'     => 1,
-      ),
+        'data'  => $datav,
+        'percentage' => $percentage_associations,
+        'total_label' => $total_label
     ),
   );
-  
+
   gofast_api_success(array('data' => $values));
 }
 
@@ -1103,24 +1093,24 @@ function gofast_api_stats_get_category($params){
  * @ressource stats
  * @action get_criticity
  * @params gid : filter
- * 
+ *
  * Provide informations about the criticity metadata
  */
 function gofast_api_stats_get_criticity($params){
   //Retrieve params
   $params = $params['params'];
   $gid = empty($params[0]) ? NULL : $params[0];
-  
+
   $output = array();
   $labels = array();
   $datav = array();
-  
+
   if(isset($gid)){
     $spaces = array_values(gofast_og_get_children($gid, TRUE, FALSE, TRUE));
     $spaces[] = $gid;
     $sql_spaces = implode(",", $spaces);
   }
-  
+
   $formats = db_query('SELECT tid,name FROM taxonomy_term_data WHERE vid=' . GOFAST_VID_CRITICITY);
   while($format = $formats->fetch()){
     if(isset($gid)){
@@ -1134,22 +1124,33 @@ function gofast_api_stats_get_criticity($params){
       continue;
     }
     $labels[] = t($format->name, array(), array('context' => 'gofast'));
-    $datav[] = $data;
+    $datav[] = intval($data);
+    $total += intval($data);
   }
-  
+
+  if(empty($datav)){
+      $datav[] = 1;
+      $total = 1;
+      $labels[] = "N/A";
+  }
+
+  //Associate values with percentages
+  foreach($datav as &$val){
+      $percentage_associations[intval(($val/$total)*100)] = $val;
+      $val = (intval($val/$total*100));
+  }
+
+  $total_label = count($datav) > 1 ? "TOTAL" : $labels[0];
+
   $values = array(
     'labels' => $labels,
     'datasets' => array(
-      array(
-        'label'           => t("Criticity", array(), array('context' => 'gofast')),
-        'data'            => $datav,
-        'backgroundColor' => array('rgba(54, 162, 235, 0.2)'),
-        'borderColor'     => array('rgba(54, 162, 235, 1)'),
-        'borderWidth'     => 1,
-      ),
+        'data'  => $datav,
+        'percentage' => $percentage_associations,
+        'total_label' => $total_label
     ),
   );
-  
+
   gofast_api_success(array('data' => $values));
 }
 
@@ -1158,24 +1159,24 @@ function gofast_api_stats_get_criticity($params){
  * @ressource stats
  * @action get_state
  * @params : gid filter
- * 
+ *
  * Provide informations about the state metadata
  */
 function gofast_api_stats_get_state($params){
   //Retrieve params
   $params = $params['params'];
   $gid = empty($params[0]) ? NULL : $params[0];
-    
+
   $output = array();
   $labels = array();
   $datav = array();
-  
+
   if(isset($gid)){
     $spaces = array_values(gofast_og_get_children($gid, TRUE, FALSE, TRUE));
     $spaces[] = $gid;
     $sql_spaces = implode(",", $spaces);
   }
-  
+
   $formats = db_query('SELECT tid,name FROM taxonomy_term_data WHERE vid=' . GOFAST_VID_STATE);
   while($format = $formats->fetch()){
     if(isset($gid)){
@@ -1189,22 +1190,33 @@ function gofast_api_stats_get_state($params){
       continue;
     }
     $labels[] = t($format->name, array(), array('context' => 'gofast'));
-    $datav[] = $data;
+    $datav[] = intval($data);
+    $total += intval($data);
   }
-  
+
+  if(empty($datav)){
+      $datav[] = 1;
+      $total = 1;
+      $labels[] = "N/A";
+  }
+
+  //Associate values with percentages
+  foreach($datav as &$val){
+      $percentage_associations[intval(($val/$total)*100)] = $val;
+      $val = (intval($val/$total*100));
+  }
+
+  $total_label = count($datav) > 1 ? "TOTAL" : $labels[0];
+
   $values = array(
     'labels' => $labels,
     'datasets' => array(
-      array(
-        'label'           => t("State", array(), array('context' => 'gofast')),
-        'data'            => $datav,
-        'backgroundColor' => array('rgba(54, 162, 235, 0.2)'),
-        'borderColor'     => array('rgba(54, 162, 235, 1)'),
-        'borderWidth'     => 1,
-      ),
+        'data'  => $datav,
+        'percentage' => $percentage_associations,
+        'total_label' => $total_label
     ),
   );
-  
+
   gofast_api_success(array('data' => $values));
 }
 
@@ -1212,7 +1224,7 @@ function gofast_api_stats_get_state($params){
  * Implements API gofast_api_RESSOURCE_ACTION
  * @ressource stats
  * @action get_users_doughnut_storage
- * 
+ *
  * Provide informations about the current storage of the machine
  */
 function gofast_api_stats_get_documents_storage(){
@@ -1228,69 +1240,59 @@ function gofast_api_stats_get_documents_storage(){
   $values = array(
     'labels' => array(t("Free hard storage", array(), array('context' => 'gofast:stats')) . " (" . $formated_free_storage['unit'] . ")", t("Used hard storage", array(), array('context' => 'gofast:stats')) . " (" . $formated_used_storage['unit'] . ")"),
     'datasets' => array(
-      array(
         'data'              => array($formated_free_storage['result'], $formated_used_storage['result']),
-        'backgroundColor' => array('rgba(54, 162, 235, 0.2)', 'rgba(255,99,132, 0.2)'),
-        'borderColor'     => array('rgba(54, 162, 235, 1)', 'rgba(255, 99, 132, 1)'),
-        'borderWidth'     => 1,
-      ),
     ),
-    
+
   );
-  
+
   gofast_api_success(array('data' => $values));
 }
 
-function formatBytes($bytes, $precision = 2) { 
-  $units = array('B', 'KB', 'MB', 'GB', 'TB'); 
+function formatBytes($bytes, $precision = 2) {
+  $units = array('B', 'KB', 'MB', 'GB', 'TB');
 
-  $bytes = max($bytes, 0); 
-  $pow = floor(($bytes ? log($bytes) : 0) / log(1024)); 
-  $pow = min($pow, count($units) - 1); 
+  $bytes = max($bytes, 0);
+  $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+  $pow = min($pow, count($units) - 1);
 
-  
+
 
 
   // Uncomment one of the following alternatives
   $bytes /= pow(1024, $pow);
-  // $bytes /= (1 << (10 * $pow)); 
+  // $bytes /= (1 << (10 * $pow));
 
   $result = round($bytes, $precision);
 
   return array('result' => $result, 'unit' => $units[$pow]);
-} 
+}
 
 /*
  * Implements API gofast_api_RESSOURCE_ACTION
  * @ressource stats
  * @action get_users_doughnut_storage
- * 
+ *
  * Provide informations about the current indexation
  */
 function gofast_api_stats_get_documents_indexation(){
   require_once drupal_get_path('module', 'gofast_search') . '/gofast_search.admin.inc';
   $output = array();
-  
+
   $stats = gofast_search_get_stats(GOFAST_SEARCH_ENV_ID, TRUE);
-  
+
   $pending = $stats['pending'] + $stats['queued'];
   $not_indexed = count(variable_get('gofast_search_index_node_exclude', array()));
   $not_tika = count(variable_get('gofast_search_tika_node_exclude', array()));
   $indexed = $stats['indexed'];
-  
+
   $values = array(
     'labels' => array(t("Indexed documents", array(), array('context' => 'gofast:stats')), t("Pending for indexation", array(), array('context' => 'gofast:stats')), t("Not indexed", array(), array('context' => 'gofast:stats')), t("Only metadata indexed", array(), array('context' => 'gofast:stats'))),
     'datasets' => array(
-      array(
-        'data'              => array($indexed, $pending, $not_indexed, $not_tika),
-        'backgroundColor' => array('rgba(54, 162, 235, 0.2)', 'rgba(255, 206, 86, 0.2)', 'rgba(255,99,132, 0.2)', 'rgba(75, 192, 192, 0.2)'),
-        'borderColor'     => array('rgba(54, 162, 235, 1)', 'rgba(255, 206, 86, 1)', 'rgba(255, 99, 132, 1)', 'rgba(75, 192, 192, 1)'),
-        'borderWidth'     => 1,
-      ),
+        'data'  => array($indexed, $pending, $not_indexed, $not_tika),
     ),
-    
+
   );
-  
+
   gofast_api_success(array('data' => $values));
 }
 
@@ -1299,7 +1301,7 @@ function gofast_api_stats_get_documents_indexation(){
  * @ressource stats
  * @action get_users_doughnut_active
  * @params gid filter
- * 
+ *
  * Provide informations about the activity of the users (# of active/inactive)
  */
 function gofast_api_stats_get_users_doughnut_active($params){
@@ -1307,9 +1309,9 @@ function gofast_api_stats_get_users_doughnut_active($params){
   $params = $params['params'];
   $gid = empty($params[0]) ? NULL : $params[0];
   $gids = empty($params[1]) ? array() : $params[1];
-  
+
   $output = array();
-  
+
   if(!empty($gid)){
     $filter_uids = db_query("SELECT etid FROM og_membership WHERE gid=".$gid." AND (field_name='og_user_node' OR field_name='og_private')")->fetchAllAssoc("etid");
     $filter_uids = array_values($filter_uids);
@@ -1321,7 +1323,7 @@ function gofast_api_stats_get_users_doughnut_active($params){
   }else{
     $label = "users";
   }
-  
+
   if(!empty($gids)){
       if(!empty($gid)){
         $sql_filter_space = "AND etid IN (" . implode(",", $array_filter_uids) . ")";
@@ -1334,24 +1336,19 @@ function gofast_api_stats_get_users_doughnut_active($params){
       }
       $sql_filter_uids = "uid IN (" . implode(",", $array_filter_uids) . ") AND";
   }
-  
+
   $count_str = "COUNT(uid)";
   $active_users = db_query("SELECT COUNT(uid) FROM users WHERE ".$sql_filter_uids." login>" . (time()-7889238))->fetch()->$count_str;
   $inactive_users = db_query("SELECT COUNT(uid) FROM users WHERE ".$sql_filter_uids." login<=" . (time()-7889238))->fetch()->$count_str;
-  
+
   $values = array(
     'labels' => array(t("Active ".$label, array(), array('context' => 'gofast:stats')), t("Inactive ".$label, array(), array('context' => 'gofast:stats'))),
     'datasets' => array(
-      array(
-        'data'              => array($active_users, $inactive_users),
-        'backgroundColor' => array('rgba(54, 162, 235, 0.2)', 'rgba(255,99,132, 0.2)'),
-        'borderColor'     => array('rgba(54, 162, 235, 1)', 'rgba(255, 99, 132, 1)'),
-        'borderWidth'     => 1,
-      ),
+      'data' => array(intval($active_users), intval($inactive_users)),
     ),
-    
+
   );
-  
+
   gofast_api_success(array('data' => $values));
 }
 
@@ -1359,32 +1356,29 @@ function gofast_api_stats_get_users_doughnut_active($params){
  * Implements API gofast_api_RESSOURCE_ACTION
  * @ressource stats
  * @action get_users_doughnut_roles
- * 
+ *
  * Provide informations about the roles and permissions of the users
  */
 function gofast_api_stats_get_users_doughnut_roles(){
   $output = array();
-  
+
   $count_str = "COUNT(users_roles.uid)";
   $count_strb = "COUNT(entity_id)";
   $platform_admin = db_query("select COUNT(users_roles.uid) from users_roles INNER JOIN role on users_roles.rid=role.rid WHERE name='administrator'")->fetch()->$count_str;
   $manager = db_query("select COUNT(users_roles.uid) from users_roles INNER JOIN role on users_roles.rid=role.rid WHERE name='manager'")->fetch()->$count_str;
   $broadcaster = db_query("select COUNT(entity_id) from field_data_is_broadcaster WHERE is_broadcaster_value=1")->fetch()->$count_strb;
   $extranet = db_query("select COUNT(entity_id) from field_data_is_extranet WHERE is_extranet_value=1")->fetch()->$count_strb;
-  
+
   $values = array(
     'labels' => array(t("Admins", array(), array('context' => 'gofast:stats')), t("Space admins", array(), array('context' => 'gofast:stats')), t("Broadcasters", array(), array('context' => 'gofast:stats')), t("Extranet", array(), array('context' => 'gofast:stats'))),
     'datasets' => array(
       array(
-        'data'              => array($platform_admin, $manager, $broadcaster, $extranet),
-        'backgroundColor' => array('rgba(255,99,132, 0.2)', 'rgba(255,206,86,0.2)', 'rgba(153,102,255,0.2)', 'rgba(54,162,235,0.2)'),
-        'borderColor'     => array('rgba(255, 99, 132, 1)', 'rgba(255,206,86,1)', 'rgba(153,102,255,1)', 'rgba(54,162,235,1)'),
-        'borderWidth'     => 1,
+        'data'  => array($platform_admin, $manager, $broadcaster, $extranet),
       ),
     ),
-    
+
   );
-  
+
   gofast_api_success(array('data' => $values));
 }
 
@@ -1393,26 +1387,26 @@ function gofast_api_stats_get_users_doughnut_roles(){
  * @ressource stats
  * @action get_members_doughnut_roles
  * @params gid filter
- * 
+ *
  * Provide informations about the roles of the users in a space
  */
 function gofast_api_stats_get_members_doughnut_roles($params){
   //Retrieve params
   $params = $params['params'];
   $gid = $params[0];
-  
+
   $output = array();
   $admins = 0;
   $contribs = 0;
   $ro = 0;
   $requesters = 0;
-  
+
   $filter_uids = db_query("SELECT etid FROM og_membership WHERE gid=".$gid." AND (field_name='og_user_node' OR field_name='og_private')")->fetchAllAssoc("etid");
   $filter_uids = array_values($filter_uids);
   foreach($filter_uids as $etid){
     $array_filter_uids[] = $etid->etid;
   }
-  
+
   foreach($array_filter_uids as $uid){
     $role = array_values(gofast_og_get_user_roles($gid, $uid));
     $role = $role[0];
@@ -1436,9 +1430,9 @@ function gofast_api_stats_get_members_doughnut_roles($params){
         'borderWidth'     => 1,
       ),
     ),
-    
+
   );
-  
+
   gofast_api_success(array('data' => $values));
 }
 
@@ -1455,19 +1449,19 @@ function gofast_stats_get_labels_by_period($period){
     case '1month' :
       $return = gofast_time_range(strtotime('today midnight -1 month +1 day'), strtotime('today midnight'), "+1 day");
       break;
-    case '1year' : 
+    case '1year' :
       $return = gofast_time_range(strtotime('first day of midnight -1 year +1 day'), strtotime('first day of midnight'), "+1 month");
       break;
-    case '2year' : 
+    case '2year' :
       $return = gofast_time_range(strtotime('first day of midnight -2 year +1 day'), strtotime('first day of midnight'), "+1 month");
       break;
-    case '3year' : 
+    case '3year' :
       $return = gofast_time_range(strtotime('first day of midnight -3 year +1 day'), strtotime('first day of midnight'), "+1 month");
       break;
     default:
       break;
   }
-  
+
   return $return;
 }
 
@@ -1484,19 +1478,19 @@ function gofast_stats_get_repeat_by_period($period){
     case '1month' :
       $return = 32;
       break;
-    case '1year' : 
+    case '1year' :
       $return = 366;
       break;
-    case '2year' : 
+    case '2year' :
       $return = 366*2;
       break;
-    case '3year' : 
+    case '3year' :
       $return = 366*3;
       break;
     default:
       break;
   }
-  
+
   return $return;
 }
 
@@ -1508,7 +1502,7 @@ function gofast_stats_get_repeat_by_period($period){
  */
 function gofast_stats_get_new_users_values($times, $step, $gid = NULL, $gids=array()){
   $return = array();
-  
+
   foreach($times as $time){
     if($step == 'day'){
       $to = $time + 86400;
@@ -1516,7 +1510,7 @@ function gofast_stats_get_new_users_values($times, $step, $gid = NULL, $gids=arr
       $to = $time + 2679400;
     }
     $count_attr = "COUNT (uid)";
-    
+
     if(!empty($gids)){
       $filter_uids = db_query("SELECT etid FROM og_membership WHERE gid IN(".implode(',', $gids).") AND (field_name='og_user_node' OR field_name='og_private')")->fetchAllAssoc("etid");
       $filter_uids = array_values($filter_uids);
@@ -1526,7 +1520,7 @@ function gofast_stats_get_new_users_values($times, $step, $gid = NULL, $gids=arr
       }
       $sql_filter_uids = "AND uid IN (" . implode(",", $array_filter_uids) . ")";
     }
-    
+
     $return[] = db_query("SELECT COUNT (uid) FROM users where created <=" . $to . " AND created >=" . $time . " " . $sql_filter_uids)->fetch()->$count_attr;
   }
   return $return;
@@ -1541,14 +1535,14 @@ function gofast_stats_get_new_users_values($times, $step, $gid = NULL, $gids=arr
  */
 function gofast_stats_get_new_members_values($times, $step, $gid, $gids = array()){
   $return = array();
-  
+
   foreach($times as $time){
     if($step == 'day'){
       $to = $time + 86400;
     }else{
       $to = $time + 2679400;
     }
-    
+
     if(!empty($gids)){
       $filter_uids = db_query("SELECT etid FROM og_membership WHERE gid IN(".implode(',', $gids).") AND (field_name='og_user_node' OR field_name='og_private')")->fetchAllAssoc("etid");
       $filter_uids = array_values($filter_uids);
@@ -1558,7 +1552,7 @@ function gofast_stats_get_new_members_values($times, $step, $gid, $gids = array(
       }
       $sql_filter_uids = "AND etid IN (" . implode(",", $array_filter_uids) . ")";
     }
-    
+
     $count_attr = "COUNT(etid)";
     $return[] = db_query("SELECT COUNT(etid) FROM og_membership where (field_name='og_user_node' OR field_name='og_private') AND gid=".$gid." AND created <=" . $to . " AND created >=" . $time . " " . $sql_filter_uids)->fetch()->$count_attr;
   }
@@ -1574,7 +1568,7 @@ function gofast_stats_get_new_members_values($times, $step, $gid, $gids = array(
  */
 function gofast_stats_get_documents_values($times, $step, $format = NULL, $mode = "evolution"){
   $return = array();
-  
+
   foreach($times as $time){
     if($step == 'day'){
       $to = $time + 86400;
@@ -1645,7 +1639,7 @@ function gofast_stats_get_space_documents_values($times, $step, $format = NULL, 
  */
 function gofast_stats_get_spaces_values($times, $step, $type = NULL, $mode = "evolution"){
   $return = array();
-  
+
   foreach($times as $time){
     if($step == 'day'){
       $to = $time + 86400;
@@ -1655,15 +1649,15 @@ function gofast_stats_get_spaces_values($times, $step, $type = NULL, $mode = "ev
     $count_attr = "COUNT(nid)";
     if($mode == "periodic"){
       if(empty($type)){
-        $return[] = db_query("SELECT COUNT(DISTINCT nid) as 'COUNT(nid)' from node INNER JOIN field_data_field_format ON nid=entity_id where node.status= 1 AND type IN('group', 'organisation', 'extranet', 'public', 'private_space') AND created <=" . $to . " AND created >" . $time)->fetch()->$count_attr;
+        $return[] = db_query("SELECT COUNT(DISTINCT nid) as 'COUNT(nid)' from node INNER JOIN field_data_field_format ON nid=entity_id where node.status=1 AND type IN('group', 'organisation', 'extranet', 'public', 'private_space') AND created <=:to  AND created >:time", array(":to" => $to, ":time" => $time))->fetch()->$count_attr;
       }else{
-        $return[] = db_query("SELECT COUNT(DISTINCT nid) as 'COUNT(nid)' from node INNER JOIN field_data_field_format ON nid=entity_id where node.status= 1 AND type='".$type."' AND created <=" . $to . " AND created>" . $time)->fetch()->$count_attr;
+        $return[] = db_query("SELECT COUNT(DISTINCT nid) as 'COUNT(nid)' from node INNER JOIN field_data_field_format ON nid=entity_id where node.status=1 AND type=:type AND created <=:to AND created>:time", array(":type" => $type, ":to" => $to, ":time" => $time))->fetch()->$count_attr;
       }
     }else{
       if(empty($type)){
-        $return[] = db_query("SELECT COUNT(DISTINCT nid) as 'COUNT(nid)' from node INNER JOIN field_data_field_format ON nid=entity_id where node.status= 1 AND type IN('group', 'organisation', 'extranet', 'public', 'private_space') AND created <=" . $to)->fetch()->$count_attr;
+        $return[] = db_query("SELECT COUNT(DISTINCT nid) as 'COUNT(nid)' from node INNER JOIN field_data_field_format ON nid=entity_id where node.status=1 AND type IN('group', 'organisation', 'extranet', 'public', 'private_space') AND created <=:to", array(":to" => $to))->fetch()->$count_attr;
       }else{
-        $return[] = db_query("SELECT COUNT(DISTINCT nid) as 'COUNT(nid)' from node INNER JOIN field_data_field_format ON nid=entity_id node.status= 1 AND where type='".$type."' AND created <=" . $to)->fetch()->$count_attr;
+        $return[] = db_query("SELECT COUNT(DISTINCT nid) as 'COUNT(nid)' from node INNER JOIN field_data_field_format ON nid=entity_id WHERE node.status=1 AND type=:type AND created <= :to", array(":type" => $type, ":to" => $to))->fetch()->$count_attr;
       }
     }
   }
@@ -1680,16 +1674,16 @@ function gofast_stats_get_spaces_values($times, $step, $type = NULL, $mode = "ev
 function gofast_stats_get_active_users_values($times, $step, $gid = NULL, $gids = array()){
   $return = array();
   $array_filter_uids = array();
-  
+
   if(!empty($gid)){
-    $filter_uids = db_query("SELECT etid FROM og_membership WHERE gid=".$gid." AND (field_name='og_user_node' OR field_name='og_private')")->fetchAllAssoc("etid");
+    $filter_uids = db_query("SELECT etid FROM og_membership WHERE gid=:gid AND (field_name='og_user_node' OR field_name='og_private')", array(":gid" => $gid))->fetchAllAssoc("etid");
     $filter_uids = array_values($filter_uids);
     foreach($filter_uids as $etid){
       $array_filter_uids[] = $etid->etid;
     }
     $sql_filter_uids = "AND uid IN (" . implode(",", $array_filter_uids) . ")";
   }
-  
+
   if(!empty($gids)){
     if(!empty($gid)){
       $sql_filter_space = "AND etid IN (" . implode(",", $array_filter_uids) . ")";
@@ -1702,7 +1696,7 @@ function gofast_stats_get_active_users_values($times, $step, $gid = NULL, $gids 
     }
     $sql_filter_uids = "AND uid IN (" . implode(",", $array_filter_uids) . ")";
   }
-  
+
   foreach($times as $time){
     if($step == 'day'){
       $to = $time + 86400;
@@ -1719,18 +1713,48 @@ function gofast_stats_get_active_users_values($times, $step, $gid = NULL, $gids 
  * Fake form for filter input
  */
 function gofast_stats_global_filter_users_form($form, &$form_state){
-  
-  $form['apply'] = array(
-    '#value' => t('Apply', array(), array('context' => 'gofast:stats')),
-    '#type' => 'button',
-  ); 
-  $form['filter'] = array(
+  global $user;
+  $gid = $form_state['build_info']['args'][0];
+  $role = array_values(gofast_og_get_user_roles($gid, $user->uid))[0];
+  $can_download_stats = $role == "administrator member" || gofast_user_is_business_admin($user);
+  $apply_button = array(
+      'apply' => array(
+          '#value' => t('Apply', array(), array('context' => 'gofast:stats')),
+          '#type' => 'button',
+          '#id' => "users_stats_filter_apply",
+          '#attributes' => [
+            'class' => ['py-0 input-group-text'],
+          ],
+      ),
+      'download' => $can_download_stats
+        ? array(
+          '#value' => "<i class='fa fa-file-excel-o'></i>",
+          '#type' => 'button',
+          '#id' => 'user_export_btn_group_xlsx',
+          '#attributes' => array(
+              'onClick' => 'event.preventDefault();Gofast.download_users_stats("user_stats")',
+              'class' => ['input-group-text'],
+          ),
+        )
+        : array(),
+  );
+
+  $attributes_list_filters = [
+    'class' => [' form-control-tags js-tagify'],
+    'data-node' => '', // show ac node
+  ];
+
+    $form['stats_filters'] = array(
     '#title' => t('Filter users statistics by space', array(), array('context' => 'gofast:stats')),
     '#type' => 'textfield',
-    '#size' => 62,
+    '#name' => 'ac-list-tags-list-filters',
+    '#description' => t("You can select spaces in the text input to export memberships between users and these spaces", array(), array('context' => "gofast:gofast_stats")),
+    '#size' => 99999,
     '#maxlength' => '', // no maxlength
-    '#autocomplete_path' => 'gofast_space_autocomplete',
-    '#attributes' => array('class' => array('labelize-autocomplete labelize-insert')),
+    '#attributes' => $attributes_list_filters,
+    '#field_suffix' => drupal_render($apply_button),
+    '#input_group' => TRUE
   );
+
   return $form;
 }

@@ -75,6 +75,9 @@
    * @param Node $node
    */
 function gofast_userlist_node_insert($node) {
+  
+  global $user;
+  
   if ($node->type === 'userlist') {
 
     $entity = entity_load_single('userlist', $node->field_userlist_ulid[LANGUAGE_NONE][0]['value']);
@@ -83,6 +86,30 @@ function gofast_userlist_node_insert($node) {
     // save Userlist nid in Userlist entity  
     entity_save('userlist', $entity);
     
+    if(!empty($node->fieldset_userlist['field_userlist_admincomplete'])){
+      $roles_query = og_roles('node', "userlist", $entity->nid , FALSE, FALSE);
+      foreach ($roles_query as $rkey => $roles) {
+        if ($roles == GOFAST_OG_ROLE_ADMIN) {
+          $admin_rid = $rkey;
+        }
+        if ($roles == GOFAST_OG_ROLE_READ_ONLY) {
+          $readonly_rid = $rkey;
+        }
+        if ($roles == GOFAST_OG_ROLE_STANDARD) {
+          $contributor_rid = $rkey;
+        }
+      }
+      
+      // Add administrators on the userlist
+      $admins = explode(',',$node->fieldset_userlist['field_userlist_admincomplete']);
+      foreach($admins as $admin){
+        gofast_og_subscribe_user($entity->nid, $admin);
+        og_role_revoke('node', $entity->nid, $admin, $readonly_rid);
+        og_role_revoke('node', $entity->nid, $admin, $contributor_rid);
+        og_role_revoke('node', $entity->nid, $admin, $admin_rid);
+        og_role_grant('node', $entity->nid, $admin, $admin_rid);
+      }
+    }
     
     //Send welcome message to members
     $members=explode(',',$node->field_userlist_members);

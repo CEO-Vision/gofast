@@ -1,3 +1,9 @@
+// -----------------------------------------------------------------------
+// IT Hit WebDAV Ajax Library v5.20.5655.0
+// Copyright © 2020 IT Hit LTD. All rights reserved.
+// License: https://www.webdavsystem.com/ajax/
+// -----------------------------------------------------------------------
+
 
 // Declare ITHit core.
 if ('undefined' === typeof ITHit) {
@@ -16131,7 +16137,7 @@ ITHit.Phrases.LoadJSON(ITHit.Temp.WebDAV_Phrases);
              * Version of AJAX Library
              * @api
              */
-            Version: '5.20.5641.0',
+            Version: '5.20.5655.0',
 
             /**
             * Protocol Version of AJAX Library
@@ -20620,6 +20626,28 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
              */
             OnRetryResult: function(oContext, oResult) {
 
+            },
+
+            _CompletePauseAsync: function(oContext, fCallback, thisArg) {
+                if (oContext.IsRetrySchedule){
+                    oContext.IsRetrySchedule = false;
+                }
+                oContext.SetState(ITHit.WebDAV.Client.Upload.States.Factory.GetPausedState());
+                fCallback.call(thisArg);
+            },
+
+            _StartPauseAsync: function(oContext, fCallback) {
+                oContext._ProgressTracker.StopTracking();
+                oContext.CancelAllRequests(function(){
+                    if (oContext.IsContentSend) {
+                        oContext.SyncProgressWithServerAsync(function(oAsyncResult){
+                            this._CompletePauseAsync(oContext, fCallback);
+                        }, this);
+                        return;
+                    }
+
+                    this._CompletePauseAsync(oContext, fCallback);
+                }, this);
             }
 
         });
@@ -20721,6 +20749,14 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
                 oContext.SetState(ITHit.WebDAV.Client.Upload.States.Factory.GetSkippedState());
             },
 
+
+            /**
+             * @override
+             */
+            PauseUpload: function (oContext, fCallback) {
+                this._StartPauseAsync(oContext, fCallback);
+            },
+
             /**
              * @param {ITHit.WebDAV.Client.Upload.Providers.UploadProvider} oContext
              * @param {number} iTryCount
@@ -20798,28 +20834,11 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
                 oContext.PrepareUploadLocation();
             },
 
-            _PauseCompletedAsync: function(oContext, fCallback, thisArg) {
-                if (oContext.IsRetrySchedule){
-                    oContext.IsRetrySchedule = false;
-                }
-                oContext.SetState(ITHit.WebDAV.Client.Upload.States.Factory.GetPausedState());
-                fCallback.call(thisArg);
-            },
             /**
              * @override
              */
             PauseUpload: function(oContext, fCallback) {
-                oContext._ProgressTracker.StopTracking();
-                oContext.CancelAllRequests(function(){
-                    if (oContext.IsContentSend) {
-                        oContext.SyncProgressWithServerAsync(function(oAsyncResult){
-                            this._PauseCompletedAsync(oContext, fCallback);
-                        }, this);
-                        return;
-                    }
-
-                    this._PauseCompletedAsync(oContext, fCallback);
-                }, this);
+                this._StartPauseAsync(oContext, fCallback);
             },
 
             /**

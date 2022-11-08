@@ -33,6 +33,12 @@ function gofast_features_search_default_fe_block_settings() {
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 0,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -52,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -65,6 +71,12 @@ function gofast_features_search_default_fe_block_settings() {
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 0,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -53,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -90,13 +102,20 @@ search/solr/*',
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast',
-        'weight' => -47,
+        'weight' => -57,
       ),
       'bootstrap_gofast_mobile' => array(
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -38,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -47,
+
       ),
       'seven' => array(
         'region' => '',
@@ -107,6 +126,44 @@ search/solr/*',
     ),
     'title' => 'Current search',
     'visibility' => 1,
+  );
+
+  $export['facetapi-4K9uGzfO1yCwHAwpTFRIs35merV59HFA'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => '4K9uGzfO1yCwHAwpTFRIs35merV59HFA',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => 0,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => 0,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => 0,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
   );
 
   $export['facetapi-92UUVWTLTPj6BCT01cxok6z1M059jUaB'] = array(
@@ -127,7 +184,13 @@ return isset($options["include-deleted"]) && $options["include-deleted"];
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast',
-        'weight' => -25,
+        'weight' => -31,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -31,
       ),
       'bootstrap_gofast_mobile' => array(
         'region' => 'sidebar_second',
@@ -159,7 +222,13 @@ return isset($options["include-deleted"]) && $options["include-deleted"];
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast',
-        'weight' => -38,
+        'weight' => -47,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -47,
       ),
       'bootstrap_gofast_mobile' => array(
         'region' => 'sidebar_second',
@@ -191,13 +260,57 @@ return isset($options["include-deleted"]) && $options["include-deleted"];
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast',
-        'weight' => -43,
+        'weight' => -53,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -53,
       ),
       'bootstrap_gofast_mobile' => array(
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -36,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-BwVaB5J87dN5DXcs5SmNyM6X5xoVsV6z'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'BwVaB5J87dN5DXcs5SmNyM6X5xoVsV6z',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => 0,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => 0,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => 0,
       ),
       'seven' => array(
         'region' => '',
@@ -223,13 +336,57 @@ return isset($options["include-deleted"]) && $options["include-deleted"];
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast',
-        'weight' => -32,
+        'weight' => -38,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -38,
       ),
       'bootstrap_gofast_mobile' => array(
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -28,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-DwTHsyzyS0wtYkOTXLjpWU7UVGnlXrZX'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'DwTHsyzyS0wtYkOTXLjpWU7UVGnlXrZX',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => -26,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -26,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => 0,
       ),
       'seven' => array(
         'region' => '',
@@ -255,7 +412,13 @@ return isset($options["include-deleted"]) && $options["include-deleted"];
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast',
-        'weight' => -31,
+        'weight' => -37,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -37,
       ),
       'bootstrap_gofast_mobile' => array(
         'region' => 'sidebar_second',
@@ -287,7 +450,13 @@ return isset($options["include-deleted"]) && $options["include-deleted"];
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast',
-        'weight' => -35,
+        'weight' => -41,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -41,
       ),
       'bootstrap_gofast_mobile' => array(
         'region' => 'sidebar_second',
@@ -319,7 +488,13 @@ return isset($options["include-deleted"]) && $options["include-deleted"];
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast',
-        'weight' => -40,
+        'weight' => -49,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -49,
       ),
       'bootstrap_gofast_mobile' => array(
         'region' => 'sidebar_second',
@@ -351,13 +526,57 @@ return isset($options["include-deleted"]) && $options["include-deleted"];
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast',
-        'weight' => -33,
+        'weight' => -39,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -39,
       ),
       'bootstrap_gofast_mobile' => array(
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -29,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-Us0Tkyi90jo9c60VFZS8JYi44Ov258AM'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'Us0Tkyi90jo9c60VFZS8JYi44Ov258AM',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => 0,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => 0,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => 0,
       ),
       'seven' => array(
         'region' => '',
@@ -383,13 +602,57 @@ return isset($options["include-deleted"]) && $options["include-deleted"];
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast',
-        'weight' => -34,
+        'weight' => -40,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -40,
       ),
       'bootstrap_gofast_mobile' => array(
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -30,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-YUlmVc9fFN9VIvqt8jf3xxaYHS7eF1tO'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'YUlmVc9fFN9VIvqt8jf3xxaYHS7eF1tO',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => 0,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => 0,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => 0,
       ),
       'seven' => array(
         'region' => '',
@@ -415,7 +678,13 @@ return isset($options["include-deleted"]) && $options["include-deleted"];
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast',
-        'weight' => -36,
+        'weight' => -43,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -43,
       ),
       'bootstrap_gofast_mobile' => array(
         'region' => 'sidebar_second',
@@ -447,13 +716,133 @@ return isset($options["include-deleted"]) && $options["include-deleted"];
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast',
-        'weight' => -30,
+        'weight' => -36,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -36,
       ),
       'bootstrap_gofast_mobile' => array(
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -26,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-gWvcE1QpIKcZmGt1j6SemUjL1MZMRNLC'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'gWvcE1QpIKcZmGt1j6SemUjL1MZMRNLC',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => 0,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => 0,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => 0,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-gi1pGYGMF5xIq8b6LlEaeE5dOU1j2wXN'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'gi1pGYGMF5xIq8b6LlEaeE5dOU1j2wXN',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => 0,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => 0,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => 0,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-mwAdpaE4KNQ9Jd1wDE8W4RWiYHm9iALK'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'mwAdpaE4KNQ9Jd1wDE8W4RWiYHm9iALK',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => 0,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => 0,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => 0,
       ),
       'seven' => array(
         'region' => '',
@@ -479,13 +868,95 @@ return isset($options["include-deleted"]) && $options["include-deleted"];
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast',
-        'weight' => -29,
+        'weight' => -35,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -35,
       ),
       'bootstrap_gofast_mobile' => array(
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -25,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-rhZr18YPy01s1JFZXKxoJXEKoQlMcaAJ'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'rhZr18YPy01s1JFZXKxoJXEKoQlMcaAJ',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => 0,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => 0,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => 0,
+      ),
+      'seven' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'seven',
+        'weight' => 0,
+      ),
+    ),
+    'title' => '',
+    'visibility' => 0,
+  );
+
+  $export['facetapi-wy7rCWKQoF2DU60jovv1H1AX2sqds0dg'] = array(
+    'cache' => -1,
+    'custom' => 0,
+    'delta' => 'wy7rCWKQoF2DU60jovv1H1AX2sqds0dg',
+    'module' => 'facetapi',
+    'node_types' => array(),
+    'pages' => '',
+    'roles' => array(),
+    'themes' => array(
+      'bootstrap_gofast' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_gofast',
+        'weight' => 0,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => 0,
+      ),
+      'bootstrap_gofast_mobile' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_gofast_mobile',
+        'weight' => 0,
       ),
       'seven' => array(
         'region' => '',
@@ -511,7 +982,13 @@ return isset($options["include-deleted"]) && $options["include-deleted"];
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast',
-        'weight' => -39,
+        'weight' => -48,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -48,
       ),
       'bootstrap_gofast_mobile' => array(
         'region' => 'sidebar_second',
@@ -543,7 +1020,13 @@ return isset($options["include-deleted"]) && $options["include-deleted"];
         'region' => 'sidebar_second',
         'status' => 1,
         'theme' => 'bootstrap_gofast',
-        'weight' => -45,
+        'weight' => -55,
+      ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -55,
       ),
       'bootstrap_gofast_mobile' => array(
         'region' => 'sidebar_second',
@@ -558,8 +1041,8 @@ return isset($options["include-deleted"]) && $options["include-deleted"];
         'weight' => 0,
       ),
     ),
-    'title' => '',
-    'visibility' => 0,
+    'title' => 'Current search',
+    'visibility' => 1,
   );
 
   $export['search-form'] = array(
@@ -584,6 +1067,12 @@ return isset($options["include-deleted"]) && $options["include-deleted"];
         'status' => 1,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -41,
+      ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -17,
       ),
       'seven' => array(
         'region' => 'dashboard_inactive',

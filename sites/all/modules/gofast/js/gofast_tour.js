@@ -55,7 +55,7 @@
         return model;
     }
 
-    /** 
+    /**
      * Generates a regular expression from a simplified route declaration (see routes object)
      * @param {String|RegExp} path The path of the route
      * @returns {RegExp} The regex to check whether you are currently in the correct route
@@ -341,12 +341,6 @@
                         onNext: function () {
                             $(".dropdown-menu.dropdown-menu-right.gofast-dropdown-menu:eq(0)").removeClass("tutoriel-open");
                         }
-                    },
-                    {
-                        element: $("#block-gofast-gofast-node-infos"),
-                        title: Drupal.t("Informations", {}, { context: 'gofast_tour' }),
-                        content: Drupal.t("Text about informations.", {}, { context: 'gofast_tour' }),
-                        placement: "left"
                     },
                     {
                         element: $("#block-gofast-gofast-node-comments-tree"),
@@ -900,7 +894,7 @@
             return response;
 
         },
-        //fetches the data stored 
+        //fetches the data stored
         retrieveData: async function () {
             let response;
             // fetches data from the server
@@ -1007,7 +1001,8 @@
     const AUTO_TRIGGER_ENABLED = true;
     //attach function is called automatically on every load operation (initial and ajax)
     Drupal.behaviors.autoTour = {
-        attach: function () {
+        /* GoFAST v4 : Disabled for now */
+        /*attach: function () {
             BRAND = Drupal.settings.site_name || "GoFAST";
 
             if (AUTO_TRIGGER_ENABLED) {
@@ -1017,6 +1012,6 @@
                     $(".item_navigation").off("click", tourTabHandler).click(tourTabHandler);
                 }
             }
-        }
+        }*/
     }
 })(jQuery, Gofast, Drupal);

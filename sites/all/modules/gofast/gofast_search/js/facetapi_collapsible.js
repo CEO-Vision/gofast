@@ -31,7 +31,7 @@
             $(this).removeClass('open').text(Drupal.t(settings.showMoreText, {}, {'context' : 'gofast'}));
           }
           return false;
-        }).insertAfter($(this));
+        }).appendTo($(this));
       });
     }
   };
@@ -40,10 +40,10 @@
   // removed from the passed in facet based on the passed in condition, which
   // corresponds to a configured setting.
   var facetCollapseExpanded = function ($facet, condition, operation, behavior) {
-    var wrapper = $facet.find('.facet-collapsible-wrapper').get(0);
+    var wrapper = $facet.closest('ul.facetapi-collapsible').get(0);
 
     if (wrapper) {
-      var facetId = wrapper.id.replace('facet-collapsible-', '').replace(/-/g, '_');
+      var facetId = wrapper.id.replace('facetapi-facet-', '').replace(/-/g, '_');
 
       if (Drupal.settings.gofast_search[facetId]) {
         // We either need to check that the 'condition' in Drupal.settings DOES
@@ -62,7 +62,8 @@
       'Facetapi.collapsible.expanded',
       JSON.stringify(state), {
         path: Drupal.settings.basePath,
-        expires: 1
+        expires: 1,
+        secure: true,
       }
     );
   }
@@ -77,19 +78,39 @@
       
       $('.facetapi-collapsible').once('facetapi-collapsible', function () {
         var $facet = $(this);
+        $facet.addClass("navi");
+
+        // triggering bootstrap-keen classes to actually hide the inactive collapsible lists
+        for (const activeFacetsList of document.querySelectorAll('.facetapi-active ~ ul')) {
+          activeFacetsList.classList.remove("collapse");
+        }
+
+        for (const inactiveFacetsList of document.querySelectorAll('.facetapi-inactive ~ ul')) {
+          inactiveFacetsList.classList.add("collapse");
+        }
+
+        // we display the navi-link slightly differently if there is a "close filter" button next to it
+        for (const activeBullet of document.querySelectorAll('.facetapi-active > .navi-bullet')) {
+          activeBullet.remove();
+        }
 
         if ($('.facetapi-active', this).size() > 0) {
-          $(this).addClass('expanded active');
+          $(this).addClass('expanded active').removeClass('collapse');
+          // we don't forget to open the accordion if a facet is expanded
+          const $cardTitle = $(this).closest(".card").find(".card-title");
+          if ($cardTitle.hasClass('collapsed')) {
+            $cardTitle.click();
+          }
         }
         else {
           // Add the 'expanded' class to the facet if configured to do so.
           facetCollapseExpanded($facet, 'expand', 1, 'addClass');
           
-          var wrapper = $('.facet-collapsible-wrapper', $facet).get(0),
+          var wrapper = $('facetapi-collapsible ul.facetapi-collapsible', $facet).get(0),
               facetId;
           
           if (wrapper) {
-            facetId = wrapper.id.replace('facet-collapsible-', '').replace(/-/g, '_');
+            facetId = wrapper.id.replace('facetapi-facet-', '').replace(/-/g, '_');
             state[facetId] = state[facetId] || [];
             if (state[facetId].indexOf('expanded') !== -1) {
               $facet.addClass('expanded');
@@ -116,11 +137,11 @@
         }
         
         $('.facetapi-collapsible ul.facetapi-collapsible ul').once('facetlist', function () {
-          var $list = $(this),
-              parentwrapper = $list.closest('.facet-collapsible-wrapper');
+          var $list = $(this);
+          var $parentwrapper = $list.closest('ul.facetapi-collapsible');
 
-          if (parentwrapper) {
-            var parentfacetId = parentwrapper.attr('id').replace('facet-collapsible-', '').replace(/-/g, '_');
+          if ($parentwrapper) {
+            var parentfacetId = $parentwrapper.attr('id').replace('facetapi-facet-', '').replace(/-/g, '_');
             
             if (Drupal.settings.gofast_search[parentfacetId] && Drupal.settings.gofast_search[parentfacetId].collapsible_children) {
               var $parentfacet = $($list.siblings('.facetapi-facet').get(0));
@@ -183,11 +204,6 @@
               });
             }
           }
-        });
-        
-        $('.facetapi-collapsible ul.facetapi-collapsible li.leaf').once('facetleaf', function () {
-          // Insert handle before the facet.
-          $('a', $(this)).prepend('<span class="facetapi-handle-leaf"></span>');              
         });
         
       });

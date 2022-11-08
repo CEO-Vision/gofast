@@ -254,6 +254,21 @@ function gofast_search_theme(){
         'gofast_modal_add_search_results_to_cart' => array(
             'template' => 'tpl/gofast_search-add-search-results-to-cart',
         ),
+        'gofast_fastaccess_saved_searches' => array(
+            'template' => 'tpl/gofast-fastaccess-saved-searches',
+            'variables' => array(
+              'searches' => [],
+            )
+        ),
+        'gofast_search_saved_searches' => array(
+          'template' => 'tpl/gofast-search-saved-searches'
+        ),
+        'gofast_search_results_content' => array(
+          'template' => 'tpl/gofast-search-results-content',
+        ),
+        'gofast_search_results_filter' => array(
+          'template' => 'tpl/gofast-search-results-filter',
+        )
     );
 }
 
@@ -624,6 +639,7 @@ function gofast_search_apachesolr_index_document_build_user(ApacheSolrDocument $
     foreach ($grants as $gid) {
       $document->addField($key, $gid);
     }
+    $document->addField($key, 1);
   }
 
 //  _dump(array($account, $document), 'user_index');
@@ -1834,36 +1850,44 @@ function gofast_search_query_alter_access($account, DrupalSolrQueryInterface &$q
   // User visibility.
   $admin_visibility = variable_get('gofast_admin_visibility', GOFAST_ADMIN_VISIBILITY_DEFAULT);
   $user_partitioning = (int) variable_get('gofast_user_partitioning', GOFAST_USER_PARTITIONING_DEFAULT);
-  
-  if($admin_visibility == GOFAST_ADMIN_VISIBILITY_ON && gofast_user_is_adm($account)){
-      $access_subquery->addFilter('access__user', (int) ($user_partitioning != GOFAST_USER_PARTITIONING_ON));
-  }else{
-    switch ($user_partitioning) {
-      case GOFAST_USER_PARTITIONING_ON_ONLY_EXTRANET:
-        if (!gofast_user_is_extranet($account)) {
-          // nothing to do
+   $access_subquery->addFilter('access__user',1);
+  if(!gofast_user_is_business_admin($account)){
+
+    if($admin_visibility == GOFAST_ADMIN_VISIBILITY_ON && gofast_user_is_adm($account)){
+        $access_subquery->addFilter('access__user', (int) ($user_partitioning != GOFAST_USER_PARTITIONING_ON));
+    }else{
+      switch ($user_partitioning) {
+        case GOFAST_USER_PARTITIONING_ON_ONLY_EXTRANET:
+          if (!gofast_user_is_extranet($account)) {
+            // nothing to do
+            break;
+          }
+          // else
+          $access_subquery->removeFilter('access__user', 1);
+          // no break intended, partitioning is ON for extranet users
+        case GOFAST_USER_PARTITIONING_ON:
+          $gids = gofast_og_get_spaces_by_user($account, FALSE);
+          $root = gofast_og_get_root_spaces(FALSE, TRUE);
+          $grants = array_diff($gids, $root);
+          $realm = 'gofast_partitioning';
+          $key = 'access_user_' . apachesolr_site_hash() . '_' . $realm;
+          foreach ($grants as $gid) {
+            $access_subquery->addFilter($key, $gid);
+          }
           break;
-        }
-        // else
-        $access_subquery->removeFilter('access__user', 1);
-        // no break intended, partitioning is ON for extranet users
-      case GOFAST_USER_PARTITIONING_ON:
-        $gids = gofast_og_get_spaces_by_user($account, FALSE);
-        $root = gofast_og_get_root_spaces(FALSE, TRUE);
-        $grants = array_diff($gids, $root);
+
+        case GOFAST_USER_PARTITIONING_OFF:
+        default:
+          // do nothing, query already hasFilter('access__user', 1)
+      }
+    }
+  }else{
+
         $realm = 'gofast_partitioning';
         $key = 'access_user_' . apachesolr_site_hash() . '_' . $realm;
-        foreach ($grants as $gid) {
-          $access_subquery->addFilter($key, $gid);
-        }
-        break;
-
-      case GOFAST_USER_PARTITIONING_OFF:
-      default:
-        // do nothing, query already hasFilter('access__user', 1)
-    }
+        $access_subquery->addFilter($key, 1);
+        
   }
-
   // Add to the main query (space visibility filter may need another subquery).
   $query->addFilterSubQuery($access_subquery);
 
@@ -1876,32 +1900,36 @@ function gofast_search_query_alter_access($account, DrupalSolrQueryInterface &$q
 //  }
 
   // Space visibility
-  $space_partitioning = (int) variable_get('gofast_og_partitioning', GOFAST_OG_PARTITIONING_DEFAULT);
-  switch ($space_partitioning) {
-    case GOFAST_OG_PARTITIONING_ON_ONLY_EXTRANET:
-      if (!gofast_user_is_extranet($account)) {
-        // User is not affected, nothing to do.
-        break;
-      }
-      // Else no break intended, partitioning is ON for extranet users
-    case GOFAST_OG_PARTITIONING_ON:
-      if($admin_visibility == GOFAST_ADMIN_VISIBILITY_ON && gofast_user_is_adm($account)){
+  if(!gofast_user_is_business_admin($account)){
+    $space_partitioning = (int) variable_get('gofast_og_partitioning', GOFAST_OG_PARTITIONING_DEFAULT);
+    switch ($space_partitioning) {
+      case GOFAST_OG_PARTITIONING_ON_ONLY_EXTRANET:
+        if (!gofast_user_is_extranet($account)) {
+          // User is not affected, nothing to do.
           break;
-      }
-      // We need another OR subquery to be ANDed with the rest
-      $space_access_subquery = apachesolr_drupal_subquery('OR');
-      // We want a contional filter: show space only if user is a member of,
-      // same as if 'not a space' OR 'any of user spaces'
-      $space_access_subquery->addFilter('bs_group_group', 0);
-      foreach (gofast_og_get_spaces_by_user($account) as $gid) {
-        $space_access_subquery->addFilter('entity_id', $gid);
-      }
-      $query->addFilterSubQuery($space_access_subquery);
-      break;
+        }
+        // Else no break intended, partitioning is ON for extranet users
+      case GOFAST_OG_PARTITIONING_ON:
+        if($admin_visibility == GOFAST_ADMIN_VISIBILITY_ON && gofast_user_is_adm($account)){
+            break;
+        }
+        // We need another OR subquery to be ANDed with the rest
+        $space_access_subquery = apachesolr_drupal_subquery('OR');
+        // We want a contional filter: show space only if user is a member of,
+        // same as if 'not a space' OR 'any of user spaces'
+        $space_access_subquery->addFilter('bs_group_group', 0);
+        foreach (gofast_og_get_spaces_by_user($account) as $gid) {
+          $space_access_subquery->addFilter('entity_id', $gid);
+        }
+        $query->addFilterSubQuery($space_access_subquery);
+        break;
 
-    case GOFAST_OG_PARTITIONING_OFF:
-    default:
-      // do nothing
+      case GOFAST_OG_PARTITIONING_OFF:
+      default:
+        // do nothing
+    }
+  }else{
+      
   }
 }
 
@@ -1974,6 +2002,8 @@ function gofast_search_escape($value) {
 
 /**
  * Retrieve all of the suggestions that were given after a certain search
+ * @obsolete is rendered only with the full search page block template that has been replaced with GoFAST 4.0
+ * @obsolete ceo-vision patch in apachesolr_search_search_page_custom is also obsolete
  */
 function gofast_search_get_search_suggestions($env_id) {
   ctools_include('gofast_search.suggest', 'gofast_search', '');
@@ -1990,9 +2020,10 @@ function gofast_search_process_response($response, DrupalSolrQueryInterface $que
   if (!$hl_fl) {
     $hl_fl = array('content', 'ts_comments', 'tm_comments');
   }
-  $total = $response->response->numFound;
-  pager_default_initialize($total, $query->getParam('rows'));
-  if ($total > 0) {
+  $results['total'] = $response->response->numFound;
+  
+  pager_default_initialize($results['total'], $query->getParam('rows'));
+  if ($results['total'] > 0) {
     $fl = $query->getParam('fl');
     $languages = language_list();
     // 'id' and 'entity_type' are the only required fields in the schema, and
@@ -2077,7 +2108,25 @@ function gofast_search_process_response($response, DrupalSolrQueryInterface $que
       if (isset($doc->ss_language) && isset($languages[$doc->ss_language])) {
         $url_options['language'] = $languages[$doc->ss_language];
       }
-
+      
+      $formatedGroupes = [];
+      if($bundle != "user"){
+        $groups = db_query("SELECT gid FROM {og_membership} WHERE etid = :nid", array(':nid' => $doc->entity_id))->fetchAll();          
+        if (!empty($groups)) {
+          foreach($groups as $group){
+            $nid = $group->gid;
+            if(gofast_og_is_root_space($nid) && !gofast_og_is_user_private_space($nid)) {
+              continue;
+            }
+            $string_groups .= ' '.gofast_get_node_title($nid, array_keys(gofast_og_node_types()));
+            $space = [
+              "nid" => $nid,
+              "title" => gofast_get_node_title($nid, array_keys(gofast_og_node_types()))
+            ];    
+            $formatedGroupes[] = $space;
+          }
+        }
+      }        
       $result = array(
         // link is a required field, so handle it centrally.
         'link' => url($doc->path, $url_options),
@@ -2092,6 +2141,7 @@ function gofast_search_process_response($response, DrupalSolrQueryInterface $que
         'fields' => $fields,
         'entity_type' => $doc->entity_type,
         'bundle' => $bundle,
+        'formatedGroupes' => $formatedGroupes,
       );
 
       // Call entity-type-specific callbacks for extra handling.
@@ -2199,6 +2249,8 @@ function gofast_search_preprocess_page(&$variables) {
 
 function gofast_search_preprocess_search_results(&$var) {
   $results = $var['results'];
+  $var['results'] = array_filter($var['results'], fn($result) => is_array($result));
+  $var["results_count"] = $var["response"]->response->numFound;
 
   // By flagging this var, theme can choose to display or not sort block.
   $var['sort'] = count ($results) > 1;
@@ -2216,7 +2268,7 @@ function gofast_search_preprocess_search_results(&$var) {
 
   user_load_multiple(array_unique($uids));
 
-//  _dump($var['results'], 'solr-result');
+  $var['suggestions'] = get_object_vars(json_decode($var["response"]->data)->spellcheck->suggestions);
 }
 
 /**
@@ -2295,7 +2347,7 @@ function gofast_search_preprocess_search_result(&$var) {
     $voc_label = i18n_string_translate('taxonomy:vocabulary:' . $vid . ':name', $voc_label);
     
     foreach ($voc_terms as $term) {
-      $term_names .= '<span class="hl-tag">' . $term->name . '</span>&nbsp;';
+      $term_names .= '<span class="hl-tag label label-inline">' . $term->name . '</span>&nbsp;';
     }
        
     $hl_tags .= "<div class='tm_vid_{$vid}_names {$voc_name}' title='{$voc_label}'>{$term_names}</div>";    
@@ -2365,17 +2417,15 @@ function gofast_search_preprocess_search_result(&$var) {
   }
 
   /* fast actions */
-  $fast_actions = '<div class="gofast-node-actions btn-group ">
-    <a class="btn btn-default btn-xs dropdown-toggle dropdown-placeholder" type="button" id="dropdown-placeholder-'.$entity_id.'" data-toggle="dropdown">
-      <span class="fa fa-bars"></span>
-      <ul class="dropdown-menu gofast-dropdown-menu" role="menu" id="dropdownactive-placeholder-'.$entity_id.'">
-        <li><div class="loader-activity-menu-active"></div></li>
-      </ul>
-    </a>
-  </div>';
+  // $fast_actions = '<div class="gofast-node-actions dropdown dropdown-inline">
+  //   <a class="btn btn-light-primary btn-icon btn-sm dropdown-toggle dropdown-placeholder" type="button" id="dropdown-placeholder-'.$entity_id.'" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+  //     <i class="ki ki-bold-more-hor"></i>';
+  // $fast_actions .= '<ul class="dropdown-menu gofast-dropdown-menu" role="menu" id="dropdownactive-placeholder-'.$entity_id.'"><li><div class="loader-activity-menu-active"></div></li></ul>';
+  // $fast_actions .= '</a>
+  // </div>';
 
-  $var['fast_actions'] = $fast_actions;
-
+  // $var['fast_actions'] = $fast_actions;
+  
   $final_snippets .= '</tbody></table>';
   $var['snippet'] = $final_snippets;
 
@@ -2388,7 +2438,7 @@ function gofast_search_preprocess_search_result(&$var) {
       $var['author'] = "";
     }
     else {
-      $var['author'] = theme('user_picture', array('account' => $account, 'dimensions' => 20));
+      $var['author'] = theme('user_picture', array('account' => $account, 'dimensions' => 20, 'popup' => FALSE));
     }
   }
   elseif ($bundle === 'alfresco_item') {
@@ -2396,7 +2446,7 @@ function gofast_search_preprocess_search_result(&$var) {
     $last_version_item = array_pop(gofast_cmis_webservice_item_get_versions($document->alfresco_reference, true));
     $user_creator = $last_version_item->creator;
     $creator = user_load_by_name(array('name' => check_plain(gofast_alter_username_before_load($user_creator))));
-    $var['author'] = theme('user_picture', array('account' => $creator, 'dimensions' => 20));
+    $var['author'] = theme('user_picture', array('account' => $creator, 'dimensions' => 20, 'popup' => FALSE));
   }
   $var['last_modifier'] = theme('user_picture', array('account' => user_load($document->is_mod_uid), 'dimensions' => 20));
   $var['created_formatted'] = format_date($document->created);
@@ -2900,6 +2950,9 @@ function gofast_search_form_apachesolr_search_custom_page_search_form_alter(&$fo
 
   // Add a clearfix class so the results don't overflow onto the form.
   $form['#attributes']['class'][] = 'clearfix';
+  // This hides the search-form rendered by default by Drupal
+  // the other search-form, which we renders where we want it to be, is being altered via CSS
+  $form['#attributes']['class'][] = 'd-none';
 
   // Remove container-inline from the container classes.
   $form['basic']['#attributes']['class'] = array();
@@ -2945,6 +2998,9 @@ function gofast_search_form_search_block_form_alter(&$form, &$form_state) {
 
   $form['search_block_form']['#xac'] = gofast_search_autocomplete_settings();
   $form['search_block_form']['#no_icon'] = 1;
+  $form['search_block_form']['#prefix'] = '<div class="input-group">';
+  $form['search_block_form']['#suffix'] = '<div class="input-group-append">' . theme('gofast_fastaccess_saved_searches') . '</div></div>';
+  $form['#attributes']['class'][] = "w-100";
 
   // Adds a submit handler.
   $form['#submit'][] = 'gofast_search_box_form_submit';
@@ -3243,7 +3299,12 @@ function gofast_api_search_search($params) {
   $results = apachesolr_search_search_execute($query, $conditions);
 
   //Format results
-  foreach ($results as &$result) {
+  foreach ($results as $key => &$result) {
+    if ($key === "total") {
+      $results['results'] = $results['total'];
+      unset($result['total']);
+      continue;
+    }
     unset($result['snippets']);
     unset($result['snippet']);
     unset($result['extra']);
@@ -3253,8 +3314,6 @@ function gofast_api_search_search($params) {
     unset($result['score']);
   }
 
-  $results['results'] = count($results);
-
   gofast_api_success($results);
 }
 
@@ -3263,8 +3322,9 @@ function gofast_search_form_alter(&$form, &$form_state) {
   if ($form['#form_id'] === 'user_profile_form') {
     $form["field_saved_searches"]["#access"] = 0;
   }
-  elseif ($form['#form_id'] === 'search_block_form') {
-    // print_r("<pre>");print_r($form);exit;
+  if ($form['#form_id'] === 'search_form') {
+    
+    $form['basic']['#attributes']['class'][] = 'bg-primary';
   }
 }
 
@@ -3318,6 +3378,24 @@ function gofast_search_block_info() {
   return $blocks;
 }
 
+function template_preprocess_gofast_fastaccess_saved_searches(&$variables){
+  
+  global $user;
+
+  $account = user_load($user->uid);
+  $saved_searches = $account->field_saved_searches[LANGUAGE_NONE];
+
+  if (!empty($saved_searches)) {
+    foreach ($saved_searches as $saved_search) {
+      $search_object = json_decode($saved_search["value"]);
+      // $link = "<a href='#' style='cursor:pointer;' class='dropdown-item gofast-non-ajax' onClick='Gofast.search.executeSavedSearch( \"" . rawurlencode($search_object->url) . "\", \"" . $search_object->search_params . "\", \"" . $search_object->strict_search . "\");'>" . $search_object->title . "</a>";
+      $variables['searches'][] = $search_object;
+    }
+
+  }
+
+}
+
 function gofast_search_get_block_fastaccess_saved_searches() {
   global $user;
 
@@ -3344,6 +3422,8 @@ function gofast_search_get_block_fastaccess_saved_searches() {
   return $content;
 }
 
+
+
 function gofast_search_get_block_saved_searches($account = null) {
   if ($account == null) {
     global $user;
@@ -3357,10 +3437,10 @@ function gofast_search_get_block_saved_searches($account = null) {
     $saved_searches = $account->field_saved_searches[LANGUAGE_NONE];
   }
   else {
-    $return = "<h5>" . t("No saved searches", array(), array('context' => 'gofast:gofast_search')) . "</h5>";
+    $return = "<div class='text-muted h6'>" . t("No saved searches", array(), array('context' => 'gofast:gofast_search')) . "</div>";
   }
 
-  $return .= "<ul style='max-height: 150px;overflow-y: scroll;'>";
+  $return .= "<ul>";
   foreach ($saved_searches as $saved_search) {
     $return .= "<li>";
     $search_object = json_decode($saved_search["value"]);

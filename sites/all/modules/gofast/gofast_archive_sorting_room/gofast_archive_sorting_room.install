@@ -1,0 +1,386 @@
+<?php
+
+function gofast_archive_sorting_room_schema(){
+
+    $schema = array();
+    $schema['archive_sorting_room']= array(
+        'description'=>'Store informations for Archive space',
+        'fields'     => array(
+
+            'nid' => array(
+                        'type' => 'int',
+                        'unsigned' => TRUE,
+                        'not null' => TRUE,
+                        'default' => 0,
+                        'description' => t("id of node of document", array(), array('context' => 'gofast:gofast_archive_sorting_room')),
+                    ),
+
+            'uid' => array(
+                        'type' => 'int',
+                        'unsigned' => TRUE,
+                        'not null' => TRUE,
+                        'default' => 0,
+                        'description' => t( " Creator ", array(), array('context' => 'gofast:gofast_archive_sorting_room')),
+                    ),
+
+            'paths_multifilling' => array(
+                        'type' => 'varchar',
+                        'length' => 256,
+                        'not null' => TRUE,
+                        'default' => "0",
+                        'description' => t( "Paths multifilling ", array(), array('context' => 'gofast:gofast_archive_sorting_room')),
+                    ),
+
+            'main_emplacement' => array(
+                        'type' => 'varchar',
+                        'length' => 256,
+                        'not null' => TRUE,
+                        'default' => "0",
+                        'description' => t( " Name of transfer", array(), array('context' => 'gofast:gofast_archive_sorting_room')),
+                    )
+
+        )
+    );
+
+    return $schema;
+}
+
+/**
+ *
+ * Implements hook_install().
+ */
+function gofast_archive_sorting_room_install(){
+    usurp(1);
+    $archivesSpacesNids = array();
+    //Create Archives space and its sub_spaces
+    $group_admin_uid = variable_get('gofast_user_administrator_id','4');
+    $options = array(
+    'author' => $group_admin_uid,
+    'description' => t('Archives Space', array(), array('context' => 'gofast:gofast_archive_sorting_room')), // this field is required
+    'body' => '',
+    'parent' => '4',
+     );
+    gofast_og_create('Archives','group',$options);
+    $ArchivesSpace_nid = $_POST['new_space_nid'];
+    $archivesSpacesNids[]=['space_name'=>'archives','nid' => $ArchivesSpace_nid ];
+
+    // Pre transfer space
+    $options = array(
+    'author' => $group_admin_uid,
+    'description' => t('Pre transfer room space', array(), array('context' => 'gofast:gofast_archive_sorting_room')), // this field is required
+    'body' => '',
+    'parent' => $ArchivesSpace_nid ,
+     );
+    gofast_og_create('Pre salle de transfert','group',$options);
+    $Pretransfer_nid = $_POST['new_space_nid'];
+    $archivesSpacesNids[]=['space_name'=>'pre-transfer', 'nid' => $Pretransfer_nid];
+
+    //Sorting room space
+    $options = array(
+    'author' => $group_admin_uid,
+    'description' => t('Sorting room space', array(), array('context' => 'gofast:gofast_archive_sorting_room')), // this field is required
+    'body' => '',
+    'parent' => $ArchivesSpace_nid ,
+     );
+    gofast_og_create('Salle de tri','group',$options);
+    $SortingRoom_nid = $_POST['new_space_nid'];
+    $archivesSpacesNids[]=['space_name'=>'sorting room','nid' => $SortingRoom_nid];
+
+    //Transfer room space
+    $options = array(
+    'author' => $group_admin_uid,
+    'description' => t('Transfer room space', array(), array('context' => 'gofast:gofast_archive_sorting_room')), // this field is required
+    'body' => '',
+    'parent' => $ArchivesSpace_nid ,
+     );
+    gofast_og_create('Salle de transfert','group',$options);
+    $TransferRoom_nid = $_POST['new_space_nid'];
+    $archivesSpacesNids[]=['space_name'=>'transfer room','nid' => $TransferRoom_nid];
+
+    //Create folders Sorting room
+    $refs_folders = array();
+    $archive_folders = array(
+        'untreated'   => 'Non traité',
+        'in_progress' => 'En cours',
+        'treated'     => 'Traité',
+        'eliminated'  => 'Eliminé'
+    );
+    foreach ( $archive_folders as $folder=>$nameFolder ){
+            gofast_cmis_item_folder_insert($nameFolder,gofast_ajax_file_browser_get_reference_from_href('/Sites/_Groups/_Archives/_Salle de tri'));
+            $refs_folders[] = gofast_ajax_file_browser_get_reference_from_href('/Sites/_Groups/_Archives/_Salle de tri/'.$nameFolder);
+    }
+
+    //gofast_cmis_webservice_folder_assign_permissions($folder_template_reference,$unique_name,$group_type);
+
+    variable_set(GOFAST_ARCHIVES_FOLDERS_REFS,$refs_folders );
+    variable_set(GOFAST_ARCHIVES_SPACES_NIDS,$archivesSpacesNids);
+
+    // Get DUA users
+    $archivists_without_account_gofast = array();
+    $archivists_with_account_gofast = array();
+    if ( NULL != variable_get(GOFAST_RETENTION_PERIOD_RECIPIENTS_VAR) ) {
+    $dua_list_users = variable_get(GOFAST_RETENTION_PERIOD_RECIPIENTS_VAR);
+    foreach($dua_list_users as $dua_user){
+      if(!empty( $dua_user->id )){
+      //check if id has a alphabet character
+         if( preg_match("/[a-z]/i", $dua_user->id)){
+          // if true check if this is a good mail address
+            if( preg_match("/^([\w-\.]+)@((?:[\w]+\.)+)([a-zA-Z]{2,4})/i", $dua_user->id)){
+
+                if (user_load_by_mail($dua_user->id)){
+                    $gf_user = user_load_by_mail($dua_user->id);
+                    $archivists_with_account_gofast[]= $gf_user ->uid;
+                }else{
+                    $archivists_without_account_gofast[]= $dua_user->id;
+                }
+            }
+         }else{
+             $archivists_with_account_gofast[]= $dua_user->id;
+       }
+      }
+     }
+    }else{
+       //default admin archive space => platform admin
+       $archivists_with_account_gofast[] = $group_admin_uid;
+    }
+    variable_set(GOFAST_ARCHIVISTS_REGISTRED, $archivists_with_account_gofast);
+    variable_set(GOFAST_ARCHIVISTS_NOT_REGISTRED, $archivists_without_account_gofast);
+
+    //Create archive userlist
+    $ulid = gofast_archive_create_userlist();
+    /*$path = '/Sites/_Groups/_Archives';
+    $gid = gofast_og_get_gid_from_webdav_path_without_cmis($path);
+    $node = node_load($gid);*/
+    watchdog('isma_debug', 'Archives Userlist ulid  :'.$ulid);
+
+    // Get roles group space
+    $g_roles_query = og_roles('node', 'group', $ArchivesSpace_nid, FALSE, FALSE);
+    foreach($g_roles_query as $rgkey => $role ){
+      if($role == 'administrator member' ){
+        $admin_rgid = $rgkey;
+      }
+      if($role == 'read only member'){
+        $readonly_rgid = $rgkey;
+      }
+      if($role == 'group contributor'){
+        $contributor_rgid = $rgkey;
+      }
+     }
+
+    // Add Archives userlist to Archives space and its sub_spaces
+    gofast_userlist_og_add_membership($ArchivesSpace_nid, $ulid, $contributor_rgid );
+    gofast_userlist_og_add_membership($Pretransfer_nid, $ulid, $contributor_rgid );
+    gofast_userlist_og_add_membership($SortingRoom_nid, $ulid, $contributor_rgid );
+    gofast_userlist_og_add_membership($TransferRoom_nid, $ulid, $readonly_rgid );
+
+
+// Create Archives metadata
+
+    $archiveNewFieldsInstances = array();
+
+    // create final action metadata
+    $FinalFate = (object) array(
+       'name' => 'Final Action',
+       'machine_name' => 'archive_final_action'
+    );
+    $archiveNewFieldsInstances[] = gofast_archive_create_fields( $FinalFate,'text', 'text_textfield');
+
+    // create transfer name metadata
+    $transferName = (object) array(
+       'name' => 'Transfer Name',
+       'machine_name' => 'archive_transfer_name'
+    );
+    $archiveNewFieldsInstances[] = gofast_archive_create_fields( $transferName,'text', 'text_textfield');
+
+    // create Transfer Number metadata
+    $transferNum = (object) array(
+       'name' => 'Transfer Number',
+       'machine_name' => 'archive_transfer_num'
+    );
+    $archiveNewFieldsInstances[] = gofast_archive_create_fields( $transferNum,'text', 'text_textfield');
+
+    // create date of entry into the sorting room metadata
+    $dateEntrySortingRoom = (object) array(
+       'name' => 'Date entry in Sorting Room',
+       'machine_name' => 'archive_date_entry_sr',
+    );
+    $archiveNewFieldsInstances[] = gofast_archive_create_fields( $dateEntrySortingRoom,'text', 'text_textfield');
+
+  // create date exit from the sorting room metadata
+    $dateExitSortingRoom = (object) array(
+       'name' => 'Date exit from Sorting Room',
+       'machine_name' => 'archive_date_exit_sr',
+    );
+    $archiveNewFieldsInstances[] = gofast_archive_create_fields( $dateExitSortingRoom,'text', 'text_textfield');
+
+  // Create Transfer actor metadata
+    $transferActor = (object) array(
+       'name' => 'Transfer Actor',
+       'machine_name' => 'archive_transfer_actor',
+    );
+    $archiveNewFieldsInstances[] = gofast_archive_create_fields( $transferActor,'text', 'text_textfield');
+
+  // Create destruction approval number metadata : Numero de bordereau de destruction
+    $certificateDesctructionNum = (object) array(
+       'name' => 'Certi destruction number',
+       'machine_name' => 'archive_certi_destr_num',
+    );
+    $archiveNewFieldsInstances[] = gofast_archive_create_fields( $certificateDesctructionNum,'text', 'text_textfield');
+
+    // Create external transfer approval number metadata : Numero de bordereau de sortie
+    $depositSlipNum = (object) array(
+       'name' => 'Deposit slip number',
+       'machine_name' => 'archive_depo_slip_num',
+    );
+    $archiveNewFieldsInstances[] = gofast_archive_create_fields( $depositSlipNum,'text', 'text_textfield');
+
+    // Create Quote metadata for document will be transfered or for consultation
+    $Quote = (object) array(
+       'name' => 'Quote',
+       'machine_name' => 'archive_quote',
+    );
+    $archiveNewFieldsInstances[] = gofast_archive_create_fields( $Quote,'text', 'text_textfield');
+
+    $oldEmplacements = (object) array(
+       'name' => 'Old locations',
+       'machine_name' => 'archive_old_emplacements',
+    );
+    $archiveNewFieldsInstances[] = gofast_archive_create_fields( $oldEmplacements,'text', 'text_textfield');
+
+    variable_set(GOFAST_ARCHIVE_FIELDS_INSTANCES, $archiveNewFieldsInstances);
+
+    // init Transfer number
+    variable_set(GOFAST_ARCHIVE_LAST_NUM_TRANSFERT, 0);
+
+    //init registers
+    variable_set(GOFAST_ARCHIVE_REGISTRE_TRANSFERT, 0);
+    variable_set(GOFAST_ARCHIVE_REGISTRE_TREATEMENT, 0);
+    variable_set(GOFAST_ARCHIVE_REGISTRE_EXIT, 0);
+
+    //gofast_cmis_webservice_folder_assign_permissions($folder_reference,$unique_name,$group_type);
+}
+
+/*
+ * This function allows to create archivists userlist
+ */
+function gofast_archive_create_userlist(){
+
+    // create archive userlist
+    $name_uselist = "Archives userlist";
+    $description = "This userlist allows you to manage the users of Archives space";
+    $nid = gofast_userlist_create_userlist( $name_uselist,  $description);
+    $archive_userlist = node_load($nid);
+
+    //Get userlist roles
+    $roles_query = og_roles('node', "userlist", $nid, FALSE, FALSE);
+    foreach($roles_query as $rkey => $roles){
+      if($roles == GOFAST_OG_ROLE_ADMIN){
+        $admin_rid = $rkey;
+      }
+      if($roles == GOFAST_OG_ROLE_READ_ONLY){
+        $readonly_rid = $rkey;
+      }
+      if($roles == GOFAST_OG_ROLE_STANDARD){
+        $contributor_rid = $rkey;
+      }
+    }
+    $list_Archivists = variable_get(GOFAST_ARCHIVISTS_REGISTRED);
+
+    foreach($list_Archivists as $archivist=>$uid){
+        gofast_og_subscribe_user($nid, $uid );
+        og_role_grant('node', $nid, $uid, $admin_rid);
+    }
+    gofast_userlist_add_members($nid, $list_Archivists );
+
+    $ulid = $archive_userlist->field_userlist_ulid[LANGUAGE_NONE][0]['value'];
+    variable_set( GOFAST_ARCHIVES_ULID, $ulid );
+
+    return $ulid;
+}
+
+
+/* This function allows creation fields metadata
+ * Sorting room metadata
+ *  - Transfer name
+ *  - Transfer number
+ *  - Final action
+ *  - Date entry into sorting room
+ *  - Date exit from sorting room
+ *  - Actor transfer
+ *  - Quote ( reference number )
+ * Destruction folder
+ *  - Certificate of destruction number ( numero bordereau d'elimination )
+ * Deposit ( External transfer  )
+ *  - Deposit slip number ( numero de bordereau de versement ou de sortie )
+ */
+function gofast_archive_create_fields( $fieldObj, $fieldType, $widgetTypefield ){
+
+ $archiveFieldsNamesInstances = array();
+
+ // Create simple field for content type alfresco item
+ if($fieldObj->machine_name =='archive_depo_slip_num' || $fieldObj->machine_name=='archive_certi_destr_num' || $fieldObj->machine_name=='archive_old_emplacements'){
+        $field = array(
+            'field_name' => 'field_'.$fieldObj->machine_name,
+            'type' => $fieldType,
+            'label' => $fieldObj->name,
+            'active' => '1',
+            'locked' => '0',
+            'cardinality' => '-1' // allows multiples values in Textfield
+
+        );
+        watchdog('isma_debug', 'okey : '.$fieldObj->name );
+     }else{
+        $field = array(
+            'field_name' => 'field_'.$fieldObj->machine_name,
+            'type' => $fieldType,
+            'label' => $fieldObj->name,
+        );
+     }
+
+     field_create_field($field);
+     // create instance of field
+     $instance = array(
+        'field_name' => $field['field_name'],
+        'entity_type' => 'node',
+        'bundle' => 'alfresco_item',
+        'label' => $fieldObj->name,
+        'widget' => array(
+            'type' => $widgetTypefield,
+            'weight' => -10,
+        )
+     );
+     $infoInstance = field_create_instance($instance);
+     $archiveFieldsNamesInstances[]= ['field_name' => $field['field_name'] , 'instance_entity' => $infoInstance];
+
+  return $archiveFieldsNamesInstances;
+
+}
+
+/**
+ *
+ * Implements hook_uninstall().
+ */
+function  gofast_archive_sorting_room_uninstall() {
+
+//Delete Archives fields
+$archive_fields_instances_tab = variable_get(GOFAST_ARCHIVE_FIELDS_INSTANCES);
+  foreach ($archive_fields_instances_tab  as $archive_field_instance ){
+      foreach($archive_field_instance as $archive_field){
+               field_delete_field($archive_field['field_name']);
+      }
+}
+/*
+
+// Delete Archives space
+  $spacesNamesNids = variable_get(GOFAST_ARCHIVES_SPACES_NIDS);
+  foreach ($spacesNamesNids as $spaceNameNid){
+      if($spaceNameNid['space_name'] == 'archives'){
+          gofast_og_delete_space_process($spaceNameNid['nid'], $action = NULL);
+      }
+  }
+ */
+//Delete Archives Userlist
+  //$ulid = variable_get(GOFAST_ARCHIVES_ULID);
+  //gofast_userlist_delete_userlist($ulid);
+
+}

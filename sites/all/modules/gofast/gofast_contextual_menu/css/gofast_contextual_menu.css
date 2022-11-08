@@ -1,0 +1,8 @@
+.navi .navi-item .navi-link {
+  padding: 0.7rem 1.3rem !important;
+}
+
+.navi .navi-item .navi-link.disabled {
+  opacity: 0.4 !important;
+  pointer-events: none;
+}

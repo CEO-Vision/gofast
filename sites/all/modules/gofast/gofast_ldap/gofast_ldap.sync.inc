@@ -49,7 +49,7 @@ function gofast_ldap_sync_block_accounts($remote_accounts){
       //$my_user = user_load($uid);
       //$edit = array('status' => 0);
       //user_save($my_user, $edit);
-    }else if(!empty($remote_account_by_uname[$name]) && $status == 0){
+    }else if(!empty($remote_account_by_uname[$name]) && $status == 0 && $sasl == 1){
       //Log
       watchdog('Directory Synchronization', "Unblocking user " . $uid . "/" . $name, array(), WATCHDOG_INFO);
       

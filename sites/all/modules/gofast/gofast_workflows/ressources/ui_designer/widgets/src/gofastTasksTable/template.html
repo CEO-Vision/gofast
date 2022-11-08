@@ -7,53 +7,53 @@
                 </th>
             </tr>
         </thead>
-        
+
          <tbody ng-if="ctrl.isArray(final_content)">
-            <tr style="cursor:auto;" ng-repeat="row in final_content" ng-click="ctrl.selectRow(row)" ng-class="{'info': ctrl.isSelected(row)}">
+            <tr style="cursor:auto;background-color:white;" ng-repeat="row in final_content" ng-click="ctrl.selectRow(row)" ng-class="">
                 <td>
-                    
-                <div class="task_in_todoliste" style="background-color: #f9f9f9;border: 1px solid #eee;list-style: none;padding: 6px 9px;position: relative;" >
-                    <div class='task_in_todoliste' style='padding-left:70px;' title="{{row.deadline_description}}"><span style='background-color: {{row.deadline_color}};position: absolute;margin-left: -70px;margin-top: -6px;height: 57px;width: 60px;'><i class='fa fa-clock-o fa-3x' style='color:white;margin-top:8px;margin-left:12px;'></i></span>
-                    <div style="float:right;">
-                       <span ng-bind-html="row.actor" class="ng-binding ng-scope card-text actor_container" style="display: inline-block;clear:both;"></span> 
-                    </div>
-                    <div style="padding-left:20px;">
+
+                <div class="task_in_todoliste" style="list-style: none;padding: 1px 2px;position: relative;" >
+                    <div class='task_in_todoliste' style='padding-left:70px;' title="{{row.deadline_description}}"><span style='background-color: {{row.deadline_color}};position: absolute;margin-left: -70px;margin-top: -6px;height: 57px;width: 60px;cursor:pointer;' ng-click='ctrl.selectRow(row);ceo_vision_js_task_doit();'><i class='fas fa-clock fa-3x' style='color:white;margin-top:8px;margin-left:9px;'></i></span>
+                    <div class="" style="background-color:white;margin:0px; padding:0px; /*width: inherit;*/">
                         <div class="row">
-                            <span style="color:#777;font-weight: bold;width:200px;white-space: nowrap;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;" title='{{row.alt_title | gfTranslate}}'>
-                                <i class="fa {{row.type_icon}}"></i>
+                            <span style="color:#777;font-weight: bold;width:35%;white-space: nowrap;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;" title='{{row.alt_title | gfTranslate}}'>
+                                <i class="{{row.type_icon}}"></i>
                                 <span class="card-title">{{row.title}}</span>
                             </span>
-                            <span style="color:#777;font-weight: bold;width:270px;white-space: nowrap;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;" title='{{row.displayDescription | gfTranslate}}'>
-                                <i class="fa fa-flag-o"></i>
+                            <span style="color:#777;font-weight: bold;width:45%; max-width: 350px; white-space: nowrap;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;" title='{{row.displayDescription | gfTranslate}}'>
+                                <i class="far fa-flag"></i>
                                 <span class="card-subtitle mb-2 text-muted">{{row.displayDescription | gfTranslate}}</span>
                             </span>
+                            <div style="float:right;">
+                               <span ng-bind-html="row.actor" class="ng-binding ng-scope card-text actor_container" style="display: inline-block;clear:both;"></span>
+                            </div>
                         </div>
                         <div class="row">
                             <div>
-                                <div class="deadline_box_in_rapide_todoliste" style="float:left;max-width:125px;max-height:22px;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;">
-                                   <i class="fa fa-calendar"></i> <span title='{{"label.process_start_date" | gfTranslate}}'>{{row.start_date|date:"dd/MM/yyyy"}}</span>
+                                <div class="deadline_box_in_rapide_todoliste" style="float:left;width:35%;max-height:22px;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;">
+                                   <i class="fas fa-calendar-alt"></i> <span title='{{"label.process_start_date" | gfTranslate}}'>{{row.start_date|date:"dd/MM/yyyy"}}</span>
                                 </div>
-                                <div class="deadline_box_in_rapide_todoliste" style="font-weight:bold;float:left;width:125px;text-align:center;px;max-height:22px;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;">
-                                   <i ng-if="row.has_deadline" class="fa fa-clock-o" style="color:#337ab7;"></i> <span style="color:{{row.deadline_color}};" title='{{"label.process_deadline" | gfTranslate}}'>{{row.deadline|date:"dd/MM/yyyy"}}</span>
+                                <div class="deadline_box_in_rapide_todoliste" style="font-weight:bold;float:left;width:15%;px;max-height:22px;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;">
+                                   <i ng-if="row.has_deadline" class="far fa-clock" /*style="color:#337ab7;"*/></i> <span style="color:{{row.deadline_color}};" title='{{"label.process_deadline" | gfTranslate}}'>{{row.deadline|date:"dd/MM/yyyy"}}</span>
                                 </div>
-                                
-                                <div class="deadline_box_in_rapide_todoliste" style="float:left;max-width:350px;max-height:22px;margin-left:-9px;overflow:hidden;word-break:break-all;">
+
+                                <div class="deadline_box_in_rapide_todoliste" style="float:left;width:40%;max-height:22px;margin-left:-9px;overflow:hidden;word-break:break-all;">
                                      <div ng-bind-html="row.documents" class="ng-binding ng-scope card-text document_container"></div>
                                 </div>
-                                <div id="wf-buttons" style="float: right;margin-right: 15px;margin-top: 5px;">
+                                <div id="wf-buttons" style="float: right;margin-right: 0px;">
                                     <span ng-if="row.is_eligible" class="gofast_workflows_title_task_doit" style="cursor:pointer;" ng-click='ctrl.selectRow(row);ceo_vision_js_task_doit();' title='{{"label.process_doit" | gfTranslate}}'>
                                         <button type="button" class="btn btn-default wf-button wf-button-green" style="padding:1px 6px;width:22px;color: #2ecc71;">
-                                            <span class="fa fa-play gofast_wf_link"></span>
+                                            <span class="fas fa-play gofast_wf_link"></span>
                                         </button>
                                     </span>
                                     <span style="cursor:pointer;" ng-click='ctrl.selectRow(row);ceo_vision_js_process_pageflow();'>
                                         <button type="button" class="btn btn-default wf-button wf-button-blue" style="padding:1px 6px;width:22px;color: #337ab7;">
-                                            <span class="fa fa-info gofast_wf_link"></span>
-                                        </button> 
+                                            <span class="fas fa-info gofast_wf_link"></span>
+                                        </button>
                                     </span>
                                     <span ng-if="row.can_delete" class="gofast_workflows_title_task_doit" style="cursor:pointer;" ng-click='ctrl.selectRow(row);ceo_vision_js_task_delete();' title='{{"label.process_delete" | gfTranslate}}'>
                                         <button type="button" class="btn btn-default wf-button wf-button-red" style="padding:1px 4px;width:22px;color: red;">
-                                            <span class="fa fa-trash gofast_wf_link"></span>
+                                            <span class="fas fa-trash gofast_wf_link"></span>
                                         </button>
                                     </span>
                         </div>

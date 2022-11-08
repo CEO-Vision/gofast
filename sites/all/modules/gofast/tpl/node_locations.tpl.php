@@ -1,9 +1,15 @@
-<?php
-print '<span id="' . $node_locations_options['container_id'] . '" class="' . $node_locations_options['container_class'] . '">';
-    // empty div to display the "Edit" button
-    print '<div '
-          .  'class = "xeditable-trigger-1">'
-     . ' </div>';
-    print '<span class="xeditable-values">'.$node_locations_options['link_text'].'</span>';
-    print '<a class="xeditable-trigger btn btn-xs btn-primary ctools-use-modal" id="manage-locations" alt="' . t('Edit', array(), array('context' => 'gofast')) . '"  href="' . $node_locations_options['href'] . '" style="top:150px;"><span class="glyphicon glyphicon-pencil" ></span> ' . t('Edit', array(), array('context' => 'gofast')) . '</a>';
-print '</span>';
+<div id="<?php echo $container_id; ?>" class="<?php echo $container_class; ?>">
+    <div class="xeditable-trigger-1">
+        <a 
+            href="<?php echo $href; ?>"
+            id="manage-locations"
+            class="btn btn-primary btn-sm p-2 ctools-use-modal xeditable-trigger<?= isset($relative_positioning) && $relative_positioning ? " top-0" : "" ?>"
+            alt="<?php echo t('Edit', array(), array('context' => 'gofast')); ?>"
+
+        >   
+            <span class="font-weight-bolder">
+                <?php echo t('Edit', array(), array('context' => 'gofast')); ?>
+            </span>
+        </a>
+    </div>
+</div>

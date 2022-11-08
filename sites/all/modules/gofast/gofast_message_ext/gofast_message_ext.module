@@ -189,56 +189,61 @@ function gofast_message_ext_create_linksharing_entity($node,$values){
     gofast_link_sharing_change_timestamp($node->nid,time());
     
     $id_list_sharing = array();
-    foreach($values as $key=>$value){
-        if ($value->type === 'user') {
-            $id_list_sharing[] = $values[$key]->id ;
-        }
-        else if ($value->type === 'node') {
-            // Get nid from the group 
-            $node_group = node_load($value->id);
-            // Get member id from the group 
-            $group_members = gofast_og_get_members($node_group,'active');
-            foreach ($group_members as $member) {
-                $myuser = user_load($member);
-                if ($myuser->status == 1){
-                    $id_list_sharing[] =  $member ;
-                }
-            }
-        }else if($value->type == 'userlist'){
-            // Get the ULID from the userlist to send mails
-            $ulid = $value->id;
-            // Get all members of the group
-            $group_members = gofast_userlist_get_members($ulid);
-            foreach ($group_members as $uid => $member) { 
-              $user_members = user_load($uid);
-              // Get only users active to send mail 
-              if ($user_members->status == 1){
-                $id_list_sharing[] = $uid ;                            
-              }
-
-            } 
-        }else{
-            if (strpos($value,";") == TRUE){
-                $array_input_addresses = str_replace(' ', '', explode(';',$value));
-            }
-            if(strpos($value,",") == TRUE){
-                $array_input_addresses = str_replace(' ', '',explode(',',$value));
-            }
-            if(empty($array_input_addresses) && strpos($value," ") == TRUE ){
-                $array_input_addresses = str_replace(' ','',explode(' ',$value));
-            }
-            if (!empty($array_input_addresses)){
-                $id_list_sharing = array_merge($array_input_addresses, $id_list_sharing);
-            }else{
-                $id_list_sharing = array_filter($id_list_sharing);
-                $id_list_sharing[] = $value;
-            }  
-        }
+  foreach ($values as $key => $value) {
+    if ($value->type === 'user') {
+      $id_list_sharing[] = $values[$key]->value;
     }
-    $id_list_sharing = implode(";", array_unique($id_list_sharing));
+    else {
+      if ($value->type === 'node') {
+        // Get nid from the group
+        $node_group = node_load($value->id);
+        // Get member id from the group
+        $group_members = gofast_og_get_members($node_group, 'active');
+        foreach ($group_members as $member) {
+          $myuser = user_load($member);
+          if ($myuser->status == 1) {
+            $id_list_sharing[] = $member->id;
+          }
+        }
+      }
+      else {
+        if ($value->type == 'userlist') {
+          // Get the ULID from the userlist to send mails
+          $ulid = $value->id;
+          // Get all members of the group
+          $group_members = gofast_userlist_get_members($ulid);
+          foreach ($group_members as $uid => $member) {
+            $user_members = user_load($uid);
+            // Get only users active to send mail
+            if ($user_members->status == 1) {
+              $id_list_sharing[] = $uid;
+            }
+          }
+        }
+        else {
+          if (strpos($value, ";") == TRUE) {
+            $array_input_addresses = str_replace(' ', '', explode(';', $value));
+          }
+          if (strpos($value, ",") == TRUE) {
+            $array_input_addresses = str_replace(' ', '', explode(',', $value));
+          }
+          if (empty($array_input_addresses) && strpos($value, " ") == TRUE) {
+            $array_input_addresses = str_replace(' ', '', explode(' ', $value));
+          }
+          if (!empty($array_input_addresses)) {
+            $id_list_sharing = array_merge($array_input_addresses, $id_list_sharing);
+          }
+          else {
+            $id_list_sharing = array_filter($id_list_sharing);
+            $id_list_sharing[] = $value;
+          }
+        }
+      }
+    }
+  }
+    $id_list_sharing = implode(",", array_unique($id_list_sharing));
     $node_sharing['desti_uid']['value'] = $id_list_sharing ;
-    $array_id_sharing = explode(";", $id_list_sharing);
-    foreach($array_id_sharing as $id_sharing){
+    foreach($id_list_sharing as $id_sharing){
         if ($id_sharing != '' || $id_sharing != NULL ){
             if(ctype_digit($id_sharing)){
                 $node_sharing['dest']['value'] .= gofast_message_ext_api_get_user_name($id_sharing) . ';';
@@ -278,10 +283,13 @@ function gofast_message_ext_create_og_membership_entity($node, $values){
     $group_node['type']['value'] = $node->type;
     $group_node['ruid']['value'] = $user->uid;
     $group_node['nid']['value'] = $node->nid;
+    $group_node['path']['value'] = gofast_cmis_space_get_webdav_path($node->nid); // groupe path
     $group_node['new_member_type']['value'] = $values['membership_type']; // user or userlist
     $group_node['new_member_id']['value'] = $values['membership_id']; // uid or ulid
     $group_node['new_member_name']['value'] = $values['membership_name']; // name or title
-        
+
+
+
     $message = $group_node['event']['value'].'|'.json_encode($group_node);
 
     $myentity = 'message';

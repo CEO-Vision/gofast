@@ -1,5 +1,10 @@
 <?php
 
+
+require_once 'include/gofast_menu.create.inc';
+require_once 'include/gofast_menu.spaces.inc';
+require_once 'include/gofast_menu.utils.inc';
+
 /**
  * Implements hook_init
  */
@@ -15,6 +20,9 @@ function gofast_menu_init()
   drupal_add_js($lib . '/smartmenus-1.1.0/addons/bootstrap/jquery.smartmenus.bootstrap.js');
 }
 
+/**
+ * Implements hook_enable()
+ */
 function gofast_menu_enable()
 {
   $gofast_privatemsg_weight = db_select('system')
@@ -29,340 +37,226 @@ function gofast_menu_enable()
     ->execute();
 }
 
-function gofast_menu_preprocess_page(&$variables)
-{
-  ctools_add_js('ajax-responder');
-  $path = drupal_get_path('module', 'gofast');
-  drupal_add_js($path . '/gofast_menu/gofast_menu.js');
-}
 
 /**
- * Implements hook_block_info
+ * Implements hook_theme().
  */
-function gofast_menu_block_info()
+function gofast_menu_theme()
 {
-  $blocks['gofast_menu_icons'] = array(
-    'info' => t('Icons in top menu', array(), array('context' => 'gofast')),
-    'cache' => DRUPAL_CACHE_GLOBAL,
+  $themes = array();
+  $themes = array(
+    'gofast_menu_navigation' => array(
+      'template'  => 'tpl/gofast-menu-navigation',
+      'arguments' => array(
+        'menu' => array()
+      ),
+    ),
+    'gofast_menu_about' => array(
+      'template'  => 'tpl/gofast-menu-about',
+      'arguments' => array(),
+    ),
+    'gofast_menu_create' => array(
+      'template'  => 'tpl/gofast-menu-create',
+      'arguments' => array(),
+    ),
+    'gofast_menu_profile' => array(
+      'template'  => 'tpl/gofast-menu-profile',
+      'arguments' => array(),
+    ),
+    'gofast_menu_search' => array(
+      'template'  => 'tpl/gofast-menu-search',
+      'arguments' => array(
+        'content' => NULL
+      ),
+    ),
+    'gofast_menu_langue' => array(
+      'template'  => 'tpl/gofast-menu-langue',
+      'arguments' => array(
+        'content' => NULL
+      ),
+    ),
+    'gofast_menu_sidebar' => array(
+      'template'  => 'tpl/gofast-menu-sidebar',
+      'arguments' => array(
+        'menus' => array()
+      ),
+    ),
+    'gofast_menu_magical_menu' => array(
+      'template'  => 'tpl/gofast-menu-magical-menu',
+      'arguments' => array(
+        'path_exist' => NULL,
+        'is_admin' => NULL,
+        'block_recenlty_read' => NULL,
+        'block_recenlty_read_content' => NULL
+      ),
+    ),
+    'gofast_menu_mobile_magical_menu' => array(
+      'template'  => 'tpl/gofast-menu-mobile-magical-menu',
+      'arguments' => array(
+        'is_admin' => NULL
+      ),
+    ),
+    'gofast_menu_icons' => array(
+      'template' => 'tpl/gofast-menu-icons',
+      'arguments' => array(
+        'unread_workflows_count' => NULL,
+        'unread_messages_count' => NULL,
+        'unread_notifications_count' => NULL
+      )
+    ),
+    'gofast_navbar_items' => [
+      'template' => 'tpl/gofast-navbar-items',
+      'arguments' => [
+        'navItems' => []
+      ]
+    ],
+    'gofast_navbar_item' => [
+      'template' => 'tpl/gofast-navbar-item',
+      'arguments' => [
+        'navItem' => []
+      ]
+    ],
+    'gofast_dropdown_menu' => [
+      'template' => 'tpl/gofast-dropdown-menu',
+      'arguments' => [
+        'menu' => []
+      ]
+    ],
+    'gofast_dropdown_submenu' => [
+      'template' => 'tpl/gofast-dropdown-submenu',
+      'arguments' => [
+        'link' => []
+      ]
+    ],
+    'gofast_navbar' => [
+      'template' => 'tpl/gofast-navbar',
+      'arguments' => [
+        'rightLinks' => [],
+        'leftLinks' => []
+      ]
+    ],
+    'gofast_navbar_nav' => [
+      'template' => 'tpl/gofast-navbar-nav',
+      'arguments' => [
+        'links' => []
+      ]
+    ],
+    'gofast_dropdown_dinamique_menu' => [
+      'template' => 'tpl/gofast-dropdown-dinamique-menu',
+      'arguments' => [
+        'id_toggle' => ''
+      ]
+    ],
+    'gofast_menu_aside' => [
+      'template' => 'tpl/aside/gofast-menu-aside',
+      'arguments' => []
+    ],
+    'gofast_menu_menu_nav' => [
+      'template' => 'tpl/menu/gofast-menu-menu-nav',
+      'arguments' => [
+        'sections' => []
+      ]
+    ],
+    'gofast_menu_menu_item' => [
+      'template' => 'tpl/menu/gofast-menu-menu-item',
+      'arguments' => [
+        'link' => []
+      ]
+    ],
+     'gofast_menu_menu_content' => [
+      'template' => 'tpl/menu/gofast-menu-menu-content',
+      'arguments' => [
+        'links' => []
+      ]
+    ],
+    'gofast_menu_header' => [
+      'template' => 'tpl/header/gofast-menu-header',
+      'arguments' => []
+    ],
+    'gofast_menu_header_menu' => [
+      'template' => 'tpl/header/gofast-menu-header-menu',
+      'arguments' => [
+        'menus' => []
+      ]
+    ],
+    'gofast_menu_header_menu_item' => [
+      'template' => 'tpl/header/gofast-menu-header-menu-item',
+      'arguments' => [
+        'menus' => []
+      ]
+    ],
+    'gofast_menu_header_topbar' => [
+      'template' => 'tpl/header/gofast-menu-header-topbar',
+      'arguments' => [
+        'leftSection' => [],
+        'rightSection' => [],
+      ]
+    ],
+    'gofast_menu_header_subheader' => [
+      'template' => 'tpl/header/gofast-menu-header-subheader',
+      'arguments' => []
+    ],
+    'gofast_menu_topbar_dropdown' => [
+      'template' => 'tpl/dropdown/gofast-menu-topbar-dropdown',
+      'arguments' => [
+        'link' => '',
+      ]
+    ],
+    'gofast_menu_topbar_dropdown_right' => [
+      'template' => 'tpl/dropdown/gofast-menu-topbar-dropdown-right',
+      'arguments' => [
+        'link' => '',
+      ]
+    ],
+    'gofast_menu_topbar_profile' => [
+      'template' => 'tpl/gofast-menu-topbar-profile'
+    ],
+    'gofast_menu_topbar_menu_item' => [
+      'template' => 'tpl/topbar/gofast-menu-topbar-menu-item',
+      'arguments' => [
+        'link' => '',
+      ]
+    ],
+    'gofast_subheader_breadcrumbs' => [
+      'template' => 'tpl/subheader/gofast-subheader-breadcrumbs',
+      'arguments' => [
+        'breadcrumb' => [],
+      ]
+    ],
+    'gofast_menu_topbar_recently_read' => [
+        'template' => 'tpl/topbar/gofast-menu-topbar-recently-read',
+        'arguments' => [
+          'recently_read' => [],
+        ]
+    ],
+    'gofast_menu_topbar_rss_feed' => [
+      'template' => 'tpl/topbar/gofast-menu-topbar-rss-feed',
+    ],
+    'gofast_menu_topbar_favorites_contents' => [
+        'template' => 'tpl/topbar/gofast-menu-topbar-favorites-contents',
+        'arguments' => [
+          'contents' => [],
+        ]
+    ],
+    'gofast_menu_topbar_favorites_folders' => [
+        'template' => 'tpl/topbar/gofast-menu-topbar-favorites-folders',
+        'arguments' => [
+          'folders' => [],
+        ]
+    ],
+    'gofast_menu_topbar_favorites' => [
+        'template' => 'tpl/topbar/gofast-menu-topbar-favorites',
+    ],
+    'gofast_menu_header_mobile' => [
+      'template' => 'tpl/header/gofast-menu-header-mobile',
+    ],
+
   );
 
-  return $blocks;
+
+  return $themes;
 }
 
-/**
- * Implements hook_block_info
- */
-function gofast_menu_block_view($delta = '')
-{
-  $block = array();
-  switch ($delta) {
-    case 'gofast_menu_icons':
-      $block['subject'] = '';
-
-      if (gofast_mobile_is_mobile_domain()) {
-        $content = gofast_menu_mobile_get_html_icons_menu();
-      } else {
-        $content = gofast_menu_get_html_icons_menu();
-      }
-
-      $block['content'] = $content;
-      break;
-    case 'gofast_custom_test':
-      $block['subject'] = 'test block';
-      $block['content']['#markup'] = '<p class="test">Ceci est un contenu</p>';
-      $block['content']['#attached']['css'][] = '.test{color:red;}';
-      break;
-  }
-  return $block;
-}
-
-function gofast_menu_get_html_icons_menu()
-{
-  $unread_notifications_count = json_decode(gofast_menu_get_unread_notifications())->count;
-  $unread_messages_count = json_decode(gofast_menu_get_unread_messages())->count;
-  $unread_workflows_count = json_decode(gofast_menu_get_unread_workflows())->count;
-
-  $return = '<div class="visible-lg gofast-blocks-wrapper">
-
-    <!-- gofast_view-view_name-display_id -->
-    <!-- gofast_menu_magical_menu function -->
-    <!-- gofast_block_delta-gofast_workflows-gofast_workflows_light_dashboard -->
-              <div class="gofast-block block-workflow" id="gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows" data-pinned="false" data-unread="' . $unread_workflows_count . '">
-                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
-                  <i class="fa fa-cogs fa-2x"></i>
-                  <span class="updated-workflow unread_count badge badge-notify-menu badge-notify">0</span>
-                  <div class="gofast-block-outer" >
-                      <div class="pointeur"></div>
-                      <div class="gofast-block-inner">
-                          <!-- workflow_bloc view -->
-                          <div style="text-align: center;">
-                            <div class="loader-blog"></div>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-
-              <div class="gofast-block block-privatemsg" block_title="Internal Private Message" id="gofast_view-gofast_private_msg-gofast_inbox" data-pinned="false" data-unread="' . $unread_messages_count . '">
-                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
-                  <i class="fa fa-envelope-o fa-2x"></i>
-                  <span id="unread_pm_count" class="unread_messages unread_count badge badge-notify badge-notify-menu">0</span>
-                  <div class="gofast-block-outer" >
-                      <div class="pointeur"></div>
-                      <div id="gofast_pm_block" class="gofast-block-inner">
-                          <!-- privatemsg-privatemsg_bloc view -->
-                          <div style="text-align: center;">
-                            <div class="loader-blog"></div>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-
-              <div class="gofast-block block-notifications" id="gofast_view-gofast_private_msg-gofast_notifications" data-pinned="false" data-unread="' . $unread_notifications_count . '">
-                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
-                  <i class="fa fa-flag-o fa-2x" ></i>
-                  <span class="unread_notifications unread_count badge badge-notify">0</span>
-                  <div class="gofast-block-outer">
-                      <div class="pointeur"></div>
-                      <div class="gofast-block-inner">
-                          <!-- privatemsg-privatemsg_bloc_notifications view -->
-                          <div style="text-align: center;">
-                            <div class="loader-blog"></div>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-
-              <div class="gofast-block block-feeds" id="gofast_view-gofast_aggregator-gofast_aggregator" data-pinned="false">
-                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
-                  <i class="fa fa-rss-square fa-2x"></i>
-                  <div class="gofast-block-outer">
-                      <div class="pointeur"></div>
-                      <div class="gofast-block-inner">
-                          <!-- aggregator module block view (category-1) -->
-                          <div style="text-align: center;">
-                            <div class="loader-blog"></div>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-
-              <div class="gofast-block block-bookmarks" id="gofast_view-gofast_flag_bookmarks-gofast_flag_bookmarks" data-pinned="false">
-                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
-                  <i class="fa fa-star-o fa-2x"></i>
-                  <div class="gofast-block-outer">
-                    <!-- tab headers -->
-                    <ul class="nav nav-tabs" >
-                      <li id="contentFavoritesTab" class="active" onclick="Gofast.Display_ContentFolders(event);">
-                        <a class="bookmarksTab">
-                          <tab-heading translate="" ><span onclick="Gofast.Display_ContentFolders(event);">'  . t("Favorites content", array(), array("gofast")) . '</span></tab-heading>
-                        </a>
-                      </li>
-                      <li id="foldersFavoritesTab" class="" onclick="Gofast.Display_FavoritesFolders(event);">
-                        <a class="bookmarksTab">
-                          <tab-heading translate=""><span onclick="Gofast.Display_FavoritesFolders(event);">' .  t("Favorites folders", array(), array("gofast")) . '</span></tab-heading>
-                        </a>
-                      </li>
-                    </ul>
-                      <div class="pointeur"></div>
-                      <div class="gofast-block-inner">
-                          <!-- flag_bookmarks-block_1 view -->
-                          <div style="text-align: center;">
-                            <div class="loader-blog"></div>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-          </div>';
-
-  return $return;
-}
-
-function gofast_menu_mobile_get_html_icons_menu()
-{
-  $unread_messages_count = json_decode(gofast_menu_get_unread_messages())->count;
-  $unread_workflows_count = json_decode(gofast_menu_get_unread_workflows())->count;
-
-  $return = '<div class="visible-lg gofast-blocks-wrapper">
-
-    <!-- gofast_view-view_name-display_id -->
-    <!-- gofast_menu_magical_menu function -->
-    <!-- gofast_block_delta-gofast_workflows-gofast_workflows_light_dashboard -->
-              <div class="gofast-block block-workflow" id="gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows" data-pinned="false" data-unread="' . $unread_workflows_count . '">
-                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
-                  <i class="fa fa-cogs fa-2x"></i>
-                  <span class="updated-workflow unread_count badge badge-notify-menu badge-notify">0</span>
-                  <div class="gofast-block-outer" >
-                      <div class="pointeur"></div>
-                      <div class="gofast-block-inner">
-                          <!-- workflow_bloc view -->
-                          <div style="text-align: center;">
-                            <div class="loader-blog"></div>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-
-              <div class="gofast-block block-privatemsg" block_title="Internal Private Message" id="gofast_view-gofast_private_msg-gofast_inbox" data-pinned="false" data-unread="' . $unread_messages_count . '">
-                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
-                  <i class="fa fa-envelope-o fa-2x"></i>
-                  <span id="unread_pm_count" class="unread_messages unread_count badge badge-notify badge-notify-menu">0</span>
-                  <div class="gofast-block-outer" >
-                      <div class="pointeur"></div>
-                      <div id="gofast_pm_block" class="gofast-block-inner">
-                          <!-- privatemsg-privatemsg_bloc view -->
-                          <div style="text-align: center;">
-                            <div class="loader-blog"></div>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-
-              <div class="gofast-block block-bookmarks" id="gofast_view-gofast_flag_bookmarks-gofast_flag_bookmarks" data-pinned="false">
-                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
-                  <i class="fa fa-star-o fa-2x"></i>
-                  <div class="gofast-block-outer">
-                    <!-- tab headers -->
-                    <ul class="nav nav-tabs" >
-                      <li id="contentFavoritesTab" class="active" onclick="Gofast.Display_ContentFolders(event);">
-                        <a class="bookmarksTab">
-                          <tab-heading translate="" ><span onclick="Gofast.Display_ContentFolders(event);">'  . t("Favorites content", array(), array("gofast")) . '</span></tab-heading>
-                        </a>
-                      </li>
-                      <li id="foldersFavoritesTab" class="" onclick="Gofast.Display_FavoritesFolders(event);">
-                        <a class="bookmarksTab">
-                          <tab-heading translate=""><span onclick="Gofast.Display_FavoritesFolders(event);">' .  t("Favorites folders", array(), array("gofast")) . '</span></tab-heading>
-                        </a>
-                      </li>
-                    </ul>
-                      <div class="pointeur"></div>
-                      <div class="gofast-block-inner">
-                          <!-- flag_bookmarks-block_1 view -->
-                          <div style="text-align: center;">
-                            <div class="loader-blog"></div>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-
-                <div class="gofast-block block-recently-read" id="block-views-gofast-recently-read-block" data-pinned="false">
-                  <span class="pinned"><i class="fa fa-thumb-tack"></i></span>
-                  <i class="fa fa-eye fa-2x"></i>
-                  <div class="gofast-block-outer">
-                    <h2 class="block-title block-recently-read-title">' . t("Recently Read") . '</h2>
-                    <div style="text-align:center;">
-                        <div id="recently-read-actions-loading" class="recenlty-read-actions-loading loader-actions not-processed" style="width:50px;height:50px;display:none;"></div>
-                    </div>
-                  </div>
-                </div>';
-
-
-  return $return;
-}
-
-function gofast_menu_magical_menu(){
-    global $user;
-    $path_exist = 0;
-    $block = module_invoke_all('menu');
-    if (count($block['dashboard']) != NULL){
-        $path_exist = 1;
-        $frontpage = variable_get('site_frontpage');
-    }
-
-    $block_recenlty_read = module_invoke('views', 'block_view', 'gofast_recently_read-block');
-    $block_recenlty_read_content = $block_recenlty_read['content'];
-
-    if (gofast_user_has_role('administrator',$user) == 1){
-        $is_admin = true;
-    }
-
-    $content = '<div id="dropdown-menu-page" class="gofast-magical-menu">
-                  <i class="fa fa-2x fa-bars dropbtn"></i>
-                  <ul class="dropdown-menu dropdown-content" style="margin:0px !important;">
-                      <li>
-                          <a class="dropdown-item" href="/activity">'. t('Activity feed') . '</a>
-                      </li>';
-    if ($path_exist){
-    $content .=
-                     '<li>
-                      <a class="dropdown-item" href="/dashboard">'. t('Dashboard') . '</a>
-                      </li>';
-    }
-    $content .=
-                     '<li>
-                      <a class="dropdown-item" href="/workflow/dashboard">'. t('Workflows dashboard', array(), array('gofast:gofast_workflows')) . '</a>
-                      </li>';
-    $content .=
-                     '<li>
-                      <a class="dropdown-item" href="/conversation">'. t('Chat') . '</a>
-                      </li>';
-    $content .=
-                      '<li>
-                        <a class="dropdown-item" href="http://community.ceo-vision.com" target="_blank"> ' .  t("Forum", array(), array("context" => "gofast")) . '</a>
-                      </li>';
-    $content .=
-                     '<li role="separator" class="divider"></li>
-                      <li class="dropdown-submenu" id="recenlty_read_dropdown">
-                        <a href="#" id="async_recently_read">'. t('Last recently read') . '<span class="fa fa-caret-right" aria-hidden="true" style="position:absolute; right:5px; margin-top:2px;"></span></a>
-                        <ul class="dropdown-menu">
-                            <div id="block-views-gofast-recently-read-block">
-                                  <h2>
-                                      '. t('Recently Read') .
-                                 '</h2>
-				 <div style="text-align:center;"><div id="recently-read-actions-loading" class="recenlty-read-actions-loading loader-actions not-processed" style="width:50px;height:50px;display:none;"></div></div>
-                            </div>
-                        </ul>
-                      </li>';
-    
-    foreach (module_implements('override_magical_menu') as $module) {
-          $process_results_callback .= $module . '_override_magical_menu'; 
-          $content .= $process_results_callback($content);
-    }
-    
-    if ($is_admin){
-    $content .=
-                      '<li role="separator" class="divider"></li>
-		       <li class="dropdown-submenu" id="admin_options_dropdown">
-			    <a href="#" id="admin_options">'. t('Administration') . '<span class="fa fa-caret-right" aria-hidden="true" style="position:absolute; right:5px; margin-top:2px;"></span></a>
-			<ul class="dropdown-menu">
-			    <li>
-				<a href="/admin/config/gofast/global" title="">' . t('GoFAST Configuration') . '</a>
-			    </li>
-			    <li>
-				<a href="/admin/config/gofast/ldap/manage" title="">' . t('Import Users From LDAP') . '</a>
-			    </li>
-			    <li>
-				<a href="/gofast_audit" title="">' . t('Audit') . '</a>
-			    </li>
-			    <li>
-				<a href="/gofast_stats/dashboard" title="">' . t('Statistics') . '</a>
-			    </li>
-			</ul>
-			</li>';
-    }
-    $content .=   '</ul>
-                </div>';
-
-        return $content;
-}
-
-function gofast_menu_mobile_magical_menu()
-{
-  global $user;
-  $path_exist = 0;
-  $block = module_invoke_all('menu');
-  if (count($block['dashboard']) != NULL) {
-    $path_exist = 1;
-    $frontpage = variable_get('site_frontpage');
-  }
-
-  $block_recenlty_read = module_invoke('views', 'block_view', 'gofast_recently_read-block');
-  $block_recenlty_read_content = $block_recenlty_read['content'];
-
-  if (gofast_user_has_role('administrator', $user) == 1) {
-    $is_admin = true;
-  }
-  return theme('gofast_menu_mobile_magical_menu', array('is_admin' => $is_admin));
-}
 
 
 /**
@@ -375,7 +269,7 @@ function gofast_menu_menu()
   $items['gofast_get_block'] = array(
     'title' => 'debug',
     'description' => 'debug',
-    'page callback' => 'gofast_get_block_menu',
+    'page callback' => 'gofast_get_block_menu_async',
     'access arguments' => array('access content'),
     'delivery callback' => 'gofast_ajax_delivery'
   );
@@ -398,7 +292,8 @@ function gofast_menu_menu()
 
   $items['workflows/get_unread_count'] = array(
     'page callback' => 'gofast_menu_get_unread_workflows',
-    'access callback' => TRUE,
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
     'type' => MENU_CALLBACK,
     'delivery callback' => 'gofast_ajax_delivery'
   );
@@ -424,237 +319,23 @@ function gofast_menu_menu()
     'type' => MENU_CALLBACK,
   );
 
+  $items['gofast/get/rssFeed'] = array(
+    'page callback' => 'gofast_menu_get_rssFeed',
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['gofast/get/privateMessages'] = array(
+    'page callback' => 'gofast_menu_get_privateMessages',
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
 
   return $items;
 }
 
-/**
- * Implements hook_theme().
- */
-function gofast_menu_theme()
-{
-  $themes = array();
-  $themes = array(
-    'gofast_menu_magical_menu' => array(
-      'template'  => 'tpl/gofast-menu-magical-menu',
-      'arguments' => array(
-        'path_exist' => NULL,
-        'is_admin' => NULL
-      ),
-    ),
-    'gofast_menu_mobile_magical_menu' => array(
-      'template'  => 'tpl/gofast-menu-mobile-magical-menu',
-      'arguments' => array(
-        'is_admin' => NULL
-      ),
-    ),
-  );
-
-  return $themes;
-}
-
-
-function gofast_menu_get_html_menu_from_gid()
-{
-  $gid = $_GET["gid"];
-  if (!isset($gid)) {
-    return;
-  }
-
-  global $user;
-  $my_user = user_load($user->uid);
-  $all_groups_member = array();
-  foreach ($my_user->og_user_node[LANGUAGE_NONE] as $membership) {
-    $all_groups_member[$membership["target_id"]] = $membership["target_id"];
-  }
-
-  //get membership from user's userlists
-  $groups_by_user = gofast_userlist_og_get_groups_by_user($user, 'node');
-  foreach ($groups_by_user as $group_id) {
-    $all_groups_member[$group_id] = $group_id;
-  }
-
-  $children =  gofast_og_get_children($gid);
-  $output = "";
-  if (count($children) > 0) {
-
-    //alphabetic order
-    $children_sorted = array();
-    foreach ($children as $nid) {
-      $children_sorted[gofast_get_node_title($nid)] = $nid;
-    }
-    ksort($children_sorted);
-    foreach ($children_sorted as $name => $nid) {
-      if (!isset($all_groups_member[$nid])) {
-        continue;
-      } else {
-        $child_children =  gofast_og_get_children($nid);
-        $classe_li = "";
-        $class_a = "";
-        $caret = "";
-        $ul = "";
-
-        if (count($child_children) > 0 && count(array_intersect($child_children, $all_groups_member)) > 0) {
-          $classe_li .= "expanded";
-          $class_a .= "dropdown-toggle has-submenu";
-          $caret .= "<span class='fa fa-caret-right' aria-hidden='true' style='position:absolute; right:5px; margin-top:2px;'></span>";
-          $ul = "<ul class='dropdown-menu gofast_menu_async' id='main_menu_" . $nid . "' gid='" . $nid . "'></ul>";
-        }
-        $output .= "<li class='$classe_li'><a class='$class_a' href='/node/" . $nid . "'>" . $name . $caret . "</a></i>" . $ul . "</li>";
-      }
-    }
-  }
-
-
-  $output .= '<script>var $ = jQuery;
-              var $this = $(".navbar-nav");
-              $this.smartmenus({
-                subMenusSubOffsetX: 2,
-                subMenusSubOffsetY: -6,
-						})';
-  print $output;
-  exit;
-}
-
-/**
- * This method fetch private messages for global (current) user
- * @return int
- */
-function gofast_menu_get_unread_messages()
-{
-  global $user;
-  $count = gofast_privatemsg_unread_count($user);
-  return json_encode(array('count' => $count));
-}
-
-/**
- * This method fetch private messages for global (current) user
- * @return int
- */
-function gofast_menu_get_unread_notifications()
-{
-  global $user;
-  $count = 0;
-  return json_encode(array('count' => $count));
-}
-
-/**
- * This method fetch private messages for global (current) user
- * @return int
- */
-function gofast_menu_get_unread_workflows()
-{
-  if (module_exists("gofast_workflows")) {
-    global $user;
-    $count = 0;
-    $_SESSION['bonita_init_load'] = true;
-
-    //Init workflow count context
-    gofast_poll_set_context('workflows', 'count', $count);
-  } else {
-    $count = 0;
-  }
-  return json_encode(array('count' => $count));
-}
-
-/**
- * This method renders the menu blocks from view or block depending the case
- */
-function gofast_get_block_menu()
-{
-  if (gofast_request_is_ajax()) {
-    $is_block = $_POST['isBloc'];
-    $block_delta = $_POST['isBlockDelta'];
-    $view_name = $_POST['viewName'];
-    $display_id = $_POST['displayID'] ? $_POST['displayID'] : 'default';
-    $subject = $_POST['subject'] ? t($_POST['subject']) : $view_name;
-    $path = $_POST['original_path'];
-    $query = isset($path['query']) && parse_url($path)['query'] ? '?' . parse_url($path)['query'] : '';
-    $_GET['q'] = '/' . $view_name . '/' . $display_id . $query;
-    $_REQUEST = $_POST = array();
-    $view = views_get_view($view_name, true);
-    $view_data = array();
-    if (!is_null($view)) {
-      $preview = $view->preview($display_id);
-      $view_data = array(
-        'view_dom_id:' . $view->dom_id => array(
-          'view_base_path' => $view->display[$display_id]->display_options['path'],
-          'view_display_id' => $display_id,
-          'view_dom_id' => $view->dom_id,
-          'view_name' => $view->name,
-          'view_path' => $view->display[$display_id]->display_options['path']
-        )
-      );
-    }
-
-
-    // This is for a block of a view
-    if ($is_block && $view_name && !$block_delta) {
-      $block = block_load('views', $view_name . '-' . $display_id);
-      //$block = block_load('views', $view_name);
-      $blockLoaded = _block_render_blocks(array($block));
-      $blockObject = $blockLoaded['views_' . $view_name . '-' . $display_id];
-      //$blockObject = $blockLoaded['views_' . $view_name];
-      // We add custom data to the blocks depending of delta
-      $blockObject->content['#markup'] .= appendCustomData($view_name);
-    } // A standard view as a page
-    elseif ($view_name && !$block_delta) {
-      $blockObject = new stdClass();
-
-      $blockObject->subject = $subject;
-      $blockObject->content['#markup'] = $preview;
-      // We add custom data to the blocks depending of delta
-      $blockObject->content['#markup'] .= appendCustomData($display_id);
-    } // A block
-    elseif ($is_block && $block_delta) {
-      $block = block_load($display_id, $view_name);
-      $blockLoaded = _block_render_blocks(array($block));
-      $blockObject = $blockLoaded[$display_id . "_" . $view_name];
-      // We add custom data to the blocks depending of delta
-      $blockObject->content['#markup'] .= appendCustomData($view_name);
-    }
-
-    $blockObject->module = 'gofast';
-    $blockObject->region = '';
-    $blockObject->delta = '';
-
-    $arrayBlock = _block_get_renderable_array(array($blockObject));
-    $output = drupal_render($arrayBlock);
-
-    return json_encode(array(
-      'output' => $output,
-      'view' => $view_data
-    ));
-  }
-}
-
-/**
- * This method adds custom data to loaded blocks based on delta
- * @param type $display_id the delta we load.
- * @return string
- */
-function appendCustomData($display_id)
-{
-  $output = '';
-  $path = drupal_get_path('module', 'gofast_views');
-  switch ($display_id) {
-      //Disabled until this is finished
-      /*case 'gofast_notifications':
-            $output .= '<script src="/' . $path . '/js/gofast_notifications_popup.js"></script>';
-            break;*/
-    case 'gofast_inbox':
-      $output .= '<a href="/gofast/nojs/messages/new" class="btn btn-info ctools-use-modal btn-sm ctools-modal-center" style=" top: 37px; left: 10px;" title="' . t('Compose') . '"><span class="glyphicon glyphicon-send" style="margin: 1px 8px 0 0;"></span>' . t('Compose', array(), array('context' => 'gofast')) . '</a>';
-      $output .= '<script src="/' . $path . '/js/gofast_inbox_popup.js"></script>';
-      break;
-    case 'bookmarks':
-      $output .= '<script src="/' . $path . '/js/gofast_mybookmarks_popup.js"></script>';
-      break;
-    case 'gofast_aggregator':
-      $output .= '<script src="/' . $path . '/js/gofast_headlines_popup.js"></script>';
-      break;
-  }
-  return $output;
-}
 
 /**
  * Implements hook_poll_info()
@@ -681,39 +362,6 @@ function gofast_menu_poll_info()
   );
 }
 
-/**
- * Set context for menu's blocks
- * @param $element
- *  The element in the block.
- * @param $key
- *  The key for the block's element
- * @param $value
- *  The value to assign
- *
- * Without params, it will set context for all blocks
- */
-function gofast_menu_set_context($element = FALSE, $key = NULL, $value = NULL)
-{
-  if (!$element) { //Initialize all values
-    $block_context = array(
-      'block_menu' => array(
-        'private_message' => array(
-          'unread_count' => json_decode(gofast_menu_get_unread_messages())->count
-        )
-      )
-    );
-  } else { //Set a value for a given association of element and key
-    $block_context = array(
-      'block_menu' => array(
-        $element => array(
-          $key => $value
-        )
-      )
-    );
-  }
-
-  gofast_set_context($block_context);
-}
 
 /**
  * Implements hook_poll()
@@ -764,6 +412,59 @@ function gofast_menu_poll($poll_name, $poll_info, $context)
   return $commands;
 }
 
+/**
+ * Implement hook_preprocess_page()
+ */
+function gofast_menu_preprocess_page(&$variables)
+{
+  ctools_add_js('ajax-responder');
+  $path = drupal_get_path('module', 'gofast');
+  drupal_add_js($path . '/gofast_menu/gofast_menu.js');
+  drupal_add_js($path . '/gofast_menu/js/gofast_menu_topbar_menu.js');
+  drupal_add_js($path . '/gofast_menu/js/gofast_menu_mega_menu.js');
+}
+
+/**
+ * Implements hook_block_info
+ */
+function gofast_menu_block_info()
+{
+  $blocks['gofast_menu_icons'] = array(
+    'info' => t('Icons in top menu', array(), array('context' => 'gofast')),
+    'cache' => DRUPAL_CACHE_GLOBAL,
+  );
+
+  $blocks['gofast_menu_navigation'] = array(
+    'info' => t('gofast_menu_navigation', array(), array('context' => 'gofast')),
+    'cache' => DRUPAL_CACHE_GLOBAL,
+  );
+  $blocks['gofast_menu_sidebar'] = array(
+    'info' => t('gofast_menu_sidebar', array(), array('context' => 'gofast')),
+    'cache' => DRUPAL_CACHE_GLOBAL,
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view
+ */
+function gofast_menu_block_view($delta = '')
+{
+  $block = array();
+  switch ($delta) {
+    case 'gofast_custom_test':
+      $block['subject'] = 'test block';
+      $block['content']['#markup'] = '<p class="test">Ceci est un contenu</p>';
+      $block['content']['#attached']['css'][] = '.test{color:red;}';
+      break;
+  }
+  return $block;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter()
+ */
 function gofast_menu_form_views_exposed_form_alter(&$form, $form_state, $form_id)
 {
   if ($form_id === 'views_exposed_form' && $form_state['view']->name === 'gofast_private_msg') {
@@ -772,110 +473,477 @@ function gofast_menu_form_views_exposed_form_alter(&$form, $form_state, $form_id
 }
 
 
-function gofast_menu_rebuild_og_menu($node_type = null)
+
+##### TEMPLATE PREPROCESS ######
+
+function template_preprocess_gofast_menu_header_topbar(&$variables){
+
+  global $user;
+  $rightSection = [];
+  $leftSection = [];
+
+  //$rightSection[] = gofast_create_menu_nofification();
+  $rightSection[] = gofast_create_menu_create();
+  $rightSection[] = gofast_create_menu_spaces();
+
+  $rightSection[] = gofast_create_menu_workflow();
+
+  $othersMenus = gofast_create_menu_others_menus();
+
+  foreach($othersMenus as $menu){
+    $rightSection[] = $menu;
+  }
+
+  $variables['language'] = gofast_get_flag_lang_switcher_content();
+  $leftSection[] = gofast_create_menu_about();
+
+  $variables['rightSection'] = $rightSection;
+  $variables['leftSection'] = $leftSection;
+
+  $variables['user'] = $user;
+
+}
+
+
+function template_preprocess_gofast_menu_sidebar(&$variables)
 {
-  usurp(1);
-  //todo take care of $node_type param
+  $menus = [];
 
-  //first, remove all menu item corresponding to nodes
-  $main_menu_links = menu_load_links("main-menu");
+  $menu = array(
+    'dashboard' => array(
+      'label' => t('Dashboard'),
+      'icon' => 'fas fa-tachometer-alt',
+      'href' => '/dashboard'),
+    'activity' => array(
+      'label' => t('Activity feed'),
+      'icon' => 'fas fa-list-alt',
+      'href' => '/activity'),
+    'espaces' => array(
+      'label' => t('Browser'),
+      'icon' => '',
+      'svg' => '/sites/all/themes/bootstrap-keen/img/collaborative_space.svg',
+      'href' => '/gofast/browser'),
+      'calendar' => array('label' => t('Calendar'), 'icon' => 'fas fa-calendar-alt', 'href' => '#'),
+      'task' => array('label' => t('Tasks'), 'icon' => 'fas fa-cogs', 'href' => '#'),
+      'discussion' => array('label' => t('Discussion'), 'icon' => 'fas fa-comments', 'href' => '#'),
+      'directory' => array('label' => t('Directory'), 'icon' => 'fas fa-address-book', 'href' => '#')
+  );
+  $menus[] = $menu;
 
-  foreach ($main_menu_links as $key => $item) {
-    if ($item["router_path"] == "node/%") {
-      menu_link_delete($item["mlid"]);
+
+  $config = [['label' => t('Configuration'), 'icon' => 'fas fa-tools', 'href' => '#']];
+
+  $menus[] = $config;
+
+  $variables['menus'] = $menus;
+
+}
+
+function template_preprocess_gofast_menu_aside(&$variables){
+  global $user;
+  $detect = new Mobile_Detect();
+
+  // Check if current user is a GoFAST administrator
+  if (gofast_user_has_role('administrator', $user) == 1) {
+    $is_admin = true;
+  }
+
+  // Changed menu if is_mobile detected.
+  $mobile = FALSE;
+  if ($detect->isMobile() || $detect->isTablet() || gofast_mobile_is_mobile_domain()) {
+    $mobile = TRUE;
+  }
+
+  if ($mobile) {
+    $menus = _gofast_mobile_menu();
+  } else {
+    $menus = _gofast_normal_menu();
+  }
+
+  //check permissions for each link
+  foreach($menus as $key_parent=>$menu_lvl1){
+      foreach($menu_lvl1["menu"] as $key=>$menu_lvl2){
+          if(isset($menu_lvl2["href"])){
+            $path = substr($menu_lvl2["href"], 1);
+            if ($router_item = menu_get_item($path)) {
+                if (!$router_item['access']) {
+                    unset($menus[$key_parent]["menu"][$key]);
+                }
+            }
+          }else{
+             foreach($menu_lvl2["menu"] as $key2=>$menu_lvl3){
+                  $path = substr($menu_lvl3["href"], 1);
+                    if ($router_item = menu_get_item($path)) {
+                        if (!$router_item['access']) {
+                           // exit;
+                           // print_r($menus[$key_parent]);print_r($key);print_r($key2);exit;
+                            unset($menus[$key_parent]["menu"][$key]["menu"][$key2]);
+                        }
+                    }
+             }
+          }
+     }
+  }
+
+  $variables['menus'] = $menus;
+
+}
+
+function template_preprocess_gofast_menu_header_menu(&$variables){
+
+
+$menus[] = gofast_create_menu_create();
+$spaces[] = gofast_create_menu_spaces();
+
+$variables['menus'] = $menus;
+$variables['spaces'] = $spaces;
+
+}
+
+function template_preprocess_gofast_menu_topbar_profile(&$variables){
+
+  $link = [
+    'icon' => 'fas fa-question',
+    'label' => '',
+    'id' => '',
+    'class' =>'',
+    'subclass' => 'menu-submenu-right',
+    'href' => '',
+    'menu' => []
+  ];
+
+  // Get GoFAST Multi language
+  if (drupal_multilingual()) {
+    $path = $_GET['q'];
+    $available_languages = language_list();
+    global $language;
+    foreach ($available_languages as $available_language) {
+      if ($available_language->enabled == 0) {
+        continue;
+      }
+      $language_enabled = array(
+        'label' => $available_language->name,
+        'href' => '/' . $path . '?language=' . $available_language->language,
+        'icon' => 'flag-icon flag-icon-' . $available_language->language . ' flag-icon-squared'
+      );
+      $languages[] = $language_enabled;
+
+      if ($language->language === $available_language->language) {
+        $selected_language = $language_enabled;
+      }
     }
+  }
+  $links = [];
+  
+  if(gofast_mobile_is_mobile_domain()) {
+    $switchVersion = array(
+      'href' => '/gofast/user/login/version/standard',
+      'label' => 'GoFAST Plus',
+      'icon' => 'fa fa-laptop'
+    );
+  }else{
+    $switchVersion = array(
+      'href' => '/gofast/user/login/version/mobile',
+      'label' => 'GoFAST Essential',
+      'icon' => 'fa fa-mobile'
+    );
+  }
+  
+  
+  $links = [
+    'profile' => [
+      'href' => '/user',
+      'icon' => 'fas fa-user',
+      'label' => t("My profile")
+    ],
+    'subscriptions' => [
+      'href' => '/modal/nojs/subscriptions',
+      'class' => 'ctools-use-modal',
+      'icon' => 'fas fa-rss',
+      'label' => t("Subscriptions")
+    ],
+    'switchVersion' => $switchVersion,
+    'logout' => [
+      'href' => '/user/logout',
+      'icon' => 'fas fa-sign-out-alt',
+      'label' => t("Logout")
+    ],
+  ];
+
+  $variables['link'] = $link;
+  $variables['links'] = $links;
+}
+
+function template_preprocess_gofast_menu_header_subheader(&$variables){
+
+  $node;
+
+  if(isset($variables['node'])){
+    $node = $variables['node'];
+  }
+
+  if (empty($breadcrumb)) {
+    $breadcrumb = drupal_get_breadcrumb();
+  }
+
+  $output = '';
+  $title_plus = t("Show more breadcrumb");
+  $title_minus = t("Show less breadcrumb");
+
+  if (isset($breadcrumb[0]) && !is_array($breadcrumb[0])) {
+    array_shift($breadcrumb);
+    $items = array();
+    foreach ($breadcrumb as $item) {
+      if (!is_array($item)) {
+        $items[] = $item;
+      } else {
+        $items[] = $item['data'];
+      }
+    }
+    $output = '<ul class="breadcrumb breadcrumb-transparent breadcrumb-dot gofast breadcrumb-gofast">' . implode(' » ', $items) . '</ul>';
+  } else {
+    $output = '<ul class="breadcrumb flex-nowrap breadcrumb-transparent breadcrumb-dot gofast breadcrumb-gofast">';
+    $full_breadcrumb = $breadcrumb;
+    $reverse_bc = array_reverse($breadcrumb);
+    $array_clone = $reverse_bc;
+    $first_element_bc = array_shift($array_clone);
+    if (isset($first_element_bc['data'])) {
+      array_shift($reverse_bc);
+      $full_breadcrumb = array_reverse($reverse_bc);
+    }
+
+    foreach ($full_breadcrumb as $key => $crumbs) {
+      if (isset($crumbs['data'])) {
+        continue;
+      }
+      array_shift($crumbs);
+      $line = implode(' » ', $crumbs);
+      //if ($key !== count($breadcrumb) - 1) {
+      if ($key === 0) {
+        $class = "gofast_breadcrumb_display";
+      } else {
+        $class = "gofast_breadcrumb_hidden gofast_breadcrumb_hidden_origine";
+      }
+      $output .= "<div id='" . $key . "' class='" . $class . "' style='margin:2px;' >" . $line;
+      if ($key === 0 && count($full_breadcrumb) > 1) {
+        $output .= " <i class='glyphicon glyphicon-plus-sign' id='gofast_breadcrumb_more' style='cursor:pointer;color:black;' title=\"" . $title_plus . "\" ></i>";
+      }
+      //}
+    }
+    $output .= "</ul>";
+
+    $output .= "<style type='text/css'> .gofast_breadcrumb_hidden { display : none; }</style>";
+    $output .= '<script type="text/javascript">
+    jQuery("#gofast_breadcrumb_more").click(function(){
+      jQuery(".gofast_breadcrumb_hidden_origine").toggleClass( "gofast_breadcrumb_hidden");
+      if(jQuery(this).hasClass("glyphicon-plus-sign")){
+        jQuery(this).removeClass("glyphicon-plus-sign").addClass("glyphicon-minus-sign").attr("title", "' . $title_minus . '");
+      }else{
+        jQuery(this).removeClass("glyphicon-minus-sign").addClass("glyphicon-plus-sign").attr("title", "' . $title_plus . '");
+      }
+    })
+    </script>';
   }
 
 
-  //get all group's nodes, from parents to children
-  module_load_include('inc', 'gofast_og', 'gofast_og.admin');
-  $roots = gofast_og_get_root_spaces(FALSE, TRUE);
-  foreach ($roots as $gid) {
-    $node = node_load($gid);
-    if (!isset($node->nid)) {
-      continue;
-    }
-    $root_plid =  gofast_get_mlid_by_uuid('5af2180e-ccd8-4953-8d32-8e2ecd7bb78b');
-    if (!isset($root_plid) || $root_plid == FALSE) {
-      $root_plid =  gofast_get_mlid_by_title('Spaces');
-    }
+  if($node){
+    $variables['contextual_actions'] = gofast_get_breadcrumbs_alt($node);
+    $variables['breadcrumb'] = "<div class='breadcrumb-gofast'></div>";
+  } else {
+    $variables['contextual_actions'] = "";
+    $variables['breadcrumb'] = "";
+  }
+  $variables['breacrumb_node'] = $output;
+}
 
-    $options = array(
-      "node_type" => "group",
-      "alter" => 1,
-      "attributes" => array("title" => "")
-    );
+function _gofast_normal_menu() {
+  global $user;
+  $private_space_id = gofast_og_get_user_private_space($user, false);
 
-    $item = array(
-      'link_title' => $node->title,
-      'link_path' => 'node/' . $node->nid,
-      'menu_name' => 'main-menu',
-      'weight' => 0,
-      'plid' => $root_plid,
-      'has_children' => 1,
-      'expanded' => 1,
-      'options' => $options
-    );
-    menu_link_save($item);
+  $menus = [];
+
+  $section = [
+    'label' => '',
+    'menu' => []
+  ];
+
+  $menu1 = array(
+    'dashboard' => array(
+      'label' => t('Dashboard'),
+      'icon' => 'fas fa-tachometer-alt',
+      'href' => '/dashboard'),
+    'activity' => array(
+      'label' => t('Activity feed'),
+      'icon' => 'fas fa-list-alt',
+      'href' => '/activity')
+  );
+
+  $section['menu'] = $menu1;
+  $menus[] = $section;
+
+  // Desktop menu version.
+  $menu2['espaces'] = [
+    'label' => t('Collaborative spaces'),
+    'icon' => '',
+    'svg' => '/sites/all/themes/bootstrap-keen/img/collaborative_space.svg',
+    'href' => '/node/' . $private_space_id . "#ogdocuments"
+  ];
+
+  $menu2['task'] = [
+    'label' => t('Workflows & Tasks'),
+    'icon' => 'fas fa-flag',
+    'href' => '/workflow/dashboard',
+  ];
+  $menu2['calendar'] = [
+    'label' => t('Calendar'),
+    'icon' => 'fas fa-calendar-alt',
+    'href' => '/node/' . gofast_og_get_user_private_space($user)->nid . "#ogcalendar  ",
+  ];
+
+  $section['label'] = t('Content and deadline');
+  $section['menu'] = $menu2;
+
+  $menus[] = $section;
+
+  $menu3['discussion'] = [
+    'label' => t('Discussion'),
+    'icon' => 'fas fa-comments',
+    'href' => '/conversation',
+  ];
+  $menu3['directory'] = [
+    'label' => t('Directories'),
+    'icon' => 'fas fa-address-book',
+  ];
+
+  $menu3['directory']['menu'][] = [
+    'label' => t('Users'),
+    'href' => '/directory/users'
+  ];
+  $menu3['directory']['menu'][] = [
+    'label' => t('Userlists'),
+    'href' => '/directory/userlists'
+  ];
+  $menu3['directory']['menu'][] = [
+    'label' => t('Spaces'),
+    'href' => '/directory/spaces'
+  ];
+  $menu3['directory']['menu'][] = [
+    'label' => t('Contacts listing'),
+    'href' => '/directory/contacts-listing'
+  ];
+
+  $section['label'] = t('My collaborators');
+  $section['menu'] = $menu3;
+
+  $menus[] = $section;
+
+  // $menu3['Administration'] = ['label' => 'Administration', 'icon' => 'fas fa-users-cog'];
+  $menu4['configuration'] = ['label' => t('GoFAST Configuration'), 'icon' => 'fas fa-tools', 'href' => '/admin/config/gofast/global'];
+  //$menu4['metadata'] = ['label' => t('Categories / Tags'), 'icon' => 'fas fa-tags', 'href' => '/admin/manage/metadata'];
+  $menu4['statistic'] = ['label' => t('Statistics'), 'icon' => 'fas fa-chart-line', 'href' => '/gofast_stats/dashboard'];
+  $menu4['audit'] = ['label' => t('Audit'), 'icon' => 'fas fa-file-invoice', 'href' => '/gofast_audit'];
+  $menu4['ldap_import'] = ['label' => t('Import Users From LDAP'), 'icon' => 'fas fa-address-book"', 'href' => '/admin/config/gofast/ldap/manage'];
+
+  $section['label'] = t('Support and administration');
+  $section['menu'] = $menu4;
+
+  $menus[] = $section;
+  return $menus;
+}
+
+function _gofast_mobile_menu() {
+  $iPod    = stripos($_SERVER['HTTP_USER_AGENT'], "iPod");
+  $iPhone  = stripos($_SERVER['HTTP_USER_AGENT'], "iPhone");
+  $iPad    = stripos($_SERVER['HTTP_USER_AGENT'], "iPad");
+  $Android = stripos($_SERVER['HTTP_USER_AGENT'], "Android");
+
+  if ($iPod || $iPhone || $iPad) {
+    $url = "https://apps.apple.com/app/vector/id1083446067";
+  } else if ($Android) {
+    $url = "https://play.google.com/store/apps/details?id=im.vector.app";
+  }
+  global $user;
+  $menus = [];
+
+  $section = [
+    'label' => '',
+    'menu' => []
+  ];
+
+  $menu1 = [
+    'home' => [
+      'label' => t('Home'),
+      'icon' => '',
+      'svg' => 'sites/all/themes/bootstrap-keen/img/collaborative_space.svg',
+      'href' => '/home_page_navigation#navBrowser',
+    ],
+  ];
+
+  $section['menu'] = $menu1;
+  $menus[] = $section;
+
+  $menu2 = [];
+  $menu2['private_documents'] = [
+    'label' => t("Personal Space"),
+    'icon' => 'fa fa-home',
+    'href' => "/home_page_navigation?&path=/Sites/_{$user->name}#navBrowser",
+  ];
+  $menu2['calendar'] = [
+    'label' => t('Calendar'),
+    'icon' => 'fas fa-calendar-alt',
+    'href' => '/calendar_simplified',
+  ];
+  $menu2['task'] = [
+    'label' => t("Workflows & Tasks"),
+    'icon' => 'fas fa-cogs',
+    'href' => '/tasks_page_navigation#lightDashboardMyTab',
+  ];
+
+  if (!empty($url)) {
+    $menu2['discussion'] = [
+      'label' => t('Chat (download)'),
+      'icon' => 'fa fa-download ',
+      'href' => $url,
+    ];
+  } else {
+    $menu2['discussion'] = [
+      'label' => t('Chat'),
+      'icon' => 'fa fa-comments ',
+      'href' => '/conversation',
+    ];
   }
 
-  //we add a fake item that represent the private space
-  $options = array(
-    "node_type" => "group",
-    "alter" => 1,
-    "attributes" => array("title" => "")
-  );
+  $menu2['directory'] = [
+    'label' => t('Directories'),
+    'icon' => 'fas fa-address-book',
+  ];
 
-  $item = array(
-    'link_title' => t("My Private Space"),
-    'link_path' => 'node/' . array_shift(array_values($roots)),
-    'menu_name' => 'main-menu',
-    'weight' => 0,
-    'plid' => $root_plid,
-    'has_children' => 1,
-    'expanded' => 1,
-    'options' => $options
-  );
-  menu_link_save($item);
+  $menu2['directory']['menu'][] = [
+    'label' => t('Users'),
+    'href' => '/directory/users',
+  ];
+  $menu2['directory']['menu'][] = [
+    'label' => t('Userlists'),
+    'href' => '/directory/userlists',
+  ];
+  $menu2['directory']['menu'][] = [
+    'label' => t('Spaces'),
+    'href' => '/directory/spaces',
+  ];
+  $menu2['directory']['menu'][] = [
+    'label' => t('Contacts listing'),
+    'href' => '/directory/contacts-listing',
+  ];
+
+  $menu2['profile'] = [
+    'label' => t('Profile'),
+    'icon' => 'fa fa-user',
+    'href' => '/user',
+  ];
+
+  $section['menu'] = $menu2;
+  $menus[] = $section;
+  return $menus;
 }
 
-/**
- *
- * Asynchronous function called by "Drupal.behaviors.async_last_recently_read_menu"
- *
- * @return recently read block
- */
-function gofast_menu_get_last_recenlty_read()
-{
-  $block_recenlty_read = module_invoke('views', 'block_view', 'gofast_recently_read-block');
-  $block_recenlty_read_content = $block_recenlty_read['content'];
-  print render($block_recenlty_read_content);
-}
-
-/**
- *
- * Asynchronous function called by "Drupal.behaviors.async_last_recently_read_menu"
- *
- * @return recently read block
- */
-function gofast_menu_get_favorites(){
-
-  $view = '<div class="block-bookmarks" id="gofast_view-gofast_flag_bookmarks-gofast_flag_bookmarks"><ul class="nav nav-tabs" >
-                <li id="contentFavoritesTab" class="active" onclick="Gofast.Display_ContentFolders(event);">
-                  <a class="bookmarksTab">
-                    <tab-heading translate="" ><span onclick="Gofast.Display_ContentFolders(event);">'  . t("Favorites content", array(), array("gofast")) . '</span></tab-heading>
-                  </a>
-                </li>
-                <li id="foldersFavoritesTab" class="" onclick="Gofast.Display_FavoritesFolders(event);">
-                  <a class="bookmarksTab">
-                    <tab-heading translate=""><span onclick="Gofast.Display_FavoritesFolders(event);">' .  t("Favorites folders", array(), array("gofast")) . '</span></tab-heading>
-                  </a>
-                </li>
-              </ul>
-              <div class="pointeur"></div>
-              <div class="gofast-block-inner">
-                <section></section>
-              </div>
-              </div></div>';
-  print render($view);
-}
+##### END TEMPLATE PREPROCESS ######

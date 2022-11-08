@@ -1,9 +1,9 @@
 <?php
 
 function gofast_cart_menu(){
-    
+
   $items = array();
-    
+
   $items['modal/%ctools_js/cart'] = array(
     'title' => t('Cart', array(), array('context' => 'gofast')),
     'page callback' => 'gofast_cart_ui_display_modal',
@@ -13,28 +13,29 @@ function gofast_cart_menu(){
       'attributes' => array(
         'class' => 'ctools-use-modal'
       ),
-    ),   
+    ),
     'access arguments' => array('access content'),
     'access callback' => 'user_access',
     'weight' => -49
   );
-  
+
    $items['modal/%ctools_js/bulk_add_to_cart'] = array(
     'title' => t('Bulk add to cart', array(), array('context' => 'gofast')),
     'page callback' => 'gofast_cart_ui_display_modal_bulk_add',
     'page arguments' => array(1),
-    'access callback' => TRUE,
-    'access arguments' => array('update content'),
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
     'type' => MENU_CALLBACK,
   );
-   
+
    $items['gofast_cart_remove_all'] = array(
     'title' => t('Remove all items from cart', array(), array('context' => 'gofast')),
     'page callback' => 'gofast_cart_remove_all',
-    'access callback' => TRUE,
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
     'type' => MENU_CALLBACK,
   );
-   
+
   return $items;
 }
 
@@ -67,7 +68,7 @@ function gofast_cart_ui_display_modal_bulk_add($js){
     $commands[] = ctools_modal_command_dismiss();
   }
   print ajax_render($commands);
-    
+
 }
 
 
@@ -99,12 +100,11 @@ function gofast_cart_bulk_add_form($form, &$form_state) {
   $form_state['selected_item_by_type'] = $items_by_type;
   $form['selected_item_by_type'] = array(
       '#type' => 'textfield',
-      '#title' => t('Selected nodes'),
       '#maxlength' => "9999999",
       '#default_value' => json_encode($items_by_type),
     );
   $form['selected_item_by_type']['#attributes']['class'][] = "gofast_display_none";
-  
+
   $rendered_items = '<h2>' . t('Add theses folders and documents to your cart:', array(), array('context' => 'gofast')) . '</h2>';
   foreach ($items_by_type as $key => $items) {
     $rendered_items .= '<ul><li>' . implode('</li><li>', $items) . '</li></ul>';
@@ -147,7 +147,7 @@ function gofast_cart_bulk_add_form_submit($form, &$form_state) {
         //Force replication of this content if it's not yet replicated
         $_GET['href'] = $item_path;
         gofast_cmis_replicate(FALSE);
-        
+
         $alfresco_path = str_replace("/alfresco/webdav", "", $item_path);
         $item = gofast_cmis_item_get_by_path($alfresco_path);
         if(isset($item->id) && $item->properties['gofast:nid']) {
@@ -157,9 +157,9 @@ function gofast_cart_bulk_add_form_submit($form, &$form_state) {
     }
   }
 
- if(count($updated_nids) > 0){ 
+ if(count($updated_nids) > 0){
     global $user;
-    foreach($updated_nids as $nid) {    
+    foreach($updated_nids as $nid) {
       $flag = flag_get_flag('cart');
       $flag->flag('flag', $nid, $user, TRUE);
     }
@@ -171,46 +171,45 @@ function gofast_cart_bulk_add_form_submit($form, &$form_state) {
  * Modal for subscription UI
  */
 function gofast_cart_ui_display_modal($js){
+    drupal_get_messages();
     ctools_include('ajax');
     ctools_include('modal');
-    
+
     global $user;
 
     if (!$js) {
       return drupal_goto('gofast_cart');
     }
-    $view = views_get_view("gofast_flag_cart", true);
-    if ($view && $view->access("gofast_flag_cart")) {
-      $render = trim($view->preview("gofast_flag_cart", func_get_args()));
-    }
+    $render = gofast_cart_display_table();
     $attr = array(
       'onClick' => "Gofast.Cart.bulkSelectedCart(event)",
     );
-    $download_field = '<li>' . theme('gofast_link_generic', array(
+    $download_field = '<li class="navi-item">' . theme('gofast_link_generic', array(
               'text' => t('Download', array(), array('context' => 'gofast')),
               'link_id' => "download",
-              'link_class' => 'btn btn-sm',
+              'link_class' => '',
               'icon_class' => "fa fa-cloud-download",
               'onClick' => 'Gofast.Cart.downloadSelectedCart()',
             )) . '</li>';
-    $manage= '<div id="cart_toolbar_manage" class="btn-group">'
-            . '<button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true"><i class="fa fa-bars" aria-hidden="true" style="color:#3498db;"></i>  ' . t('Actions', array(), array('context' => 'gofast:ajax_file_browser')) .  '  <span class="caret"></span></button>'
+    $manage= '<div id="cart_toolbar_manage" class="btn-group dropup">'
+            . '<button type="button" class="btn btn-default btn-sm d-flex align-items-center dropdown-toggle" data-toggle="dropdown" aria-haspopup="true"><i class="fa fa-bars text-primary" aria-hidden="true"></i>  <span class="">' . t('Actions', array(), array('context' => 'gofast:ajax_file_browser')) .  '  </span><span class="caret"></span></button>'
             . '<ul class="dropdown-menu">'
-                .  '<li>' . $download_field
-                .  '<li>' . gofast_dropdown_link(t('Manage Metadata', array(), array('context' => 'gofast')), '/modal/nojs/manage-taxonomy', 'taxonomy_open_span', 'ctools-use-modal manage-taxonomy', 'fa fa-tags', $attr ) . '</li>'
-                .  '<li>' . gofast_dropdown_link(t('Share/Add locations', array(), array('context' => 'gofast')), '/modal/nojs/add-locations', 'locations_open_span', 'ctools-use-modal add-locations', 'fa fa-share-alt', $attr). '</li>'
-                .  '<li>' . gofast_dropdown_link(t('Create publications', array(), array('context' => 'gofast')), '/modal/nojs/manage-publications', 'publications_open_span', 'ctools-use-modal manage-publications', 'fa fa-arrow-up', $attr). '</li>'
-                .  '<li>' . gofast_dropdown_link(t('Share by email', array(), array('context' => 'gofast')), '/modal/nojs/manage-mail-sharing', 'publications_open_span', 'ctools-use-modal manage-mail-sharing', 'fa fa-envelope', $attr). '</li>'
-		.  '<li>' . gofast_dropdown_link(t('Archive cart content', array(), array('context' => 'gofast:gofast_cart')), '/modal/nojs/bulk-archive', 'taxonomy_open_span', 'ctools-use-modal bulk-archive', 'fa fa-archive', $attr ) . '</li>'
-                .  '<li>' . gofast_dropdown_link(t('Manage Metadata', array(), array('context' => 'gofast')), '/modal/nojs/manage-taxonomy', 'taxonomy_open_span', 'ctools-use-modal bulk_taxonomy manage-taxonomy gofast_display_none', 'fa fa-tags'). '</li>'
-                .  '<li>' . gofast_dropdown_link(t('Share/Add locations', array(), array('context' => 'gofast')), '/modal/nojs/add-locations', 'locations_open_span', 'ctools-use-modal bulk_add_locations add-locations gofast_display_none', 'fa fa-share-alt'). '</li>'
-                .  '<li>' . gofast_dropdown_link(t('Create publications', array(), array('context' => 'gofast')), '/modal/nojs/manage-publications', 'publications_open_span', 'ctools-use-modal bulk_publications manage-publications gofast_display_none', 'fa fa-arrow-up'). '</li>'
-                .  '<li>' . gofast_dropdown_link(t('Share by email', array(), array('context' => 'gofast')), '/modal/nojs/manage-mail-sharing', 'publications_open_span', 'ctools-use-modal bulk_mail_sharing manage-mail-sharing gofast_display_none', 'fa fa-envelope'). '</li>'
-                .  '<li>' . gofast_dropdown_link(t('Archive cart content', array(), array('context' => 'gofast')), '/modal/nojs/bulk-archive', 'taxonomy_open_span', 'ctools-use-modal bulk_archive bulk-archive gofast_display_none', 'fa fa-archive'). '</li>'
-          . '<ul>'
+            . '<div class="navi navi-hover navi-link-rounded min-w-250px">'
+                .  '<li class="navi-item">' . $download_field
+                .  '<li class="navi-item">' . gofast_dropdown_link(t('Manage Metadata', array(), array('context' => 'gofast')), '/modal/nojs/manage-taxonomy', 'taxonomy_open_span', 'ctools-use-modal manage-taxonomy navi-link', 'fa fa-tags', $attr ) . '</li>'
+                .  '<li class="navi-item">' . gofast_dropdown_link(t('Share/Add locations', array(), array('context' => 'gofast')), '/modal/nojs/add-locations', 'locations_open_span', 'ctools-use-modal add-locations navi-link', 'fa fa-share-alt', $attr). '</li>'
+                .  '<li class="navi-item">' . gofast_dropdown_link(t('Create publications', array(), array('context' => 'gofast')), '/modal/nojs/manage-publications', 'publications_open_span', 'ctools-use-modal manage-publications navi-link', 'fa fa-arrow-up', $attr). '</li>'
+                .  '<li class="navi-item">' . gofast_dropdown_link(t('Share by email', array(), array('context' => 'gofast')), '/modal/nojs/manage-mail-sharing', 'publications_open_span', 'ctools-use-modal manage-mail-sharing navi-link', 'fa fa-envelope', $attr). '</li>'
+		.  '<li class="navi-item">' . gofast_dropdown_link(t('Archive cart content', array(), array('context' => 'gofast:gofast_cart')), '/modal/nojs/bulk-archive', 'taxonomy_open_span', 'ctools-use-modal bulk-archive navi-link', 'fa fa-archive', $attr ) . '</li>'
+                .  '<li class="d-none">' . gofast_dropdown_link(t('Manage Metadata', array(), array('context' => 'gofast')), '/modal/nojs/manage-taxonomy', 'taxonomy_open_span', 'ctools-use-modal bulk_taxonomy manage-taxonomy gofast_display_none', 'fa fa-tags'). '</li>'
+                .  '<li class="d-none">' . gofast_dropdown_link(t('Share/Add locations', array(), array('context' => 'gofast')), '/modal/nojs/add-locations', 'locations_open_span', 'ctools-use-modal bulk_add_locations add-locations gofast_display_none', 'fa fa-share-alt'). '</li>'
+                .  '<li class="d-none">' . gofast_dropdown_link(t('Create publications', array(), array('context' => 'gofast')), '/modal/nojs/manage-publications', 'publications_open_span', 'ctools-use-modal bulk_publications manage-publications gofast_display_none', 'fa fa-arrow-up'). '</li>'
+                .  '<li class="d-none">' . gofast_dropdown_link(t('Share by email', array(), array('context' => 'gofast')), '/modal/nojs/manage-mail-sharing', 'publications_open_span', 'ctools-use-modal bulk_mail_sharing manage-mail-sharing gofast_display_none', 'fa fa-envelope'). '</li>'
+                .  '<li class="d-none">' . gofast_dropdown_link(t('Archive cart content', array(), array('context' => 'gofast')), '/modal/nojs/bulk-archive', 'taxonomy_open_span', 'ctools-use-modal bulk_archive bulk-archive gofast_display_none', 'fa fa-archive'). '</li>'
+          . '</div></ul>'
           . '</div>';
-    $start_workflow = '<button class="btn btn-default btn-sm" onClick="Drupal.gofast_workflows.ceo_vision_js_process_get_available_processes(\'cart\')" style="margin-left:10px;"><i class="fa fa-cogs" style="color:#3498db;"></i>  ' . t('New process', array(), array('context' => 'gofast:gofast_workflows')) . '</button>';
-    $delete_all_content_button = '<div id="remove_from_cart" style="float: right;"><a id="remove_all_documents" class="btn btn-default btn-sm" style="float:right;right: 0;margin-bottom: 10px;" onClick="Gofast.Cart.remove()"><i class="fa fa-trash" style="color:#dc3545;"></i>  ' . t("Remove all documents", array(), array('context' => 'gofast')) . '</a></div>';
+    $start_workflow = '<button id="cart_toolbar_process" class="btn btn-default btn-sm d-flex ml-1" onClick="Drupal.gofast_workflows.ceo_vision_js_process_get_available_processes(\'cart\')"><i class="fa fa-cogs text-primary"></i>  <span class="">' . t('New process', array(), array('context' => 'gofast:gofast_workflows')) . '</span></button>';
+    $delete_all_content_button = '<div id="remove_from_cart" class="m-0 ml-auto p-1"><button id="remove_all_documents" class="btn btn-default btn-sm d-flex" onClick="Gofast.Cart.remove()"><i class="fa fa-trash text-danger"></i>  <span class="">' . t("Remove all documents", array(), array('context' => 'gofast')) . '</span></button></div>';
     $res = $manage . $start_workflow . $delete_all_content_button . $render;
     $render = $res;
     $render .= '<select multiple class="gofast_display_none" id="cart_node_id"></select>';
@@ -218,17 +217,17 @@ function gofast_cart_ui_display_modal($js){
 		  ."jQuery('.flag-cart').each(function(){"
 		      ."jQuery(this).addClass('btn btn-sm');"
 		  . "});";
-    
+
     //Retrieve all nids in the cart
     $flags = flag_get_user_flags("node", NULL, $user->uid)['cart'];
     $nids = array_keys($flags);
-    
+
     foreach($nids as $nid){
         $render .= "jQuery('#cart_node_id').append('<option>" . $nid . "</option>');";
     }
-    
+
     $render .= "</script>";
-    
+
     $modal = ctools_modal_form_render(NULL, $render);
     print ajax_render($modal);
     return;
@@ -240,14 +239,110 @@ function gofast_cart_ui_display_modal($js){
 function gofast_cart_remove_all(){
     global $user;
     $account = user_load($user->uid);
-    
+
     $cart_flag = flag_get_flag("cart");
     $flags = flag_get_user_flags("node", NULL, $user->uid)['cart'];
-    
+
     foreach($flags as $flag){
         $entity_id = $flag->entity_id;
         $cart_flag->flag('unflag', $entity_id, $account, TRUE);
     }
-    
+
     exit;
+}
+
+function gofast_cart_theme() {
+  $items = [];
+
+  $items = [
+    'gofast_cart_modal_cart' => [
+      'template' => 'tpl/gofast-cart-modal-cart'
+    ],
+    'gofast_cart_modal_cart_table_content' => [
+        'template' => 'tpl/gofast-cart-modal-cart-table-content'
+    ],
+    'gofast_cart_modal_cart_table_more_locations' => [
+        'template' => 'tpl/gofast-cart-modal-cart-table-more-locations'
+    ],
+  ];
+
+  return $items;
+}
+
+/*
+ * GOFAST-6852 : Cart rework
+ * Creates the table that will be displayed in the cart modal
+ * When the node is multi-filled in 3 or more locations, add a clickable popover which contains the full list of all the paths
+ * -> This behavior is similar to the one in the activity feed, even though there is 2 different templates to cover some future specifications
+ * $table contains all the data needed per node :
+ *  - $table[]['name'] : used for cases where title field is truncated so the user can see the node title when hovering it
+ *  - $table[]['title'] : formatted title of the node (icon + title)
+ *  - $table[]['date'] : the short format cart addition date of the node
+ *  - $table[]['locations'] : all the locations of the node with the behavior described above
+ *  - $table[]['actions'] : the button to remove the node from the cart
+ *
+ * This function replaces the following drupal view : gofast_flag_cart
+ */
+function gofast_cart_display_table() {
+    global $user;
+    $account = user_load($user->uid);
+    
+    $output = "";
+    $table = [];
+    $cart_flag = flag_get_flag("cart");
+    $flags = flag_get_user_flags("node", NULL, $user->uid)['cart'];
+
+    foreach($flags as $flag) {
+        $node = [];
+        $f_node = node_load($flag->entity_id);
+        if($f_node->status == 0){
+          $cart_flag->flag('unflag', $flag->entity_id, $account, TRUE);
+          //continue;
+        }
+        $node_icon = theme('gofast_node_icon_format', array('node' => $f_node));
+
+        //Formatted title of the node, with its icon
+        $node_title = $node_icon . $f_node->title;
+
+        // Get node href
+        $node_href = "/node/$f_node->nid";
+
+        //Location(s) of the node
+        $spaces = $f_node->field_emplacement[LANGUAGE_NONE];
+        $space_ids = gofast_og_get_parent($f_node);
+        $count_more = -2;
+        $locations = $more_spaces_output = '';
+
+        //Replace this part by the one which is above
+//        foreach($spaces as $space) {
+//            $locations .= ($count_more >= 0) ? '' : '<span class="" title="' . $space['value'] . '">' . $space['value'] . '</span><br \>';
+//            $more_spaces_output .= "<li class='navi-item'><span class='navi-link'>". $space['value'] . "</span></li>";
+//            $count_more++;
+//        }
+        if($count_more > 0) {
+            $button = $count_more . " " . t("more", [], ["context" => "gofast:gofast_cart"]) . "...";
+            $locations .= theme('gofast_cart_modal_cart_table_more_locations', ['popover_content' => $more_spaces_output, 'button_text' => $button]);
+        }
+        
+        //Remove from cart action
+        $actions_variables = [
+          'link_text' => 'A'
+        ];
+        $flag_actions = flag_create_link('cart', $flag->entity_id, $actions_variables);
+        
+        //Fill the data of the node
+        $node = [
+            'name' => $f_node->title,
+            'date' => format_date($flag->timestamp, 'short'),
+            'title' => $node_title,
+            'href' => $node_href,
+            'locations' => gofast_breadcrumb_display_breadcrumb($f_node->nid, ['return' => TRUE, 'show_title' => FALSE, 'remove_extension' => FALSE, 'title_link' => TRUE, 'in_modal' => TRUE]),
+            'actions' => $flag_actions
+        ];
+
+        $table[] = $node;
+    }
+    $content = (empty($table)) ? "" : theme('gofast_cart_modal_cart_table_content', array('items' => $table));
+    $output = theme('gofast_cart_modal_cart', array('table_content' => $content));
+    return $output;
 }

@@ -1,0 +1,120 @@
+<mjml>
+  <mj-head>
+    <mj-style>
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 400;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-Regular.otf") format("opentype");
+      }
+
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 600;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-SemiBold.otf") format("opentype");
+      }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#EAF1F7" width="992px">
+    <mj-raw>
+      <!-- SubHeader -->
+    </mj-raw>
+    <mj-section padding-left="10px" padding-top="10px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%">
+        <mj-text padding-left="0" font-size="18px" font-weight="600" font-family="Poppins">
+          Hello User Name,
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-raw>
+      <!-- Notif details -->
+    </mj-raw>
+    <mj-section padding-left="10px" padding-top="0px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%" background-color="#337ab7" border-radius="5px">
+        <mj-text color="white" font-size="18px" font-weight="600" font-family="Poppins">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/info-circle-solid-white.png" alt="Information Icon" width="18" />
+                </td>
+                <td>
+                  <span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;Informations</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-left="10px" padding-top="0px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%" vertical-align="middle">
+        <mj-text font-size="14px" font-weight="400" font-family="Poppins">
+          Notif description :
+          node_icon
+          <a href="$node_link" style="color: #337ab7; font-size: 14px; font-weight: 600; text-decoration: none;">
+            node_title
+          </a>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-left="10px" padding-top="10px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%" background-color="#F3F6F9" border-radius="5px">
+        <mj-text color="#337ab7" font-size="18px" font-weight="600" font-family="Poppins">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td><img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon//scroll-solid-primary.png" alt="Message Icon" width="18" style="vertical-align: middle;" />
+                </td>
+                <td><span style="color: #337ab7; font-size: 18px; font-weight: 600;">
+                    &nbsp;Details
+                  </span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-left="10px" padding-top="0px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%" vertical-align="middle">
+        <mj-text font-size="14px" font-weight="600" font-family="Poppins">
+          Responsible
+        </mj-text>
+        <mj-text font-size="14px" font-weight="400" font-family="Poppins">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" style="padding-right: 5px;" width="40">
+                </td>
+                <td><span style="font-size: 14px; font-weight: 400;">&nbsp;Other Username
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+        <mj-text font-size="14px" font-weight="600" font-family="Poppins">
+          Description
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-left="10px" padding="0" background-color="white">
+      <mj-column width="90%" border="1px solid #666666" background-color="#F3F6F9">
+        <mj-text font-size="14px" font-weight="400">
+          SHORTER CONTENT
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-left="10px" padding-top="10px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%" vertical-align="middle">
+        <mj-text color="#de6502" font-size="14px" font-weight="600" font-family="Poppins">
+          Échéance
+        </mj-text>
+        <mj-text font-size="14px" font-weight="400" font-family="Poppins">
+          01/01/2022
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

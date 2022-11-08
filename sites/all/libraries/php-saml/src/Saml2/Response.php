@@ -381,12 +381,13 @@ class Response
             // Detect case not supported
             if ($this->encrypted) {
                 $encryptedIDNodes = Utils::query($this->decryptedDocument, '/samlp:Response/saml:Assertion/saml:Subject/saml:EncryptedID');
-                if ($encryptedIDNodes->length > 0) {
+                 /* @CEO-Vision patch : Bypass non standard error specific to Shibboleth */
+                /*if ($encryptedIDNodes->length > 0) {
                     throw new ValidationError(
                         'Unsigned SAML Response that contains a signed and encrypted Assertion with encrypted nameId is not supported.',
                         ValidationError::NOT_SUPPORTED
                     );
-                }
+                }*/
             }
 
             if (empty($signedElements) || (!$hasSignedResponse && !$hasSignedAssertion)) {

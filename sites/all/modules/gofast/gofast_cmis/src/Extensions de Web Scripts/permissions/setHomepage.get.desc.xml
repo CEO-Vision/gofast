@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Set admin permissions Only</shortname>
+    <description>Manage permissions using javascript API</description>
+    <url>/set/homepage/?reference={reference}</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

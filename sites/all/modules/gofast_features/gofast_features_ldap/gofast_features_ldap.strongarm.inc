@@ -81,7 +81,7 @@ function gofast_features_ldap_strongarm() {
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
   $strongarm->name = 'ldap_servers_encryption';
-  $strongarm->value = '10';
+  $strongarm->value = '6';
   $export['ldap_servers_encryption'] = $strongarm;
 
   $strongarm = new stdClass();
@@ -104,7 +104,7 @@ function gofast_features_ldap_strongarm() {
     ),
     'ldapEntryProvisionTriggers' => array(
       6 => '6',
-      7 => '7',
+      7 => 0,
       8 => '8',
       3 => '3',
     ),

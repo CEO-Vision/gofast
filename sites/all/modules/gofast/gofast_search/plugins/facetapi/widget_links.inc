@@ -64,9 +64,7 @@ class GofastFacetapiWidgetLinks extends FacetapiWidget {
     $element = array(
       '#theme' => 'item_list',
       '#items' => $this->buildListItems($element),
-      '#prefix' => '<div class="facet-collapsible-wrapper" id="facet-collapsible-' . str_replace('_', '-', $this->facet['field alias']) .'">',
-      '#suffix' => '</div>',
-      '#attributes' => array_merge_recursive($this->build['#attributes'], array('class' => array('facetapi-collapsible'))),
+      '#attributes' => array_merge_recursive($this->build['#attributes'], array('class' => array('facetapi-collapsible', 'collapse'))),
       '#attached' => array(
         'css' => array(drupal_get_path('module', 'gofast_search') .'/css/facetapi_collapsible.css'),
         'library' => array(array('system', 'jquery.cookie')),

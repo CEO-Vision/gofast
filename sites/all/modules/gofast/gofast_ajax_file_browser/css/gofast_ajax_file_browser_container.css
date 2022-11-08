@@ -1,0 +1,27 @@
+.main-container {
+  width: 100% !important;
+}
+
+#file_browser_full_files,
+#file_browser_full_files_table {
+  height: 100% !important;
+}
+
+#file_browser_full_tree,
+#file_browser_full_tree_element {
+  height: 100% !important;
+}
+
+#file_browser_full_upload,
+#file_browser_full_upload_table {
+  height: 100% !important;
+}
+
+#file_browser_full_upload_container {
+  height: 28% !important;
+}
+
+aside,
+footer {
+  display: none !important;
+}

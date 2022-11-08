@@ -94,7 +94,7 @@ function gofast_features_global_locale_default_languages() {
     'name' => 'Dutch',
     'native' => 'Nederlands',
     'direction' => 0,
-    'enabled' => 1,
+    'enabled' => 0,
     'plurals' => 2,
     'formula' => '($n!=1)',
     'domain' => '',

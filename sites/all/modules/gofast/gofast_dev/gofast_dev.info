@@ -1,6 +1,0 @@
-name = Gofast Dev Tools
-description = "Provides development tools for debugging or more."
-package = Gofast
-core = 7.x
-dependencies[] = gofast
-version = "7.x-3.10.0_r2"

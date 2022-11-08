@@ -188,8 +188,8 @@ function gofast_views_views_data() {
   $data['users']['gofast_views_handler_field_user_roles'] = array(
     'group' => t('GoFAST Fields', array(), array('context' => 'gofast')),
     'field' => array(
-      'title' => t('GoFAST user roles', array(), array('context' => 'gofast')),
-      'help' => t('Display GoFAST (non-technical) user roles.', array(), array('context' => 'gofast')),
+      'title' => t('GoFAST user profiles', array(), array('context' => 'gofast')),
+      'help' => t('Display GoFAST (non-technical) user profiles.', array(), array('context' => 'gofast')),
       'handler' => 'gofast_views_handler_field_user_roles',
     )
   );
@@ -211,8 +211,8 @@ function gofast_views_views_data() {
   $data['users']['gofast_views_handler_field_user_directories_user_gofast_role'] = array(
     'group' => t('GoFAST Fields', array(), array('context' => 'gofast')),
     'field' => array(
-      'title' => t('Default GoFAST Role', array(), array('context' => 'gofast')),
-      'help' => t('The default GoFAST Role', array(), array('context' => 'gofast')),
+      'title' => t('Default GoFAST Profile', array(), array('context' => 'gofast')),
+      'help' => t('The default GoFAST Profile', array(), array('context' => 'gofast')),
       'handler' => 'gofast_views_handler_field_user_directories_user_gofast_role',
     ),
   );

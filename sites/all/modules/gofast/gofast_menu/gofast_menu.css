@@ -39,29 +39,8 @@
   color: #ddd;
 }
 
-.gofast-block-outer {
-  display: none;
-  color: rgb(119, 119, 119);
-  margin-top: -10px;
-  padding: 10px;
-  border: 1px solid rgba(0,0,0,0.15);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.175);
-  background-clip: padding-box;
-  border-radius: 4px;
-  background: white;
-  position: relative;
-  top: 21px;
-/*  float: right;*/
-  left: 0;
-  z-index: 999;
-}
-
 .gofast-block .views-widget-filter-subject {
   clear:both;
-}
-
-.badge{
-  visibility: hidden;
 }
 
 .badge-notify {
@@ -92,4 +71,47 @@
     font-size: 1.2em;
     color: #777;
     border-bottom: 1px solid #cecece;
+}
+
+@media (max-width: 991.98px) {
+    #kt_header,
+    #kt_header_mobile_toggle,
+    #kt_header_mobile_topbar_toggle,
+    .is_mobile #riot {
+        display: none;
+    }
+}
+
+.navi-item .navi-link .navi-icon {
+    text-align: center;
+} 
+
+.menu-svg-img{
+  filter :invert(96%) sepia(2%) saturate(5058%) hue-rotate(187deg) brightness(85%) contrast(75%);
+}
+
+.btn.btn-clean:hover:not(.btn-text):not(:disabled):not(.disabled) .menu-svg-img{
+  filter :invert(52%) sepia(24%) saturate(6419%) hue-rotate(193deg) brightness(105%) contrast(101%);
+}
+
+@media (min-width: 992px){
+  .aside-minimize:not(.aside-minimize-hover) .aside-menu .menu-nav>.menu-item>.menu-link>.menu-icon .menu-svg-img{
+    filter: invert(100%) sepia(2%) saturate(28%) hue-rotate(206deg) brightness(104%) contrast(71%);
+  }
+}
+
+.aside-menu .menu-nav>.menu-item>.menu-link .menu-icon .menu-svg-img{
+  filter: invert(34%) sepia(17%) saturate(837%) hue-rotate(188deg) brightness(92%) contrast(96%);
+}
+
+.aside-menu .menu-nav>.menu-item:not(.menu-item-parent):not(.menu-item-open):not(.menu-item-here):not(.menu-item-active):hover>.menu-link .menu-icon .menu-svg-img{
+  filter: invert(50%) sepia(80%) saturate(2219%) hue-rotate(190deg) brightness(101%) contrast(101%);
+}
+
+.context-menu-svg-img > .navi-icon{
+  filter :invert(96%) sepia(2%) saturate(5058%) hue-rotate(187deg) brightness(85%) contrast(75%);
+}
+
+.context-menu-svg-img:hover > .navi-icon{
+  filter :invert(52%) sepia(24%) saturate(6419%) hue-rotate(193deg) brightness(105%) contrast(101%);
 }

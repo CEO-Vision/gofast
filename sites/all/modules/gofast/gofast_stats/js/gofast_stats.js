@@ -1,15 +1,34 @@
 (function ($, Gofast, Drupal) {
   'use strict';
-   
+  
   Drupal.behaviors.gofast_stats_space_async = {
         attach: function (context, settings) {
-           if($("#tab_ogstats:not(.stats_processed)").parent().hasClass('active')){
-               $("#tab_ogstats:not(.stats_processed)").addClass("stats_processed");
-               $("#ogstats").load( "/gofast_stats/space_stats_async");
-           } 
-           $("#tab_ogstats:not(.stats_processed)").addClass("stats_processed").click(function(){             
-                $("#ogstats").load( "/gofast_stats/space_stats_async");
-           })
+           if (!$(".gofast-og-page").length || typeof $(".gofast-og-page").attr("id") == "undefined") {
+             return;
+           }
+           var currentGid = $(".gofast-og-page").attr("id").replace("node-", "");
+           if (typeof currentGid == "undefined") {
+             return;
+           }
+           if($("#tab_ogmemberstats:not(.stats_processed)").parent().parent().find("a").hasClass("active")){
+               $("#tab_ogmemberstats").click();
+           }
+           $("#tab_ogmemberstats:not(.stats_processed)").addClass("stats_processed");
+           $("#tab_ogdocumentstats:not(.stats_processed)").addClass("stats_processed");
+           $('a[data-toggle="tab"].stats_processed').on("show.bs.tab", function (e) {
+                var target = $(e.target).attr("id");
+                if (target == "tab_ogmemberstats") {
+                  $("#tab_ogdocumentstats").removeClass("active");
+                  Gofast.stats_to_load = "user";
+                  $("#ogmemberstats").load( "/gofast_stats/space_stats_async", {currentGid});
+                }
+                else if (target == "tab_ogdocumentstats") {
+                  $("#tab_ogmemberstats").removeClass("active");
+                  Gofast.stats_to_load = "document";
+                  $("#ogmemberstats").load( "/gofast_stats/space_stats_async", {currentGid});
+                }
+                $("#" + target).addClass("active");
+           });
         }
     };
  
@@ -21,28 +40,21 @@
     //Trigger calls at the click event on the header
     $("#users_stats_header").click(function(){
       if($("#users_stats_header").hasClass("processed")){ //Already loaded
-          $(".stats_container").css('display', 'none');
-          $("li").removeClass("active");
-          $("#users_stats_header").addClass("active");
-          $("#users_stats_container").css('display', 'block');
+          
       }else{ //Need to be loaded
         $("#users_stats_header").addClass('processed');
-        $(".stats_container").css('display', 'none');
-        $("li").removeClass("active");
-        $("#users_stats_header").addClass("active");
-        $("#users_stats_container").css('display', 'block');
         
         Gofast.stats_filters = [];
         //Trigger event on users stats filters
-        $("#users_stats_filter > form > div > button").click(function(e){
+        $("#users_stats_filter_apply").click(function(e){
           e.preventDefault();
 
           //Retrieve selected spaces
-          var spaces = $("#users_stats_filter > form > div > div > div > .selection-tags > span").find('.labelize-metadata');
+          var spaces = $("#users_stats_filter > form > div > div > .input-group > tags > tag");
           var spaces_ids = [];
 
           $.each(spaces, function(k, tag){
-            spaces_ids.push($(tag).data('id'));
+            spaces_ids.push($(tag).attr('value'));
           });
           Gofast.stats_filters = spaces_ids;
           load_users_chart();
@@ -91,16 +103,10 @@
     
     $("#documents_stats_header").click(function(){
       if($("#documents_stats_header").hasClass("processed")){ //Already loaded
-        $(".stats_container").css('display', 'none');
-        $("li").removeClass("active");
-        $("#documents_stats_header").addClass("active");
-        $("#documents_stats_container").css('display', 'block');
+          
       }else{ //Need to be loaded
         $("#documents_stats_header").addClass('processed');
-        $(".stats_container").css('display', 'none');
-        $("li").removeClass("active");
-        $("#documents_stats_header").addClass("active");
-        $("#documents_stats_container").css('display', 'block');
+        
         /*
         * USERS CHART
         * Load the users chart and implements listeners
@@ -120,12 +126,22 @@
         */
        $.post(location.origin + "/api", {ressource : "stats", action : "get_documents_storage"}).done(function(api_return){
          var data = api_return;
-
-         var ctx = document.getElementById("documents_doughnut_storage").getContext('2d');
-         var myChart = new Chart(ctx, {
-             type: 'doughnut',
-             data: data.data
-         });
+         
+          var options = {
+            chart: {
+              type: 'pie',
+              height: '200px',
+              toolbar: {
+                  show: false
+              }
+            },
+            series: data.data.datasets.data,
+            labels: data.data.labels
+          };
+          
+          var chart = new ApexCharts(document.querySelector('#documents_doughnut_storage'), options);
+          chart.render();
+          
          $("#documents_doughnut_storage_loader").remove();
        });
        
@@ -135,12 +151,22 @@
         */
        $.post(location.origin + "/api", {ressource : "stats", action : "get_documents_indexation"}).done(function(api_return){
          var data = api_return;
-
-         var ctx = document.getElementById("documents_doughnut_indexation").getContext('2d');
-         var myChart = new Chart(ctx, {
-             type: 'doughnut',
-             data: data.data
-         });
+         
+          var options = {
+            chart: {
+              type: 'pie',
+              height: '200px',
+              toolbar: {
+                  show: false
+              }
+            },
+            series: data.data.datasets.data,
+            labels: data.data.labels
+          };
+          
+          var chart = new ApexCharts(document.querySelector('#documents_doughnut_indexation'), options);
+          chart.render();
+          
          $("#documents_doughnut_indexation_loader").remove();
        });
        
@@ -155,16 +181,10 @@
   
       $("#spaces_stats_header").click(function(){
       if($("#spaces_stats_header").hasClass("processed")){ //Already loaded
-        $(".stats_container").css('display', 'none');
-        $("li").removeClass("active");
-        $("#spaces_stats_header").addClass("active");
-        $("#spaces_stats_container").css('display', 'block');
+          
       }else{ //Need to be loaded
         $("#spaces_stats_header").addClass('processed');
-        $(".stats_container").css('display', 'none');
-        $("li").removeClass("active");
-        $("#spaces_stats_header").addClass("active");
-        $("#spaces_stats_container").css('display', 'block');
+        
         /*
         * SPACES CHART
         * Load the users chart and implements listeners
@@ -201,16 +221,28 @@
       var canvas = $("#users_chart");
       if(canvas){
         canvas.remove();
-        $("#users_chart_container").append('<canvas id="users_chart" max-height="400"></canvas>');
+        $("#users_chart_container").append('<div id="users_chart"></div>');
       }else{
-        $("#users_chart_container").append('<canvas id="users_chart" max-height="400"></canvas>');
+        $("#users_chart_container").append('<div id="users_chart"></div>');
       }
-       
-      var ctx = document.getElementById("users_chart").getContext('2d');
-      var myChart = new Chart(ctx, {
+      
+      var options = {
+        chart: {
           type: 'bar',
-          data: data.data,
-      });
+          height: '400px',
+          toolbar: {
+              show: false
+          }
+        },
+        series: data.data.datasets,
+        xaxis: {
+          categories: data.data.labels
+        },
+      };
+
+      var chart = new ApexCharts(document.querySelector('#users_chart'), options);
+      chart.render();
+      
       $("#user_charts_btn_group").css("display", "block");
       $("#users_chart_loader").remove();
     });
@@ -225,16 +257,26 @@
       var canvas = $("#users_doughnut_active");
       if(canvas){
         canvas.remove();
-        $("#users_doughnut_active_container").append('<canvas id="users_doughnut_active" max-height="400"></canvas>');
+        $("#users_doughnut_active_container").append('<div id="users_doughnut_active"></div>');
       }else{
-        $("#users_doughnut_active_container").append('<canvas id="users_doughnut_active" max-height="400"></canvas>');
+        $("#users_doughnut_active_container").append('<div id="users_doughnut_active"></div>');
       }
       
-      var ctx = document.getElementById("users_doughnut_active").getContext('2d');
-      var myChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: data.data
-      });
+      var options = {
+        chart: {
+          type: 'pie',
+          height: '200px',
+          toolbar: {
+              show: false
+          }
+        },
+        series: data.data.datasets.data,
+        labels: data.data.labels,
+      };
+      
+      var chart = new ApexCharts(document.querySelector('#users_doughnut_active'), options);
+      chart.render();
+      
       $("#users_doughnut_active_loader").remove();
     });
   }
@@ -249,17 +291,27 @@
         var canvas = $("#users_doughnut_state");
         if(canvas){
           canvas.remove();
-          $("#users_doughnut_state_container").append('<canvas id="users_doughnut_state" max-height="400"></canvas>');
+          $("#users_doughnut_state_container").append('<div id="users_doughnut_state"></div>');
         }else{
-          $("#users_doughnut_state_container").append('<canvas id="users_doughnut_state" max-height="400"></canvas>');
+          $("#users_doughnut_state_container").append('<div id="users_doughnut_state"></div>');
         }
+
+        var options = {
+            chart: {
+              type: 'pie',
+              height: '200px',
+              toolbar: {
+                show: false
+              }
+            },
+            series: data.data.datasets.data,
+            labels: data.data.labels,
+        };
+        
+        var chart = new ApexCharts(document.querySelector('#users_doughnut_state'), options);
+        chart.render();
       
-        var ctx = document.getElementById("users_doughnut_state").getContext('2d');
-        var myChart = new Chart(ctx, {
-          type: 'doughnut',
-          data: data.data
-      });
-      $("#users_doughnut_state_loader").remove();
+        $("#users_doughnut_state_loader").remove();
     });
   }
   
@@ -273,28 +325,28 @@
       var canvas = $("#users_doughnut_roles");
         if(canvas){
           canvas.remove();
-          $("#users_doughnut_role_container").append('<canvas id="users_doughnut_roles" max-height="400"></canvas>');
+          $("#users_doughnut_role_container").append('<div id="users_doughnut_roles"></div>');
         }else{
-          $("#users_doughnut_role_container").append('<canvas id="users_doughnut_roles" max-height="400"></canvas>');
+          $("#users_doughnut_role_container").append('<div id="users_doughnut_roles"></div>');
         }
         
-      var ctx = document.getElementById("users_doughnut_roles").getContext('2d');
-      var myChart = new Chart(ctx, {
-        type: 'bar',
-        data: data.data,
-        options: {
-          scales: {
-            yAxes: [{
-              ticks: {
-                beginAtZero:true
-              }
-            }]
-          },
-          legend: {
-            display: false
+      var options = {
+        chart: {
+          type: 'bar',
+          height: '400px',
+          toolbar: {
+              show: false
           }
-        }
-      });
+        },
+        series: data.data.datasets,
+        xaxis: {
+          categories: data.data.labels
+        },
+      };
+
+      var chart = new ApexCharts(document.querySelector('#users_doughnut_roles'), options);
+      chart.render();
+      
       $("#users_doughnut_role_loader").remove();
     });
   }
@@ -313,7 +365,7 @@
       Drupal.document_charts_mode = "evolution";
     }
     if(Drupal.document_charts_mode == "evolution"){
-      var type = "line";
+      var type = "area";
     }else{
       var type = "bar";
     }
@@ -323,16 +375,39 @@
       var canvas = $("#documents_chart");
       if(canvas){
         canvas.remove();
-        $("#documents_chart_container").append('<canvas id="documents_chart" max-height="400"></canvas>');
+        $("#documents_chart_container").append('<div id="documents_chart"></div>');
       }else{
-        $("#documents_chart_container").append('<canvas id="documents_chart" max-height="400"></canvas>');
+        $("#documents_chart_container").append('<div id="documents_chart"></div>');
       }
        
-      var ctx = document.getElementById("documents_chart").getContext('2d');
-      Drupal.myChart = new Chart(ctx, {
+      var options = {
+        chart: {
           type: type,
-          data: data.data,
-      });
+          height: '400px',
+          toolbar: {
+              show: false
+          }
+        },
+        series: data.data.datasets,
+        xaxis: {
+          categories: data.data.labels
+        },
+      };
+      
+      if(type == "area"){
+          options.dataLabels = {enabled: false};
+      }
+
+      var chart = new ApexCharts(document.querySelector('#documents_chart'), options);
+      chart.render();
+      
+      //Hide all types except 'Documents'
+      for(var i in data.data.datasets){
+          if(i != 0){
+            chart.toggleSeries(data.data.datasets[i].name);
+          }
+      }
+      
       $("#document_charts_btn_group").css("display", "block");
       $("#document_charts_mode_btn_group").css("display", "block");
       $("#documents_chart_loader").remove();
@@ -354,7 +429,7 @@
     }
     
     if(Drupal.space_charts_mode == "evolution"){
-      var type = "line";
+      var type = "area";
     }else{
       var type = "bar";
     }
@@ -364,16 +439,39 @@
       var canvas = $("#spaces_chart");
       if(canvas){
         canvas.remove();
-        $("#spaces_chart_container").append('<canvas id="spaces_chart" max-height="400"></canvas>');
+        $("#spaces_chart_container").append('<div id="spaces_chart"></div>');
       }else{
-        $("#spaces_chart_container").append('<canvas id="spaces_chart" max-height="400"></canvas>');
+        $("#spaces_chart_container").append('<div id="spaces_chart"></div>');
       }
        
-      var ctx = document.getElementById("spaces_chart").getContext('2d');
-      Drupal.myChart = new Chart(ctx, {
+      var options = {
+        chart: {
           type: type,
-          data: data.data,
-      });
+          height: '400px',
+          toolbar: {
+              show: false
+          }
+        },
+        series: data.data.datasets,
+        xaxis: {
+          categories: data.data.labels
+        },
+      };
+      
+      if(type == "area"){
+          options.dataLabels = {enabled: false};
+      }
+
+      var chart = new ApexCharts(document.querySelector('#spaces_chart'), options);
+      chart.render();
+      
+      //Hide all types except 'Documents'
+      for(var i in data.data.datasets){
+          if(i != 0){
+            chart.toggleSeries(data.data.datasets[i].name);
+          }
+      }
+      
       $("#spaces_chart_loader").remove();
       $("#space_charts_btn_group").css("display", "block");
       $("#space_charts_mode_btn_group").css("display", "block");
@@ -390,16 +488,46 @@
          var canvas = $("#documents_radar_category_state");
          if(canvas){
            canvas.remove();
-           $("#documents_radar_category_state_container").prepend('<canvas id="documents_radar_category_state" max-height="400"></canvas>');
+           $("#documents_radar_category_state_container").prepend('<div id="documents_radar_category_state"></div>');
          }else{
-           $("#documents_radar_category_state_container").prepend('<canvas id="documents_radar_category_state" max-height="400"></canvas>');
+           $("#documents_radar_category_state_container").prepend('<div id="documents_radar_category_state"></div>');
          }
       
-         var ctx = document.getElementById("documents_radar_category_state").getContext('2d');
-         var myChart = new Chart(ctx, {
-             type: 'radar',
-             data: data.data
-         });
+         var options = {
+            chart: {
+              type: "radialBar",
+              height: '500px',
+              toolbar: {
+                  show: false
+              }
+            },
+            series: data.data.datasets.data,
+            labels: data.data.labels,
+            plotOptions: {
+                radialBar: {
+                  dataLabels: {
+                    total: {
+                      show: true,
+                      label: data.data.datasets.total_label,
+                      formatter: function (w) {
+                        return Object.values(data.data.datasets.percentage).reduce((a, b) => {
+                          return a + b;
+                        }, 0);
+                      }
+                    },
+                    value: {
+                        formatter: function (val) {
+                          return data.data.datasets.percentage[val];
+                        }
+                    }
+                  }
+              }
+            }
+          };
+          
+          var chart = new ApexCharts(document.querySelector('#documents_radar_category_state'), options);
+          chart.render();
+          
          $("#documents_radar_category_state_loader").remove();
          $("#document_charts_btn_group_cs").css("display", "block");
        });
@@ -415,25 +543,32 @@
          var canvas = $("#spaces_bar_top");
          if(canvas){
            canvas.remove();
-           $("#spaces_bar_top_container").prepend('<canvas id="spaces_bar_top" max-height="400"></canvas>');
+           $("#spaces_bar_top_container").prepend('<div id="spaces_bar_top" max-height="400"></div>');
          }else{
-           $("#spaces_bar_top_container").prepend('<canvas id="spaces_bar_top" max-height="400"></canvas>');
+           $("#spaces_bar_top_container").prepend('<div id="spaces_bar_top" max-height="400"></div>');
          }
          
-         var ctx = document.getElementById("spaces_bar_top").getContext('2d');
-         var myChart = new Chart(ctx, {
-             type: 'horizontalBar',
-             data: data.data,
-             options: {
-              scales: {
-                  xAxes: [{
-                      ticks: {
-                          beginAtZero:true
-                      }
-                  }]
-              }
-            },
-         });
+         var options = {
+           chart: {
+             type: 'bar',
+             height: '400px',
+             toolbar: {
+                 show: false
+             }
+           },
+           series: data.data.datasets,
+           xaxis: {
+             categories: data.data.labels
+           },
+           plotOptions: {
+               bar: {
+                   horizontal: true
+               }
+           }
+         };
+         
+         var chart = new ApexCharts(document.querySelector('#spaces_bar_top'), options);
+         chart.render();
          $("#spaces_bar_top_loader").remove();
        });
   }
@@ -441,20 +576,28 @@
   /*
    * Handle the downloading of stats
    */
-  Gofast.download_users_stats = function(stats_name, filters){
+  Gofast.download_users_stats = function(stats_name){
       Gofast.modal('<div class="loader-sync-status"></div> ' + Drupal.t("Please hold on while your export is being generating. This process may take a few minutes.", {}, {context : "gofast_stats"}), Drupal.t("Your export is being generating", {}, {context : "gofast_stats"}));
       //Check filters
       var xid_param = "";
+      var spaces = $("#users_stats_filter > form > div > div > .input-group > tags > tag");
+      var filters = [];
+
+      $.each(spaces, function(k, tag){
+        filters.push($(tag).attr('value'));
+      });
+      
       if(typeof filters !== "undefined" && filters !== null && filters.length > 0){
           //Parse filters
           xid_param = "?xid=";
-          filters.each(function(k, elem){
-              var xid = $(elem).find(".labelize-metadata").data("id");
-              xid_param += xid + ","; 
+          filters.forEach(function(elem){
+              xid_param += elem + ","; 
           });
           
           //Remove last comma
           xid_param = xid_param.substr(0, xid_param.length -1);
+      } else if ($(".gofast-og-page").length){
+        xid_param = "?xid=" + $(".gofast-og-page").attr("id").replace("node-", "");
       }
       
       $.get(location.origin + "/gofast_stats/" + stats_name + xid_param, function(response){
@@ -462,7 +605,7 @@
              $.get(location.origin + "/gofast_stats/download/" + response, function(file){
                 if(file !== "Waiting"){
                     clearInterval(downloadInterval);
-                    modalContentClose();
+                    Gofast.closeModal();
                     window.location = location.origin + "/gofast_stats/download/" + response;
                 } 
              });

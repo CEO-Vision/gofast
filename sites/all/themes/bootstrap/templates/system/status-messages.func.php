@@ -56,26 +56,31 @@ function bootstrap_status_messages(array $variables) {
   }
 
   foreach ($message_list as $type => $messages) {
-    $class = (isset($status_class[$type])) ? ' alert-' . $status_class[$type] : '';
-    $output .= "<div class=\"alert alert-block alert-dismissible$class messages $type\">\n";
-    $output .= "  <a class=\"close\" data-dismiss=\"alert\" href=\"#\">&times;</a>\n";
+    $class = (isset($status_class[$type])) ? ' alert-light-' . $status_class[$type] : '';
+    $output .= "<div class=\"alert alert-custom fade show mb-5 $class messages $type\">\n";
+    $output .= "  <div class=\"alert-icon\"><i class=\"flaticon-warning\"></i></div>\n";
 
     if (!empty($status_heading[$type])) {
       $output .= '<h4 class="element-invisible">' . filter_xss_admin($status_heading[$type]) . "</h4>\n";
     }
 
     if (count($messages) > 1) {
-      $output .= " <ul>\n";
+
+      $output .= " <div class=\"alert-text\"><ul class=\"list-unstyled\">\n";
       foreach ($messages as $message) {
-        $output .= '  <li>' . filter_xss_admin($message) . "</li>\n";
+        $output .= '  <li class="mb-3">' . filter_xss_admin($message) . "</li>\n";
       }
-      $output .= " </ul>\n";
+      $output .= " </ul></div>\n";
     }
     else {
-      $output .= filter_xss_admin(reset($messages));
+      $output .=  "<div class=\"alert-text\">" . filter_xss_admin(reset($messages)) . "</div>";
     }
-
+    $output .= "<div class=\"alert-close\">
+    <button type=\"button\" class=\"close\" data-dismiss=\"alert\" aria-label=\"Close\">
+        <span aria-hidden=\"true\"><i class=\"ki ki-close\"></i></span>
+    </button>
+    </div>";
     $output .= "</div>\n";
   }
   return $output;
-}
+} 

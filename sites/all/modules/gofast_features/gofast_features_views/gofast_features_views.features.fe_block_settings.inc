@@ -33,6 +33,12 @@ function gofast_features_views_default_fe_block_settings() {
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -15,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -14,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -73,6 +79,12 @@ if ($node = menu_get_object()) {
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 0,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => 1,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -104,6 +116,12 @@ if ($node = menu_get_object()) {
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 7,
+      ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => 2,
       ),
       'seven' => array(
         'region' => '',
@@ -137,6 +155,12 @@ if ($node = menu_get_object()) {
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 8,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => 3,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -168,6 +192,12 @@ if ($node = menu_get_object()) {
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 17,
+      ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => 14,
       ),
       'seven' => array(
         'region' => '',
@@ -201,6 +231,12 @@ if ($node = menu_get_object()) {
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 16,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => 13,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -233,6 +269,12 @@ if ($node = menu_get_object()) {
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 2,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -3,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -264,6 +306,12 @@ if ($node = menu_get_object()) {
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 3,
+      ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -2,
       ),
       'seven' => array(
         'region' => '',
@@ -311,6 +359,12 @@ if(strpos(current_path() , "search/solr")  !== false || strpos(current_path() , 
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 0,
       ),
+      'bootstrap_keen' => array(
+        'region' => 'sidebar_second',
+        'status' => 1,
+        'theme' => 'bootstrap_keen',
+        'weight' => -23,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -342,6 +396,12 @@ if(strpos(current_path() , "search/solr")  !== false || strpos(current_path() , 
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 0,
+      ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => 4,
       ),
       'seven' => array(
         'region' => '',
@@ -378,6 +438,12 @@ if(strpos(current_path() , "search/solr")  !== false || strpos(current_path() , 
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => 4,
       ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => -1,
+      ),
       'seven' => array(
         'region' => '',
         'status' => 0,
@@ -409,6 +475,12 @@ if(strpos(current_path() , "search/solr")  !== false || strpos(current_path() , 
         'status' => 0,
         'theme' => 'bootstrap_gofast_mobile',
         'weight' => -19,
+      ),
+      'bootstrap_keen' => array(
+        'region' => '',
+        'status' => 0,
+        'theme' => 'bootstrap_keen',
+        'weight' => 0,
       ),
       'seven' => array(
         'region' => '',

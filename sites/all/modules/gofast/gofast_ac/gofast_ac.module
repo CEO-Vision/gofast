@@ -1,0 +1,584 @@
+<?php
+global $conf;
+
+/**
+ * Implements hook_init()
+ */
+function gofast_ac_init(){
+  drupal_add_library('gofast_ac', 'gofast_ac_lib', TRUE);
+}
+
+/**
+ * Implements hook_library()
+ *  Registers JavaScript/CSS libraries associated with Gofast autocomplete.
+ *
+ * @see https://api.drupal.org/api/drupal/modules%21system%21system.api.php/function/hook_library/7
+ */
+function gofast_ac_library(){
+  $lib = 'sites/all/modules/gofast/gofast_ac';
+  $libraries['gofast_ac_lib'] = array(
+    'title' => 'Gofast autocomplete Library',
+    'version' => '1.0',
+    'js' => array(
+      $lib . '/js/gofast_ac.js' => array(
+        'group' => JS_LIBRARY,
+        'every_page' => TRUE,
+        'weight' => 1
+      )
+    ),
+     'css' => array(
+      $lib . '/css/gofast_ac.css' => array(
+        'type' => 'file',
+        'media' => 'screen',
+        'group' => CSS_DEFAULT,
+        'weight' => 1
+      )
+    )
+  );
+  return $libraries;
+}
+
+/**
+ * Implements hook_menu()
+ */
+function gofast_ac_menu() {
+
+  $items = array();
+
+  // Autocomplete path to find recipients mail address by name, id, or og
+  $items['gofast/gofast_ac_config'] = array(
+    'page callback' => 'gofast_ac_config',
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['ac/get/subscribe/%'] = array(
+    'page callback' => 'gofast_ac_get_subscribe_term_link',
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'page arguments' => array(3),
+    'type' => MENU_CALLBACK,
+  );
+  $items['gofast/get/user_from_space/%'] = array(
+    'page callback' => 'gofast_ac_get_user_from_space',
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'page arguments' => array(3),
+    'type' => MENU_CALLBACK,
+  );
+  $items['gofast/get/user_from_mail'] = array(
+    'page callback' => 'gofast_ac_get_user_from_mail',
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+
+function gofast_ac_config()
+{
+  if (isset($_POST['str'])) {
+    $str = $_POST['str'];
+  }
+
+  if (isset($_POST['enforce'])) {
+    $enforce = $_POST['enforce'];
+  }
+  
+  if (isset($_POST['broadcast'])) {
+    $broadcast = $_POST['broadcast'];
+  }
+
+  if (isset($_POST['get_user'])) {
+    $get_user = $_POST['get_user'];
+  }
+
+  if (isset($_POST['get_node'])) {
+    $get_node = $_POST['get_node'];
+  }
+
+  if (isset($_POST['get_userlist'])) {
+    $get_userlist = $_POST['get_userlist'];
+  }
+
+  if (isset($_POST['get_taxonomy_term'])) {
+    $get_taxonomy_term = $_POST['get_taxonomy_term'];
+  }
+
+  if (isset($_POST['input_id'])) {
+    $input_id = $_POST['input_id'];
+  }
+
+  if (isset($_POST['node_language'])) {
+    $node_language = $_POST['node_language'];
+  }
+
+  if (isset($_POST['space_nid'])) {
+    $space_nid = $_POST['space_nid'];
+  }
+
+  if (isset($_POST['vid'])){
+    $vid = $_POST['vid'];
+  }
+
+  if (isset($_POST['get_email'])){
+    $get_email = $_POST['get_email'];
+  }
+  
+  if (isset($_POST['get_spaces'])){
+    $get_spaces = $_POST['get_spaces'];
+  }
+
+  $str = trim($str);
+
+  if (empty($str) || strlen($str) < 3) {
+    // This prevents returning irrelevant results, though it should be handled
+    // clientside in order to avoid useless requests.
+    echo json_encode(array());
+    exit;
+  }
+
+    $options_ac_user = [];
+    $options_ac_space = [
+      'key' => 'nid',
+      'value' => 'title'
+      // 'link' => FALSE, peut etre en option
+    ];
+    $options_ac_userlist = [];
+    $option_format_json = [];
+    $options_ac_tag = array(
+      'bundle' => array('tags')
+    );
+    $broadcaster=false;
+  // SET Autocomplete Option for specific request
+   switch ($input_id) {
+        case 'edit-field-target-link-autocomplete':
+        case (preg_match('/^edit-list-documents/i', $input_id) ? true : false):
+        case 'edit-field-taget-link':
+          $options_ac_space['bundle'] = ['alfresco_item', 'article'];
+          break ;
+        case 'edit-field-members-autocomplete': // kanban/autocomplete/user
+          $options_ac_user['roles_filter']['roles'] = ['administrator member', 'group contributor', 'read only member'];
+          $options_ac_user['roles_filter']['space_nid'] = $space_nid;
+          break;
+        case 'edit-field-person-in-charge-autocomplete': // kanban/autocomplete/user-not-readonly
+          $options_ac_user['roles_filter']['roles'] = ['administrator member', 'group contributor'];
+          $options_ac_user['roles_filter']['space_nid'] = $space_nid;
+          break;
+        case 'edit-field-keywords': // subscribe button activate for taxonomy_term
+          $option_format_json['subButton'] = true;
+          break;
+       case 'edit-field-tags': // disable subscribe button on merge form field.
+         $option_format_json['subButton'] = false;
+         break;
+        default:
+            // Default option
+            $options_ac_space['bundle'] = array_keys(gofast_og_node_types()); // array('group', 'organisation', 'extranet', 'public') peut etre en option ['alfresco_item'] et ['webform']
+          break;
+    }
+
+
+      $matches = [];
+      $matches_user = [];
+      $matches_node = [];
+      $matches_userlist = [];
+      $taxonomy_term = [];
+
+      if($get_user === "true"){
+        $matches_user = gofast_ac_get_query($str, 'user', $options_ac_user, $broadcast);
+        $matches = array_merge($matches,$matches_user);
+      }
+
+      if($get_node === "true" && isset($node_language) && stristr($input_id, 'edit-translations-node-') == true){
+        // scprit for the alfersco_item traduction autocomplete
+        module_load_include('inc', 'i18n_node', 'i18n_node.pages');
+        $matches_node = gofast_modal_i18n_node_autocomplete('alfresco_item', $node_language, $str);
+        $matches_article = gofast_modal_i18n_node_autocomplete('article', $node_language, $str);
+        $matches = array_merge($matches, $matches_node, $matches_article);
+      }else if($get_node === "true"){
+        $matches_node = gofast_ac_get_query($str, 'node', $options_ac_space, $broadcast);
+        $matches = array_merge($matches, $matches_node);
+      }
+
+      if($get_userlist === "true"){
+      $matches_userlist = gofast_ac_get_query($str, 'userlist', $options_ac_userlist);
+      $matches = array_merge($matches, $matches_userlist);
+     }
+
+    if($get_taxonomy_term === "true"){
+      if(isset($vid)){
+        $_GET['vid'] = $vid;
+      }
+      $taxonomy_term = gofast_ac_get_query($str, 'taxonomy_term', $options_ac_tag, false,$option_format_json);
+      $matches = array_merge($matches, $taxonomy_term);
+    }
+
+    if($get_email === "true") {
+      // an email is not a Drupal entity and gofast_query_oring_alter is not adapted to get rows from fields table by their string values
+      // moreover, the needed query is very simple, so we can divide and conquer for this one
+      $matched_emails = gofast_ac_get_participants($str);
+      $already_matched_emails = array_column($matches, 'email');
+      foreach($matched_emails as $matched_email) {
+        if(!in_array($matched_email["value"], $already_matched_emails)) {
+          $matches[] = $matched_email;
+        }
+      }
+    }
+
+    if($get_email === "true" && valid_email_address($str) && empty($matches_user)) {
+      $match_complete_email = array(
+        'type' => 'email',
+        'name' => $str,
+        'value' => $str
+      );
+      $matches = array_merge($matches, $match_complete_email);
+    }
+    
+    if($get_spaces === "true") {
+      $options_ac_space['bundle'] = array_keys(gofast_og_node_types()); // array('group', 'organisation', 'extranet', 'public') peut etre en option ['alfresco_item'] et ['webform']
+      $matches_node = gofast_ac_get_query($str, 'node', $options_ac_space, $broadcast);
+      $matches = array_merge($matches, $matches_node);
+    }
+
+    if($enforce === "true" && !in_array($str, $matches)){
+      $matches[] = array(
+        'name' => $str,
+        'value' => $str
+      );
+    }
+
+    echo json_encode($matches);
+}
+
+
+function gofast_ac_get_query($str, $entity_type, $options = array(), $broadcast = false, $option_format_json= array())
+{
+
+  global $user;
+
+  $options += array(
+    'bundle' => array(),
+    'fields' => array(),
+    'properties' => array(),
+    'key' => NULL,
+    'value' => NULL,
+    'format_value_callback' => 'gofast_ac_format_value_json',
+    'link' => FALSE,
+    'limit' => 20
+  );
+
+  if ($entity_type == 'taxonomy_term') {
+    $_GET['query'] = $str;
+    $taxonomy_output = gofast_xeditable_tag_autocomplete(false);
+  }
+  $info = entity_get_info($entity_type);
+
+  $base_table = $info['base table'];
+
+  foreach ($options as $key => &$option) {
+    if (empty($option)) {
+      $option = gofast_ac_query_option_default($entity_type, $key, $options);
+    }
+  }
+
+  if (!is_assoc($options['fields'])) {
+    // Generate field aliases.
+    $options['fields'] = array_flip(array_map(function ($i) {
+      return chr(($i | 96) + 1); //+97
+    }, array_flip($options['fields'])));
+  }
+
+  $EFQuery = new EntityFieldQuery();
+  $EFQuery->entityCondition('entity_type', $entity_type)
+    ->addMetaData('base_table', $base_table)
+    ->addMetaData('properties', $options['properties'])
+    ->addMetaData('fields', $options['fields'])
+    ->addMetaData('key', $options['key'])
+    ->addMetaData('str', $str);
+  //Moving out tag oring - caused problems when querying for contacts api autocomplete.
+  //The tag is still here when we don't query contacts
+
+  // Alter the query and apply appropriate access tag based on entity type.
+  if ($broadcast !== true && $broadcast !== "true") {
+    gofast_ac_query_access($EFQuery, $entity_type, $options['fields']);
+  }
+
+  if ($entity_type === 'user') {
+    // Prevent showing up drupal admin.
+    $EFQuery->entityCondition('entity_id', 1, '<>');
+    // prevent showing up blocked users.
+    $EFQuery->propertyCondition('status', 1)
+    ->addTag('oring');
+  } elseif (!empty($options['bundle'])) {
+    $EFQuery->entityCondition('bundle', $options['bundle'], is_array($options['bundle']) ? 'IN' : '=');
+    if (in_array('contact', $options['bundle'])) {
+      $EFQuery->addTag('first_and_last_name');
+    } else $EFQuery->addTag('oring');
+  } else $EFQuery->addTag('oring');
+
+  if ($options['limit']) {
+    $EFQuery->range(0, $options['limit']);
+  }
+
+  $ids = $EFQuery->execute();
+  $matches = array();
+  if (!empty($taxonomy_output)) {
+    $entities = array();
+    foreach ($taxonomy_output as $val) {
+      $entities[] = taxonomy_term_load($val['id']);
+    }
+  } else {
+    if (empty($ids) || empty($ids[$entity_type])) {
+      return $matches;
+    }
+
+    $entities = entity_load($entity_type, array_keys($ids[$entity_type]));
+  }
+
+
+  ///filter by role for user and userlist if required
+  if (
+    $entity_type === 'user' && isset($options['roles_filter'])
+  ) {
+    foreach ($entities as $key => $entity) {
+      $entity_roles = gofast_og_get_user_final_roles_for_space('node', $options['roles_filter']['space_nid'], $entity->uid);
+      if (empty(array_intersect($entity_roles, $options['roles_filter']['roles']))) {
+        unset($entities[$key]);
+      }
+    }
+  } elseif ($entity_type === 'userlist' && isset($options['roles_filter'])) {
+    foreach ($entities as $key => $entity) {
+      $entity_roles = gofast_userlist_og_get_userlist_roles('node', $options['roles_filter']['space_nid'], $entity->ulid);
+      if (empty(array_intersect($entity_roles, $options['roles_filter']['roles']))) {
+        unset($entities[$key]);
+      }
+    }
+  }
+
+
+  $format_value = $options['format_value_callback'];
+  foreach ($entities as $id => $entity) {
+
+    if ($entity->type == NULL && $entity_type != 'userlist' && $entity->vid != $_GET['vid']) {
+      $access = user_view_access($entity);
+      if ($access == FALSE) {
+        continue;
+      }
+    }
+
+    //Check space permissions
+    if (in_array($entity->type, array('group', 'organisation', 'extranet', 'public'), TRUE) && !$broadcast) {
+      $membership = og_get_membership('node', $entity->nid, 'user', $user->uid);
+      $isMember = ($membership != FALSE && $membership->state != OG_STATE_PENDING);
+
+      //check membership from userlist
+      if (!$isMember) {
+        $isMember = gofast_userlist_og_is_user_member_of_space($entity->nid, $user);
+      }
+
+      if (!$isMember) {
+        continue;
+      }
+    }
+
+    //if broadcast, we keep only the entities in which we are not member of
+    if (($broadcast === true || $broadcast === "true") && $entity_type != "user") {
+      if (node_access("update", $entity)) {
+        continue;
+      }
+    }
+
+    //Check userlist permissions if partitionning is enabled
+    if ($entity_type == "userlist" && !gofast_userlist_is_visible($entity->ulid)) {
+      continue;
+    }
+    
+    //execute a last permission check to be sure
+    // GOFAST-8910
+    if($entity->type == "alfresco_item" || $entity->type == "article"){
+      if (!node_access('view', $entity)) {
+         continue;
+      }
+    }
+    
+    $value = $format_value($entity_type, $entity, $str, $option_format_json);
+    $matches[] = $value;
+  }
+  return $matches;
+}
+
+function gofast_ac_get_participants(string $str): array {
+  $participants_query = db_select("field_data_field_participants", "p");
+  $participants_query = $participants_query->distinct();
+  $participants_query->fields("p", array("field_participants_value"));
+  $participants_query->where("p.field_participants_value LIKE '%$str%'");
+  $participants = $participants_query->execute()->fetchCol();
+  $contacts_query = db_select("field_data_field_contact_email", "e");
+  $contacts_query = $contacts_query->distinct();
+  $contacts_query->fields("e", array("field_contact_email_value"));
+  $contacts_query->where("e.field_contact_email_value LIKE '%$str%'");
+  $contacts = $contacts_query->execute()->fetchCol();
+  $everybody = $participants + $contacts; // better than array_merge since this does an implicit array_unique
+  $everybody_structured = array();
+  foreach($everybody as $somebody) {
+    $everybody_structured[] = array(
+      'type' => 'email',
+      'name' => $somebody,
+      'value' => $somebody,
+    );
+  }
+  return $everybody_structured;
+}
+
+function gofast_ac_format_value_json($entity_type, $entity, $str=null,$option_format_json= array())
+{
+  global $base_url;
+  switch ($entity_type) {
+    case 'node':
+      $item = [
+        "type" => $entity_type,
+        "node_type"=> $entity->type,
+        "value" => $entity->nid == null ? 1 : $entity->nid,
+        "name" =>  $entity->title,
+        "editable"=>false,  // AC tag are not editable turn to true to be editable
+        "request" => $str
+      ];
+      $item['icon'] = gofast_node_get_icon($entity);
+
+      break;
+    case 'user':
+      $item = [
+        "type" => $entity_type,
+        "value" => $entity->uid == null ? 1 : $entity->uid,
+        "name" =>  $entity->name,
+        "display_name" => gofast_user_display_name($entity),
+        "avatar" => $entity->picture->uri == null ? $base_url . '/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png' : file_create_url($entity->picture->uri),
+        "email" => $entity->mail,
+        "editable"=>false, // AC tag are not editable turn to true to be editable
+        "request" => $str
+      ];
+      break;
+    case 'userlist':
+      $item = [
+        "type" => $entity_type,
+        "value" => $entity->nid == null ? 1 : $entity->nid,
+        "ulvalue" => $entity->ulid,
+        "name" =>  $entity->name,
+        "editable"=>false , // AC tag are not editable turn to true to be editable
+        "request" => $str,
+        "icon" => gofast_node_get_icon(node_load($entity->nid))
+      ];
+      break;
+    case 'taxonomy_term':
+          $item = [
+            "type" => $entity_type,
+            'taxonomy_type' => 'taxonomy/term',
+            'value' => $entity->tid,
+            'name' => $entity->name,
+            //'field_format' => array(LANGUAGE_NONE => array(array('tid' => $entity->tid))),
+            "editable" => false, // AC tag are not editable turn to true to be editable
+            "request" => $str
+         ];
+      break;
+  }
+  if (!empty($option_format_json)) {
+    $item += $option_format_json;
+  }
+
+  return $item;
+}
+
+/*
+ * Returns the subscribe button for the given term in the given node
+ * If no node reference is provided, link will redirect to /node
+ * @param $term
+ *  The term formatted ad TERM[...]term_id
+ * @param $nid
+ *  The node id to redirect
+ */
+function gofast_ac_get_subscribe_term_link($term_id,$js_process = true)
+{
+  $link = flag_create_link('subscribe_term', $term_id);
+  preg_match_all('/<a[^>]+href=([\'"])(?<href>.+?)\1[^>]*>/i', $link, $a_href);
+  preg_match_all('/<a[^>]+class=([\'"])(?<class>.+?)\1[^>]*>/i', $link, $a_class);
+  $a_class = str_replace([" btn-sm "," bt "], "", $a_class['class'][0]);
+  preg_match_all('/<a[^>]+title=([\'"])(?<title>.+?)\1[^>]*>/i', $link, $a_title);
+  preg_match_all('/<span[^>]+class=([\'"])(?<class>.+?)\1[^>]*>/i', $link, $span_class);
+
+  if (strpos($link, 'unflag') !== FALSE) {
+    $color = 'text-danger';
+  } else {
+    $color = 'text-primary';
+  }
+
+  $link = '<span class="'. $span_class['class'][0].'">';
+  $link .= '<a class="'. $a_class.' ml-2" href="'. $a_href['href'][0]. '" rel="nofollow" title="'. $a_title['title'][0].'"><i class="fas fa-rss icon-nm '. $color.'"></i></a>';
+  $link .='</span>';
+
+  if($js_process){
+      print($link);
+      exit;
+  }else{
+    return $link;
+  }
+}
+
+
+function gofast_ac_get_user_from_space($space_id){
+    global $base_url;
+    global $user;
+    //TODO PERFORM NODE ACCESS
+    /*if(!gofast_og_node_access($space_id,'view',$user)){
+        watchdog('debug accesss','No accesss for space '.$space_id);
+        return false;
+    }*/
+    $is_userlist = $_GET["is_userlist"];
+    if($is_userlist == "true"){
+      $userlist = node_load($space_id);
+      $ulid = $userlist->field_userlist_ulid[LANGUAGE_NONE][0]["value"];
+      $members = gofast_userlist_get_members($ulid,FALSE);
+      
+    }else{
+      $space=node_load($space_id);
+      $members = gofast_og_get_members_userlist_included($space, 'active');
+    }
+    
+    $result=array();
+    $properties_u = ['mail','name','fullname','picture','status'];
+    foreach ($members as $uid){  
+      if($is_userlist == "true"){
+        $uid = $uid["uid"]; 
+      }
+      $member_fields = gofast_get_properties_user_by_uid_or_u_name($uid, NULL, $properties_u);
+      if(!$member_fields->status)continue;
+      $member_fields->picture = gofast_get_url_picture_by_id($member_fields->picture);
+
+      $result[] = array(
+        "type" => 'user',
+        "value" => $uid,
+        "name" =>  $member_fields->name,
+        "display_name" => $member_fields->fullname,
+        "avatar" =>  $member_fields->picture,
+        "email" => $member_fields->mail,
+        "editable"=>false,
+        "request" => '',
+      );
+    }
+    drupal_json_output($result);
+ }
+
+function gofast_ac_get_user_from_mail() {
+  if (!isset($_POST['user_mail']))  {
+    drupal_json_output(array('error' => 'No mail provided'));
+    return;
+  }
+  $mail = gofast_xss_clean($_POST['user_mail']);
+  $user = user_load_by_mail($mail);
+  if ($user) {
+    drupal_json_output(gofast_ac_format_value_json('user', $user));
+    return;
+  }
+  drupal_json_output(array('error' => 'No user found'));
+}

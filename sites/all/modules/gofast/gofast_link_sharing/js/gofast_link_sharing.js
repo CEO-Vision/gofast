@@ -6,6 +6,9 @@
      */
     Gofast.manage_linksharing_process = function(){
         var panels = $(".manage-linksharing-panel");
+        var panelsProgressBar = $("#link-panels-progress .progress-bar");
+        var numberOfPanels = panels.length;
+        var processedPanels = 0;
         var timeout = 0;
 
         /* for each panel, process the request and check the result */
@@ -25,8 +28,16 @@
             var message = $(panel).find('#message').text();
 
             /* Process the request */ 
-            $.post(location.origin + "/linksharing/manage_linksharing/process", {process_uid : uid, process_nids : nids,process_subject:subject,process_message:message}).done(function(data){       
-            $(panel).find('.panel-body').find(".manage-linksharing-info").html("<i class='fa fa-check' style='color:green' aria-hidden='true'></i> " + Drupal.t("Processed !", {}, {context: 'gofast:taxonomy'}));
+            $.post(location.origin + "/linksharing/manage_linksharing/process", {process_uid : uid, process_nids : nids,process_subject:subject,process_message:message}).done(function(data) {       
+              // update progress bar
+              processedPanels++;
+              const progressWidth = Math.round((100 / numberOfPanels) * processedPanels);
+              panelsProgressBar.css({width: progressWidth + "%"});
+              panelsProgressBar.attr("aria-valuenow", progressWidth);
+              // panelsProgressBar.html(processedPanels + " / " + numberOfPanels);
+              panelsProgressBar.html(progressWidth + "%");
+              
+              $(panel).find('.panel-body').find(".manage-linksharing-info").html("<i class='fa fa-check' style='color:green' aria-hidden='true'></i> " + Drupal.t("Processed !", {}, {context: 'gofast:taxonomy'}));
             });
           }, timeout);
           timeout = timeout+2000;
@@ -39,40 +50,19 @@
       $('#gofast-multi-link-sharing-form div button').removeClass('btn-sm');
       $('.gofast_search_link').click(function () {
         window.location.href = "/public/sharing_dl?hash="+$( "#hash_link" ).html();
-        /*$.ajax({
-            url: "/public/sharing_dl",
-            method : "GET",
-            data: { hash: $( "#hash_link" ).html()},
-            async:false,
-           beforeSend: function() {
-           Gofast.addLoading();
-  }
-        }).done(function(data ) {
-            Gofast.removeLoading();           
-        });*/
       });   
-      $('#edit-check-all').not(".processed").click(function(e){
+      $('#edit-check-all').on("change", function(e){
         e.preventDefault();
-        if($('#edit-check-all').attr("data-state")=="active"){
-            $('#edit-links>div input').each(function(){
+        if($(this).prop('checked') == true){
+            $('.gofast_link_sharing_checkbox input').each(function(){
                 $(this).prop('checked',true);
             });
-            $('#edit-check-all').html("<i class='fa fa-times'></i>" + Drupal.t(' Uncheck all documents'));
-            $('#edit-check-all').attr("data-state","inactive");
-        }else if ($('#edit-check-all').attr("data-state")=="inactive"){
-            $('#edit-links>div input').each(function(){
+        }else {
+            $('.gofast_link_sharing_checkbox input').each(function(){
                 $(this).prop('checked',false);
             });
-            $('#edit-check-all').html("<i class='fa fa-check'></i>" + Drupal.t (' Check all documents'));
-            $('#edit-check-all').attr("data-state","active");
           }
         }).addClass("processed");
-        
-        $('#gofast-multi-link-sharing-form > div > div > .form-submit').click(function(e){
-            e.preventDefault();
-            Gofast.addLoading();
-            $('#gofast-multi-link-sharing-form').submit();
-        })
     });
     
 })(jQuery, Gofast, Drupal);     

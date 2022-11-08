@@ -1,5 +1,4 @@
 (function ($, Gofast, Drupal) {
-
   // /!\ IMPORTANT : Put 2 click events outsite the behaviors to avoid the multiple calls
   // Button submit
   $(document).on('click', '.ztree-locations-submit', function () {
@@ -54,95 +53,6 @@
     $('#popup_block_book_' + popup_id).children().first().popover('hide');
   });
 
-  Drupal.behaviors.gofast_ztree_popup = {
-    update_field_css: function (xeditable) {
-      var field_width = xeditable.parent().parent().width();
-      var field_offset = xeditable.parent().parent().offset();
-      xeditable.parent().find('.xeditable-trigger').offset({top: field_offset.top});
-      //xeditable.parent().find('.xeditable-trigger-2').offset({top: field_offset.top});
-    },
-
-    update_field_css_2: function (xeditable2) {
-      var field_width2 = xeditable2.parent().parent().width();
-      var field_offset2 = xeditable2.parent().parent().offset();
-      //xeditable.parent().find('.xeditable-trigger').offset({top: field_offset.top});
-      xeditable2.parent().find('.xeditable-trigger-2').offset({top: field_offset2.top});
-    },
-
-    attach: function (context) {
-      // $('.gofast-og-page:not(.gofast-og-page-processed)').addClass('gofast-og-page-processed').each(function () {
-      $('a[data-toggle="popover"]:not(.xeditable_processed),button[data-toggle="popover"]:not(.xeditable_processed)').addClass("xeditable_processed").click(function (e) {
-        return false;
-        e.preventDefault();
-      });
-
-      var divPopupManual = $('div[class="xeditable-trigger-1"]');
-      if (divPopupManual !== null && divPopupManual.size() > 0) {
-
-        var func = this.update_field_css;
-        func(divPopupManual);
-        divPopupManual.parent().parent().hover(function () {
-          $(this).find('.xeditable-trigger').css('visibility', 'visible');
-          func(divPopupManual);
-        }, function () {
-          $(this).find('.xeditable-trigger').css('visibility', 'hidden');
-          //$(this).find('.xeditable-trigger-2').css('visibility', 'hidden');
-          $(this).parent().css('background-color', 'transparent');
-        });
-
-        divPopupManual.parent().find('.xeditable-trigger:not(.xeditable_processed)').addClass("xeditable_processed").click(function (e) {
-          $(this).parent().find('[data-toggle="popover"]').popover('show');
-
-          Drupal.attachBehaviors($("body"));
-        });
-//        divPopupManual.parent().find('.xeditable-trigger-2:not(.xeditable_processed)').addClass("xeditable_processed").click(function (e) {
-//          $(this).parent().find('[data-toggle="popover"]').popover('show');
-//
-//           Drupal.attachBehaviors($("body"));
-//        });
-      }
-
-
-      var divPopupManual2 = $('div[class="xeditable-trigger2"]');
-      if (divPopupManual2 !== null && divPopupManual2.size() > 0) {
-
-        var func2 = this.update_field_css_2;
-        func2(divPopupManual2);
-        divPopupManual2.parent().parent().hover(function () {
-          //$(this).find('.xeditable-trigger').css('visibility', 'visible');
-          $(this).find('.xeditable-trigger-2').css('visibility', 'visible');
-          $(this).parent().css('background-color', '#f0f0f9');
-          func2(divPopupManual2);
-        }, function () {
-          // $(this).find('.xeditable-trigger').css('visibility', 'hidden');
-          $(this).find('.xeditable-trigger-2').css('visibility', 'hidden');
-          $(this).parent().css('background-color', 'transparent');
-        });
-//
-//        divPopupManual2.parent().find('.xeditable-trigger:not(.xeditable_processed)').addClass("xeditable_processed").click(function (e) {
-//          $(this).parent().find('[data-toggle="popover"]').popover('show');
-//
-//           Drupal.attachBehaviors($("body"));
-//        });
-        divPopupManual2.parent().find('.xeditable-trigger-2:not(.xeditable_processed)').addClass("xeditable_processed").click(function (e) {
-          $(this).parent().find('[data-toggle="popover"]').popover('show');
-
-          Drupal.attachBehaviors($("body"));
-        });
-      }
-
-
-      $('[data-toggle="popover"]:not(.popup-ztree-browser-processed)').addClass('popup-ztree-browser-processed').on('shown.bs.popover', function () {
-        Drupal.behaviors.gofast_ztree.attach($(this));
-
-
-        var caller_button = $(this);
-        //TODO : replace the arrow of the popup depending the wanted placement
-        //$('.arrow').css('left', caller_button.offset().left + (caller_button.width() / 2));
-      });
-    }
-  };
-
   Drupal.behaviors.gofast_ztree = {
     ztreeCallbacks: {
       /**
@@ -159,7 +69,7 @@
         var string_elements = element_urls.join('<br/>');
         var node_id = caller_element.parent().attr('id').split('popup_block_').pop();
         var context = caller_element.data('context');
-        if (context === 'alfresco_item') {
+        if (context === 'alfresco_item' || context === 'article') {
           caller_element.parent().find('.xeditable-values').html(elements);
           //this.update_field_css(caller_element);
         } else {
@@ -216,8 +126,14 @@
         var already_refresh = false;
 
         function beforeAsync(event, treeId, treeNode, msg) {
-          if ($('#ztree_component_locations').children().length === 0) {
-            $(".form-item-field-emplacement").append("<div id='ztree_async_loading' class='loader-blog'></div>");
+          if($('#is-from-mirror').length == 1){
+            // Remove ztree
+            $(".form-item-field-emplacement label").hide();
+            $(".ztree-widget").hide();
+          }else{
+            if ($('#ztree_component_locations').children().length === 0) {
+              $(".form-item-field-emplacement").append("<div id='ztree_async_loading' class='loader-blog'></div>");
+            }
           }
         }
 
@@ -244,6 +160,7 @@
                 }));
               }
               var children = child.children;
+              if (typeof children == "undefined") children = [];
               children.forEach(function (child, key) {
                 if ($('.form-selected-locations option, #edit-field-emplacement option').filter(function () {
                   return $(this).html() == child.ename;
@@ -268,7 +185,10 @@
                 html_insert_nodes(fake_node);
               }
             });
-
+          }
+          var ztreeAsyncResult = JSON.parse(msg);
+          if(ztreeAsyncResult[0].path_warnings) {
+            Drupal.settings[ztree_component_id].path_warnings = ztreeAsyncResult[0].path_warnings;
           }
 
           // This selects the options in form fields (where applicable)
@@ -280,7 +200,6 @@
 
           var in_popover = $('#' + treeId).parents('div.popover-content').length;
           if (in_popover === 1) {
-            console.log('in popover');
             var win_height = $(window).height();
             var ztree_max_height = win_height - 500;
             var ztree_current_heigth = $('div.popover-content').find('.ztree-component').height();
@@ -320,7 +239,6 @@
           //Update popup size.
           var in_modal = $('#' + treeId).parents('div#modalContent').length;
           if (in_modal === 1 && !$(".ztree-widget").hasClass("resize_processed")) {
-            modalContentResize();
             $(window).resize();
             $(".ztree-widget").addClass("resize_processed");
           }
@@ -333,13 +251,15 @@
           if (elements !== undefined) {
             elements.each(function (elements, element) {
               var element = $(element);
-              if (element.text() === "undefined" || element.text() === "") {
+              if (element.text() === "undefined" || element.text() === "" || element.text() === "FOLDERS TEMPLATES") {
                 element.parent().parent().hide();
               }
               if (element.text() === "Sites"){
                   element.parent().hide();
-              }
-              if(("#alfresco-item-node-form") !== undefined){
+                  //Hiding checkbox of Sites
+                  element.parent().parent().children('span').css("display", "none");
+              }             
+              if(("#alfresco-item-node-form") !== undefined || ('#article-node-form') !== undefined){
                   $('.roots_open').hide();
               }
               var in_modal = $('#' + treeId).parents('div#modalContent').length;
@@ -367,9 +287,6 @@
         var onExpand = function (evt, treeId, treeNode) {
 
           var in_modal = $('#' + treeId).parents('div#modalContent').length;
-          if (in_modal === 1) {
-            modalContentResize();
-          }
 
           if ($("#ztree_component_locations").length > 0 && !$(".ztree-widget").hasClass("resize_processed")) {
             if ($("#ztree_component_locations").get(0).scrollHeight > $("#ztree_component_locations").height()) {
@@ -388,9 +305,6 @@
         var onCollapse = function (evt, treeId, treeNode) {
 
           var in_modal = $('#' + treeId).parents('div#modalContent').length;
-          if (in_modal === 1) {
-            modalContentResize();
-          }
           return true;
         };
 
@@ -408,7 +322,7 @@
           }
         };
 
-        var toggleNodeCheck = function (event, treeId, treeNode) {
+        var toggleNodeCheck = async function (event, treeId, treeNode) {
           zTreeObj.selectNode(treeNode, false);
           // Depending of the component name, the selection differs
           switch (ztree_component_id) {
@@ -510,12 +424,38 @@
               select.find('option[value="' + treeNode.gid + '"]').prop("selected", treeNode.checked);
               select.change();
 
+              var mirror_check = !(zTreeObj.setting.check.disable_mirror_check == "true");
               var check_action = treeNode.checked;
               var select_space = $('#edit-og-group-content-ref');
               var space_gid = getSpaceGid(treeNode);
+
+              if (check_action && mirror_check && $('#is-from-mirror').length == 0) {
+                // check if it's a mirrored folder to update treeNode info
+                await $.get("/gofast/cmis/is_path_mirrored?path=" + encodeURIComponent(treeNode.ename), function(is_mirrored) {
+                  if (is_mirrored != "1") {
+                    return true;
+                  }
+                  treeNode.is_mirror = true;
+                  // change icon
+                  const icon = treeNode.icon.split("/").slice(0, -1).join("/") + "/folders-primary.svg"; 
+                  treeNode.icon = icon;
+                  zTreeObj.updateNode(treeNode);
+                  $("#" + treeNode.tId + "_ico").css("background", "url(" + icon + ") 0 0 no-repeat");
+                });
+                // checker le nombre cochés
+                if (zTreeObj.getCheckedNodes().length == 1) {
+                  handleMirroredDisplay(false);
+                } else {
+                  handleMirroredDisplay(true);
+                }
+              } else if(!zTreeObj.getCheckedNodes().length && mirror_check) {
+                // if nothing is selected after an unchecking, we "reset" the ztree display
+                handleMirroredDisplay(false);
+              }
+
               if (!check_action) {
                 var checked_nodes = zTreeObj.getCheckedNodes();
-                var mandatory_nodes = zTreeObj.getNodesByFilter(function (node) {
+                  var mandatory_nodes = zTreeObj.getNodesByFilter(function (node) {
                   return node.chkDisabled && node.checked;
                 });
                 var all_checked_nodes = $.merge(checked_nodes, mandatory_nodes);
@@ -541,6 +481,8 @@
                 $('[id^=edit-title]').val(treeNode.name.split('.').shift());
                 $('#' + $('[id^=edit-templates]').attr('id') + ' option:contains(' + treeNode.gid + ')').prop('selected', true);
                 $('#' + $('[id^=edit-language]').attr('id') + ' option[value=' + $('[id^=edit-templates]').val().split('|:|')[4] + ']').prop('selected', true);
+                $('#' + $('[id^=edit-language]').attr('id') + ' option[value=' + $('[id^=edit-templates]').val().split('|:|')[4] + ']').trigger('change');
+               
                 if ($('[id^=edit-reference]').val() !== '') {
                   $('[id^=edit-reference]').val('');
                   //$('#edit-title').val('');
@@ -549,6 +491,11 @@
                 if ($('[id^=edit-empty-template]').val() !== 'none') {
                   $('[id^=edit-empty-template]').val('none');
                   //$('#edit-title').val('');
+                }
+                
+                //temporary fix
+                if(window.location.hash == '#createFromTemplate'){
+                    jQuery('#create_from_template').click();
                 }
               }
               break;
@@ -576,6 +523,46 @@
           }
           html_update_list_locations(event, treeId, treeNode);
         };
+
+        var handleMirroredDisplay = function(disable = true) {
+          zTreeObj.getNodesByParam("is_mirror", true).forEach(mirrorNode => {
+            // if we have multiple locations, we can't have any selected mirrored location
+            if (disable) {
+              disableTreeNode(mirrorNode, Drupal.t("Multifiling is not allowed inside mirrored folders", {}, {context: "gofast:gofast_ztree"}));
+            } else {
+            // a file can have a mirrored folder if it's its unique location
+              undisableTreeNode(mirrorNode);
+            }
+          });
+          if (disable && !zTreeObj.getCheckedNodes().length) {
+            zTreeObj.getNodesByParam("is_mirror", true).forEach(mirrorNode => {
+            undisableTreeNode(mirrorNode);
+          });
+            Gofast.toast(Drupal.t("If you select a mirrored folder, you can select only one location", {}, {context: "gofast_ztree"}), "warning");
+          }
+        }
+
+        var undisableTreeNode = function(treeNode) {
+          // enable treeNode
+          zTreeObj.setChkDisabled(treeNode, false);
+          // remove explanation
+          $("#" + treeNode.tId + "_ico").closest("li").find(".badge").remove();
+        }
+
+        var disableTreeNode = function(treeNode, message) {
+          // disable treeNode
+          zTreeObj.checkNode(treeNode, false, false, true);
+          zTreeObj.setChkDisabled(treeNode, true);
+          // remove from html locations
+          var linkid = treeNode.ename.replace(/&amp;/g, "&");
+          $("[id='emplacement_tag" + get_clean_path(linkid) + "']").remove();
+          // show explanation
+          if (message && !$(".badge_" + treeNode.tId).length) {
+            const alertButton = $('<span class="ml-2 text-white px-2 badge_' + treeNode.tId+ ' badge badge-danger">' + message + '</span>');
+            const linkElement = $("#" + treeNode.tId + "_a");
+            alertButton.insertAfter(linkElement);
+          }
+        }
 
         var selectClicked = function (event, treeId, treeNode) {
           zTreeObj.checkNode(treeNode, !treeNode.checked, false, true);
@@ -606,6 +593,7 @@
             var linkid = node.ename.replace(/&amp;/g, "&");
             var node_id = node.gid;
             var node_icone = node.icon;
+            var node_tId = node.tId;
 
             if(node_icone.indexOf("/sites/all/modules/") !== -1){
                 //We got a path instead of a font awesome icon
@@ -630,22 +618,27 @@
               // Prevent OG to be deletable
               var deletable = linkid.indexOf('Sites') == 0 ? true : false;
               var deletable = node.chkDisabled ? !node.chkDisabled : true;
+              if (widget_locations.hasClass("ui-single-location")) {
+                widget_locations.children().remove();
+              }
               if ($(".ui-locations-check").length === 0) {
-                var deletable_icon = deletable ? "<i class='fa fa-times'></i>" : "";
-                var ui_location = "<div class='label label-primary location span_temp_emplacement' id='emplacement_tag" + get_clean_path(linkid) + "' data-deletable=" + deletable + " title=''>" + deletable_icon + "<span class='location_value'>" + unescape(id) + "</span></div>";
+                var deletable_icon = deletable ? "<i class='fa fa-times text-light'></i>" : "";
+                var ui_location = "<div class='gofast-selected-locations bg-info label-primary location span_temp_emplacement' id='emplacement_tag" + get_clean_path(linkid) + "' data-deletable=" + deletable + " data-tid=" + node_tId + " title=''>" + deletable_icon + "<span class='location_value'>" + unescape(id) + "</span></div>";
                 widget_locations.append(ui_location);
               } else {
                 if ($(".span_temp_emplacement").length === 0) {
                   $('.ui-locations-check i').hide();
                 }
-                if(deletable === false){
-                    var ui_location_checkbox = "<div class='span_temp_emplacement' id='emplacement_tag" + get_clean_path(linkid) + "' data-deletable=" + deletable + " title=''><input type='checkbox' checked disabled><span><i class='fa " + node_icone + "' style='margin-right:5px;'></i>" + unescape(id) + "</span></div>";
+                
+                if($('#is-from-mirror').length == 1){deletable = false;}
+                if(deletable === false ){
+                    var ui_location_checkbox = "<div class='span_temp_emplacement' id='emplacement_tag" + get_clean_path(linkid) + "' data-deletable=" + deletable + " data-tid=" + node_tId + " title=''><input type='checkbox' checked disabled><span><i class='fa " + node_icone + "' style='margin-right:5px;'></i>" + unescape(id) + "</span></div>";
                 }else{
-                    var ui_location_checkbox = "<div class='span_temp_emplacement' id='emplacement_tag" + get_clean_path(linkid) + "' data-deletable=" + deletable + " title=''><input type='checkbox' checked><span><i class='fa " + node_icone + "' style='margin-right:5px;'></i>" + unescape(id) + "</span></div>";
+                    var ui_location_checkbox = "<div class='span_temp_emplacement' id='emplacement_tag" + get_clean_path(linkid) + "' data-deletable=" + deletable + " data-tid=" + node_tId + " title=''><input type='checkbox' checked><span><i class='fa " + node_icone + "' style='margin-right:5px;'></i>" + unescape(id) + "</span></div>";
                 }
                 widget_locations.append(ui_location_checkbox);
               }
-              $('#edit-locations span[value="' + node_id + '"]').parent().attr('data-deletable', deletable);
+              $('#edit-locations span[value="' + node_id + '"]').parent().attr('data-deletable', deletable).attr('data-tid', node_tId);
               $(".span_temp_emplacement[id='emplacement_tag" + get_clean_path(linkid) + "']").bind("click", function () {
                 html_remove_location($(this));
                 if ($(".span_temp_emplacement").length === 0) {
@@ -663,9 +656,16 @@
           function html_remove_location(link) {
             if ($(link).data('deletable') === true) {
               ztree_update_node(link);
+              let link_tId = link.attr("data-tId");
+              $("#" + link_tId + "_a").removeClass("curSelectedNode");
+              $("#" + link_tId + " .ztree-fake-node").remove(); 
               link.remove();
             } else {
-              var message = Drupal.t("You are not allowed to delete this location because you cannot access to it.", {}, {'context': 'gofast'});
+              if($('#is-from-mirror').length == 1){
+                message = Drupal.t("This document is inside a mirror folder then you cannot remove it from this location.", {}, {'context': 'gofast'});
+              }else{
+                var message = Drupal.t("You are not allowed to delete this location because you cannot access to it.", {}, {'context': 'gofast'});
+              }
               Gofast.toast(message, "warning", Drupal.t("Item not deletable", {}, {'context': 'gofast'}));
             }
           }
@@ -721,7 +721,8 @@
             var node = browser_get_node_by_path_filtered(elementName);
 
             if (undefined !== node && null !== node) {
-              zTreeObj.checkNode(node, false, false);
+              const isLocationTree = ztree_component_id == "ztree_component_locations";
+              zTreeObj.checkNode(node, false, false, isLocationTree); // re-trigger toggleCheckNode callback on locations tree only
               zTreeObj.updateNode(node);
             }
 
@@ -888,6 +889,16 @@
               }
             }
           }
+
+          if (typeof zTreeObj.setting.gofast != "undefined" && zTreeObj.setting.gofast.wiki == true) {
+              // this will need an additional check after wiki multifiling implementation
+              $(".ui-location-check-wiki").remove();
+              let selectedNodeTreeId = zTreeObj.getCheckedNodes()[0].tId;
+              if ($("#" + selectedNodeTreeId + "_switch").hasClass("center_close")) {
+                $("#" + selectedNodeTreeId + "_switch").click();
+              }
+              $("#" + selectedNodeTreeId + "_ul").prepend('<div class="ui-location-check-wiki ztree-fake-node d-flex"><span style="margin-right: 18px;" class=""></span><span class="button chk checkbox_true_full"></span><a class="curSelectedNode"><i class="fa fa-folder" style="color:#3498db" aria-hidden="true"></i>' + Drupal.t("Wikis") + '</a></div>');
+          }
         }
         ;
 
@@ -921,7 +932,7 @@
 
                   select = $(select).find("select");
                   $("select#edit-templates").replaceWith(select);
-
+                  $('#ztree_component_content_templates .spinner').remove();
                   if(typeof tree.content !== "undefined"){
                     Drupal.settings.ztree_component_content_templates.data_tree = tree.content["#attached"].js[1].data.ztree_component_content_templates.data_tree;
                   }
@@ -1000,6 +1011,12 @@
 
           } else {
             var url_async = "/ztree_location/async";
+            //Keep locations where Article belongs selected in ztree during edition, verifiy if doesnt create a problem
+            if (ztree_component_id == "ztree_component_content") {
+                var node_id = window.location.pathname.split('/')[2];
+                url_async = (isNaN(+node_id)) ? url_async : url_async + "?node=" + node_id;
+            }
+            
             if (ztree_component_id == "ztree_component_content_templates"){
               url_async = "/ztree_location/async?template=true";
             }
@@ -1028,6 +1045,10 @@
 
               if($('#gofast-dashboard-add-folder-form').length > 0 || $('#conference-node-form').length > 0){
                 param.push("disable_space_check=true");
+              }
+
+              if($('#gofast-taxonomy-manage-folder-locations-form').length) {
+                param.push("enable_mirror_check=true");
               }
 
               if ($('.gofast_is_internal_document_form').length > 0) {
@@ -1078,8 +1099,9 @@
               $('#edit-og-group-content-ref>div.panel-body').append('<div id="ztree_async_loading" class="loader-ztree"></div>');
               var browser_location = window.location.href;
               var browser_path = Gofast.getAllUrlParams(browser_location).path;
-
-              setting.async.otherParam = {"browser_path": decodeURIComponent(browser_path)};
+              if (typeof browser_path != 'undefined') {
+                setting.async.otherParam = {"browser_path": decodeURIComponent(browser_path)};
+              }
             }
 
             if (ztree_component_id == "ztree_component_locations") {
@@ -1099,8 +1121,17 @@
               if ($("#conference-node-form").length != 0) {
                 var nid = $("#conference-node-form").find('div input[name="selected_node"]').val();
               }
+
+              if($("#gofast-taxonomy-manage-folder-locations-form").length != 0){
+                var folder_reference = $("#gofast-taxonomy-manage-folder-locations-form #edit-selected-folder").val();
+              }
+              
               // param $_REQUEST["node"] passed in gofast_ztree_async_json
-              setting.async.otherParam = {"node": nid};
+              if(folder_reference != null){
+                setting.async.otherParam = {"node": nid, "folder_reference" : folder_reference};
+              }else{
+                setting.async.otherParam = {"node": nid};
+              }
             }
 
             function filter_async(treeId, parentNode, childNodes) {
@@ -1344,8 +1375,13 @@
               if (element.text() === "undefined" || element.text() === "") {
                 element.parent().parent().hide();
               }
-              if (element.text() === "FOLDERS TEMPLATES" && element.parents("form").length && element.parents("form").attr('id') !== 'gofast-ajax-file-browser-add-template-folder-form' && element.parents("fieldset").attr('id') !== "edit-og-ztree-templates-folder"){
-                element.parent().parent().hide();
+              if (element.text() === "Sites"){
+                  element.parent().hide();
+                  //Hiding checkbox of Sites
+                  element.parent().parent().children('span').css("display", "none");
+              } 
+              if (element.text() === "FOLDERS TEMPLATES" && element.parents("form").length && element.parents("form").attr('id') !== 'gofast-ajax-file-browser-add-template-folder-form' && element.parents(".ztree").attr('id') !== "ztree_component_content_templates_folders"){
+                  element.parent().parent().hide();
               }
             });
           }

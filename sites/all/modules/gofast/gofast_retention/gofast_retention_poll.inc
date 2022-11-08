@@ -37,7 +37,6 @@ function gofast_retention_poll($poll_name, $poll_info, $context) {
       if ($node->type === 'alfresco_item') {
 
         if($node->field_retention_end[LANGUAGE_NONE][0]['value'] != $old_retention_date ){
-
           if (!gofast_mobile_is_mobile_domain()) {
             $node_contextual_actions = gofast_get_contextual_actions_node($node);
             $contextual_actions = '';
@@ -45,13 +44,11 @@ function gofast_retention_poll($poll_name, $poll_info, $context) {
           }
 
           if( $node->field_retention_end[LANGUAGE_NONE][0]['value'] === NULL){
-            //$commands[] = gofast_command_toast_message(t("Node document has changed.", array(), array('context' => 'gofast:gofast_retention')));
             if (!gofast_mobile_is_mobile_domain()) {
               $commands[] = ajax_command_invoke('#breadcrumb-alt-actions', 'replaceWith', array($contextual_actions));
               $commands[] = ajax_command_invoke('.drop-area', 'css', array('display', ''));
             }
           }else{
-            //$commands[] = gofast_command_toast_message(t("Node document has changed.", array(), array('context' => 'gofast:gofast_retention')));
             if (!gofast_mobile_is_mobile_domain()) {
               $commands[] = ajax_command_invoke('#breadcrumb-alt-actions', 'replaceWith', array($contextual_actions) );
               $commands[] = ajax_command_invoke('.drop-area', 'css', array('display', 'none'));

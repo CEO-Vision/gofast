@@ -2,15 +2,19 @@
 
 
 
-function gofast_workflows_get_cookie($admin = false, $real_password = false){
-    if($admin == false){        
-            global $user;           
-            if(isset($_SESSION['bonita_cookie_problem_' . $user->uid])){
+function gofast_workflows_get_cookie($admin = false, $real_password = false, $myuser = NULL){
+    if($admin == false){
+        if(empty($myuser)){
+            global $user;
+            $myuser = $user;
+        }
+            if(isset($_SESSION['bonita_cookie_problem_' . $myuser->uid])){
                 return;
             }
-            $username = $user->name;  
+            $username = $myuser->name;
             if($real_password == false){
-                $password = gofast_workflows_get_bonita_token();
+                $bonita_id = gofast_workflows_get_user_id($myuser);
+                $password = gofast_workflows_get_bonita_token($bonita_id);
             }else{
                  $password = $real_password;
             }
@@ -312,6 +316,26 @@ function gofast_workflows_create_group($group_node){
        
 }
 
+/*
+ * Replicate a userlist in Bonita
+ */
+function gofast_workflows_create_userlist($userlist){
+    
+    //displayname
+    $displayName = "ul_" . $userlist->ulid;
+    $name = "ul_" . $userlist->ulid;
+
+    gofast_workflows_get_cookie(true);
+    $cookie_name = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
+  
+    $data = array('displayName' => $displayName, 'name' => $name);
+    
+    $infos_created_group = gofast_workflows_curl_create_group($data, $cookie_name);
+    gofast_workflows_synchronize_members_userlist($userlist);
+    return $infos_created_group;
+       
+}
+
 /* fonction qui renomme sur Bonita le groupe GF recu en parametre (en conservant sa hierarchie) */
 function gofast_workflows_update_group($group_node, $old_group_node){
      watchdog("debug update entity3",$old_group_node->title );
@@ -339,6 +363,32 @@ function gofast_workflows_update_group($group_node, $old_group_node){
    $infos_updated_group = gofast_workflows_curl_update_group($data, $cookie_name, $bonita_id);
 
     return $infos_updated_group;
+       
+}
+
+function gofast_workflows_update_userlist($userlist, $old_userlist){
+    gofast_workflows_get_cookie(true);
+    $cookie_name = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
+    
+    //displayname  
+    $ulid = $userlist->ulid;
+  
+    //on recupere le noeud du parent de ce groupe
+    // TODO manage space move
+    // $parent_object = _gofast_og_space_get_parent($group_node, true);
+    $bonita_object = gofast_workflows_get_bonitagroup_from_userlist($userlist);
+           
+    if($bonita_object !== null){       
+        $bonita_id = $bonita_object["id"];
+    }else{
+        return null;
+    }
+    
+   $data = array('displayName' => 'ul_' . $ulid, 'name' => 'ul_' . $ulid);
+   
+   $infos_updated_group = gofast_workflows_curl_update_group($data, $cookie_name, $bonita_id);
+
+   return $infos_updated_group;
        
 }
 
@@ -371,6 +421,17 @@ function gofast_workflows_get_bonitagroup_from_gofastgroup($group_node){
     gofast_workflows_get_cookie(true);
     $cookie_name = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
    $bonita_group_id = gofast_workflows_curl_get_group($cookie_name, $path_modified, $group_name);
+
+   return $bonita_group_id;
+    
+}
+
+function gofast_workflows_get_bonitagroup_from_userlist($userlist){
+   $ulid = $userlist->ulid;
+    
+   gofast_workflows_get_cookie(true);
+   $cookie_name = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
+   $bonita_group_id = gofast_workflows_curl_get_userlist($cookie_name, $ulid);
 
    return $bonita_group_id;
     
@@ -423,6 +484,44 @@ function gofast_workflows_synchronize_members_group($group_node, $just_add = fal
      }
 }
 
+function gofast_workflows_synchronize_members_userlist($userlist){
+    $bonita_group = gofast_workflows_get_bonitagroup_from_userlist($userlist);
+    $members = $userlist->field_userlist_members[LANGUAGE_NONE];
+       
+     $bonita_members = gofast_workflows_curl_get_members_group_bonita($bonita_group["id"]);
+     $formatted_bonita_members = array();
+     if(count($bonita_members) > 0){
+             foreach( $bonita_members as $member_bonita ){
+                    $formatted_bonita_members[$member_bonita["id"]] = $member_bonita;
+              }
+     } 
+     
+     if(count($bonita_members) > 0){
+         foreach($bonita_members as $member_bonita){
+             gofast_workflows_curl_delete_user_from_bonitagroup($member_bonita["id"], $bonita_group["id"]);
+         }
+     }
+     
+     
+     foreach($members as $uid){
+         //on recupere le bonita_id du membre
+         $myuser = user_load($uid['value']);
+         
+         $bonita_uid = gofast_workflows_get_user_id($myuser);          
+          if($bonita_uid !== null){
+               //check if we are in a complete resynchro or not
+                if($just_add == false){   
+                     gofast_workflows_curl_add_user_into_bonitagroup($bonita_uid, $bonita_group["id"]);  
+                }else{
+                       //we are not in a complete resynchro, so check if the user is already member into Bonita space or not
+                       if(!isset($formatted_bonita_members[$bonita_uid])){                              
+                                gofast_workflows_curl_add_user_into_bonitagroup($bonita_uid, $bonita_group["id"]); 
+                       }
+               }      
+          }
+     }
+}
+
 
 //TODO fonction de synchro all groupes / users
 /* fonction qui parcours tous les groupes GF et les synchronise sur Bonita */
@@ -435,7 +534,7 @@ function gofast_workflows_synchro_all_groups($delete_all = false){
 
             if(count($bonita_groups) > 0){
                 foreach($bonita_groups as $bonita_group){
-                    if($bonita_group->id != 1 && $bonita_group->name !== "Utilisateurs"){
+                    if($bonita_group->id != 1 && $bonita_group->name !== "Utilisateurs" && substr($bonita_group->name, 0, 3) != "ul_"){
                         gofast_workflows_delete_group($bonita_group->id);
                     }
                 }
@@ -458,6 +557,33 @@ function gofast_workflows_synchro_all_groups($delete_all = false){
             }
         }
 
+    }
+}
+
+/*
+ * Synchronize all userlists
+ */
+function gofast_workflows_synchro_all_userlists($delete_all = false){
+    set_time_limit(0);
+    
+    if($delete_all == true){
+            //first we remove all spaces
+            $bonita_groups = gofast_workflows_list_all_groups();
+
+            if(count($bonita_groups) > 0){
+                foreach($bonita_groups as $bonita_group){
+                    if($bonita_group->id != 1 && $bonita_group->name !== "Utilisateurs" && substr($bonita_group->name, 0, 3) == "ul_"){
+                        gofast_workflows_delete_group($bonita_group->id);
+                    }
+                }
+            }
+    }
+    
+   $userlists = entity_load('userlist');
+   
+    foreach($userlists as $userlist){
+        gofast_workflows_create_userlist($userlist);
+        gofast_workflows_synchronize_members_userlist($userlist);
     }
 }
 

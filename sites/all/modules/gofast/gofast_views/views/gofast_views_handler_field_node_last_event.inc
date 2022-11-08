@@ -16,7 +16,7 @@ class gofast_views_handler_field_node_last_event extends views_handler_field_nod
     if(module_exists('gofast_message_ext')){ //Log event enabled
       $nid = $values->nid;
       //$output_prepare = gofast_message_ext_api_get_last_event($nid);
-      $output_prepare = gofast_message_ext_api_get_last_event2($nid);
+      $output_prepare = gofast_message_ext_api_get_last_event2($nid, $values->_field_data['nid']['entity']->changed);
       if($output_prepare['message']){ //Return dated event message from gofast_message_ext
            $output =  gofast_message_ext_api_render_event($output_prepare);
       }
@@ -61,7 +61,7 @@ class gofast_views_handler_field_node_last_event extends views_handler_field_nod
     }
     
     //Format text
-    $output = "<div style='max-width:400px;'><span>".$output."</span></div>";
+    $output = "<span>".$output."</span>";
         if ($output_prepare['event'] == 'linksharing'){
           $output_bis = array ();
           $output_bis['last_event']= $output;

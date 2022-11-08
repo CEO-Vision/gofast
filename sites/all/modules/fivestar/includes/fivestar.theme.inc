@@ -301,7 +301,7 @@ function theme_fivestar_summary($variables) {
   }
 
 
-  $output = '<div class="fivestar-summary fivestar-summary-' . $div_class . '">' . $output . '</div>';
+  $output = '<div class="d-inline-block float-right fivestar-summary fivestar-summary-' . $div_class . '">' . $output . '</div>';
   return $output;
 }
 

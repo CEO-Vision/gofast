@@ -39,16 +39,15 @@
           ?>
       </div>
   </div>
-<?php endif; ?>
-
-<script>
-  function showMore(rand){
-    if(jQuery("#value-" + rand).hasClass('gofast_display_none')){
-      jQuery("#value-" + rand).removeClass('gofast_display_none');
-      jQuery(".mobile-see-more-" + rand).find("i").removeClass('fa-search-plus').addClass('fa-search-minus');
-    }else{
-      jQuery("#value-" + rand).addClass('gofast_display_none');
-      jQuery(".mobile-see-more-" + rand).find("i").removeClass('fa-search-minus').addClass('fa-search-plus');
-    }
+<?php endif;
+$script = "function showMore(rand){
+  if(jQuery('#value-' + rand).hasClass('gofast_display_none')){
+    jQuery('#value-' + rand).removeClass('gofast_display_none');
+    jQuery('.mobile-see-more-' + rand).find('i').removeClass('fa-search-plus').addClass('fa-search-minus');
+  }else{
+    jQuery('#value-' + rand).addClass('gofast_display_none');
+    jQuery('.mobile-see-more-' + rand).find('i').removeClass('fa-search-minus').addClass('fa-search-plus');
   }
-</script>
+}";
+drupal_add_js($script, "inline");
+?>

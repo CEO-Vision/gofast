@@ -45,6 +45,10 @@ class CheckListEntity extends Entity {
   public function getItems($status = CheckListEntity::CHECKLIST_ITEM_STATUS_ALL) {
     $timer_start = microtime(true);
 //watchdog('gofast_kanban', '%name() START ', array('%name' => __FUNCTION__), WATCHDOG_DEBUG);
+    global $user;
+    if($user->uid == 0){
+        return array();
+    }
 
     $items = array();
 
@@ -276,12 +280,13 @@ function gofast_kanban_checklistItem_create($cid, $label, $attrs = array()) {
         'uid' => (isset($attrs['uid'])? $attrs['uid']: NULL ),         
       ));
   
-  $result = $query->execute();
+  $id = $query->execute();
   
   //Save entities ( audit and notificiation)
   gofast_kanban_ext_create_checklistsave_entity($node,$values);
   
   $timer_stop = microtime(true);
+  return $id;
 //watchdog('gofast_kanban', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_DEBUG);
 }
 
@@ -301,6 +306,11 @@ function gofast_kanban_checklistItem_udpate($ciid, $attrs = array()) {
       foreach($values[0]["items"] as $item){
           $old_values_items[$item->ciid] = $item;
       }
+  }
+  
+  //format timestamp for deadline
+  if(isset($attrs['deadline'])){
+    $attrs['deadline'] = intdiv($attrs['deadline'], 1000);
   }
   
   if (count($attrs) > 0) {     
@@ -324,14 +334,30 @@ function gofast_kanban_checklistItem_udpate($ciid, $attrs = array()) {
       }
   }
  
-  global $user,$base_url;
+  global $user;
 
   if (count($new_values_items) > 0) {
+        $n = variable_get('kanban_notifications',array());
+         if(!isset($n[$node->nid]))$n[$node->nid] = array(); 
+        if(!isset($n[$node->nid]['items'])){
+            $n[$node->nid]['items']= $old_values_items;
+            if(!isset($n[$node->nid]['participants']))$n[$node->nid]['participants'] = array(); 
+        }
+        if(!in_array($user->uid,$n[$node->nid]['participants'])){
+            $n[$node->nid]['participants'][]=$user->uid;
+        }
+        $n[$node->nid]['last_update']=time();
+        variable_set('kanban_notifications', $n);
+  }
+      
+  /*    
     foreach ($new_values_items as $ciid => $item) {
       //do not send notification if the assignee is the current user
       if ($item->uid !== $user->uid) {
         
         if ($item->uid != $old_values_items[$ciid]->uid) {
+           
+            
             $account = $RecipUser = user_load($item->uid);
             $recpt = array(array('recpt' => $account->mail, 'method' => 'to'));
 
@@ -423,9 +449,10 @@ function gofast_kanban_checklistItem_udpate($ciid, $attrs = array()) {
           }
       }
     }
+   
   }
-
-
+   * */
+  
   $timer_stop = microtime(true);
 //watchdog('gofast_kanban', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_DEBUG);
 }

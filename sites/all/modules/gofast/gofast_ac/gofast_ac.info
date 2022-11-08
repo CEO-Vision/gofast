@@ -1,0 +1,6 @@
+name = Gofast autocomplete
+description = autocomplete module for GF4 integration in GF4
+
+core = 7.x
+package = Gofast
+version = "7.x-4.0.0_r3"

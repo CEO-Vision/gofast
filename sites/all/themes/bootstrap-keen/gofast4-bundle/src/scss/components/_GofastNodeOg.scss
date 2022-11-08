@@ -1,0 +1,38 @@
+.GofastNodeOg {
+    &__container {
+        height: calc(100%);
+    }
+}
+
+.gofast-og-header-medium,
+.gofast-og-header-main {
+    display: none;
+}
+
+.gofast-og-header-small {
+    display: flex;
+}
+
+@media (min-width: 630px) {
+    .gofast-og-header-small {
+        display: none
+    }
+
+    .gofast-og-header-medium {
+        display: flex
+    }
+}
+
+@media (min-width: 765px) {
+    .gofast-og-header-medium {
+        display: none;
+    }
+
+    .gofast-og-header-main {
+        display: flex;
+    }
+}
+
+.GofastNodeOg .card-body .gofastArticleBreadcrumb{
+    display: none;
+}

@@ -1,0 +1,6 @@
+<webscript>
+  <shortname>Multifile a folder</shortname>
+  <description>Multifile a folder</description>
+  <url>/multifilefolder?folder_source={folder_source}&amp;destination={destination}</url>
+  <authentication>user</authentication>
+</webscript>

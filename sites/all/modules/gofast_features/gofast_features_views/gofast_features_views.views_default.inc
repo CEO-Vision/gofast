@@ -1662,11 +1662,12 @@ function gofast_features_views_views_default_views() {
   $handler = $view->new_display('default', 'Master', 'default');
   $handler->display->display_options['title'] = 'GoFAST Audit';
   $handler->display->display_options['use_ajax'] = TRUE;
+  $handler->display->display_options['hide_admin_links'] = TRUE;
   $handler->display->display_options['use_more_always'] = FALSE;
   $handler->display->display_options['use_more_text'] = 'plus';
   $handler->display->display_options['access']['type'] = 'role';
   $handler->display->display_options['access']['role'] = array(
-    3 => '3',
+    7 => '7',
   );
   $handler->display->display_options['cache']['type'] = 'none';
   $handler->display->display_options['query']['type'] = 'views_query';
@@ -1691,24 +1692,18 @@ function gofast_features_views_views_default_views() {
   $handler->display->display_options['style_plugin'] = 'table';
   $handler->display->display_options['style_options']['columns'] = array(
     'timestamp' => 'timestamp',
-    'ldap_user_displayname' => 'ldap_user_displayname',
     'title' => 'title',
     'details' => 'details',
     'event_type' => 'event_type',
     'term_node_tid' => 'term_node_tid',
+    'name_1' => 'name_1',
+    'ldap_user_displayname' => 'ldap_user_displayname',
   );
   $handler->display->display_options['style_options']['default'] = '-1';
   $handler->display->display_options['style_options']['info'] = array(
     'timestamp' => array(
       'sortable' => 1,
       'default_sort_order' => 'desc',
-      'align' => '',
-      'separator' => '',
-      'empty_column' => 0,
-    ),
-    'ldap_user_displayname' => array(
-      'sortable' => 0,
-      'default_sort_order' => 'asc',
       'align' => '',
       'separator' => '',
       'empty_column' => 0,
@@ -1739,6 +1734,20 @@ function gofast_features_views_views_default_views() {
       'separator' => '',
       'empty_column' => 0,
     ),
+    'name_1' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'ldap_user_displayname' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
   );
   /* Footer: Global: Result summary */
   $handler->display->display_options['footer']['result']['id'] = 'result';
@@ -1763,18 +1772,21 @@ function gofast_features_views_views_default_views() {
   $handler->display->display_options['fields']['timestamp']['field'] = 'timestamp';
   $handler->display->display_options['fields']['timestamp']['label'] = 'Date';
   $handler->display->display_options['fields']['timestamp']['element_label_colon'] = FALSE;
-  /* Field: User: Last name */
-  $handler->display->display_options['fields']['ldap_user_sn']['id'] = 'ldap_user_sn';
-  $handler->display->display_options['fields']['ldap_user_sn']['table'] = 'field_data_ldap_user_sn';
-  $handler->display->display_options['fields']['ldap_user_sn']['field'] = 'ldap_user_sn';
-  $handler->display->display_options['fields']['ldap_user_sn']['relationship'] = 'uid';
-  $handler->display->display_options['fields']['ldap_user_sn']['label'] = '';
-  /* Field: User: First name */
-  $handler->display->display_options['fields']['ldap_user_givenname']['id'] = 'ldap_user_givenname';
-  $handler->display->display_options['fields']['ldap_user_givenname']['table'] = 'field_data_ldap_user_givenname';
-  $handler->display->display_options['fields']['ldap_user_givenname']['field'] = 'ldap_user_givenname';
-  $handler->display->display_options['fields']['ldap_user_givenname']['relationship'] = 'uid';
-  $handler->display->display_options['fields']['ldap_user_givenname']['label'] = '';
+  /* Field: User: Name */
+  $handler->display->display_options['fields']['name_1']['id'] = 'name_1';
+  $handler->display->display_options['fields']['name_1']['table'] = 'users';
+  $handler->display->display_options['fields']['name_1']['field'] = 'name';
+  $handler->display->display_options['fields']['name_1']['relationship'] = 'uid';
+  $handler->display->display_options['fields']['name_1']['label'] = 'Username';
+  $handler->display->display_options['fields']['name_1']['link_to_user'] = FALSE;
+  $handler->display->display_options['fields']['name_1']['format_username'] = FALSE;
+  /* Field: User: Display name */
+  $handler->display->display_options['fields']['ldap_user_displayname']['id'] = 'ldap_user_displayname';
+  $handler->display->display_options['fields']['ldap_user_displayname']['table'] = 'field_data_ldap_user_displayname';
+  $handler->display->display_options['fields']['ldap_user_displayname']['field'] = 'ldap_user_displayname';
+  $handler->display->display_options['fields']['ldap_user_displayname']['relationship'] = 'uid';
+  $handler->display->display_options['fields']['ldap_user_displayname']['label'] = 'Nom de l\'affichage';
+  $handler->display->display_options['fields']['ldap_user_displayname']['empty'] = '-';
   /* Field: Content: Title */
   $handler->display->display_options['fields']['title']['id'] = 'title';
   $handler->display->display_options['fields']['title']['table'] = 'node';
@@ -1786,7 +1798,9 @@ function gofast_features_views_views_default_views() {
   $handler->display->display_options['fields']['details']['id'] = 'details';
   $handler->display->display_options['fields']['details']['table'] = 'ceo_vision_audit';
   $handler->display->display_options['fields']['details']['field'] = 'details';
+  $handler->display->display_options['fields']['details']['label'] = 'Détails';
   $handler->display->display_options['fields']['details']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['details']['empty'] = '-';
   /* Field: CEO-Vision Audit: Event type */
   $handler->display->display_options['fields']['event_type']['id'] = 'event_type';
   $handler->display->display_options['fields']['event_type']['table'] = 'ceo_vision_audit';
@@ -1798,10 +1812,12 @@ function gofast_features_views_views_default_views() {
   $handler->display->display_options['fields']['term_node_tid']['relationship'] = 'nid';
   $handler->display->display_options['fields']['term_node_tid']['label'] = 'Vocabulary';
   $handler->display->display_options['fields']['term_node_tid']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['term_node_tid']['empty'] = '-';
   $handler->display->display_options['fields']['term_node_tid']['limit'] = TRUE;
   $handler->display->display_options['fields']['term_node_tid']['vocabularies'] = array(
     'category' => 'category',
     'forums' => 0,
+    'columns' => 0,
     'criticity' => 0,
     'format' => 0,
     'hobbies' => 0,
@@ -1824,10 +1840,58 @@ function gofast_features_views_views_default_views() {
   $handler->display->display_options['filters']['timestamp']['group'] = 1;
   $handler->display->display_options['filters']['timestamp']['exposed'] = TRUE;
   $handler->display->display_options['filters']['timestamp']['expose']['operator_id'] = 'timestamp_op';
-  $handler->display->display_options['filters']['timestamp']['expose']['label'] = 'Date ( jj-mm-aaaa ), from';
+  $handler->display->display_options['filters']['timestamp']['expose']['label'] = 'Date between';
   $handler->display->display_options['filters']['timestamp']['expose']['operator'] = 'timestamp_op';
   $handler->display->display_options['filters']['timestamp']['expose']['identifier'] = 'timestamp';
   $handler->display->display_options['filters']['timestamp']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+  );
+  $handler->display->display_options['filters']['timestamp']['group_info']['label'] = 'Horodatage';
+  $handler->display->display_options['filters']['timestamp']['group_info']['identifier'] = 'timestamp';
+  $handler->display->display_options['filters']['timestamp']['group_info']['remember'] = FALSE;
+  $handler->display->display_options['filters']['timestamp']['group_info']['group_items'] = array(
+    1 => array(),
+    2 => array(),
+    3 => array(),
+  );
+  /* Filter criterion: User: Display name (ldap_user_displayname) */
+  $handler->display->display_options['filters']['ldap_user_displayname_value']['id'] = 'ldap_user_displayname_value';
+  $handler->display->display_options['filters']['ldap_user_displayname_value']['table'] = 'field_data_ldap_user_displayname';
+  $handler->display->display_options['filters']['ldap_user_displayname_value']['field'] = 'ldap_user_displayname_value';
+  $handler->display->display_options['filters']['ldap_user_displayname_value']['relationship'] = 'uid';
+  $handler->display->display_options['filters']['ldap_user_displayname_value']['operator'] = 'contains';
+  $handler->display->display_options['filters']['ldap_user_displayname_value']['group'] = 1;
+  $handler->display->display_options['filters']['ldap_user_displayname_value']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['ldap_user_displayname_value']['expose']['operator_id'] = 'ldap_user_displayname_value_op';
+  $handler->display->display_options['filters']['ldap_user_displayname_value']['expose']['label'] = 'Display name';
+  $handler->display->display_options['filters']['ldap_user_displayname_value']['expose']['operator'] = 'ldap_user_displayname_value_op';
+  $handler->display->display_options['filters']['ldap_user_displayname_value']['expose']['identifier'] = 'ldap_user_displayname_value';
+  $handler->display->display_options['filters']['ldap_user_displayname_value']['expose']['remember_roles'] = array(
+    2 => '2',
+    1 => 0,
+    3 => 0,
+    4 => 0,
+    5 => 0,
+    6 => 0,
+  );
+  /* Filter criterion: User: Authentication name */
+  $handler->display->display_options['filters']['authname']['id'] = 'authname';
+  $handler->display->display_options['filters']['authname']['table'] = 'authmap';
+  $handler->display->display_options['filters']['authname']['field'] = 'authname';
+  $handler->display->display_options['filters']['authname']['relationship'] = 'uid';
+  $handler->display->display_options['filters']['authname']['operator'] = 'contains';
+  $handler->display->display_options['filters']['authname']['group'] = 1;
+  $handler->display->display_options['filters']['authname']['exposed'] = TRUE;
+  $handler->display->display_options['filters']['authname']['expose']['operator_id'] = 'authname_op';
+  $handler->display->display_options['filters']['authname']['expose']['label'] = 'Username';
+  $handler->display->display_options['filters']['authname']['expose']['operator'] = 'authname_op';
+  $handler->display->display_options['filters']['authname']['expose']['identifier'] = 'authname';
+  $handler->display->display_options['filters']['authname']['expose']['remember_roles'] = array(
     2 => '2',
     1 => 0,
     3 => 0,
@@ -1848,26 +1912,6 @@ function gofast_features_views_views_default_views() {
   $handler->display->display_options['filters']['title']['expose']['operator'] = 'title_op';
   $handler->display->display_options['filters']['title']['expose']['identifier'] = 'title';
   $handler->display->display_options['filters']['title']['expose']['remember_roles'] = array(
-    2 => '2',
-    1 => 0,
-    3 => 0,
-    4 => 0,
-    5 => 0,
-    6 => 0,
-  );
-  /* Filter criterion: User: Display name (ldap_user_displayname) */
-  $handler->display->display_options['filters']['ldap_user_displayname_value']['id'] = 'ldap_user_displayname_value';
-  $handler->display->display_options['filters']['ldap_user_displayname_value']['table'] = 'field_data_ldap_user_displayname';
-  $handler->display->display_options['filters']['ldap_user_displayname_value']['field'] = 'ldap_user_displayname_value';
-  $handler->display->display_options['filters']['ldap_user_displayname_value']['relationship'] = 'uid';
-  $handler->display->display_options['filters']['ldap_user_displayname_value']['operator'] = 'word';
-  $handler->display->display_options['filters']['ldap_user_displayname_value']['group'] = 1;
-  $handler->display->display_options['filters']['ldap_user_displayname_value']['exposed'] = TRUE;
-  $handler->display->display_options['filters']['ldap_user_displayname_value']['expose']['operator_id'] = 'ldap_user_displayname_value_op';
-  $handler->display->display_options['filters']['ldap_user_displayname_value']['expose']['label'] = 'Display name';
-  $handler->display->display_options['filters']['ldap_user_displayname_value']['expose']['operator'] = 'ldap_user_displayname_value_op';
-  $handler->display->display_options['filters']['ldap_user_displayname_value']['expose']['identifier'] = 'ldap_user_displayname_value';
-  $handler->display->display_options['filters']['ldap_user_displayname_value']['expose']['remember_roles'] = array(
     2 => '2',
     1 => 0,
     3 => 0,
@@ -1898,9 +1942,10 @@ function gofast_features_views_views_default_views() {
   $handler->display->display_options['filters']['term_node_tid_depth']['table'] = 'node';
   $handler->display->display_options['filters']['term_node_tid_depth']['field'] = 'term_node_tid_depth';
   $handler->display->display_options['filters']['term_node_tid_depth']['relationship'] = 'nid';
+  $handler->display->display_options['filters']['term_node_tid_depth']['group'] = 1;
   $handler->display->display_options['filters']['term_node_tid_depth']['exposed'] = TRUE;
   $handler->display->display_options['filters']['term_node_tid_depth']['expose']['operator_id'] = 'term_node_tid_depth_op';
-  $handler->display->display_options['filters']['term_node_tid_depth']['expose']['label'] = 'Possède les termes de taxonomie';
+  $handler->display->display_options['filters']['term_node_tid_depth']['expose']['label'] = 'Has taxonomy terms';
   $handler->display->display_options['filters']['term_node_tid_depth']['expose']['operator'] = 'term_node_tid_depth_op';
   $handler->display->display_options['filters']['term_node_tid_depth']['expose']['identifier'] = 'term_node_tid_depth';
   $handler->display->display_options['filters']['term_node_tid_depth']['expose']['multiple'] = TRUE;
@@ -1928,7 +1973,7 @@ function gofast_features_views_views_default_views() {
   $handler = $view->new_display('page', 'Page', 'page');
   $handler->display->display_options['defaults']['pager'] = FALSE;
   $handler->display->display_options['pager']['type'] = 'full';
-  $handler->display->display_options['pager']['options']['items_per_page'] = '20';
+  $handler->display->display_options['pager']['options']['items_per_page'] = '15';
   $handler->display->display_options['pager']['options']['offset'] = '0';
   $handler->display->display_options['pager']['options']['id'] = '0';
   $handler->display->display_options['pager']['options']['quantity'] = '9';
@@ -1936,7 +1981,12 @@ function gofast_features_views_views_default_views() {
   $handler->display->display_options['pager']['options']['expose']['items_per_page_options_all_label'] = '- Tout -';
   $handler->display->display_options['pager']['options']['expose']['offset_label'] = 'Décalage';
   $handler->display->display_options['exposed_block'] = TRUE;
-  $handler->display->display_options['path'] = 'gofast_audit';
+  $handler->display->display_options['defaults']['footer'] = FALSE;
+  /* Footer: Global: Result summary */
+  $handler->display->display_options['footer']['result']['id'] = 'result';
+  $handler->display->display_options['footer']['result']['table'] = 'views';
+  $handler->display->display_options['footer']['result']['field'] = 'result';
+  $handler->display->display_options['path'] = 'gofast_no_used_page';
   $handler->display->display_options['menu']['title'] = 'Audit';
   $handler->display->display_options['menu']['weight'] = '0';
   $handler->display->display_options['menu']['name'] = 'user-menu';
@@ -1975,14 +2025,18 @@ function gofast_features_views_views_default_views() {
     t('Node id in this table that references a node.'),
     t('User id in this table that references a node.'),
     t('Date'),
+    t('Username'),
+    t('Nom de l\'affichage'),
+    t('-'),
     t('Title'),
-    t('Details'),
+    t('Détails'),
     t('Event type'),
     t('Vocabulary'),
-    t('Date ( jj-mm-aaaa ), from'),
-    t('Document title'),
+    t('Date between'),
+    t('Horodatage'),
     t('Display name'),
-    t('Possède les termes de taxonomie'),
+    t('Document title'),
+    t('Has taxonomy terms'),
     t('Possède les termes de taxonomie (avec profondeur)'),
     t('Page'),
     t('more'),
@@ -2012,7 +2066,7 @@ function gofast_features_views_views_default_views() {
   $handler->display->display_options['use_more_text'] = 'plus';
   $handler->display->display_options['access']['type'] = 'role';
   $handler->display->display_options['access']['role'] = array(
-    3 => '3',
+    7 => '7',
   );
   $handler->display->display_options['cache']['type'] = 'none';
   $handler->display->display_options['query']['type'] = 'views_query';
@@ -2368,7 +2422,7 @@ function gofast_features_views_views_default_views() {
   $handler->display->display_options['use_more_text'] = 'plus';
   $handler->display->display_options['access']['type'] = 'role';
   $handler->display->display_options['access']['role'] = array(
-    3 => '3',
+    7 => '7',
   );
   $handler->display->display_options['cache']['type'] = 'none';
   $handler->display->display_options['query']['type'] = 'views_query';
@@ -2378,7 +2432,7 @@ function gofast_features_views_views_default_views() {
   $handler->display->display_options['exposed_form']['options']['reset_button_label'] = 'Réinitialiser';
   $handler->display->display_options['exposed_form']['options']['exposed_sorts_label'] = 'Trier par';
   $handler->display->display_options['pager']['type'] = 'full';
-  $handler->display->display_options['pager']['options']['items_per_page'] = '5';
+  $handler->display->display_options['pager']['options']['items_per_page'] = '15';
   $handler->display->display_options['pager']['options']['offset'] = '0';
   $handler->display->display_options['pager']['options']['id'] = '0';
   $handler->display->display_options['pager']['options']['quantity'] = '3';
@@ -10588,12 +10642,17 @@ Document type : [gofast_format] [last_updated] [field_state]
   $handler->display->display_options['query']['type'] = 'views_query';
   $handler->display->display_options['exposed_form']['type'] = 'basic';
   $handler->display->display_options['pager']['type'] = 'full';
-  $handler->display->display_options['pager']['options']['items_per_page'] = '7';
+  $handler->display->display_options['pager']['options']['items_per_page'] = '6';
   $handler->display->display_options['pager']['options']['offset'] = '0';
   $handler->display->display_options['pager']['options']['id'] = '0';
   $handler->display->display_options['pager']['options']['quantity'] = '9';
+  $handler->display->display_options['pager']['options']['expose']['items_per_page_label'] = 'Éléments par page';
+  $handler->display->display_options['pager']['options']['expose']['items_per_page_options_all_label'] = '- Tout -';
+  $handler->display->display_options['pager']['options']['expose']['offset_label'] = 'Décalage';
+  $handler->display->display_options['pager']['options']['tags']['first'] = '« premier';
   $handler->display->display_options['pager']['options']['tags']['previous'] = '‹';
   $handler->display->display_options['pager']['options']['tags']['next'] = '›';
+  $handler->display->display_options['pager']['options']['tags']['last'] = 'dernier »';
   $handler->display->display_options['style_plugin'] = 'table';
   $handler->display->display_options['style_options']['default_row_class'] = FALSE;
   $handler->display->display_options['style_options']['row_class_special'] = FALSE;
@@ -10664,8 +10723,21 @@ Document type : [gofast_format] [last_updated] [field_state]
 
   /* Display: Upcoming meetings */
   $handler = $view->new_display('page', 'Upcoming meetings', 'upcoming_meetings');
+  $handler->display->display_options['defaults']['pager'] = FALSE;
+  $handler->display->display_options['pager']['type'] = 'full';
+  $handler->display->display_options['pager']['options']['items_per_page'] = '6';
+  $handler->display->display_options['pager']['options']['offset'] = '0';
+  $handler->display->display_options['pager']['options']['id'] = '0';
+  $handler->display->display_options['pager']['options']['quantity'] = '9';
+  $handler->display->display_options['pager']['options']['expose']['items_per_page_label'] = 'Éléments par page';
+  $handler->display->display_options['pager']['options']['expose']['items_per_page_options_all_label'] = '- Tout -';
+  $handler->display->display_options['pager']['options']['expose']['offset_label'] = 'Décalage';
+  $handler->display->display_options['pager']['options']['tags']['first'] = '« premier';
+  $handler->display->display_options['pager']['options']['tags']['previous'] = '‹';
+  $handler->display->display_options['pager']['options']['tags']['next'] = '›';
+  $handler->display->display_options['pager']['options']['tags']['last'] = 'dernier »';
   $handler->display->display_options['defaults']['fields'] = FALSE;
-  /* Field: Content: Deadline */
+  /* Champ: Contenu : Deadline */
   $handler->display->display_options['fields']['field_date']['id'] = 'field_date';
   $handler->display->display_options['fields']['field_date']['table'] = 'field_data_field_date';
   $handler->display->display_options['fields']['field_date']['field'] = 'field_date';
@@ -10673,7 +10745,7 @@ Document type : [gofast_format] [last_updated] [field_state]
   $handler->display->display_options['fields']['field_date']['element_label_colon'] = FALSE;
   $handler->display->display_options['fields']['field_date']['type'] = 'date_plain';
   $handler->display->display_options['fields']['field_date']['settings'] = array(
-    'format_type' => 'custom',
+    'format_type' => 'extra_short',
     'custom_date_format' => '',
     'fromto' => 'both',
     'multiple_number' => '',
@@ -10697,22 +10769,44 @@ Document type : [gofast_format] [last_updated] [field_state]
   $handler->display->display_options['fields']['field_linked_folders']['element_class'] = 'gofast_display_none';
   $handler->display->display_options['fields']['field_linked_folders']['element_label_colon'] = FALSE;
   $handler->display->display_options['fields']['field_linked_folders']['delta_offset'] = '0';
-  /* Field: Content: Nid */
+  /* Champ: Contenu : Nid */
   $handler->display->display_options['fields']['nid']['id'] = 'nid';
   $handler->display->display_options['fields']['nid']['table'] = 'node';
   $handler->display->display_options['fields']['nid']['field'] = 'nid';
   $handler->display->display_options['fields']['nid']['label'] = '';
   $handler->display->display_options['fields']['nid']['element_class'] = 'gofast_display_none';
   $handler->display->display_options['fields']['nid']['element_label_colon'] = FALSE;
+  /* Champ: Contenu : Timestamp Target link */
+  $handler->display->display_options['fields']['field_timestamp_target_link']['id'] = 'field_timestamp_target_link';
+  $handler->display->display_options['fields']['field_timestamp_target_link']['table'] = 'field_data_field_timestamp_target_link';
+  $handler->display->display_options['fields']['field_timestamp_target_link']['field'] = 'field_timestamp_target_link';
+  $handler->display->display_options['fields']['field_timestamp_target_link']['label'] = '';
+  $handler->display->display_options['fields']['field_timestamp_target_link']['element_class'] = 'gofast_display_none';
+  $handler->display->display_options['fields']['field_timestamp_target_link']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['field_timestamp_target_link']['element_default_classes'] = FALSE;
+  $handler->display->display_options['fields']['field_timestamp_target_link']['delta_offset'] = '0';
   $handler->display->display_options['path'] = 'upcoming-meetings';
 
   /* Display: Upcoming deadlines */
   $handler = $view->new_display('page', 'Upcoming deadlines', 'upcoming_deadlines');
   $handler->display->display_options['defaults']['title'] = FALSE;
   $handler->display->display_options['title'] = 'Upcoming deadlines';
+  $handler->display->display_options['defaults']['pager'] = FALSE;
+  $handler->display->display_options['pager']['type'] = 'full';
+  $handler->display->display_options['pager']['options']['items_per_page'] = '6';
+  $handler->display->display_options['pager']['options']['offset'] = '0';
+  $handler->display->display_options['pager']['options']['id'] = '1';
+  $handler->display->display_options['pager']['options']['quantity'] = '9';
+  $handler->display->display_options['pager']['options']['expose']['items_per_page_label'] = 'Éléments par page';
+  $handler->display->display_options['pager']['options']['expose']['items_per_page_options_all_label'] = '- Tout -';
+  $handler->display->display_options['pager']['options']['expose']['offset_label'] = 'Décalage';
+  $handler->display->display_options['pager']['options']['tags']['first'] = '« premier';
+  $handler->display->display_options['pager']['options']['tags']['previous'] = '‹';
+  $handler->display->display_options['pager']['options']['tags']['next'] = '›';
+  $handler->display->display_options['pager']['options']['tags']['last'] = 'dernier »';
   $handler->display->display_options['defaults']['relationships'] = FALSE;
   $handler->display->display_options['defaults']['fields'] = FALSE;
-  /* Field: Content: Deadline */
+  /* Champ: Contenu : Deadline */
   $handler->display->display_options['fields']['field_date']['id'] = 'field_date';
   $handler->display->display_options['fields']['field_date']['table'] = 'field_data_field_date';
   $handler->display->display_options['fields']['field_date']['field'] = 'field_date';
@@ -10720,7 +10814,7 @@ Document type : [gofast_format] [last_updated] [field_state]
   $handler->display->display_options['fields']['field_date']['element_label_colon'] = FALSE;
   $handler->display->display_options['fields']['field_date']['type'] = 'date_plain';
   $handler->display->display_options['fields']['field_date']['settings'] = array(
-    'format_type' => 'custom',
+    'format_type' => 'extra_short',
     'custom_date_format' => '',
     'fromto' => 'both',
     'multiple_number' => '',
@@ -10728,7 +10822,14 @@ Document type : [gofast_format] [last_updated] [field_state]
     'multiple_to' => '',
     'show_remaining_days' => 0,
   );
-  /* Field: Content: Title */
+  /* Champ: Contenu : Nid */
+  $handler->display->display_options['fields']['nid']['id'] = 'nid';
+  $handler->display->display_options['fields']['nid']['table'] = 'node';
+  $handler->display->display_options['fields']['nid']['field'] = 'nid';
+  $handler->display->display_options['fields']['nid']['label'] = '';
+  $handler->display->display_options['fields']['nid']['element_class'] = 'gofast_display_none';
+  $handler->display->display_options['fields']['nid']['element_label_colon'] = FALSE;
+  /* Champ: Contenu : Titre */
   $handler->display->display_options['fields']['title']['id'] = 'title';
   $handler->display->display_options['fields']['title']['table'] = 'node';
   $handler->display->display_options['fields']['title']['field'] = 'title';
@@ -10736,23 +10837,16 @@ Document type : [gofast_format] [last_updated] [field_state]
   $handler->display->display_options['fields']['title']['alter']['word_boundary'] = FALSE;
   $handler->display->display_options['fields']['title']['alter']['ellipsis'] = FALSE;
   $handler->display->display_options['fields']['title']['element_label_colon'] = FALSE;
-  /* Field: Content: Nid */
-  $handler->display->display_options['fields']['nid']['id'] = 'nid';
-  $handler->display->display_options['fields']['nid']['table'] = 'node';
-  $handler->display->display_options['fields']['nid']['field'] = 'nid';
-  $handler->display->display_options['fields']['nid']['label'] = '';
-  $handler->display->display_options['fields']['nid']['element_class'] = 'gofast_display_none';
-  $handler->display->display_options['fields']['nid']['element_label_colon'] = FALSE;
   $handler->display->display_options['defaults']['filter_groups'] = FALSE;
   $handler->display->display_options['defaults']['filters'] = FALSE;
-  /* Filter criterion: Content: Published */
+  /* Critère de filtrage: Contenu : Publié */
   $handler->display->display_options['filters']['status']['id'] = 'status';
   $handler->display->display_options['filters']['status']['table'] = 'node';
   $handler->display->display_options['filters']['status']['field'] = 'status';
   $handler->display->display_options['filters']['status']['value'] = 1;
   $handler->display->display_options['filters']['status']['group'] = 1;
   $handler->display->display_options['filters']['status']['expose']['operator'] = FALSE;
-  /* Filter criterion: Content: Deadline (field_date) */
+  /* Critère de filtrage: Contenu : Deadline (field_date) */
   $handler->display->display_options['filters']['field_date_value']['id'] = 'field_date_value';
   $handler->display->display_options['filters']['field_date_value']['table'] = 'field_data_field_date';
   $handler->display->display_options['filters']['field_date_value']['field'] = 'field_date_value';

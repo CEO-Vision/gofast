@@ -9,6 +9,8 @@ function gofast_date_format_types() {
     'privatemsg_current_day' => 'Privatemsg: Current day',
     'privatemsg_current_year' => 'Privatemsg: Current year',
     'privatemsg_years' => 'Privatemsg: Other years',
+    'short_without_hours' => 'Short without hours',
+    'extra_short' => 'Extra short',
   );
 }
 
@@ -79,7 +81,26 @@ function gofast_date_formats() {
     'format' => 'm/d/y',
     'locales' => array('nl', 'en'),
   );
- 
+  $formats[] = array(
+    'type' => 'short_without_hours',
+    'format' => 'd/m/Y',
+    'locales' => array('fr'),
+  );
+  $formats[] = array(
+    'type' => 'short_without_hours',
+    'format' => 'm/d/Y',
+    'locales' => array('nl', 'en'),
+  );
+  $formats[] = array(
+    'type' => 'extra_short',
+    'format' => 'd/m/y - H:i',
+    'locales' => array('fr'),
+  );
+  $formats[] = array(
+    'type' => 'extra_short',
+    'format' => 'm/d/y - H:i',
+    'locales' => array('nl', 'en'),
+  );
   return $formats;
 }
 

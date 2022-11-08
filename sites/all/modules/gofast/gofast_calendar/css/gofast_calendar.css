@@ -22,7 +22,7 @@
 
 
 .calendar-calendar .month-view .full td.multi-day .calendar.monthview .contents{
-  overflow-x:auto; 
+  overflow-x:auto;
 }
 
 .node_icon_calendar{
@@ -55,3 +55,7 @@
 }
 
 .item .popover .arrow {display:none !important;}
+
+.view-id-calendar .date-views-pager {
+  display: none;
+}

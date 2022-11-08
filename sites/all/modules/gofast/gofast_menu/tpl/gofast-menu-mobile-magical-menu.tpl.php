@@ -29,7 +29,7 @@
         </li>
         <li>
             <a class="dropdown-item" href="/home_page_navigation?&path=/Sites#navBrowser">
-                <p><?php print t('Spaces / Documents', array(), array('context' => 'gofast:gofast_mobile')) ?></p>
+                <p><?php print t('Spaces and documents', array(), array('context' => 'gofast:gofast_mobile')) ?></p>
             </a>
         </li>
         <li>

@@ -1,0 +1,166 @@
+<mjml>
+  <mj-head>
+    <mj-style>
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 400;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-Regular.otf") format("opentype");
+      }
+
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 600;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-SemiBold.otf") format("opentype");
+      }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#EAF1F7" width="992px">
+    <mj-raw>
+      <!-- SubHeader -->
+    </mj-raw>
+    <mj-section padding="0" padding-left="10px" padding-top="10px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%">
+        <mj-text padding-left="0" font-size="18px" font-weight="600">
+          Hello User Name,
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-top="10px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%">
+        <mj-text padding-left="0" padding-bottom="0" font-size="14px" font-weight="600">
+          Other Username cancelled the conference.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-raw>
+      <!-- Conference canceled -->
+    </mj-raw>
+    <mj-section padding="0" padding-left="10px" padding-top="0" padding-bottom="10px" background-color="white">
+      <mj-group width="90%">
+        <mj-column width="25%" vertical-align="bottom">
+          <mj-text padding="0" padding-left="10px" padding-top="10px" color="#666666" font-size="18px" font-weight="600">
+            When
+          </mj-text>
+        </mj-column>
+        <mj-column width="75%" vertical-align="bottom">
+          <mj-text padding="0" padding-left="10px" padding-top="10px" font-size="14px" font-weight="600">
+            Some date
+          </mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-top="0" padding-bottom="10px" background-color="white">
+      <mj-group width="90%">
+        <mj-column width="25%" vertical-align="bottom">
+          <mj-text padding="0" padding-left="10px" padding-top="10px" color="#666666" font-size="18px" font-weight="600">
+            Where
+          </mj-text>
+        </mj-column>
+        <mj-column width="75%" vertical-align="bottom">
+          <mj-text padding="0" padding-left="10px" padding-top="10px" font-size="14px" font-weight="600">
+            Some location
+          </mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-top="0" padding-bottom="10px" background-color="white">
+      <mj-group width="90%">
+        <mj-column width="25%" vertical-align="bottom">
+          <mj-text padding="0" padding-left="10px" padding-top="10px" color="#666666" font-size="18px" font-weight="600">
+            Organisator
+          </mj-text>
+        </mj-column>
+        <mj-column width="75%" vertical-align="bottom">
+          <mj-text padding="0" padding-left="10px" padding-top="10px" font-size="14px" font-weight="600">
+            Some guy
+          </mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-top="20px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%" background-color="#666666" border-radius="5px">
+        <mj-text color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/users-white.png" alt="Information Icon" width="18" style="vertical-align: bottom;" />
+                </td>
+                <td>
+                  <span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;Participants</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-bottom="10px" background-color="white">
+      <mj-column padding-left="10px" width="90%" vertical-align="middle">
+        <mj-text padding-bottom="0" padding-top="10px" font-size="14px" font-weight="400">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" width="25" style="vertical-align:middle;padding-right:5px;" />
+                </td>
+                <td style="font-size: 14px; font-weight: 400;">&nbsp;Username</td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+        <mj-text padding-bottom="0" padding-top="10px" font-size="14px" font-weight="400">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" width="25" style="vertical-align:middle;padding-right:5px;" />
+                </td>
+                <td style="font-size: 14px; font-weight: 400;">&nbsp;Username</td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+        <mj-text padding-bottom="0" padding-top="10px" font-size="14px" font-weight="400">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" width="25" style="vertical-align:middle;padding-right:5px;" />
+                </td>
+                <td style="font-size: 14px; font-weight: 400;">&nbsp;Username</td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-top="20px" background-color="white">
+      <mj-column width="90%" background-color="#337ab7" border-radius="5px">
+        <mj-text color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/info-circle-solid-white.png" alt="Information Icon" width="18" style="vertical-align: bottom;" />
+                </td>
+                <td>
+                  <span style="color: #FFFFFF; font-size: 18px: font-weight: 600;">&nbsp;Description</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-top="10px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%" vertical-align="middle">
+        <mj-text font-size="14px" font-weight="400">
+          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

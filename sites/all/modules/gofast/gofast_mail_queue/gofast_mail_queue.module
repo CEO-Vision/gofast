@@ -24,3 +24,9 @@ function gofast_mail_queue_message_formated($message){
   }
   $_POST['prevent_notify'] = NULL;
 }
+
+function gofast_mail_queue_get_items_count(){
+  $query = db_select("gofast_mail_queue", "m");
+  $count = $query->countQuery()->execute()->fetchField();
+  return $count;
+}

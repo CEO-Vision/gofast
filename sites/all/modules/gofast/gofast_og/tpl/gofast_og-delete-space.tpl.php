@@ -1,11 +1,14 @@
 <div id="delete_space_modal_container">
+  <?php if(gofast_og_check_replication_delete_space($gid)): ?>
   <?php print t('Are you sure you want to delete this space ? This destructive action cannot be undone', array(), array('context' => 'gofast:og'));?>
-  <br />
-  <button type="button" class="btn btn-danger" onClick="Drupal.deleteSpace(<?php echo $gid; ?>)">
-    <i class="fa fa-trash"></i> <?php echo t('Delete'); ?>
-  </button>
+    <br />
+    <button type="button" class="btn btn-danger" onClick="Drupal.deleteSpace(<?php echo $gid; ?>)">
+      <i class="fa fa-trash"></i> <?php echo t('Delete'); ?>
+    </button>
+  <?php else: ?>
+    <?php print t('Some documents of this space are currently being processed due to a move or a deletion, so you can\'t delete this space for the moment', array(), array('context' => 'gofast:og'));?>
+  <?php endif; ?>
 </div>
-
 <div id="delete_space_modal_process_container" style="display:none; min-width:600px;">
   <div class="panel panel-default">
     <div class="panel-body">

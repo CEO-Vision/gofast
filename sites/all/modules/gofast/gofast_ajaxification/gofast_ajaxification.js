@@ -1,7 +1,7 @@
 (function ($, Gofast, Drupal) {
 
   Gofast.exclude_ajax_url.push("/user/password");
-
+  Gofast.exclude_ajax_url.push("/space/admin/members");
   Gofast.processAjax = function (href, isStateChange) {
     if (href.indexOf('javascript') != -1 || href == "#") {
       return;
@@ -13,27 +13,19 @@
       return;
     }
 
-    //before ajax navigate, remove fullscreen if any
-    if (typeof sidebar === 'undefined') {
-      var sidebar = $('aside');
-    }
-
-    if (sidebar.css('display') != 'block') {
-      if (Gofast.success_fullscreen != true) {
-        Gofast.toggle_fitscreen(null);
-      }
-      else {
-        Gofast.success_fullscreen = false;
-      }
+    // Hide side menu on mobile devices, when click on menu items.
+    if ($('.gofast-mobile').length) {
+      $('.aside-overlay').click();
     }
 
     href = decodeURI(decodeURI(href));
-
+    href = href.replace(/\+/g, '%2B');
     var href_ajax = "gofast_ajaxification/nojs";
 
     if ($('.popover').length > 0) {
       $('.popover').popover('hide');
     }
+    $("[data-toggle='tooltip']").tooltip("dispose");
 
     // var url_callback = "gofast_ajax/nojs";
     $('.gofast-clipboard').after('<span id="ajax_button"></span>');
@@ -85,11 +77,15 @@
 
     var title = "GoFast";
     Gofast.currentPageTitle = Drupal.settings.title ? Drupal.settings.title : title;
-
+    
+    const targetPath = window.location.pathname;
     // GOFAST-6737 - Double escape forward slashes
     if (href.startsWith('/search/solr/')) {
       var terms = href.replace(/^\/search\/solr\//, '');
       terms = terms.replace(/\/|%2F/g, '%252F');
+      terms = terms.replace(/\+/g, '%2B');
+      terms = terms.replace(/\:/g, '%3A');
+      
       href = '/search/solr/' + terms;
     }
 
@@ -105,8 +101,20 @@
 
     document.title = Gofast.currentPageTitle;
 
-    $(document).trigger('afterAjaxification');
-    window.scrollTo(0, 0);
+    if ($("#expl-forum").length) {
+      const urlParam = window.location.pathname.split('/')[2] || "-1";
+     if($("#expl-forum").hasClass("active") && $("#explorer-toggle").hasClass("open")){
+            $.get(window.origin + "/gofast/forum/explorer/" + urlParam).done((data) => $("#expl-forum").html(data));
+        }else{        
+           Gofast.lastUrlForumTab =  urlParam;
+      }
+    }
+
+    if (Drupal.settings.gofast_selected_book) {
+      delete Drupal.settings.gofast_selected_book;
+      Gofast.ITHitMobile.gofast_book_refresh_file_browser();
+    }
+
     setTimeout(function () {
       // Reset the search input field
       if ($('#search-block-form input[type="text"]').next().length > 0) { // Check if the search input field is replace by auto-suggestion.
@@ -165,7 +173,7 @@
       //Check if we have to process an ajax navigation
       if (oldHistory.pathname !== location.pathname) {
         //We need to navigate in ajax to another page
-        Gofast.processAjax(location.href);
+        Gofast.processAjax(location.href);    
       }
       else {
         //A navigation occured but we don't need to switch page. Call module to handle this event
@@ -177,8 +185,9 @@
       e.preventDefault();
       Gofast.xhrPool.abortAll();
       var params = '';
-      var retain_filters = $("#facetapi_search_filters").find("[item=retain-filters]").attr("checked");
-      if (retain_filters === "checked") {
+      // GOFAST-7605 - we use the original form input as reference to avoid "undefined" retain filters
+      var retain_filters = $("[name=retain-filters]").val();
+      if (retain_filters === "1") {
         var uri = decodeURIComponent(decodeURIComponent($(document)[0].URL));
         var fq = decodeURIComponent(uri).lastIndexOf('?f[0]');
         if (fq != -1) {
@@ -195,8 +204,9 @@
       e.preventDefault();
       Gofast.xhrPool.abortAll();
       var params = '';
-      var retain_filters = $("#facetapi_search_filters").find("[item=retain-filters]").attr("checked");
-      if (retain_filters === "checked") {
+      // GOFAST-7605 - we use the original form input as reference to avoid "undefined" retain filters
+      var retain_filters = $("[name=retain-filters]").val();
+      if (retain_filters === "1") {
         var uri = decodeURIComponent(decodeURIComponent($(document)[0].URL));
         var fq = decodeURIComponent(uri).lastIndexOf('?f[0]');
         if (fq != -1) {
@@ -215,9 +225,16 @@
         //Don't ajaxify logout if SAML is enabled for CORS issues purpose
         saml = ', a[href="/user/logout"]';
     }
-    $(document).on('click', 'a:not(div#gofast-lang-switch a, #block-gofast-views-activity-stream-filters a, a.gofast-callto, #report_result a, .gofast_search_link, .gofast_space_filters.gofast_search_submit, .gofast_user_filters, .auto-refresh a, .form-wrapper .panel-heading a, .delete_message_ajax, .fivestar-widget a, .permalink, .forum-post-number a, .flag-link-toggle, .jsxc_menu a, .alert-block a, .field-revisions a, #block-gofast-test-handler-activity-stream-filters a, .cke_dialog a, .cke a, .nav.nav-tabs a, #gofast-admin-settings a, .ui-popup-container a, .ui-footer a, :has(i.fa-cloud-download), .alfresco_download_edit_url, .mCSB_scrollTools_vertical.mCSB_scrollTools a, div#fullscreen-node > div.forum-post a, a.ctools-use-modal, a.use-ajax, #toolbar a, .xeditable-field, .main-container a[target=\"_blank\"], #revision-list a, #gofast-ldap-admin-entries button, .feed-icon a, #link_start_replication, .dynatable-sort-header, .gofast-non-ajax' + saml + ', #edit-saml-sp-drupal-login-links > a)', function (e) {
+    $(document).on('click', 'a:not(li#gofast-flag-lang-switch a, #block-gofast-views-activity-stream-filters a, a.gofast-callto, #report_result a, .gofast_search_link, .gofast_space_filters.gofast_search_submit, .gofast_user_filters, .auto-refresh a, .form-wrapper .panel-heading a, .delete_message_ajax, .fivestar-widget a, .permalink, .forum-post-number a, .flag-link-toggle, .jsxc_menu a, .alert-block a, .field-revisions a, #block-gofast-test-handler-activity-stream-filters a, .cke_dialog a, .cke a, .nav.nav-tabs a, .nav.nav-pills a, #gofast-admin-settings a, .ui-popup-container a, .ui-footer a, :has(i.fa-cloud-download), .alfresco_download_edit_url, .mCSB_scrollTools_vertical.mCSB_scrollTools a, div#fullscreen-node > div.forum-post a, a.ctools-use-modal, a.use-ajax, #toolbar a, .xeditable-field, a[target=\"_blank\"], #revision-list a, #gofast-ldap-admin-entries button, .feed-icon a, #link_start_replication, .dynatable-sort-header, .gofast-non-ajax' + saml + ', #edit-saml-sp-drupal-login-links > a, .gofast-node-actions > a, .document__editable--field > a, .document__editable--label, #dropdown-node-dropdown, .contextual-actions > a, #gf-topbar-menu > ul > li > a:not(.brand-logo, .menu-profile), .menu-toggle:not(.mega-menu-item, .menu-profile), #blog-placeholder)', function (e) {
       Gofast.xhrPool.abortAll();
       var href = $(this).attr('href') ? $(this).attr('href') : '';
+
+      // You can put here url's to exclude from ajaxification
+
+      // exclude href's who containt "spacesStore", links from version hitory on node or gofast_audit_xls for downloading xls audit file
+      if (href.includes("SpacesStore") || href.includes("gofast_audit_xls")) {
+        return;
+      }
 
       if (href.indexOf('javascript') > 0){
         return;
@@ -245,7 +262,14 @@
           }
           if (href) {
             if ($(e.target).parents('.form-autocomplete').length <= 0) {
-              if ((href.indexOf('/user/logout') !== 0 && href.indexOf('/user/password') !== 0 && href.indexOf('language=') < 0 && href.indexOf('webform') < 0 && href.indexOf('gofast/browser') < 0 && window.location.pathname.indexOf('gofast/browser') < 0 && href.indexOf('#') < 0)) {
+              if ((
+              href.indexOf('/user/logout') !== 0 && href.indexOf('/user/password') !== 0
+              && href.indexOf('language=') < 0
+              && href.indexOf('webform') < 0
+              && href.indexOf('gofast/browser') < 0
+              && window.location.pathname.indexOf('gofast/browser') < 0
+              && href.indexOf('#') < 0
+              )) {
                 Gofast.processAjax(href, true);
               }
               else {
@@ -254,11 +278,6 @@
                   Gofast.processAjax('/search/solr/' + $(e.target).text(), true);
                 }
                 else {
-                  if (href.indexOf('comment') >= 0) {
-                    var hash = href.substr(href.indexOf('#'));
-                    Gofast.scrollToComment(hash);
-                  }
-                  else {
                     //spacial case for search snipper hash
                     var hash = href.substr(href.indexOf('#'));
                     if (hash == '#search=') {
@@ -268,7 +287,6 @@
 
                     }
                     Gofast.processAjax(href, true);
-                  }
                 }
               }
             }

@@ -1,10 +1,7 @@
-<?php $front_page = "/home_page_navigation"; ?>
+<?php $front_page = "/home_page_navigation#navBrowser"; ?>
 <?php
-global $language;
-$gofast_url_doc = 'https://gofast-docs.readthedocs.io/en/latest/docs-gofast-users/doc-gofast-guide-utilisateurs.html';
-if ($language->language == 'fr') {
-  $gofast_url_doc = 'https://gofast-docs.readthedocs.io/fr/latest/docs-gofast-users/doc-gofast-guide-utilisateurs.html';
-}
+global $user;
+$gofast_url_doc = "https://gofast-docs.readthedocs.io/" . $user->language . "/4.0/docs-gofast-users/doc-gofast-guide-utilisateurs.html";
 
 //Detect special conditions devices
 $iPod    = stripos($_SERVER['HTTP_USER_AGENT'], "iPod");
@@ -236,7 +233,7 @@ if ($iPod || $iPhone || $iPad) {
           </a>
         </li>
         <li><a class="center-block gofast_mobile_link sidebar-items" href="/home_page_navigation?&path=/Sites#navBrowser">
-            <div class="list-items-div"><i class="fa fa-file-text" aria-hidden="true"></i></div>
+            <div class="list-items-div"><i class="fa fa-folder-open" aria-hidden="true"></i></div>
             <p><?php print t('Spaces / Documents', array(), array('context' => 'gofast:gofast_mobile')) ?></p>
           </a>
         </li>
@@ -266,7 +263,7 @@ if ($iPod || $iPhone || $iPad) {
             </li>
           </ul>
         </li>
-        <li><a href="/tasks_page_navigation" class="center-block gofast_mobile_link sidebar-items">
+        <li><a href="/tasks_page_navigation#lightDashboardMyTab" class="center-block gofast_mobile_link sidebar-items">
             <div class="list-items-div"><i class="fa fa-cogs" aria-hidden="true"></i></div>
             <p><?php print t('Workflows') ?></p>
           </a>

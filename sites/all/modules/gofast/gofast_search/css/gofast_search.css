@@ -9,17 +9,17 @@
     background-color:#F9F9F9;
 }
 
-.search-results .title em.solr-highlight {
+.title em.solr-highlight {
   color:inherit;
 }
 
-.search-results em.solr-highlight {
+em.solr-highlight {
   font-weight: bold;
   font-style: normal;  
   color: #555;
 }
 
-.search-results .snippets em.solr-highlight:hover {
+.snippets em.solr-highlight:hover {
   text-decoration: underline;
 }
 
@@ -95,13 +95,6 @@ a.go-search-snippet.gofast-button {
 
 .snippet-wrapper {
   padding:5px;
-  height:5.9em;
-}
-.Firefox .snippet-wrapper {
-  height:6.4em;
-}
-.Edge .snippet-wrapper {
-  height:6.3em;
 }
 
 /* Taxonomy terms match Higlighting */
@@ -147,8 +140,6 @@ a.go-search-snippet.gofast-button {
 }
 
 .block-facetapi {
-    border: 1px solid #ddd !important;
-    box-shadow: 0 1px 1px rgba(0,0,0,0.05);
     margin-bottom: 5px !important;
     border-radius: 4px;
     color:#333 !important;
@@ -169,31 +160,26 @@ a.go-search-snippet.gofast-button {
   color: inherit !important;
 }
 
-.facet-collapsible-wrapper
-{
-    padding:15px !important;
-}
 .facetapi-gofast-facetapi-links {
   margin-top: 10px;
 }
 
-
 .container-number-results .block-title{
-    width:85%;
+    width: 85%;
 }
 
 .current-search-item-gofast-active{
-    height:85px;
-    overflow-x:hidden;
+    height: max-content;
+    overflow-x: hidden;
 }
 
 .current-search-item-gofast-active .mCSB_container{
-    width:85%;
-    margin-left:20px;
+    width: 85%;
+    margin-left: 20px;
 }
 
 .current-search-item-gofast-active .mCSB_scrollTools_vertical{
-    right:auto !important;
+    right: auto !important;
 }
 
 .gofast-search-facet-active{
@@ -225,6 +211,10 @@ a.go-search-snippet.gofast-button {
     vertical-align: middle;    
 }
 
+.spelling-suggestions {
+  display: none;
+}
+
 .spelling-suggestions dd {
   padding-left: 5px;
 }
@@ -237,3 +227,48 @@ a.go-search-snippet.gofast-button {
     vertical-align: top;
     margin-top: 7px!important;
 }
+
+.gofast-content #search-form {
+  width: 100%;
+}
+
+.gofast-content #search-form > div > div {
+  margin-bottom: 0 !important;
+}
+
+.recherche-title .gofast-title {
+  color: var(--dark) !important;
+}
+
+.recherche-detail .solr-highlight {
+  color: var(--primary) !important;
+}
+
+.gofast-title .solr-highlight {
+  font-style: normal !important;
+  color: var(--primary) !important;
+}
+
+/* remove chevron-down icon on several search dropdowns */
+.searchResultsContent .dropdown-toggle:after {
+  content: none !important;
+}
+
+.snippet-wrapper{
+    height:60px;
+    overflow:hidden;
+}
+
+.leaf .facetapi-inactive.navi-link {
+    display: flex;
+    align-items: center;
+}
+
+.leaf .navi-link .navi-text {
+    flex-grow: 1;
+}
+
+.leaf .navi-link .navi-icon {
+    flex: 0 0 2rem;
+    text-align: center;
+} 
