@@ -158,7 +158,7 @@
                             <td>
                               <?= $author_pic ?>
                             </td>
-                            <td><?= $message ?></td>
+                            <td>&nbsp;&nbsp;<?= $message ?></td>
                           </tr>
                         </tbody>
                       </table>

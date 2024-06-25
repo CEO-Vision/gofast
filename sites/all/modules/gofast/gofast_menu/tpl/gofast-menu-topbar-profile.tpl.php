@@ -1,10 +1,6 @@
-<li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="hover" aria-haspopup="true">
+<li class="menu-item menu-item-submenu menu-item-rel m-auto min-w-40px p-0" id="gf-profile-menu" data-menu-toggle="hover" aria-haspopup="true">
   <!--begin::Toggle-->
-  <a class="menu-link menu-toggle menu-profile topbar-item ml-4" href="/user">
-    <div class="btn btn-icon btn-light-primary h-40px w-40px p-0" id="kt_quick_user_toggle">
-      <img src="<?= $user->picture ? file_create_url(file_load($user->picture)->uri) : "/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png" ?>" class="h-100 align-self-end symbol" alt="" />
-    </div>
-  </a>
+  <?= theme("user_picture", ["account" => $user, "style" => "thumbnail", "popup" => FALSE]) ?>
   <!--end::Toggle-->
   <!--begin::Dropdown-->
   <div class="menu-submenu menu-submenu-classic menu-submenu-right max-w-200px" data-hor-direction="menu-submenu-right">

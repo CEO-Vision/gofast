@@ -59,3 +59,24 @@
 .view-id-calendar .date-views-pager {
   display: none;
 }
+
+/*
+* Added responsive css for calendar toolbar
+ */
+@media screen and (max-width: 768px) {
+
+  /* Calendar */
+  #kt_calendar > div.fc-toolbar.fc-header-toolbar > div.fc-center > h2{
+    flex-wrap: wrap!important;
+    justify-content: center!important;
+    padding: 20px!important;
+  }
+
+  #kt_calendar > div.fc-toolbar.fc-header-toolbar{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+

@@ -6,7 +6,7 @@ function gofast_create_menu_create()
 $link = [
 'icon' => 'fas fa-plus',
 'label' => 'Create',
-'id' => '',
+'id' => 'gofastMenuTopbarCreateMenuItem',
 'class' => 'menu-item-rel',
 'subclass' => 'menu-submenu-left',
 'href' => '',
@@ -136,26 +136,31 @@ $userlist = array(
 );
 $menu[] = $userlist;
 
+foreach (module_implements('alter_topbar_create_menu') as $module){
+  $menu = module_invoke($module, 'alter_topbar_create_menu', $menu);
+}
+
 $link['menu'] = $menu;
 $link['title'] = t('New', array(), array("context" => "gofast"));
-
+  
 return $link;
 }
 
 
-function gofast_create_menu_workflow(){
-//$unread_workflows_count = json_decode(gofast_menu_get_unread_workflows())->count;
-$unread_workflows_count = 0;
-$menu = [
-'href' => '/workflow/dashboard',
-'title' => t('Workflows & Tasks'),
-'id' => 'gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows',
-'id_toggle' => 'go-navbar-menu-workflow-item',
-'icon' => 'fas fa-cogs',
-'count' => $unread_workflows_count
-];
-
-return $menu;
+function gofast_create_menu_workflow($isEssential = false){
+  //$unread_workflows_count = json_decode(gofast_menu_get_unread_workflows())->count;
+  $unread_workflows_count = 0;
+  $menu = [
+    'title' => t('Workflows & Tasks'),
+    'id' => 'gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows',
+    'id_toggle' => 'go-navbar-menu-workflow-item',
+    'icon' => 'fas fa-cogs',
+    'count' => $unread_workflows_count
+  ];
+  if(!$isEssential){
+    $menu["href"] = '/workflow/dashboard';
+  }
+  return $menu;
 
 }
 
@@ -217,12 +222,13 @@ function gofast_create_menu_about(){
   $link = [
     'icon' => 'fas fa-question',
     'label' => '',
-    'id' => '',
+    'id' => 'gofastAboutMenu',
     'class' => '',
     'subclass' => 'menu-submenu-right',
     'href' => '',
     'linkClass' => '',
     'target' => '',
+    'onClick' => 'Gofast.tour.launchEssentialTour(event)',
     'menu' => []
   ];
 
@@ -268,6 +274,25 @@ function gofast_create_menu_about(){
   );
   $menu[] = $documentation;
 
+  if (gofast_essential_is_essential()) {
+    $tour = array(
+      'icon' => 'fas fa-question',
+      'label' => t('Launch help tour', array(), array('context' => 'gofast:gofast_tour')),
+      'onClick' => "Gofast.tour.tourButtonAction(event)",
+    );
+    $menu[] = $tour;
+  }
+
+  if (variable_get("gofast_has_custom_menu_link", FALSE)) {
+    $custom_menu_link = array(
+      'href' => variable_get("gofast_custom_menu_link_href", "https://community.ceo-vision.com"),
+      "label" => variable_get("gofast_custom_menu_link_label", t("Custom Link", [], ["context" => "gofast:gofast_menu"])),
+      "icon" => variable_get("gofast_custom_menu_link_icon", "fas fa-archway"),
+      "target" => "_blank"
+    );
+    $menu[] = $custom_menu_link;
+  }
+
   $about = array(
     'href' => '/gofast/nojs/versions',
     'linkClass' => 'ctools-use-modal',
@@ -276,27 +301,18 @@ function gofast_create_menu_about(){
   );
   $menu[] = $about;
 
-  if (variable_get("gofast_has_custom_menu_link", FALSE)) {
-    $custom_menu_link = array(
-      'href' => variable_get("gofast_custom_menu_link_href", "https://community.ceo-vision.com"),
-      "label" => variable_get("gofast_custom_menu_link_label", t("Custom Link", [], ["context" => "gofast:gofast_menu"])),
-      "icon" => variable_get("gofast_custom_menu_link_icon", "fas fa-archway"),
-    );
-    $menu[] = $custom_menu_link;
-  }
-
   if (module_exists("gofast_community")) {
-    $comunity = array(
+    $community = array(
       'href' => '/admin/config/gofast/update',
       'label' => 'Update',
       'icon' => 'fas fa-exclamation-circle'
     );
 
     if (!empty($hotfix_available || !empty($version_available))) {
-      $comunity['icon'] = 'fas fa-exclamation-circle danger';
+      $community['icon'] = 'fas fa-exclamation-circle danger';
     }
 
-    $menu[] = $comunity;
+    $menu[] = $community;
 
   }
 
@@ -347,20 +363,28 @@ return $link;
  */
 function gofast_menu_get_last_recenlty_read($size = 10) {
     global $user;
-    //Fetch last $size recently read node
-    $query = db_query("SELECT entity_id FROM recently_read WHERE sid =" . $user->uid . " ORDER BY timestamp DESC LIMIT " . $size);
+
+    $query = db_select("recently_read", "rr")
+              ->fields("rr", array("entity_id"));
+    $query->condition("rr.sid", $user->uid, "=");
+    $query->orderBy("rr.timestamp", "DESC");
+    $nids = $query->execute()->fetchCol();
 
     $recently_read = array();
-    foreach($query as $result) {
-        $n = node_load($result->entity_id);
-        //Prevent sending too much data
-        $node = new stdClass();
-        $node->title = $n->title;
-        $node->icon = gofast_taxonomy_icon_filename($n->field_format[LANGUAGE_NONE][0]['tid']);
-        $node->nid = $n->nid;
-        $recently_read[] =  $node;
-    }
+    foreach($nids as $nid) {
+      if(count($recently_read) >= $size){
+        break;
+      }
+      
+      $node = node_load($nid);
+      // Don't show node if user can't access it
+      if(!node_access("view", $node)){
+        continue;
+      };
 
+      $recently_read[] =  $node;
+    }
+    
     print theme('gofast_menu_topbar_recently_read', array('recently_read' => $recently_read));
 }
 
@@ -390,6 +414,9 @@ function gofast_menu_get_rssFeed() {
     // Identify the request User Agent (as Firefox on Linux but any value may work) to prevent RSS load being blocked due to missing User Agent
     curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (X11; Linux x86_64; rv:100.0) Gecko/20100101 Firefox/100.0');
     $feed = curl_exec($ch);
+    if (!$feed) {
+      continue;
+    }
     $rss = new SimpleXMLElement($feed);
     foreach($rss->channel->item as $item) {
       $rssItems[] = ["link" => $item->link, "title" => $item->title, "date" => strtotime($item->pubDate)];

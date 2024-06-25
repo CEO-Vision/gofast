@@ -201,7 +201,7 @@ class UserListEntityController extends EntityAPIController {
     $LdapServer = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
     $LdapServer->connectAndBindIfNotAlready();
 
-    $former_members = $LdapServer->groupAllMembers($userlist_dn);
+    $former_members = (array) $LdapServer->groupAllMembers($userlist_dn);
     $members_to_remove = $former_members;
     $members_to_add_audit = array();
     $members_to_remove_audit = array();

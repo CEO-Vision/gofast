@@ -219,7 +219,6 @@
     };
 
     // Gofast Custom
-    debugger;
     var $containerFluid = $('<div ></div>');
     var $passwordRow = $('<div class="d-flex"></div>').appendTo($containerFluid);
     var $labelColumn = $('<div class="col-md-2"></div>');

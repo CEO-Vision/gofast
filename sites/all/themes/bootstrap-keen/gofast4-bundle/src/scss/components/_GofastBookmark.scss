@@ -1,0 +1,123 @@
+.level0[title=root]{
+  display: none;
+}
+
+/**
+ * Override ztree css that put mask on iframe with z-index = 10000
+ * fix drag&drop on top of document preview not working
+ */
+.zTreeMask{
+  z-index: 90 !important;
+}
+
+.bookmark_tree_container .ztree {
+  position: relative;
+  top: -20px;
+  li span.button.center_close, li span.button.bottom_close, li span.button.center_open, li span.button.bottom_open{
+    margin-right: 0px !important;
+    width: 15px;
+  }
+  [id^="removeBtn_"]{
+    color: #3699FF !important;
+    text-decoration: none !important;
+    background-color: transparent !important;
+  }
+}
+
+.zTreeDragUL[id^=bookmark], .tmpzTreeMove_arrow {
+  z-index: 9999;
+}
+
+.bookmark_collection_ico_docu {
+  background-image: none !important;
+  top: 7px;
+  left: 2px;
+  position: relative !important;
+}
+
+.addBookmarkCollectionButton {
+  white-space: nowrap;
+  margin-right: 5px;
+}
+
+#gofast-bookmarks-node-actions {
+  position: absolute;
+  z-index: 9999;
+}
+
+#gofast-bookmarks-node-actions .dropdown {
+  display: block;
+}
+
+.bookmarkCollectionDragOver {
+  border: 1px dashed black;
+}
+
+.bookmark-item > div {
+  pointer-events: none;
+}
+
+.menu-topbar-bookmarkcollection-delete {
+  pointer-events: all;
+}
+
+.bookmark_tree_container {
+  flex-grow: 1;
+  a[treenode_a] {
+    overflow: hidden;
+    max-width: calc(100% - 35px);
+    text-overflow: ellipsis;
+  }
+  overflow: scroll;
+}
+
+.bookmarkCollectionIcon {
+  color: #ED7D31 !important;
+}
+
+#gofast_topbar_flag_bookmarks.menu-item-hover > .menu-submenu.menu-submenu-classic {
+  display: flex;
+  flex-direction: column;
+  cursor: auto;
+  & > .gofast-block-outer-new {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    & > .gofast-block-inner {
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+      & > #gofast_topbar_flag_bookmarks_block {
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
+        & > .tab-content {
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          flex-grow: 1;
+          & > .tab-pane.show {
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            & > .bookmark_tree_container {
+              overflow: scroll;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+#bookmarkFlagModalHeader {
+  height: 200px;
+}
+
+#bookmarkFlagTreeContainer {
+  height: calc(100% - 200px);
+}

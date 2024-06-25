@@ -114,9 +114,28 @@ define('GOFAST_ADMIN_VISIBILITY_DEFAULT', GOFAST_OG_PARTITIONING_OFF);
 define('GOFAST_OG_MEMBERSHIP_QUEUE_MAX_VALUE', 4);
 
 /*
+ * String value of Groups root space
+ */
+define('GOFAST_CMIS_LOCATIONS_FIELD_GROUPS_VALUE', '_Groups');
+define('GOFAST_CMIS_LOCATIONS_FIELD_GROUPS_GID', gofast_get_root_space_gid(GOFAST_CMIS_LOCATIONS_FIELD_GROUPS_VALUE));
+
+/*
+ * String value of Organisation root space
+ */
+define('GOFAST_CMIS_LOCATIONS_FIELD_ORGANISATIONS_VALUE', '_Organisations');
+define('GOFAST_CMIS_LOCATIONS_FIELD_ORGANISATIONS_GID', gofast_get_root_space_gid(GOFAST_CMIS_LOCATIONS_FIELD_ORGANISATIONS_VALUE));
+
+/*
  * String value of Extranet root space
  */
 define('GOFAST_CMIS_LOCATIONS_FIELD_EXTRANET_VALUE', '_Extranet');
+define('GOFAST_CMIS_LOCATIONS_FIELD_EXTRANET_GID', gofast_get_root_space_gid(GOFAST_CMIS_LOCATIONS_FIELD_EXTRANET_VALUE));
+
+/*
+ * String value of Public root space
+ */
+define('GOFAST_CMIS_LOCATIONS_FIELD_PUBLIC_VALUE', '_Public');
+define('GOFAST_CMIS_LOCATIONS_FIELD_PUBLIC_GID', gofast_get_root_space_gid(GOFAST_CMIS_LOCATIONS_FIELD_PUBLIC_VALUE));
 
 /**
  * Include gofast_og.delete.inc that contains some hook implementations.
@@ -140,7 +159,7 @@ function gofast_og_init(){
  *  Defaults to TRUE (prevent any wrong key intersection when arrays are loaded
  *  with bundle labels as keys).
  */
-function gofast_og_node_types($prevent_translation = TRUE) {
+function gofast_og_node_types($prevent_translation = TRUE, $gids = FALSE) {
     if($prevent_translation){
          return array(
         'group' => 'Group',
@@ -149,6 +168,14 @@ function gofast_og_node_types($prevent_translation = TRUE) {
         'extranet' => 'Extranet',
         'public' => 'Public'
          );
+    }elseif($gids){
+      return array(
+        'group' => GOFAST_CMIS_LOCATIONS_FIELD_GROUPS_GID,
+        'organisation' => GOFAST_CMIS_LOCATIONS_FIELD_ORGANISATIONS_GID,
+        'private_space' => FALSE,
+        'extranet' => GOFAST_CMIS_LOCATIONS_FIELD_EXTRANET_GID,
+        'public' => GOFAST_CMIS_LOCATIONS_FIELD_PUBLIC_GID
+      );
     }else{
         $lang = $GLOBALS['user']->language;
          return array(
@@ -348,6 +375,7 @@ function gofast_og_node_access($node, $op, $account) {
 
             //Get document locations
             $alfresco_parents = gofast_cmis_webservice_get_node_parents($node->reference);
+            $alfresco_gids = [];
             foreach($alfresco_parents as $alfresco_parent){
               $alfresco_location = $alfresco_parent;
               $gid = gofast_og_get_group_id_from_title_without_cmis($alfresco_location, TRUE, TRUE);
@@ -677,18 +705,23 @@ function gofast_og_has_space_child($node) {
  *  If $recursive and $full are TRUE and $flat is FALSE, array values are arrays
  *  keyed with 'node' and 'children'.
  */
-function gofast_og_get_children($gid, $recursive = FALSE, $full = FALSE, $flat = FALSE) {
+function gofast_og_get_children($gid, $recursive = FALSE, $full = FALSE, $flat = FALSE, $get_parents_instead = FALSE) {
   $sub_gids = array();
 
   $query = db_select('og_membership', 'o');
-  $query->fields('o', array('etid'))
-          ->condition('o.gid', $gid, '=')
-          ->condition('o.field_name', GOFAST_OG_PARENT_GROUP_FIELD, '=');
+  if ($get_parents_instead) {
+    $query->fields('o', array('gid'))
+    ->condition('o.etid', $gid, '=')
+    ->condition('o.field_name', GOFAST_OG_PARENT_GROUP_FIELD, '=');
+  } else {
+    $query->fields('o', array('etid'))
+    ->condition('o.gid', $gid, '=')
+    ->condition('o.field_name', GOFAST_OG_PARENT_GROUP_FIELD, '=');
+  }
 
-  $results = $query->execute()->fetchAll();
-
+  $results = $query->execute()->fetchCol();
   foreach ($results as $key => $value) {
-    $sub_gids[$value->etid] = $value->etid;
+    $sub_gids[$value] = $value;
   }
 
   if ($recursive === TRUE) {
@@ -734,7 +767,7 @@ function gofast_og_get_children($gid, $recursive = FALSE, $full = FALSE, $flat =
  * @return Array
  *  An array of OG content keyed by node ID.
  */
-function gofast_og_get_content($gid, $full = FALSE, $statusFilter = FALSE) {
+function gofast_og_get_content($gid, $full = FALSE, $statusFilter = FALSE, $flat = FALSE) {
   $nids = array();
 
   $query = db_select('og_membership', 'o');
@@ -749,8 +782,23 @@ function gofast_og_get_content($gid, $full = FALSE, $statusFilter = FALSE) {
   }
 
   $results = $query->execute()->fetchAll();
-  foreach ($results as $key => $value) {
-    $nids[$value->etid] = $value->etid;
+  if($flat){
+    $spacePath = gofast_cmis_space_get_webdav_path($gid);
+    foreach ($results as $key => $value) {
+      $node = node_load($value->etid);
+      $locations = gofast_cmis_webservice_get_node_parents($node->reference);
+      foreach($locations as $location){
+        if($location == $spacePath){
+          $nids[$value->etid] = $node->title;
+        }
+      }
+
+    }
+
+  } else {
+    foreach ($results as $key => $value) {
+      $nids[$value->etid] = $value->etid;
+    }
   }
 
   return $full ? entity_load('node', $nids) : $nids;
@@ -904,6 +952,39 @@ function gofast_og_get_space_children_by_user($parent_nid, $account = NULL, $ful
   return $full ? node_load_multiple( $subspaces_for_user ) :  $subspaces_for_user ;
 }
 
+/**
+ * Check if user administers at least one space.
+ * Takes into account userlists but excludes private spaces.
+ */
+function gofast_og_is_user_space_administrator($account = NULL) {
+  if (!$account) {
+    global $user;
+    $account = $user;
+  }
+  $query = db_select("og_users_roles", "ogur");
+  $query->fields("ogur", ["uid"]);
+  $query->leftJoin("og_role", "ogro", "ogur.rid = ogro.rid");
+  $query->condition("ogur.uid", $account->uid);
+  $query->condition('ogro.name', "administrator member");
+  $query->condition("ogro.group_bundle", "private_space", "<>");
+  $managed_spaces_count = (int) $query->countQuery()->execute()->fetchField();
+  if ($managed_spaces_count > 0) {
+    return TRUE;
+  }
+  $userlists = array_keys(gofast_userlist_get_userlists_by_user($account));
+  // Query for userlists only if the user is in userlist(s)
+  if (empty($userlists)) {
+    return FALSE;
+  }
+  $query = db_select("gofast_og_userlists_roles", "gour");
+  $query->fields("gour", ["ulid"]);
+  $query->leftJoin("og_role", "ogro", "gour.rid = ogro.rid");
+  $query->condition("gour.ulid", $userlists, "IN");
+  $query->condition('ogro.name', "administrator member");
+  $query->condition("ogro.group_bundle", "private_space", "<>");
+  $managed_spaces_by_userlist_count = (int) $query->countQuery()->execute()->fetchField();
+  return $managed_spaces_by_userlist_count > 0;
+}
 
 /**
  * Returns spaces a given user has administer access to (checking OG permissions
@@ -935,8 +1016,10 @@ function gofast_og_get_managed_spaces($account = NULL, $full = FALSE) {
 
   if($spaces_defaults['create_sub_space']){
     $first_level_spaces = array_merge(
-            gofast_og_get_children(4, FALSE, FALSE, TRUE),
-            gofast_og_get_children(6, FALSE, FALSE, TRUE)
+            gofast_og_get_children(GOFAST_CMIS_LOCATIONS_FIELD_GROUPS_GID, FALSE, FALSE, TRUE),
+
+            gofast_og_get_children(GOFAST_CMIS_LOCATIONS_FIELD_EXTRANET_GID, FALSE, FALSE, TRUE)
+
     );
   }
   unset ($spaces[$private_gid]);
@@ -990,7 +1073,7 @@ function gofast_og_get_members($node, $state = NULL) {
  * @param type $node
  * @param type $state
  * @param type $flag_user_list -  If TRUE set special array key [$ulid.'_'.$uid] to know this member come from userlist
- * @return type array(uid)
+ * @return array
  */
 function gofast_og_get_members_userlist_included($node, $state = NULL, $flag_user_list=FALSE){
 
@@ -1126,7 +1209,7 @@ function gofast_og_create_default_organisation() {
   // Create node.
   $errors = gofast_og_create(strtoupper($title), 'organisation');
 
-  if (!empty($errors)) {
+  if (is_array($errors) && !empty($errors)) {
     $message = '';
     foreach ($errors as $key => $value) {
       $message .= "$key : $value <br />";
@@ -1292,13 +1375,15 @@ function gofast_og_og_membership_insert(OgMembership $og_membership) {
         'membership_action' => 'NMEM', // add Member
         'membership_type' => 'user',
         'membership_id' => $og_membership->etid,
-        'membership_name' => gofast_user_get_display_name_sql($og_membership->etid)
+        'membership_name' => gofast_user_get_display_name_sql($og_membership->etid),
+        'ignore_mail_queue' => TRUE,
     );
 
+    //Log into audit and message 
+  if($og_membership->state != OG_STATE_PENDING) {
     gofast_message_ext_create_og_membership_entity($node, $membership_data);
-    //Log into audit
     gofast_audit_add_members($node, $membership_data);
-
+  }
 
   if($must_propagate == true){
     gofast_og_membership_propagate($og_membership);
@@ -1669,6 +1754,23 @@ function gofast_og_form_node_form_alter(&$form, &$form_state, $form_id) {
         '#required' => FALSE,
         '#size' => 20,
       );
+      $attributes = [
+        'class' => [' form-control-tags js-tagify'],
+        //'data-enforce'=>'', //  Comment : Do not allow putting data that dose not exist | Decomment : allow putting data that dose not exist
+        'data-user' => '', // show ac users
+         //'data-node' => '', // show ac node
+        'data-userlist' => '', // show ac userlist
+        'data-exclude-current-user' => '' // remove current user from ac
+      ];
+    
+    // ac- field other admin uid for select secondary admin
+    $form['field_other_admin_uid'] = array(
+        '#title' => t("Secondary Administrator" . " *", array(), array('context' => 'gofast:gofast_og')),
+        '#type' => 'textfield',
+        '#name' => 'ac-list-tags-administrator',
+        '#description' => "<p class='text-muted'>" . t("Start typing the username or list") . "<p class='text-muted'>" . t("It is necessary to define a second backup administrator."),
+        '#attributes' => $attributes,
+    );
 
       //add translation function
       $form['body'][LANGUAGE_NONE][0]['#title'] = t('Home page', array(), array('context' => 'gofast:gofast_og'));
@@ -1773,7 +1875,7 @@ function gofast_og_form_node_form_alter(&$form, &$form_state, $form_id) {
   if ($form_type === 'space content') {
     $og_field['#title'] = t('File Location/Sharing', array(), array('context' => 'gofast'));
   } else if ($form_type === 'space') {
-    $og_field['#title'] = t('Location/Sharing', array(), array('context' => 'gofast'));
+    $og_field['#title'] = t('Location', array(), array('context' => 'gofast'));
 
     ## create template folder ztree
     $form['og_ztree_templates_folder'] = array(
@@ -1815,61 +1917,61 @@ function gofast_og_form_node_form_alter(&$form, &$form_state, $form_id) {
       ## check alfresco status
       if (gofast_cmis_check_alfresco_status()) {
 
-	  $available_templates = $templates_options;
-	  $list_templates = array();
-	  $selected = array();
-	  foreach ($available_templates as $value) {
-        $path = $value['path'];
-        $key = $value['id'];
-        $list_templates[$path] = urldecode(str_replace('/webdav', '', $path));
-        if (!empty($value['descendants'])) {
-          $list_templates = array_merge($list_templates, $value['descendants']);
+        $available_templates = $templates_options;
+        $list_templates = array();
+        $selected = array();
+        foreach ($available_templates as $value) {
+            $path = $value['path'];
+            $key = $value['id'];
+            $list_templates[$path] = urldecode(str_replace('/webdav', '', $path));
+            if (!empty($value['descendants'])) {
+              $list_templates = array_merge($list_templates, $value['descendants']);
+            }
+            if ($from_template && $value->nid == $template_nid) {
+              $selected['name'] = array_shift(explode('.', $value['name']));
+            }
+          }
+
+
+        ## store all folders templates in the form
+        $form['og_ztree_templates_folder']['templates'] = array(
+          '#type' => 'select',
+          '#multiple' => TRUE,
+          '#name' => 'templates',
+          '#options' => gofast_ztree_get_drupal_path_from_webdav_path($list_templates),
+          '#attributes' => array(
+            'class' => array('gofast_display_none')
+          )
+        );
+
+        if (empty($list_templates)) {
+          $form['og_ztree_templates_folder']['empty_ztree_templates'] = array(
+            '#markup' => t('There is no templates available yet.', array(), array('context' => 'gofast:gofast_cmis')),
+          );
+          $form['og_ztree_templates_folder']['empty_ztree_templates']['#group'] = 'group_template_file';
+          $form['og_ztree_templates_folder']['#groups']['group_template_file']['children'][] = 'empty_ztree_templates';
+          $form['og_ztree_templates_folder']['#group_children']['empty_ztree_templates'] = 'group_template_file';
         }
-        if ($from_template && $value->nid == $template_nid) {
-          $selected['name'] = array_shift(explode('.', $value['name']));
-        }
+
+        $form['og_ztree_templates_folder']['ztree_templates']['#group'] = 'group_template_file';
+        $form['og_ztree_templates_folder']['#groups']['group_template_file']['children'][] = 'ztree_templates';
+        $form['og_ztree_templates_folder']['#group_children']['ztree_templates'] = 'group_template_file';
+
+        $form['og_ztree_templates_folder']['templates']['#group'] = 'group_template_file';
+        $form['og_ztree_templates_folder']['#groups']['group_template_file']['children'][] = 'templates';
+        $form['og_ztree_templates_folder']['#group_children']['templates'] = 'group_template_file';
       }
 
-
-	  ## store all folders templates in the form
-	  $form['og_ztree_templates_folder']['templates'] = array(
-	    '#type' => 'select',
-	    '#multiple' => TRUE,
-	    '#name' => 'templates',
-	    '#options' => gofast_ztree_get_drupal_path_from_webdav_path($list_templates),
-	    '#attributes' => array(
-	      'class' => array('gofast_display_none')
-	    )
-	  );
-
-	  if (empty($list_templates)) {
-	    $form['og_ztree_templates_folder']['empty_ztree_templates'] = array(
-	      '#markup' => t('There is no templates available yet.', array(), array('context' => 'gofast:gofast_cmis')),
-	    );
-	    $form['og_ztree_templates_folder']['empty_ztree_templates']['#group'] = 'group_template_file';
-	    $form['og_ztree_templates_folder']['#groups']['group_template_file']->children[] = 'empty_ztree_templates';
-	    $form['og_ztree_templates_folder']['#group_children']['empty_ztree_templates'] = 'group_template_file';
-	  }
-
-	  $form['og_ztree_templates_folder']['ztree_templates']['#group'] = 'group_template_file';
-	  $form['og_ztree_templates_folder']['#groups']['group_template_file']->children[] = 'ztree_templates';
-	  $form['og_ztree_templates_folder']['#group_children']['ztree_templates'] = 'group_template_file';
-
-	  $form['og_ztree_templates_folder']['templates']['#group'] = 'group_template_file';
-	  $form['og_ztree_templates_folder']['#groups']['group_template_file']->children[] = 'templates';
-	  $form['og_ztree_templates_folder']['#group_children']['templates'] = 'group_template_file';
-      }
-
-      // This is for vertical tab reorganization
-      $form['og_ztree_templates_folder']['empty_template']['#group'] = 'group_empty_file';
-      $form['og_ztree_templates_folder']['#groups']['group_empty_file']->children[] = 'empty_template';
-      $form['og_ztree_templates_folder']['#group_children']['empty_template'] = 'group_empty_file';
+    // This is for vertical tab reorganization
+    $form['og_ztree_templates_folder']['empty_template']['#group'] = 'group_empty_file';
+    $form['og_ztree_templates_folder']['#groups']['group_empty_file']['children'][] = 'empty_template';
+    $form['og_ztree_templates_folder']['#group_children']['empty_template'] = 'group_empty_file';
 
     $form['og_ztree_templates_folder']['#after_build'][] = 'gofast_ztree_after_build';
     $form['og_ztree_templates_folder']['#weight'] = 9;
     $form['og_ztree_templates_folder']['#after_build'][] = 'gofast_ztree_folders_templates_after_build';
   } else {
-    $og_field['#title'] = t('Location/Sharing', array(), array('context' => 'gofast'));
+    $og_field['#title'] = t('Location', array(), array('context' => 'gofast'));
   }
   unset($og_field[LANGUAGE_NONE]['#title'], $og_field[LANGUAGE_NONE][0]['default']['#title']);
   //remove the field_archive from forms
@@ -1882,18 +1984,35 @@ function gofast_og_form_node_form_alter(&$form, &$form_state, $form_id) {
 
 }
 
-function gofast_og_form_node_form_validate(&$form, &$form_state) {
-    $errors = form_get_errors();
-    if ($errors) {
-      // Clear errors.
-      form_clear_error();
+function gofast_og_form_node_form_validate(&$form, &$form_state)
+{
 
-      foreach ($errors as $name => $error_message) {
-        $commands[] = gofast_command_toast_message($error_message, "error");
-      }
-      print ajax_render($commands);exit;
+  if(isset($form_state['input']['ac-list-tags-administrator'])){
+    // Initialize the list of administrator.
+    $json_list_administrators = json_decode($form_state['input']['ac-list-tags-administrator']);
+    if (empty($json_list_administrators)) {
+        form_set_error('field_other_admin_uid', t('The Secondary Administrator field is required', array(), array('context' => 'gofast')));
+        $message = t("The Secondary Administrator field is required", array(), array('context' => 'gofast'));
+    }
+  }
+    // Check for errors in the form.
+    $errors = form_get_errors();
+
+    if ($errors) {
+        // Clear errors.
+        form_clear_error();
+
+        foreach ($errors as $name => $error_message) {
+            // For other errors, display them as usual.
+            $commands[] = gofast_command_toast_message($error_message, "error");
+        }
+
+        // Print AJAX response with error messages.
+        print ajax_render($commands);
+        exit;
     }
 }
+
 
 /**
  *
@@ -1912,14 +2031,14 @@ function gofast_og_get_ancestors_path($node) {
         return('/Sites/' . $prefix .$node->title);
     }
 
-    $path = $prefix . $node->{title};
+    $path = $prefix . $node->{'title'};
 
     $parent = node_load(gofast_og_get_parent($node));
     if(isset($parent)) {
-        $path = $prefix . $parent->{title} . $suffix . $path;
-        $ancestors = gofast_og_get_ancestors($node)[$parent->{nid}]['ancestors'];
+        $path = $prefix . $parent->{'title'} . $suffix . $path;
+        $ancestors = gofast_og_get_ancestors($node)[$parent->{'nid'}]['ancestors'];
         foreach($ancestors as $ancestor) {
-            $path = $prefix . node_load($ancestor)->{title} . $suffix . $path;
+            $path = $prefix . node_load($ancestor)->{'title'} . $suffix . $path;
         }
     }
 
@@ -1935,13 +2054,13 @@ function gofast_og_get_ancestors_path($node) {
  */
 function gofast_og_add_article_homepage($node){
 
-    $content = isset($node->{body}[LANGUAGE_NONE][0]['value']) ? $node->{body}[LANGUAGE_NONE][0]['value'] : " ";
+    $content = isset($node->body[LANGUAGE_NONE][0]['value']) ? $node->body[LANGUAGE_NONE][0]['value'] : "<html></html>";
     $content = gofast_cmis_ckeditor_classes_to_style($content);
     $article_content = gofast_cmis_ckeditor_smiley_path_update($content);
     $article_title =  $node->title.".html" ;
     $mimetype = "text/html";
     $path = gofast_og_get_ancestors_path($node) . '/Wikis';
-    $emplacement = gofast_cmis_item_get_by_path($path)->{id};
+    $emplacement = gofast_cmis_item_get_by_path($path)->{'id'};
 
     $inserted_article = gofast_cmis_item_content_insert($emplacement, $article_title, $article_content, $mimetype, array(), TRUE);
 
@@ -1955,12 +2074,12 @@ function gofast_og_add_article_homepage($node){
 
     $size_brute = $inserted_article->properties["cmis:contentStreamLength"];
     $size = $size_brute / 1024 / 1024;
+    $person = $node->uid;
     if ($size > 50) { //File is too large to autodetect language
         $language = LANGUAGE_NONE;
     }else{
-        $language = gofast_cmis_item_detect_document_language($article_reference, user_load_by_name($person));
+        $language = gofast_cmis_item_detect_document_language($article_reference, user_load($person));
     }
-    $person = $node->uid;
     $created = strtotime($inserted_article->properties['cmis:creationDate']);
     $status = 1;
     $private = 0;
@@ -1969,14 +2088,7 @@ function gofast_og_add_article_homepage($node){
     $query->addExpression('MAX(nid)');
     $gid = $query->condition('type', $node->type)->execute()->fetchField();
 
-    $node_article = gofast_cmis_create_article_node_programmatically($article_reference, $article_content, $person, $article_title, $status, $language, $private, $gid, $emplacement, $created);
-    if($node_article == null || $node_article == false){
-        $msg = "Insertion failed";
-    }else $msg = "Insertion success";
-    //watchdog("article_prog_creation", $msg);
-    
-    //Apply special permissions, only allow the space administrators to edit this document
-    gofast_cmis_webservice_item_assign_homepage_permissions($article_reference, [$node->nid]);
+    gofast_cmis_create_article_node_programmatically($article_reference, $article_content, $person, $article_title, $status, $language, $private, $gid, $emplacement, $created, TRUE);
 }
 
 
@@ -2167,12 +2279,16 @@ function gofast_og_print_move_status($nid){
 }
 
 function gofast_og_print_archive_status($nid){
+  if(!empty(variable_get("archiving_space_" . $nid, array()))){
     print variable_get("archiving_space_" . $nid, array())["step"];
+  }
     exit;
 }
 
 function gofast_og_print_unarchive_status($nid){
+  if(!empty(variable_get("unarchiving_space_" . $nid, array()))){
     print variable_get("unarchiving_space_" . $nid, array())["step"];
+  }
     exit;
 }
 
@@ -2194,7 +2310,7 @@ function gofast_og_form_validate_child_depth(&$form, &$form_state) {
   if ($p_menu['p9'] === $plid) {
     // Parent space has already reached the maximum space depth.
     $error = t('You cannot add a child space in the selected target space because it would be out of '
-              .'the maximum space depth (9 levels under "Spaces").', array(), array('context' => 'gofast:gofast_og')).
+              .'the maximum space depth (9 levels under "Spaces").', array(), array('context' => 'gofast:gofast_og'));
     form_set_error(GOFAST_OG_PARENT_GROUP_FIELD, $error);
   }
 }
@@ -2202,26 +2318,44 @@ function gofast_og_form_validate_child_depth(&$form, &$form_state) {
 /**
  * Space form validate handler.
  */
-function gofast_og_form_validate_membership(&$form, &$form_state) {
-  if (!isset($form_state['values'][GOFAST_OG_PARENT_GROUP_FIELD][LANGUAGE_NONE][0]['target_id'])) {
-    return;
-  }
+function gofast_og_form_validate_membership(&$form, &$form_state)
+{
+    if (!isset($form_state['values'][GOFAST_OG_PARENT_GROUP_FIELD][LANGUAGE_NONE][0]['target_id'])) {
+        return;
+    }
 
   $node = $form['#node'];
   $og_field = &$form_state['values'][GOFAST_OG_PARENT_GROUP_FIELD][LANGUAGE_NONE][0];
   $parent_gid = _gofast_og_space_get_parent($node);
+  $admin_field_value = $form_state['input']['ac-list-tags-administrator']; 
+    // Check user permissions on the selected space node.
+    $update_perm = og_user_access('node', $og_field['target_id'], "update any {$node->type} content");
 
-  // User permissions on the selected space node.
-  $update_perm = og_user_access('node', $og_field['target_id'], "update any {$node->type} content");
-  if (!$update_perm && $og_field['target_id'] === $parent_gid) {
-    // User has 'edit' access on the $node but not on the parent target. In such
-    // cases, OgBehaviorHandler::validate() invalidates the form. But since the
-    // selected target stay the same as the current parent space, we do not
-    // consider this scenario as an update for the target node. This hack will
-    // prevent OgBehaviorHandler from raising an error (GOFAST-2212).
-    $og_field['field_mode'] = 'admin';
-  }
+    if (!$update_perm && $og_field['target_id'] === $parent_gid) {
+        // If the user has 'edit' access on $node but not on the parent target,
+        // we do not consider this scenario as an update for the target node.
+        // This prevents OgBehaviorHandler from raising an error.
+        $og_field['field_mode'] = 'admin';
+    }
+    
+    if (!empty($admin_field_value)) {
+        $admin_data = json_decode($admin_field_value, true);
+        global $user;
+        if ($user->uid == $admin_data[0]["value"]) {
+          form_set_error("gofast_og", t("You can't be the creator and the secondary administrator of a space in the same time.", [], ["context" => "gofast:gofast_og"]));
+          return;
+        }
+        
+        // Initialize field_other_admin_uid as an empty array if it doesn't exist.
+        $form_state['values']['field_other_admin_uid'] = array(
+            LANGUAGE_NONE => array(),
+        );
+        // Assign the target IDs array to field_other_admin_uid.
+        $form_state['values']['field_other_admin_uid'][LANGUAGE_NONE] = $admin_data;
+    }
+        
 }
+
 
 /**
  * Space form submit handler that maintains "Spaces" menu tree.
@@ -2263,19 +2397,97 @@ function gofast_og_form_submit_menu_item(&$form, &$form_state) {
   $destination = 'public://space_logos/';
   file_prepare_directory($destination, FILE_CREATE_DIRECTORY);
 
+  // space creation
+  if (!isset($form_state["node"]->nid)) {
+    $form_state['values']['integrity_check'] = "create space";
+  }
+
   if (isset($_FILES["files"]["size"])) {
     $parts = pathinfo($_FILES['files']['name']['space_logo']);
     // a predictable filename facilitates direct retrieve of file info from db
     $_FILES['files']['name']['space_logo'] = $form_state['values']['title'] . '.' . $parts['extension'];
-  
-    $validators['file_validate_extensions'] = array('png jpg jpeg webp');
+
     // actual upload
-    if ($file = file_save_upload('space_logo', $validators, $destination, FILE_EXISTS_REPLACE)) {
+    if ($file = file_save_upload('space_logo', array('file_validate_is_image' => array()), $destination, FILE_EXISTS_REPLACE)) {
       $file->status = FILE_STATUS_PERMANENT;
       file_save($file);
       $form_state['values']['field_logo_uri'][LANGUAGE_NONE][0]['value'] = $file->uri;
     }
   }
+}
+/**
+ * Form submit handler for adding additional administrators.
+ */
+function gofast_og_insert_admin($form, &$form_state) {
+  // Check if the field_other_admin_uid exists in form state.
+  if (isset($form_state['values']['field_other_admin_uid'])) {
+      $users_or_userlists = $form_state['values']['field_other_admin_uid'][LANGUAGE_NONE];
+      $node = $form['#node'];
+      // Get the node ID.
+      $nid = $form_state['nid'];
+
+      // Explicitly calling og_roles() for non-default roles.
+      $roles_query = og_roles('node', $node->type, $nid, FALSE, FALSE);
+      foreach ($roles_query as $rkey => $roles) {
+          // We get the role IDs associated with the space.
+          if ($roles == GOFAST_OG_ROLE_ADMIN) {
+              $admin_rid = $rkey;
+          }
+          if ($roles == GOFAST_OG_ROLE_STANDARD) {
+              $contributor_rid = $rkey;
+          }
+          if ($roles == GOFAST_OG_ROLE_READ_ONLY) {
+              $readonly_rid = $rkey;
+          }
+      }
+
+      // Loop through the UID values and add users or userlist.
+      foreach ($users_or_userlists as $item) {
+        if($item["type"] == "user"){
+          // Load the user by UID.
+          $account = user_load($item["value"]);
+
+          if ($account) {
+              // Add the user as an administrator to the group.
+              gofast_og_subscribe_user($nid, $account->uid, OG_STATE_ACTIVE);
+              
+              og_role_revoke('node', $nid, $account->uid, $readonly_rid);
+              og_role_revoke('node', $nid, $account->uid, $contributor_rid);
+              og_role_revoke('node', $nid, $account->uid, $admin_rid);
+              
+              og_role_grant('node', $nid, $account->uid, $admin_rid);
+          }
+        }elseif($item["type"] == 'userlist'){
+          //Add the userlist as an administrator to the group.
+          $userlist = entity_load_single('userlist', $item["ulvalue"]);
+          $default_role_name = GOFAST_OG_ROLE_ADMIN;
+          $default_role_rid = array_key_first(gofast_og_space_admin_get_node_role('node', $nid, $default_role_name));
+          gofast_userlist_og_add_membership($nid, $userlist->ulid, $default_role_rid);
+        }
+      }
+  } else {
+      // Handle the case where the field does not exist in form state.
+      drupal_set_message(t('The field_other_admin_uid is missing from the form state.'), 'error');
+  }
+}
+
+
+
+/**
+ * Implements hook_library()
+ */
+function gofast_og_library() {
+  $path = drupal_get_path('module', 'gofast_og');
+  $libraries['og_cropper'] = array(
+    'title' => 'Cropper library',
+    'version' => '1.0',
+    'js' => array(
+      $path . '/js/gofast_og_crop.js' => array(
+        'group' => JS_DEFAULT
+      )
+    ),
+  );
+  return $libraries;
 }
 
 /**
@@ -2391,7 +2603,7 @@ function gofast_og_menu() {
   );
 
   $items['space/admin/members'] = array(
-    'title' => t('Manage members for spaces', array(), array('context' => array('gofast'))),
+    // 'title' => t('Manage members for spaces', array(), array('context' => array('gofast'))),
     'page callback' => 'gofast_og_admin_members_page',
     'page arguments' => array(TRUE, 'add'),
     'access callback' => 'can_manage_spaces_members',
@@ -2400,7 +2612,7 @@ function gofast_og_menu() {
   );
 
   $items['space/admin/members/%'] = array(
-    'title' => t('Manage members for spaces', array(), array('context' => array('gofast'))),
+    // 'title' => t('Manage members for spaces', array(), array('context' => array('gofast'))),
     'page callback' => 'gofast_og_admin_members_page',
     'page arguments' => array(FALSE, 3),
     'access arguments' => array('access content'),
@@ -2411,7 +2623,7 @@ function gofast_og_menu() {
   );
 
   $items['space/%ctools_js/admin/members/%'] = array(
-    'title' => t('Manage members for spaces', array(), array('context' => array('gofast'))),
+    // 'title' => t('Manage members for spaces', array(), array('context' => array('gofast'))),
     'page callback' => 'gofast_og_admin_members_page',
     'page arguments' => array(1,4),
     'access arguments' => array('access content'),
@@ -2421,7 +2633,7 @@ function gofast_og_menu() {
   );
 
   $items['og/list_grid/%'] = array(
-    'title' => t('Spaces', array(), array('context' => array('gofast'))),
+    // 'title' => t('Spaces', array(), array('context' => array('gofast'))),
     'page callback' => 'gofast_og_spaces_view',
     'page arguments' => array(2),
     'access arguments' => array('access content'),
@@ -2430,7 +2642,7 @@ function gofast_og_menu() {
   );
 
   $items['og/list_grid'] = array(
-    'title' => t('Spaces', array(), array('context' => array('gofast'))),
+    // 'title' => t('Spaces', array(), array('context' => array('gofast'))),
     'page callback' => 'gofast_og_spaces_view',
     'access arguments' => array('access content'),
     'access callback' => 'user_access',
@@ -2439,7 +2651,7 @@ function gofast_og_menu() {
   );
 
   $items['og/list_grid/ajax/%'] = array(
-    'title' => t('Spaces', array(), array('context' => array('gofast'))),
+    // 'title' => t('Spaces', array(), array('context' => array('gofast'))),
     'page callback' => 'gofast_og_spaces_view_theme_descendants',
     'page arguments' => array(3),
     'access arguments' => array('access content'),
@@ -2449,7 +2661,7 @@ function gofast_og_menu() {
   );
 
   $items['og/list_grid/ajax/%/%'] = array(
-    'title' => t('Spaces', array(), array('context' => array('gofast'))),
+    // 'title' => t('Spaces', array(), array('context' => array('gofast'))),
     'page callback' => 'gofast_og_spaces_request_action',
     'page arguments' => array(3,4),
     'access arguments' => array('access content'),
@@ -2483,7 +2695,7 @@ function gofast_og_menu() {
 
 
   $items['og/excel/manage'] = array(
-    'title' => t("Mass manage users with Excel file"),
+    // 'title' => t("Mass manage users with Excel file"),
     'page callback' => 'gofast_og_mass_users_import_interface',
     'access callback' => 'user_access',
     'access arguments' => array('administer site configuration'),
@@ -2492,7 +2704,7 @@ function gofast_og_menu() {
   );
 
   $items['modal/%ctools_js/gofast_og/delete_space/%'] = array(
-    'title' => t("Delete this space"),
+    // 'title' => t("Delete this space"),
     'page callback' => 'gofast_og_delete_space',
     'page arguments' => array(4),
     'access callback' => 'gofast_og_can_delete_space',
@@ -2500,7 +2712,7 @@ function gofast_og_menu() {
   );
 
   $items['gofast_og/delete_space/%/%'] = array(
-    'title' => t("Delete this space"),
+    // 'title' => t("Delete this space"),
     'page callback' => 'gofast_og_delete_space_process',
     'page arguments' => array(2,3),
     'access callback' => 'gofast_og_can_delete_space',
@@ -2561,6 +2773,14 @@ function gofast_og_menu() {
   );
 
 
+  $items['gofast_og/%node/get_visible_node_users'] = array(
+    'page callback' => 'gofast_og_get_visible_node_users',
+    'page arguments' => array(1),
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
   $items['gofast_og/%/get_parents'] = array(
     'page callback' => 'gofast_og_get_parents_gids',
     'page arguments' => array(1),
@@ -2586,22 +2806,49 @@ function gofast_og_menu() {
        'type' => MENU_CALLBACK
    );
 
-   $items['modal/%ctools_js/og/%node/contact/admins'] = array(
+   $items['modal/%ctools_js/og/%/contact/admins'] = array(
     'title' => 'Contact administrators',
     'page callback' => 'gofast_og_modal_og_contact_admins',
     'page arguments' => array(1, 3),
     'access callback' => 'user_access',
-    'access arguments' => array('contact administrators'),
+    'access arguments' => array('access content'),
     'type' => MENU_CALLBACK,
   );
 
-  $items['og/%node/contact/admins'] = array(
+  $items['modal/%ctools_js/og/edit-space-logo/%node'] = array(
+    'title' => t("Edit avatar", array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_og_edit_space_logo_modal',
+    'page arguments' => array(1, 4),
+    'type' => MENU_CALLBACK,
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+
+  $items['og/%/contact/admins'] = array(
     'title' => 'Contact administrators',
     'page callback' => 'gofast_og_contact_admins',
-    'page arguments' => array(1),
-    'access callback' => 'user_access',
-    'access arguments' => array('contact administrators'),
+    'page arguments' => array(1, 3),
+    'access arguments' => array('user_access'),
     'type' => MENU_CALLBACK,
+  );
+
+  $items['modal/%ctools_js/og/space/bulk_subscribe/%'] = array(
+    'page callback' => 'gofast_og_modal_space_bulk_subscribe',
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'page arguments' => array(1,5),
+    'type' => MENU_CALLBACK,
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+
+  $items['modal/%ctools_js/og/space/bulk_unsubscribe/%'] = array(
+    'page callback' => 'gofast_og_modal_space_bulk_unsubscribe',
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'page arguments' => array(1,5),
+    'type' => MENU_CALLBACK,
+    'delivery callback' => 'gofast_ajax_delivery'
   );
 
   $items['og/is/%/instore'] = array(
@@ -2804,7 +3051,34 @@ function gofast_og_theme(){
       'template' => 'tpl/gofast-og-home',
       'variables' => array('content' => NULL, 'custom_logo' => NULL)
     ),
+    'gofast_og_logo_crop' => array(
+      'template' => 'tpl/gofast-og-logo-crop',
+      'variables' => array('gid' => NULL, 'custom_logo' => NULL)
+    ),
+	  'gofast_og_contactadmins_list_admins' => array(
+			'template' => 'tpl/gofast_og_contactadmins_list_admins',
+	  ),
   );
+}
+
+/**
+ * Inject role ids in og members template, so we can have ids
+ * matching the space bundle (extranet, organisation, group).
+ */
+function template_preprocess_gofast_node_og_members(&$variables) {
+  $node = $variables["node"];
+  $roles_query = og_roles('node', $node->type, 0, FALSE, FALSE);
+  foreach($roles_query as $rkey => $roles){
+    if($roles == GOFAST_OG_ROLE_ADMIN){
+      $variables["admin_rid"] = $rkey;
+    }
+    if($roles == GOFAST_OG_ROLE_READ_ONLY){
+      $variables["readonly_rid"] = $rkey;
+    }
+    if($roles == GOFAST_OG_ROLE_STANDARD){
+      $variables["contributor_rid"] = $rkey;
+    }
+  }
 }
 
 /**
@@ -3232,7 +3506,7 @@ function gofast_og_form_og_ui_edit_membership_alter(&$form, &$form_state) {
     if(!isset($form['actions']['delete'])){
       $form['actions']['delete'] = array(
         '#type' => 'markup',
-        '#markup' => l(t('Remove'), 'group/node/' . $gid . '/admin/people/delete-membership/' . $og_membership->id),
+        '#markup' => l(t('Remove'), 'group/node/' . $og_membership->gid . '/admin/people/delete-membership/' . $og_membership->id),
       );
     }
 
@@ -3466,6 +3740,9 @@ function gofast_og_create($title, $bundle, $options = array()) {
   //Set parent space
   $node->og_group_ref[LANGUAGE_NONE] = $options['parent'];
 
+  //Trigger integrity check on save
+  $node->integrity_check = "create space";
+
   // Until GOFAST-2452 is fixed, workaround with the following code
   $node->title = $title;
   node_save($node);
@@ -3485,7 +3762,7 @@ function gofast_og_node_insert($node){
 
   //If the new node is a public space, we queue a membership rebuild for the next cron.
   if(( gofast_og_is_root_space($node) && !gofast_og_is_user_private_space($node) ) || $node->type == 'public'){
-    drupal_set_message(t("The configuration of this space is still in progress, it will be completed in a few minutes."), array(), array('context' => 'gofast:og'), 'status');
+    drupal_set_message(t("The configuration of this space is still in progress, it will be completed in a few minutes.", array(), array('context' => 'gofast:og')), 'status');
 
     //Acquire membership_waiting_build lock
     lock_wait("membership_waiting_build", 10);
@@ -3701,6 +3978,23 @@ function gofast_og_post_install() {
     }
   }
 
+  $template_name = 'TEMPLATES';
+  gofast_cmis_item_folder_insert($template_name,gofast_ajax_file_browser_get_reference_from_href('/Sites/_Public'));
+  $folder_template_reference = gofast_ajax_file_browser_get_reference_from_href('/Sites/_Public/'.$template_name);
+  $node = node_load(GOFAST_CMIS_LOCATIONS_FIELD_PUBLIC_GID);
+  $group_type = $node->type;
+  $unique_name = rawurlencode(str_replace("\,", ",", gofast_ldap_space_cn($node)));
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_HEADER, 0);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_USERPWD, 'admin:' . gofast_get_admin_pwd());
+  $url = "http://localhost:8080/alfresco/service/set/subfolder/permission/?nodeRef=" . $folder_template_reference  . "&unique_name=" . $unique_name . "&node_type=" . $group_type;
+  curl_setopt($ch, CURLOPT_URL, $url);
+  curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+  $buffer = curl_exec($ch);
+  $buf = strip_tags($buffer);
+  $result = json_decode($buf);
+
   return $ret;
 }
 
@@ -3727,7 +4021,7 @@ function gofast_og_og_default_roles() {
  * 2 => read only
  */
 function gofast_og_get_user_default_role($my_user = null){
-  
+
     if($my_user == null){
         global $user;
         $my_user = $user;
@@ -3794,7 +4088,7 @@ function gofast_og_get_user_inheritance($node) {
     if (!is_numeric($node))
       return FALSE;
     // Load field value assuming $node is an OG id.
-    return reset(gofast_get_field_value(OG_USER_INHERITANCE_FIELD, 'node', NULL, array($node)));
+    return reset(gofast_get_field_values(OG_USER_INHERITANCE_FIELD, 'node', NULL, array($node)));
   }
   return $node->{OG_USER_INHERITANCE_FIELD}[LANGUAGE_NONE][0]['value'];
 }
@@ -4277,7 +4571,7 @@ function gofast_og_user_rebuild_base_memberships($account, $force = false){
     //Retrieve saved spaces configuration
     $space_defaults = gofast_admin_get_space_defaults();
 
-    $public_contributions = $spaces_defaults['public_contrib'];
+    $public_contributions = $space_defaults['public_contrib'];
     $public_ids = gofast_og_get_children($public->nid, TRUE, FALSE, TRUE);
 
     foreach($public_ids as $nid){ //Fetching into all public subspaces
@@ -4417,6 +4711,10 @@ function gofast_og_create_private_space($account) {
   $query->addExpression('MAX(nid)');
   $gid = $query->condition('type', 'private_space')->execute()->fetchField();
 
+  $private_space_node = node_load($gid);
+  gofast_cmis_item_folder_insert("Wikis", gofast_cmis_get_raw_item_id($private_space_node->{GOFAST_CMIS_FOLDER_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']));
+  gofast_og_add_article_homepage($private_space_node);
+
   return $gid;
 }
 
@@ -4469,6 +4767,7 @@ function gofast_og_preprocess_node(&$variables) {
       $isMember = gofast_userlist_og_is_user_member_of_space($node->nid, $user);
     }
 
+    $variables['hasEssentialSpaceActions'] = gofast_get_essential_space_actions($node->nid);
     if( ($can_access === NODE_ACCESS_IGNORE && $user->uid !== 1) || $can_access === NODE_ACCESS_ALLOW && $isMember == FALSE){
         // TODO comportement specific here !
         // TAB HOME
@@ -4480,8 +4779,8 @@ function gofast_og_preprocess_node(&$variables) {
         }
         $variables['groupCanBeJoin'] = $groupCanBeJoin;
 
-        
-        $homepage_article_nid = gofast_og_get_article_homepage_from_og($gid);
+
+        $homepage_article_nid = gofast_og_get_article_homepage_from_og($node->nid);
         if($homepage_article_nid){
             $homepage_article = node_load($homepage_article_nid);
         }
@@ -4509,6 +4808,10 @@ function gofast_og_preprocess_node(&$variables) {
       $variables['theme_hook_suggestions'][] = "node__og_space";
     }
   }
+}
+
+function gofast_og_preprocess_gofast_og_logo_crop(&$variables) {
+  drupal_add_library('gofast_og', 'og_cropper');
 }
 
 function gofast_og_space_members_simple_block($node) {
@@ -4592,7 +4895,7 @@ function gofast_og_get_user_pending_spaces($account = NULL) {
  * Returns all the spaces or spaces that respond to specified bundle (space, organisation...).
  * @global type $user the current user (cannot be null)
  * @param type $bundles empty if we want all spaces for the user, otherwise only the spaces kind of the specified bundle(s)
- * @return type an array of all the spaces, with space id as key and space path as value.
+ * @return array an array of all the spaces, with space id as key and space path as value.
  */
 function gofast_og_get_user_visible_spaces($user = NULL, $full = FALSE, $bundles = array(), $exclude_root = FALSE) {
   $spaces_map = array();
@@ -4720,6 +5023,15 @@ function gofast_og_is_root_space($node) {
       $space_realm = gofast_ldap_og_get_realm($node->type);
       return $parent_dn === $space_realm;
     }
+    if($node->is_new) {
+      // Check if parent exist
+      $new_node_parent = $node->og_group_ref[LANGUAGE_NONE][0]['target_id'];
+
+      // If parent is not set, it's a root space
+      if(empty($new_node_parent)) {
+        return TRUE;
+      }
+    }
   }
 
   $temps_o_fin = microtime(true);
@@ -4754,7 +5066,6 @@ function gofast_og_get_root_space($node, $full = FALSE) {
 
 /**
  * Returns a list of the actual root spaces.
- *
  * @param boolean $full [optional]
  *  Whether or not to load node objects. Defaults to FALSE.
  *
@@ -4764,24 +5075,50 @@ function gofast_og_get_root_space($node, $full = FALSE) {
  * @return Array
  *  An array of root spaces keyed by $gid.
  */
-function gofast_og_get_root_spaces($full = FALSE, $exclude_private = FALSE) {
+function gofast_og_get_root_spaces($full = FALSE, $exclude_private = FALSE, $legacy = TRUE) {
+  global $user;
   $gids = array();
-  $space_types = gofast_og_node_types();
-  if ($exclude_private) {
-    unset ($space_types['private_space']) ;
+
+  if($exclude_private == TRUE){
+    $legacy = FALSE;
   }
-  foreach ($space_types as $bundle => $label) {
-    $space_realm = gofast_ldap_og_get_realm($bundle);
-    $children = gofast_ldap_entry_get_children($space_realm);
-    if (!empty($children)) {
-      foreach ($children as $key => $child) {
-        $root_entry = isset($child) ? $child : FALSE;
-        if ($root_entry && isset($root_entry['dn'])) {
-          $gid = gofast_ldap_gid_from_dn($root_entry['dn']);
-          $gids[$gid] = $gid;
+
+  // legacy logic, use with care
+  if ($legacy) {
+    $space_types = gofast_og_node_types();
+    if ($exclude_private) {
+      unset ($space_types['private_space']) ;
+    }
+    foreach ($space_types as $bundle => $label) {
+      $space_realm = gofast_ldap_og_get_realm($bundle);
+      $children = gofast_ldap_entry_get_children($space_realm);
+      if (!empty($children)) {
+        foreach ($children as $key => $child) {
+          $root_entry = isset($child) ? $child : FALSE;
+          if ($root_entry && isset($root_entry['dn'])) {
+            $gid = gofast_ldap_gid_from_dn($root_entry['dn']);
+            $gids[$gid] = $gid;
+          }
         }
       }
     }
+    return $gids && $full ? entity_load('node', $gids) : $gids;
+  }
+
+  $space_types = gofast_og_node_types(FALSE, TRUE);
+  if ($exclude_private) {
+    unset($space_types['private_space']) ;
+  }
+  foreach ($space_types as $bundle => $gid) {
+    // if it's a private space
+    if ($bundle == "private_space") {
+      $gid = gofast_og_get_user_private_space($user, false);
+      if ($gid) {
+        $gids[$gid] = $gid;
+      }
+      continue;
+    }
+    $gids[$gid] = $gid;
   }
   return $gids && $full ? entity_load('node', $gids) : $gids;
 }
@@ -5006,30 +5343,6 @@ function gofast_og_partitioning_options() {
   );
 }
 
-/**
- * Implements hook_form_FORM_ID_alter()
- */
-function gofast_og_form_gofast_admin_settings_alter(&$form, &$form_state) {
-  // Adds space partitioning config to the form.
-  $form['visibility']['space_partitioning'] = array(
-    '#type' => 'select',
-    '#title' => t('Space Visibility', array(), array('context' => 'gofast')),
-    '#options' => gofast_og_partitioning_options(),
-    '#default_value' => variable_get('gofast_og_partitioning', GOFAST_OG_PARTITIONING_DEFAULT),
-    '#description' => t('Choose whether or not to let users view spaces they are not member of.', array(), array('context' => 'gofast:gofast_og'))
-  );
-
-  $form['#submit'][] = 'gofast_og_form_gofast_admin_settings_submit';
-}
-
-/**
- * Gofast configuration form submit callback.
- */
-function gofast_og_form_gofast_admin_settings_submit(&$form, &$form_state) {
-  // Update space visibility setting.
-  variable_set('gofast_og_partitioning', $form_state['values']['space_partitioning']);
-}
-
 /*
  * Generates global spaces view (accessible in Directories menu)
  * @param $space_type
@@ -5219,14 +5532,15 @@ function gofast_og_view_get_ztree_json($bundle = 'all', $account = null, $activi
 
   $og_json = array();
   $spaces = array();
+  $recursive = !$activity_filters;
   if($gid == 'all'){
     foreach(array('Groups', 'Organisations', 'Public', 'Extranet') as $spaces_names){
       $gid = gofast_og_get_group_id_from_title($spaces_names, 'Sites/_'.$spaces_names);
-      $spaces[$gid] = gofast_og_get_children($gid, TRUE, FALSE, FALSE);
+      $spaces[$gid] = gofast_og_get_children($gid, $recursive, FALSE, FALSE);
     }
   }
   else{
-    $spaces = gofast_og_get_children($gid, TRUE, FALSE, FALSE);
+    $spaces = gofast_og_get_children($gid, $recursive, FALSE, FALSE);
   }
 
   //Building the JSON content
@@ -5354,7 +5668,7 @@ function gofast_og_spaces_view_ajax_theme_descendants($content){
  * Subscribe a user to a view in grid spaces view
  */
 
-function gofast_og_spaces_request_action($gid, $action, $request_user = null, $message = null){
+function gofast_og_spaces_request_action($gid, $action, $request_entity_id = null, $message = null, $request_entity_type = "user"){
 
   drupal_add_js(drupal_get_path('module', 'gofast_og') . "/gofast_og.js");
 
@@ -5362,10 +5676,11 @@ function gofast_og_spaces_request_action($gid, $action, $request_user = null, $m
   global $user;
   global $base_url;
 
-  if(empty($request_user)){
+  if(empty($request_entity_id)){
     $request_user = $user;
+    $request_entity_id = $request_user->uid;
   }else{
-    $request_user = user_load($request_user);
+    $request_user = entity_load_single($request_entity_type, $request_entity_id);
   }
 
   switch($action){
@@ -5373,7 +5688,8 @@ function gofast_og_spaces_request_action($gid, $action, $request_user = null, $m
       gofast_user_request_groups(array($gid), $request_user->uid);
 
       //Prepare a mail for the space admins
-      $userbdd = user_load($request_user->uid);
+      $userbdd = entity_load_single($request_entity_type ,$request_entity_id);
+      $business_admin_name = gofast_user_display_name($userbdd);
       $admins = get_all_admin_group($gid);
       $space = node_load($gid);
       $space_title = $space->title;
@@ -5381,7 +5697,7 @@ function gofast_og_spaces_request_action($gid, $action, $request_user = null, $m
 
       $link = $base_url . "/node/" . $space->nid;
       $asking_user = '<img src="' . gofast_get_url_picture_by_id($userbdd->uid). '" alt="Information Icon" width="14" /> <a href="' . $base_url . '/user/' . $userbdd->uid .'" style="color: #337ab7; text-decoration: none;">' . gofast_user_display_name($userbdd) . '</a>';
-      $space_link = '<a href="' . $link . '" style="color: #337ab7; text-decoration: none;">'. $space_title . '</a>'; 
+      $space_link = '<a href="' . $link . '" style="color: #337ab7; text-decoration: none;">'. $space_title . '</a>';
 
       foreach($admins as $uid){
         $to = array();
@@ -5395,15 +5711,15 @@ function gofast_og_spaces_request_action($gid, $action, $request_user = null, $m
         $l = array('context' => 'gofast:gofast_og', 'langcode' => $language);
         $subheader_message = t("The user {asking_user} asked to join the space {space_link}", array(), $l);
 
-        $members_tab_link = '<a href="' . $link . '#gofastSpaceMembers" style="color: #337ab7; font-weight: 600; text-decoration: none;">' . t("members tab", array(), $l) . '</a>';
+        $members_tab_link = '<a href="' . $link . '#gofastSpaceMembers" style="color: #337ab7; font-size: 14px; font-weight: 600; text-decoration: none;" target="_blank">' .  t("members tab", [], $l) . '</a>';
         $action_message = t("You are the administrator of this space, please go to the {members_tab_link} of the space to accept or decline", array(), $l);
-
+        $manage_members_tab_link = '<a href="' . $link . '#gofastSpaceMembers" style="color: #FFFFFF; font-size: 14px; font-weight: 600; text-decoration: none;" target="_blank">' .  t("Manage Members", array(), array('context' => 'gofast')) . '</a>';
         $subject = t('A user asked to join your space on @siteName', array("@siteName" => $siteName), $l);
         $title = t('Join request', array(), $l);
         $footer = t('Message sent from ', array(), $l)." ".$siteName;
-
         $body = theme('gofast_og_notify_pending', array(
           'l' => $l,
+          'business_admin_name' => $business_admin_name,
           'first_name' => $first_name,
           'site_name' => $siteName,
           'node_title' => $space_title,
@@ -5413,8 +5729,9 @@ function gofast_og_spaces_request_action($gid, $action, $request_user = null, $m
           'users' => [$userbdd],
           'action_message' => $action_message,
           'action_message_tags' => [$members_tab_link],
+          'manage_members_tab_link' => $manage_members_tab_link,
         ));
-  
+
         $mail = array(
           'body' => $body,
           'title' => $title,
@@ -5459,21 +5776,33 @@ function gofast_og_spaces_request_action($gid, $action, $request_user = null, $m
 
       break;
     case "join_preadd":
-      if(variable_get('preadd_users') == null){
-        $preadd_users_array[] = $request_user->uid;
+      if(variable_get('preadd_members') == null){
+        $preadd_entity_array[] = array(
+          "entity_id" => $request_entity_id,
+          "entity_type" => $request_entity_type
+        );
       }else{
-        $preadd_users_array = json_decode(variable_get('preadd_users'));
-        $preadd_users_array[] = $request_user->uid;
+        $preadd_entity_array = json_decode(variable_get('preadd_members'));
+        $preadd_entity_array[] = array(
+          "entity_id" => $request_entity_id,
+          "entity_type" => $request_entity_type
+        );
       }
 
-      variable_set('preadd_users', json_encode($preadd_users_array));
+      variable_set('preadd_members', json_encode($preadd_entity_array));
       break;
     case "join_preadd_send":
-      if (variable_get('preadd_users') == null) {
-        $preadd_users_array[] = $request_user->uid;
+      if (variable_get('preadd_members') == null) {
+        $preadd_entity_array[] = array(
+          "entity_id" => $request_entity_id,
+          "entity_type" => $request_entity_type
+        );
       } else {
-        $preadd_users_array = json_decode(variable_get('preadd_users'));
-        $preadd_users_array[] = $request_user->uid;
+        $preadd_entity_array = json_decode(variable_get('preadd_members'), true);
+        $preadd_entity_array[] = array(
+          "entity_id" => $request_entity_id,
+          "entity_type" => $request_entity_type
+        );
       }
 
       $business_admin_name = gofast_user_display_name(user_load($user->uid));
@@ -5484,13 +5813,28 @@ function gofast_og_spaces_request_action($gid, $action, $request_user = null, $m
       $to = array();
       $siteName = variable_get('site_name');
       $link = $base_url . "/node/" . $space->nid;
-      $users = [];
-      foreach($preadd_users_array as $preadd_user_uid){
+      $request_entities = [];
+      foreach($preadd_entity_array as $preadd_entity){
         // send user request
-        gofast_user_request_groups(array($gid), $preadd_user_uid);
-        $users[] = $preadd_user_uid;
-      }
+        gofast_user_request_groups(array($gid), $preadd_entity["entity_id"], $preadd_entity["entity_type"]);
+        $request_entity = entity_load_single($preadd_entity["entity_type"], $preadd_entity["entity_id"]);
+        $request_entity->entity_type = $preadd_entity["entity_type"];
+        $request_entities[] = $request_entity;
 
+        //Insert into audit
+        $event = array(
+          'mod_author' => $user->uid, 
+          'mod_timestamp' => time(), 
+          'event' => 'preadd_member', 
+          'member_id' => $preadd_entity["entity_id"], 
+          "member_type" => $preadd_entity["entity_type"]
+        );
+        $event = serialize($event);
+        $last_event_serialized = rawurlencode($event);
+        $last_event_unserialized["mod_timestamp"] = time();
+        $last_event_unserialized["mod_author"] = $user->uid;
+        gofast_audit_insert_line_audit($gid, "preadd_member", $last_event_serialized, $last_event_unserialized);
+      }
       //Prepare a mail for the space admins
       foreach($admins as $uid){
         $to = array();
@@ -5502,15 +5846,13 @@ function gofast_og_spaces_request_action($gid, $action, $request_user = null, $m
         $language = db_query("SELECT `language` FROM `users` WHERE `uid` = :uid", array(':uid' => $uid))->fetchField();
         $l = array('context' => 'gofast:gofast_og', 'langcode' => $language);
 
-        $subject = format_plural(count($users), 'Administrator platform adding user request', 'Administrator platform adding users request', array(), $l);
+        $subject = format_plural(count($request_entities), 'A Support-User user has pre-added a member to a space', 'A Support-User user has pre-added members to a space', array(), $l);
         $title = t('Join request', array(), $l);
         $footer = t('Message sent from ', array(), $l)." ".$siteName;
 
         $business_support = '<img src="' . $business_admin_avatar . '" alt="Information Icon" width="14" /> <a href="' . $base_url . '/user/' . $user->uid .'" style="color: #337ab7; text-decoration: none;">' . $business_admin_name . '</a>';
-        $space_link = '<a href="' . $link . '" style="color: #337ab7; text-decoration: none;">'. $space_title . '</a>'; 
-        $subheader_message = format_plural(count($users), "{business_support} in charge of user support, asks you to add a new member in the space {space_link} of which you are an administrator", "{business_support} in charge of user support, asks you to add news members in the space {space_link} of which you are an administrator", array(), $l);
-        $message = t("Message: @message", array("@message" => $message), $l);
-        $members_tab_link = '<a href="' . $link . '#gofastSpaceMembers" style="color: #337ab7; font-weight: 600; text-decoration: none;">' . t("members tab", array(), $l) . '</a>';
+        $space_link = '<a href="' . $link . '" style="color: #337ab7; text-decoration: none;">'. $space_title . '</a>';
+        $subheader_message = format_plural(count($request_entities), "{business_support} in charge of user support, asks you to add a new member in the space {space_link} of which you are an administrator", "{business_support} in charge of user support, asks you to add new members in the space {space_link} of which you are an administrator", array(), $l);
         $members_tab_link = '<a href="' . $link . '#gofastSpaceMembers" style="color: #FFFFFF; font-size: 14px; font-weight: 600; text-decoration: none;" target="_blank">' . t("Manage Pending Members") . '</a>';
         $action_message = t("Please go to the space page {space_link}, on 'Member' tab to accept or refuse the request. It will only take you a few clicks.", array(), $l);
         $body = theme('gofast_og_notify_pending', array(
@@ -5523,7 +5865,7 @@ function gofast_og_spaces_request_action($gid, $action, $request_user = null, $m
           'subheader_message' => $subheader_message,
           'subheader_message_tags' => [$business_support, $space_link],
           'message' => $message,
-          'users' => user_load_multiple($users),
+          'request_entities' => $request_entities,
           'action_message' => $action_message,
           'action_message_tags' => [$space_link],
           'manage_members_tab_link' => $members_tab_link,
@@ -5541,8 +5883,8 @@ function gofast_og_spaces_request_action($gid, $action, $request_user = null, $m
 
       break;
     case 'cancel':
-      $membership = og_get_membership('node', $gid, 'user', $request_user->uid);
-      gofast_og_unsubscribe_user($gid, $request_user->uid);
+      $membership = og_get_membership('node', $gid, $request_entity_type, $request_entity_id);
+      gofast_og_unsubscribe_user($gid, $request_entity_id);
       //this allow to clear cache, in order to prevent bug if the account is saved before the cache is refreshed. See
       $membership->delete();
       break;
@@ -5558,69 +5900,304 @@ function gofast_og_preadd_ajax_validation(){
 
   $nid = $_POST['nid'];
   $action = $_POST['action'];
-  $user_id = $_POST['user_to_add'];
+  $entity_id = $_POST['user_to_add'];
+  $entity_type = $_POST['entity_type'];
   $message = $_POST["message"];
-  $user_preadd = user_load($user_id);
+  $entity_preadd = entity_load_single($entity_type, $entity_id);
   $rid = $_POST['role_id'];
+  $type = $_POST['type'];
 
-  $isMember = (og_get_membership('node', $nid, 'user', $user_preadd->uid) != FALSE);
-
-  //check membership from userlist
-  $isMemberFromUserlist = gofast_userlist_og_is_user_member_of_space($nid, $user_preadd);
-
-  //The individual membership has priority over userlist membership
-  if ($isMember || $isMemberFromUserlist) {
-    $roles = gofast_og_get_user_final_roles_for_space('node', $nid, $user_preadd->uid);
+  if($type === "userlist"){
+    echo gofast_og_userlist_preadd_ajax_validation($nid, $action,
+      $entity_preadd, $message, $rid);
+    exit;
   }
+  $isMember = (og_get_membership('node', $nid, $entity_type, $entity_id) != FALSE);
+  $isMemberFromUserlist = false;
+  if($entity_type == "user"){
+    //check membership from userlist
+    $isMemberFromUserlist = gofast_userlist_og_is_user_member_of_space($nid, $entity_preadd);
+    //The individual membership has priority over userlist membership
+    if ($isMember || $isMemberFromUserlist) {
+      $roles = gofast_og_get_user_final_roles_for_space('node', $nid, $entity_id);
+    }
+  } else if($entity_type == "userlist"){
+    if($isMember){
+      $roles = gofast_userlist_og_get_userlist_roles("node", $nid, $entity_id);
+    }
+  }
+  
 
   $isPending = (!isset($roles) || empty($roles)) && ($isMember || $isMemberFromUserlist);
 
   if ($isPending == true) {
     $return = [
       "success" => false,
-      "uid" => $user_id,
-      "message" => t('This user have already a pending request in this space', array(), array('context' => 'gofast'))
+      "entity_id" => $entity_id,
+      "entity_type" => $entity_type,
+      "message" => t('This member have already a pending request in this space', array(), array('context' => 'gofast'))
     ];
   }else if ($isMember == true) {
     $return = [
       "success" => false,
-      "uid" => $user_id,
-      "message" => t('This user is already member of this space', array(), array('context' => 'gofast'))
+      "entity_id" => $entity_id,
+      "entity_type" => $entity_type,
+      "message" => t('This member is already member of this space', array(), array('context' => 'gofast'))
     ];
-  }else if ($isMemberFromUserlist == true) {
+  }else if ($isMemberFromUserlist) {
     $return = [
       "success" => false,
-      "uid" => $user_id,
-      "message" => t('This user is already member in a userlist of this space', array(), array('context' => 'gofast'))
+      "entity_id" => $entity_id,
+      "entity_type" => $entity_type,
+      "message" => t('This member is already a member of this space via a userlist.', array(), array('context' => 'gofast'))
     ];
   } else{
-    gofast_og_spaces_request_action($nid, $action, $user_id, $message);
+    gofast_og_spaces_request_action($nid, $action, $entity_id, $message, $entity_type);
     //change asked role.
     //og_role_revoke doesn't work while membership is pending, so delete role manually
-    $uid = $user_id;
-    $bundle = node_load($nid)->type;
-    $membership = og_get_membership('node', $nid, 'user', $uid);
+    $membership = og_get_membership('node', $nid, $entity_type, $entity_id);
+    $og_roles_table = "og_users_roles";
+    $id_field = "uid";
+    if($entity_type == "userlist"){
+      $og_roles_table = "gofast_og_userlists_roles";
+      $id_field = "ulid";
+    }
 
-    db_query("delete from {og_users_roles} where uid = ".$uid." and gid = ".$nid);
-    watchdog("debug role grant", $membership->group_type." | ".$membership->gid." | ".$membership->etid." | ".trim($rid));
+    db_delete($og_roles_table)
+      ->condition("gid", $nid, "=")
+      ->condition($id_field, $entity_id, "=")
+      ->execute();
 
-    og_role_grant($membership->group_type, $membership->gid, $membership->etid, trim($rid));
+    if($membership != false){
+      watchdog("debug role grant", $membership->group_type." | ".$membership->gid." | ".$membership->etid." | ".trim($rid));
+  
+      if($entity_type == "user"){
+        og_role_grant($membership->group_type, $membership->gid, $membership->etid, trim($rid));
+      } else if($entity_type == "userlist"){
+        gofast_userlist_og_role_grant_userlist($membership->group_type, $membership->gid, $membership->etid, trim($rid));
+      }
+    }
 
 
     $return = [
       "success" => true,
-      "uid" => $user_id,
+      "entity_id" => $entity_id,
+      "entity_type" => $entity_type,
       "message" => "user pre-add send done, ok"
     ];
   }
   if($action == "join_preadd_send"){
-    variable_del("preadd_users");
+    variable_del("preadd_members");
   }
 
 
   echo json_encode($return);
   exit;
 
+}
+
+/**
+ * Validates the request to add a user to a userlist preadd tables.
+ * @param $nid
+ * @param $action
+ * @param $user_preadd
+ * @param $message
+ * @param $rid
+ *
+ * @return bool|string
+ */
+function gofast_og_userlist_preadd_ajax_validation($nid, $action, $user_preadd, $message, $rid): bool|string {
+
+  global $user;
+  $node = node_load($nid);
+
+  $requestData = (object)[
+    'message' => $message,
+    'action' => $action,
+    'rid' => $rid,
+    'nid' => $nid,
+    'node' => $node,
+    'user_preadd' => $user_preadd,
+    'user' => $user
+  ];
+
+  $isBusinessAdministrator = gofast_user_is_business_admin($user);
+  $isUserlistAdministrator = gofast_og_is_userlist_administrator($nid, $user);
+  $isMember = gofast_userlist_og_is_member_in_userlist($node, $user_preadd);
+  $isUserAlreadyPending = gofast_og_userlist_user_already_pending($user_preadd, $nid);
+  
+  if (!($isBusinessAdministrator)) {
+    return json_encode([
+      "success" => false,
+      "uid" => $user_preadd->uid,
+      "message" => t('An error occurred while adding the user to the userlist', array(),
+        array('context' => 'gofast:gofast_userlist:preadd:error:toast_message'))
+    ]);
+  }
+
+  if ($isMember){
+    return json_encode([
+      "success" => false,
+      "uid" => $user_preadd->uid,
+      "message" => t('This user is already a member of this userlist',
+        array(), array('context' => 'gofast:gofast_userlist:preadd:error:toast_message')),
+    ]);
+  }
+  
+  if($isUserAlreadyPending){
+    return json_encode([
+      "success" => false,
+      "uid" => $user_preadd->uid,
+      "message" => t('This user is already pending member of this userlist',
+        array(), array('context' => 'gofast:gofast_userlist:preadd:error:toast_message')),
+    ]);
+  }
+
+  try {
+    $isEntitySaved = gofast_og_insert_userlist_preadd_member($requestData);
+    if($isEntitySaved){
+     gofast_og_notify_userlist_administrator($requestData);
+      return json_encode([
+        "success" => true,
+        "uid" => $user_preadd->uid,
+        "message" => t('The user has been successfully pre-added added to this userlist',
+          array(), array('context' => 'gofast:gofast_userlist:preadd:success:toast_message'))
+      ]);
+    }
+    return json_encode([
+      "success" => false,
+      "uid" => $user_preadd->uid,
+      "message" => t('An error occurred while adding the user to the userlist', array(),
+        array('context' => 'gofast:gofast_userlist:preadd:error:toast_message'))
+    ]);
+  }
+  catch (Exception $e) {
+    return json_encode([
+      "success" => false,
+      "uid" => $user_preadd->uid,
+      "exception" => $e->getMessage(),
+      "message" => t('An error occurred while adding the user to the userlist', array(),
+        array('context' => 'gofast:gofast_userlist:preadd:error:toast_message'))
+    ]);
+  }
+  
+}
+
+function gofast_og_is_userlist_administrator($nid, $user): bool {
+  $userlist_administrators = gofast_userlist_query_get_admins($nid, ['generalSearch'])->execute()->fetchAll();
+  
+  //check if $user is in the list of administrators
+  foreach ($userlist_administrators as $userlist_administrator) {
+    if ($userlist_administrator->uid == $user->uid) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Sends a notification to administrators of a userlist.
+* @param $requestData
+ *
+ * @return void
+ * @throws \Exception
+ */
+function gofast_og_notify_userlist_administrator($requestData): void {
+  global $base_url;
+
+  $userlist = node_load($requestData->nid);
+  $userlist_title =  $requestData->node->title;  
+  $siteName = variable_get('site_name');
+  $link = $base_url . "/node/" . $requestData->nid;  
+  $userlist_link = '<a href="' . $link . '" style="color: #337ab7; text-decoration: none;">' . $userlist_title . '</a>';
+  $asking_user = '<img src="' . gofast_get_url_picture_by_id( $requestData->user_preadd->uid ) . '" alt="Information Icon" width="14" /> <a href="' .
+    $base_url . '/user/' .  $requestData->user_preadd->uid . '" style="color: #337ab7; text-decoration: none;">' . gofast_user_display_name( $requestData->user_preadd ) . '</a>'; 
+  $admins = gofast_userlist_query_get_admins($requestData->nid, ['generalSearch'])->execute()->fetchAll();
+
+  foreach ($admins as $admin) {
+
+    $to = [];
+    $to[] = [
+      'method' => 'to',
+      'recpt' => $admin->uid,
+    ];
+
+    $first_name = db_query("SELECT `ldap_user_givenname_value` FROM `field_revision_ldap_user_givenname` WHERE `entity_id` = :uid", [':uid' => $admin->uid])->fetchField();
+    $language = db_query("SELECT `language` FROM `users` WHERE `uid` = :uid", [':uid' => $admin->uid])->fetchField();
+    $l = ['context' => 'gofast:gofast_og', 'langcode' => $language];    
+    $subheader_message = t("An administrator has pre-added a user to a userlist you administer {asking_user} {userlist_link}", ['context' => 'gofast:gofast_userlist:preadd:notify'], $l);    
+    $members_tab_link = '<a href="' . $link . '#gofastUserlistMembers" style="color: #337ab7; font-weight: 600; text-decoration: none;">' . t("members tab", [], $l) . '</a>';    
+    $action_message = t("You are an administrator of this userlist, please go to the {members_tab_link} of the userlist to accept or decline", ['context' => 'gofast:gofast_userlist:preadd:notify'], $l);    
+    $subject = t('User pre-added to a userlist', ["@siteName" => $siteName, "@asking_user" => $asking_user,
+      "@userlist_title"=>$userlist_title], $l);      
+    $title = t('Userlist Join Request', [], $l);    
+    $footer = t('Message sent from ', [], $l) . " " . $siteName;
+
+    $body = theme('gofast_og_notify_pending', [
+      'l' => $l,
+      'type' => 'userlist',
+      'first_name' => $first_name,
+      'site_name' => $siteName,
+      'business_admin_name' => $requestData?->user?->name,
+      'node_title' => $userlist_title,
+      'node_link' => $link,
+      'subheader_message' => $subheader_message,
+      'subheader_message_tags' => [$asking_user, $userlist_link],
+      'users' => [$requestData->user_preadd],
+      'action_message' => $action_message,
+      'action_message_tags' => [$members_tab_link],
+      'message' => $requestData->message,
+      'manage_members_tab_link' => $members_tab_link
+    ]);
+
+    $mail = [
+      'body' => $body,
+      'title' => $title,
+      'subject' => $subject,
+      'footer' => $footer,
+    ];
+    gofast_mail_queue_api_queue_ext($mail, $to, time());
+  }
+}
+
+/**
+ * @param $user_preadd
+ * @param $nid
+ *
+ * @return true
+ */
+function gofast_og_userlist_user_already_pending($user_preadd, $nid): bool {
+  $node = node_load($nid);
+  $userlist_entity = entity_load_single('userlist',
+    $node->field_userlist_ulid[LANGUAGE_NONE][0]['value']);
+  $preadd_members = $userlist_entity->field_userlist_preadd_members[LANGUAGE_NONE];
+  foreach ($preadd_members as $preadd_member) {
+    if ($preadd_member['target_id'] == $user_preadd->uid) {
+      return true;
+    }
+  }
+  return false;
+}
+/**
+ * Insert the user to the userlist pre-add members list
+* @param $requestData
+ *
+ * @return bool
+ */
+function gofast_og_insert_userlist_preadd_member($requestData): bool{
+  $userlist_entity = entity_load_single('userlist', $requestData->node->field_userlist_ulid[LANGUAGE_NONE][0]['value']);
+  
+  if (!empty($requestData->user_preadd->uid)) {
+    $userlist_entity->field_userlist_preadd_members[LANGUAGE_NONE][] = [
+      'target_id' => $requestData->user_preadd->uid,
+    ];
+    entity_save('userlist', $userlist_entity);
+    $isSaved = gofast_og_userlist_user_already_pending($requestData->user_preadd, $requestData->nid);
+    if ($isSaved) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -5644,6 +6221,10 @@ function gofast_og_is_entity_hide_members_tab($node){
        return true;
     }
 
+    if(!gofast_og_is_space($node)){
+      return true;
+    }
+
     if(gofast_og_is_root_space($node)){
         return true;
     }
@@ -5655,6 +6236,25 @@ function gofast_og_is_entity_hide_members_tab($node){
     return false;
 }
 
+function gofast_og_is_entity_hide_home_tab($node){
+  global $user;
+  if($user->uid == 1){
+    return false;
+  }
+  if($node->type == "private_space"){
+    return false;
+  }
+
+  if(!gofast_og_is_space($node)){
+    return true;
+  }
+
+  if(gofast_og_is_root_space($node)){
+    return true;
+  }
+
+  return false;
+}
 
 /**
  *
@@ -5686,7 +6286,8 @@ function gofast_og_membership_request($ajax, $gid, $curr_user = NULL){
  * @param type $og_memberships
  * @return type
  */
-function gofast_og_sendmail_members_groups($og_memberships = array(), $message = null){
+function gofast_og_sendmail_members_groups($og_memberships = array(), $message = null, $non_existing_members = array()){
+
 
   if(variable_get('reset_membership_processing', '0')){
     return;
@@ -5728,25 +6329,11 @@ function gofast_og_sendmail_members_groups($og_memberships = array(), $message =
   }
 
   $groups = node_load_multiple($gids);
-  if(sizeof($members_ulid) > 0){
-    foreach($members_ulid as $ulid){
-      $userlist_members = gofast_userlist_get_members($ulid);
-
-      foreach($groups as $gid => $node_group){
-        foreach($userlist_members as $uid => $theme_user){
-          //Check if this User is member in current space
-          $account = user_load($uid);
-          $check = gofast_og_check_spaces_user($og_memberships->entity_type, $account, $gid);
-          if($check){
-            unset($userlist_members[$uid]);
-          }
-        }
-      }
-      $members = array_merge($members, user_load_multiple(array_keys($userlist_members)));
-    }
+  if(!empty($non_existing_members)){
+    $members = array_merge($members, user_load_multiple($non_existing_members));
   }
   $members = array_merge($members, user_load_multiple($members_uid));
-
+  
   //Send notification to addedd user
   foreach($members as $member){
     gofast_og_sendmail_new_membership_user($member, $groups, $message);
@@ -5815,30 +6402,33 @@ function gofast_og_sendmail_new_membership_user($member, $groups, $message){
   $l = array('langcode' => $member->language, 'context' => 'gofast_og');
   $subject = t("You have been added in new spaces", array(), $l); // subject of the message (that is seen before openning the message)
   $title = t("You have been added in new spaces", array(), $l);
-  $footer = t('Message sent from ', array(), $l).$site_name;
-
+  $footer = $site_name;
   $recpt = array();
   $recpt[] = array('recpt' => $member->mail, 'method' => 'to');
-
 
   $mess = NULL;
   if($message !== NULL ){
     $mess = $message;
   }
 
-  $grps .= "<ul>";
-  foreach ($groups as $group) {
-    $item = gofast_cmis_item_get($group->field_folder_reference[LANGUAGE_NONE][0]['value'], TRUE);
-    $path = str_replace('/Sites/', '', $item->properties['cmis:path']);
-    $grps .= t("<li> !space (!path) </li>", array('!space' => $group->title, '!path' => $path), array('context' => 'gofast_og'));
-  }
-  $grps .= "</ul>";
+  $grps = [];
 
-  $body = theme('gofast_og_mail_add_user_space', array(
+  foreach ($groups as $key => $group) {
+    $item = gofast_cmis_item_get($group->field_folder_reference[LANGUAGE_NONE][0]['value'], TRUE);
+    $grps[$key] = new stdClass();
+    $grps[$key]->icon = gofast_mail_queue_fa_png(gofast_node_get_icon($group));
+    $path = str_replace('/Sites/', '', $item->properties['cmis:path']);
+    $grps[$key]->path = $path;
+    $grps[$key]->name = $group->title;
+    $grps[$key]->nid = $group->nid;
+  }
+
+  $body = theme('gofast-notifications-mail-add-remove-member', array(
     'site_name' => $site_name,
     'grps' => $grps,
     'subject' => $subject,
     'mess' => $mess,
+    'type' => "add",
     'l' => $l,
   ));
 
@@ -5873,6 +6463,7 @@ function gofast_og_sendmail_delete_membership_user($member, $groups, $message){
     $mess = $message;
   }
 
+  $grps = "";
   $grps .= "<ul>";
   foreach ($groups as $group) {
     $item = gofast_cmis_item_get($group->field_folder_reference[LANGUAGE_NONE][0]['value'], TRUE);
@@ -6016,38 +6607,46 @@ function gofast_og_sendmail_user_added_group($og_membership){
  * Function that return all the uid of administrator members of the given group
  */
 function get_all_admin_group($gid) {
-      $uids = array();
-      $role_admin = array(GOFAST_OG_ROLE_ADMIN);
+  $uids = array();
+  $role_admin = array(GOFAST_OG_ROLE_ADMIN);
 
-      $query = db_select('og_users_roles', 'ogur');
-      $query->innerJoin('og_role', 'ogr', 'ogur.rid = ogr.rid');
+  $query = db_select('og_users_roles', 'ogur');
+  $query->innerJoin('og_role', 'ogr', 'ogur.rid = ogr.rid');
 
-      $rids = $query
-          ->fields('ogur', array('uid'))
-          ->condition('ogur.gid', $gid, '=')
-          ->condition('ogur.uid', 1, '>')
-          ->condition('ogr.name', $role_admin, 'IN')
-          ->execute();
+  $rids = $query
+      ->fields('ogur', array('uid'))
+      ->condition('ogur.gid', $gid, '=')
+      ->condition('ogur.uid', 1, '>')
+      ->condition('ogr.name', $role_admin, 'IN')
+      ->execute();
 
-      foreach ($rids as $item) {
-        $uids[] = $item->uid;
-      }
+  foreach ($rids as $item) {
+    //before to insert id into final result, check if user membership really exists or not
+    $membership = og_get_membership('node', $gid, 'user', $item->uid);     
+    if($membership->id !== null){      
+      $uids[] = $item->uid;
+    }
+  }
 
-      //retreive admin via userlist
-      $query2 = db_select('gofast_og_userlists_roles', 'ogur');
-      $query2->innerJoin('og_role', 'ogr', 'ogur.rid = ogr.rid');
+  //retreive admin via userlist
+  $query2 = db_select('gofast_og_userlists_roles', 'ogur');
+  $query2->innerJoin('og_role', 'ogr', 'ogur.rid = ogr.rid');
 
-      $userlist_rids = $query2
-          ->fields('ogur', array('ulid'))
-          ->condition('ogur.gid', $gid, '=')
-          ->condition('ogr.name', $role_admin, 'IN')
-          ->execute();
+  $userlist_rids = $query2
+      ->fields('ogur', array('ulid'))
+      ->condition('ogur.gid', $gid, '=')
+      ->condition('ogr.name', $role_admin, 'IN')
+      ->execute();
 
-      foreach ($userlist_rids as $item) {
-        $uids = array_merge($uids, array_keys(gofast_userlist_get_members($item->ulid)));
-      }
-
-      return array_unique($uids);
+  foreach ($userlist_rids as $item) {
+    //before to get userlist members, check if userlist membership really exists or not
+    $membership = og_get_membership('node', $gid, 'userlist', $item->ulid);     
+    if($membership->id !== null){
+         $uids = array_merge($uids, array_keys(gofast_userlist_get_members($item->ulid)));
+    }
+  }
+  
+  return array_unique($uids);
  }
 
 /*
@@ -6229,7 +6828,7 @@ function gofast_og_reset_membership($node = NULL){
   //Retrieve saved spaces configuration
   $space_defaults = gofast_admin_get_space_defaults();
 
-  $public_contributions = $spaces_defaults['public_contrib'];
+  $public_contributions = $space_defaults['public_contrib'];
   if(gofast_og_is_root_space($node) || $node->type == 'public'){
 
     $users = array_diff(gofast_user_load_all(FALSE), array(0,1));
@@ -6373,7 +6972,7 @@ function  gofast_og_check_spaces_user( $entity_type, $account, $space_id ){
     }elseif($entity_type == 'userlist'){
 
       // Check if members is still member of the space
-      $space_members = gofast_og_get_members(node_load($space_id));
+      $space_members = array_values(gofast_og_get_members_userlist_included(node_load($space_id)));
       if(in_array($account->uid, $space_members)){
         $check = TRUE;
       }
@@ -6402,7 +7001,7 @@ function gofast_og_modal_add_member_submit($form, &$form_state) {
   foreach ($form_state['values']['roles'] as $key => $role) {
     if (is_string($role)){
       $role_name = $role;
-      
+
     } else if(is_numeric($role) && $role != 0){
       $role_id = $role;
       $role_name = isset($role_id) ? og_role_load($role_id)->name : FALSE;
@@ -6446,8 +7045,8 @@ function gofast_og_modal_add_member_submit($form, &$form_state) {
                $ro_role_rid = array_key_first(gofast_og_space_admin_get_node_role('node', $nid, $default_role_name));
                gofast_og_space_admin_add_membership($nid, $account->uid, $ro_role_rid);
              }else{
-               gofast_og_space_admin_add_membership($nid, $account->uid, $role_id ?: $default_role_rid);
-             }             
+               gofast_og_space_admin_add_membership($nid, $account->uid, $default_role_rid);
+             }
            }
           }
 
@@ -6488,10 +7087,13 @@ function gofast_og_modal_add_member_submit($form, &$form_state) {
         // --------------------  UserList Traitment --------------------//
 
         $userlist = entity_load_single('userlist', $user_userlist->ulvalue);
-
+        $ulist_members = gofast_userlist_get_members($userlist->ulid); 
+        $current_space_members = array_values(gofast_og_get_members_userlist_included(node_load($space_id)));
+        $non_existing_members = array_diff(array_keys($ulist_members), $current_space_members);
+  
         $default_role_name = GOFAST_OG_ROLE_READ_ONLY;
         $default_role_rid = array_key_first(gofast_og_space_admin_get_node_role('node', $space_id, $default_role_name));
-        
+
         //before to add or edit the membership for this space and this userlist,
         $inherited = gofast_og_get_inherited_spaces($space_id, true);
 
@@ -6522,7 +7124,7 @@ function gofast_og_modal_add_member_submit($form, &$form_state) {
           //Log into audit
           gofast_userlist_audit_membership($node, $membership_data);
 
-          gofast_og_sendmail_members_groups($membership, $message);
+          gofast_og_sendmail_members_groups($membership, $message, $non_existing_members);
         } else {
           gofast_userlist_og_update_membership($space_id, $userlist->ulid, $role_name ?: $default_role_name);
         }
@@ -6724,7 +7326,7 @@ function gofast_og_delete_space_process($gid, $action = NULL, $api = FALSE){
 
       foreach($content as $nid){
         $_GET['nid'] = $nid;
-        gofast_ajax_node_unpublish(null, null, FALSE, TRUE);
+        gofast_ajax_node_unpublish(null, null, FALSE, TRUE, TRUE);
       }
        if($multiple == TRUE){
         if($api === FALSE){
@@ -6894,7 +7496,7 @@ function gofast_api_get_space_space($params){
   $members = gofast_og_get_members($space,'active');
   $result_members = array();
   foreach($members as $member){
-    $role = gofast_og_get_user_roles($gid, $member);
+    $role = (array) gofast_og_get_user_roles($gid, $member);
     $result_members[] = array('uid'=> $member,
     'role_id'=> key($role),
     'role_name' => array_shift(array_values($role))
@@ -6904,7 +7506,7 @@ function gofast_api_get_space_space($params){
   $userlist = array();
   $userlists_ulid = gofast_userlist_og_get_group_members_properties($space, array(),null, 'node', array('userlist'));
     foreach($userlists_ulid['userlist'] as $key => $ulid ){
-    $role_userlist = gofast_userlist_og_get_userlist_roles('node',$space->nid,$ulid,FALSE, TRUE);
+    $role_userlist = (array) gofast_userlist_og_get_userlist_roles('node',$space->nid,$ulid,FALSE, TRUE);
     $userlist[] = array('ulid'=> $ulid,
     'role_id'=> key($role_userlist),
     'role_name' => array_shift(array_values($role_userlist))
@@ -7222,7 +7824,7 @@ function gofast_api_put_space_member($params)
       $node = node_load($ul_node_id);
       $ulid = $node->field_userlist_ulid[LANGUAGE_NONE][0]['value'];
         if ($node !== false && $ulid !== null) {
-                if (!in_array($ulid, $members["userlist"], true)) {
+                if (!$members["userlist"] || !in_array($ulid, $members["userlist"], true)) {
                   gofast_userlist_og_add_membership($gid, $ulid, $rid);
                   $output['type'] = 'userlist';
                   $output['status'] = 'OK';
@@ -7350,7 +7952,7 @@ function gofast_api_patch_space_member($params){
 
       // deleting role from current user
       foreach (array_keys($og_roles) as $old_rid) {
-        if (!in_array($old_rid, $new_rid)) {
+        if (!in_array($old_rid, (array)$new_rid)) {
           og_role_revoke("node", $gid, $id, $old_rid);
         }
       }
@@ -7534,6 +8136,7 @@ function gofast_og_get_user_final_roles_for_space($group_type, $gid, $uid = NULL
       }
     }
 
+    $rids = (array) $rids;
     //Get the higher roles
     if(($key = array_search('administrator member', $rids) )  !== FALSE){
       $final_rids = array($key => $rids[$key]);
@@ -7686,14 +8289,14 @@ function gofast_og_get_users_roles($group_type, $gid, $uids = array()){
 /**
  * @return importance is 0 for admin, 1 for contributor, 2 for readonly
  */
-function gofast_mapOGRidToImportance(int $rid) : int {
-  if (in_array($rid, [13, 16, 17, 20, 23, 26, 28])) {
+function gofast_mapOGRidToImportance($rid) {
+  if (in_array($rid, ['administrator member', 'group administrator'])) {
     return 0;
   }
-  if (in_array($rid, [1, 3, 5, 7, 9, 12, 14, 18, 22, 25, 27, 29])) {
+  if (in_array($rid, ['group contributor', 'member'])) {
     return 1;
   }
-  if (in_array($rid, [2, 4, 6, 8, 10, 11, 15, 19, 21, 24, 30])) {
+  if (in_array($rid, ['read only member', 'non-member'])) {
     return 2;
   }
   return 2;
@@ -7715,21 +8318,23 @@ function get_gofast_og_space_pending_members_actions($nid, $uid) {
   return $array_actions;
 }
 
-function get_gofast_og_space_members_actions($nid, $uid, $roles, $type = "user") {
+function get_gofast_og_space_members_actions($nid, $uid, $roles, $user_role, $type = "user") {
   $string_type = $type == "user" ? "people" : $type;
+  $user_role = (array) $user_role;
   foreach ($roles as $rid => $role) {
     $array_actions[]['themed'] = theme('gofast_link_generic', array(
       'icon_class' => "fas fa-cog",
       'href' => "/spaces/nojs/node/" . $nid . "/admin/$string_type/instant-edit-membership/" . $uid . "/" . $rid,
       'link_class' => 'ctools-use-modal',
-      'text' => t('Change to @role', array("@role" => t($role)), array('context' => 'gofast:gofast_og'))
+      'text' => t('Change to @role', array("@role" => t($role)), array('context' => 'gofast:gofast_og')),
+      'disabled' => (in_array($role, (array) array_values($user_role)) && !empty($user_role)) ? true : "",
     ));
   }
   $array_actions[]['themed'] = theme('gofast_link_generic', array(
     'icon_class' => "fas fa-times",
     'href' => "/spaces/nojs/node/" . $nid . "/admin/$string_type/delete-membership/" . $uid,
     'link_class' => 'ctools-use-modal',
-    'text' => t('Remove membership', array("@role" => t($role)), array('context' => 'gofast:gofast_og'))
+    'text' => t('Remove from the space', array("@role" => t($role)), array('context' => 'gofast:gofast_og'))
   ));
   return $array_actions;
 }
@@ -7741,16 +8346,19 @@ function gofast_og_space_members_async($nid){
 
   $members = [];
   $roles_query = og_roles('node', gofast_get_node_type($nid), $nid, FALSE, FALSE);
+  $uids_user_can_access = gofast_og_get_all_uids_user_can_access($user) ?: [];
+
   foreach($usersMembers as $data){
     if($data->etid > 1 || $data->entity_type == 'userlist' ){
-         
+
       //check if we are admin of current space
       $is_admin = in_array($user->uid, $all_admins_space);
 
       $user_contextual_actions = [];
 
       if ($is_admin) {
-        $array_actions = $data->state == 2 ? get_gofast_og_space_pending_members_actions($nid, $data->id, $data->entity_type) : get_gofast_og_space_members_actions($nid, $data->id, $roles_query, $data->entity_type);
+        $user_role = isset($data->rid) ? og_get_user_roles_name($data->rid) : "";
+        $array_actions = $data->state == 2 ? get_gofast_og_space_pending_members_actions($nid, $data->id, $data->entity_type) : get_gofast_og_space_members_actions($nid, $data->id, $roles_query, $user_role, $data->entity_type);
         $user_contextual_actions[] = array(
           'id' => 'account-dropdown',
           'title' => 'Contextual actions',
@@ -7760,48 +8368,68 @@ function gofast_og_space_members_async($nid){
         );
       }
 
+      $rname = $data->state == 2 ? '0' : $roles_query[$data->rid];
       $member = [
         'uid' => $data->etid,
         'gname' => $data->gname,
         'sname' => $data->sname,
         'rid' => $data->rid,
-        'rname' =>  $data->state == 2 ? '0' : $roles_query[$data->rid] ,
+        'rname' =>  $rname,
         'created' => $data->created,
         'type' => $data->entity_type,
         'membership_id' => $data->id,
         'membership_state' => $data->state,
         'membership_can_manage' => $is_admin,
-        'importance' => gofast_mapOGRidToImportance((int) $data->rid),
-        'actions' => empty($user_contextual_actions) ? "-" : theme('contextual_links', array('buttons' => $user_contextual_actions))
+        'importance' => gofast_mapOGRidToImportance($rname),
       ];
+      if ($is_admin) {
+        $member['actions'] = theme('contextual_links', array('buttons' => $user_contextual_actions));
+      } else {
+        $member['actions'] = "";
+      }
 
       if($data->entity_type == 'user'){
         $additional_data_query = db_query("SELECT
           `u`.`uid` AS `uid`,
           GROUP_CONCAT(`ur`.`rid` SEPARATOR ',') AS `role_id`,
-          `frluo`.`ldap_user_o_value` AS `entity`
+          `frluo`.`ldap_user_o_value` AS `entity`,
+          `usn`.`ldap_user_sn_value` AS `surname`
           FROM `users` `u`
           LEFT JOIN `users_roles` `ur` ON
               `u`.`uid` = `ur`.`uid`
           LEFT JOIN `field_revision_ldap_user_o` `frluo` ON
               `frluo`.`entity_id` = `u`.`uid`
+          LEFT JOIN `field_data_ldap_user_sn` `usn` ON
+              `usn`.`entity_id` = `u`.`uid`
           WHERE
               `u`.`uid` = {$data->etid}
-          GROUP BY
-            `u`.`uid`");
+          ".($uids_user_can_access == false ? "" : "AND `u`.`uid` IN (:uids_user_can_access)")."
+          GROUP BY `u`.`uid`
+          ORDER BY `usn`.`ldap_user_sn_value`",
+        array(':uids_user_can_access' => $uids_user_can_access));
         $additional_data = $additional_data_query->fetchAssoc();
-
-        $member['image'] = file_load(gofast_getUserImageById($data->etid))->filename;
+        $users_infos = gofast_get_properties_user_by_uid_or_u_name($data->etid, NULL, ["name", "status", "picture"]);
+        $member['image'] =  theme("user_picture", array('account' => $users_infos, 'style' => 'thumbnail', 'popup' => FALSE));
         $member['href'] = '/user/'. $data->etid ;
-        $member['status'] = $data->status;
+
+        if($data->field_left_value == "0" && $data->status == "0"){
+          $member['status'] = "0";
+        }else if(($data->field_left_value == "1" || empty($data->field_left_value)) && $data->status == "0"){
+          $member['status'] = "2";
+        } else {
+          $member['status'] = "1";
+
+        }
         if ($additional_data['entity']) {
           $member['entity'] = $additional_data['entity'];
         }
         $member['profile'] = gofast_getUserRoleNameByImplodedRoleIds(explode(",", $additional_data['role_id']));
-      } else {
+      } elseif($data->entity_type == "userlist") {
+        $userlist = entity_load_single("userlist", $data->etid);
         $member['gname'] = '';
-        $member['href'] = '/userlist/'. $data->etid ;
-
+        $member['href'] = "/node/$userlist->nid";
+      } else {
+        continue;
       }
 
       $members[] = $member;
@@ -7809,9 +8437,18 @@ function gofast_og_space_members_async($nid){
   }
 
   usort($members, function($a, $b) {
-    return $a['importance'] <=> $b['importance'];
+    $importanceComparison = $a['importance'] <=> $b['importance'];
+
+    if ($importanceComparison !== 0) {
+      // If 'importance' is not the same, return the result of comparison by 'importance'
+      return $importanceComparison;
+    } else {
+      // If 'importance' is the same, compare by 'sname'
+      return $a['sname'] <=> $b['sname'];
+    }
   });
-  print json_encode($members);
+
+  print json_encode(["data" => $members, "props" => ["has_actions" => $is_admin]]);
 }
 
 function gofast_og_home_async($nid){
@@ -7828,13 +8465,12 @@ function gofast_og_home_async($nid){
         'node' => $article_node,
         'only_article' => TRUE
       ]);
-      $node_body = theme('gofast_og_home', array('gid' => $nid, 'content' => $article_node_content, 'space_name' => $node->title, 'custom_logo' => $node->field_logo_uri[LANGUAGE_NONE][0]['value'] ?? NULL));
-          
+      $node_body = theme('gofast_og_home', array('gid' => $nid, 'content' => $article_node_content, 'description' => $node->field_description[LANGUAGE_NONE][0]['value'], 'space_name' => $node->title, 'custom_logo' => $node->field_logo_uri[LANGUAGE_NONE][0]['value'] ?? NULL));
     } else {
 
 
 
-      $article_node_content = '<div class="gofastArticleContent p-4 bg-secondary rounded shadow-sm" style="">'.  
+      $article_node_content = '<div class="gofastArticleContent p-4 bg-secondary rounded shadow-sm" style="">'.
                                  t('No home page found for this space', array(), array('context' => 'gofast'))
                               .'</div>';
       $node_body = theme('gofast_og_home', array('gid' => $nid, 'content' => $article_node_content, 'space_name' => $node->title, 'custom_logo' => $node->field_logo_uri[LANGUAGE_NONE][0]['value'] ?? NULL));
@@ -7890,11 +8526,48 @@ function gofast_og_change_space_type($space, $new_type, $new_parent_id){
     //print_r("<pre>");print_r($cmis_current_space);
 }
 
-function gofast_og_get_parents_gids($nid){
+/**
+ * Gets all the users that have a access to the node
+ */
+function gofast_og_get_visible_node_users($node){
+  $gids = [$node->nid]; 
+  
+  if(!gofast_og_is_space($node)){
+    $gids = gofast_og_get_parents_gids(nid:$node->nid, return:TRUE);
+    $gids += array_map(
+      fn ($mirrored_space_parent_result) => $mirrored_space_parent_result['cmis_item']->properties['gofast:nid'],
+      iterator_to_array(gofast_cmis_node_get_mirrored_parent_spaces($node)),
+    );
+    $gids = array_unique($gids);
+  }
+
+  $members = []; 
+  foreach($gids as $gid){
+    $users = gofast_ac_get_user_from_space($gid, TRUE);
+    $users = array_filter($users, function ($user) {
+      // user key "value" contains uid
+      $account = user_load($user['value']);
+      return gofast_user_view_access($account);
+    });
+
+    // asigning user to array using their uid as key, effectively making values unique users
+    foreach($users as $user) {
+      $members[$user['value']] = $user;
+    }
+  }
+
+  print json_encode(array_values($members));
+  exit;
+}
+
+function gofast_og_get_parents_gids($nid, $return = FALSE){
 
   $node = node_load($nid);
   $parents = gofast_og_get_parent($node);
 
+  if($return){
+    return $parents;
+  }
   print json_encode($parents);
   exit;
 }
@@ -7962,6 +8635,16 @@ function gofast_getUserMembersByNodeId($nid, $filtres = []){
   // Get user State
   $query->leftJoin('users', 'us', 'us.uid = og.etid');
   $query->addField('us', 'status');
+  
+  // Get user field_left
+  $query->leftJoin('field_data_field_left','fl','fl.entity_id = og.etid');
+  $query->addField('fl','field_left_value');
+
+  $query->leftJoin('og_role','rl','rl.rid = ur.rid');
+  $query->addField('rl', 'name', 'rname');
+  // Filters
+  $query->leftJoin('field_data_ldap_user_o', 'frluo', 'frluo.entity_id = og.etid');
+  $query->addField('frluo', 'ldap_user_o_value', 'entity');
 
   // Userlist members
   $userlist = db_select('og_membership', 'og');
@@ -7973,17 +8656,21 @@ function gofast_getUserMembersByNodeId($nid, $filtres = []){
   $userlist->leftJoin('gofast_userlists', 'gul', 'gul.ulid = og.etid');
   $userlist->addField('gul', 'name', 'sname');
   $userlist->addField('gul', 'nid', 'gname');
+  $userlist->condition("gul.ulid", NULL, "IS NOT");
 
   // Get userlist role
   $userlist->leftJoin('gofast_og_userlists_roles', 'ulr', 'ulr.ulid = og.etid AND ulr.gid = og.gid');
   $userlist->addField('ulr', 'rid');
 
-
-  // Get userlist state
+  // Get userlist state / add placeholder columlns to match amount of columns in user query
   $userlist->addExpression('1', 'extra');
+  $userlist->addExpression('1', 'extra');
+  $userlist->addExpression('1', 'extra');
+  $userlist->addExpression('1', 'extra');
+  
   // Filters
   if(isset($filtres['rid'])){
-    
+
     if($filtres['rid'] == "0"){
       // Filter by pending users/userlists
       $query->condition('og.state', 2, '=');
@@ -7993,12 +8680,52 @@ function gofast_getUserMembersByNodeId($nid, $filtres = []){
       $userlist->condition('ulr.rid', $filtres['rid']);
     }
   }
+  if(isset($filtres['profile'])){
+    $query->leftJoin('users_roles', 'uur', 'uur.uid = us.uid');
+    $query->addField('uur', 'rid', 'profile');
+    $query->condition('uur.rid', $filtres['profile']);
+    $userlist->condition('1', '0');
+    $userlist->addExpression('1', 'extra');
+  }
   if(isset($filtres['type']) ){
     $query->condition('og.entity_type', $filtres['type']);
     $userlist->condition('og.entity_type', $filtres['type']);
   }
   if(isset($filtres['status'])){
-    $query->condition('us.status', $filtres['status']);
+    //check with status and field_left if the user is blocked or disabled or active
+
+    switch ($filtres['status']){
+      case "0":
+        $query->condition('fl.field_left_value',"0");
+        $query->condition('us.status', "0");
+        break;
+        case "1":
+          $query->condition('us.status', "1");
+          break;
+      case "2":
+        $query->condition('fl.field_left_value',"1");
+        $query->condition('us.status', "0");
+        break;
+    }
+  }
+  if(isset($filtres['startCreated']) && isset($filtres['endCreated'])){
+    if ($filtres['startCreated'] == $filtres['endCreated']) {
+        (int) $filtres['endCreated'] += 86400;
+    }
+    $query->condition('og.created', array($filtres['startCreated'], $filtres['endCreated']), 'BETWEEN');
+    $userlist->condition('og.created', array($filtres['startCreated'], $filtres['endCreated']), 'BETWEEN');
+  }
+  if(isset($filtres['gname'])){
+    $query->condition('fugn.ldap_user_givenname_value', '%' . $filtres['gname'] . '%', 'LIKE');
+    $userlist->condition('gul.nid', '%'.$filtres['gname'].'%', 'LIKE');
+  }
+  if(isset($filtres['sname'])){
+    $query->condition('fusn.ldap_user_sn_value', '%' . $filtres['sname'] . '%', 'LIKE');
+    $userlist->condition('gul.name', '%'.$filtres['sname'].'%', 'LIKE');
+  }
+  if(isset($filtres['entity'])){
+    $query->condition('frluo.ldap_user_o_value','%'. $filtres['entity']. '%', 'LIKE');
+    $userlist->condition('1', '0');
   }
   if(isset($filtres['generalSearch'])){
     $or = db_or();
@@ -8045,48 +8772,92 @@ function gofast_og_get_space_popup($nid=0) {
 function gofast_og_form_group_node_form_alter(&$form, &$form_state, $form_id){
 
   $form['#attributes']['class'][] = 'GofastForm__Group';
-
+  gofast_add_cancel_button_to_form($form);
 }
 function gofast_og_form_public_node_form_alter(&$form, &$form_state, $form_id){
 
   $form['#attributes']['class'][] = 'GofastForm__Public';
-
-}
+  gofast_add_cancel_button_to_form($form);
+ }
 function gofast_og_form_organisation_node_form_alter(&$form, &$form_state, $form_id){
 
   $form['#attributes']['class'][] = 'GofastForm__Organisation';
+  gofast_add_cancel_button_to_form($form);
 
 }
 function gofast_og_form_extranet_node_form_alter(&$form, &$form_state, $form_id){
 
   $form['#title'] = t('Create Space Extranet', array(), array('context' => 'gofast:gofast_og'));
   $form['#attributes']['class'][] = 'GofastForm__Extranet';
-
+  gofast_add_cancel_button_to_form($form);
 }
 
-function gofast_og_contact_admins($node){
+/**
+ * Contact admin callback
+ * @param $node_ids
+ *
+ * @return string
+ */
+function gofast_og_contact_admins($node_ids): string {
+  $is_single_node  = !str_contains($node_ids, "-");
+  $spaces = array();
+  if(!$is_single_node){
+    $nids = explode("-", $node_ids);
+    $nids = array_filter($nids);
+    foreach($nids as $nid){
+      $spaces[] = node_load($nid);
+    }
+  }
+  else{
+    $spaces[] = node_load($node_ids);
+  }
+
   $form_id = 'gofast_og_contactform_admins_form';
-  $form = drupal_get_form($form_id, $node->nid);
-  $return = drupal_render($form);
-  return $return;
+
+  $form = drupal_get_form($form_id, $spaces);
+  $form['#prefix'] = '<div style="margin: 50px;">';
+  $form['#suffix'] = '</div>';
+
+  return drupal_render($form);
+
 }
 
-function gofast_og_modal_og_contact_admins($js, $node){
+/**
+ * Contact admin form container modal callback.
+ *
+ * @param $js
+ * @param $node_ids : string of node IDs (spaces) separated by "-"
+ *
+ * @return void
+ */
+function gofast_og_modal_og_contact_admins($js, $node_ids): void {
+
+  $isSingleNode  = !str_contains($node_ids, "-");
+  $spaces = array();
+  if(!$isSingleNode){
+    $nids = gofast_og_get_bulk_nids_in_string($node_ids, "-");
+    foreach($nids as $nid){
+      $spaces[] = node_load($nid);
+    }
+  }
+  else{
+    $spaces[] = node_load($node_ids);
+}
+
   $form_id = 'gofast_og_contactform_admins_form';
   if (!$js) {
-    drupal_goto("og/$node->nid/contact/admins");
+    drupal_goto("og/$node_ids/contact/admins");
   }
   ctools_include('modal');
   ctools_include('ajax');
 
-
   $form_state = array(
     'build_info' => array(
       'args' => array(
-        $node->nid,
+        'spaces' => $spaces,
       ),
     ),
-    'title' => t('Contact administrators', array(), array('context' => 'gofast')),
+    'title' => t('Contact administrators', array(), array('context' => 'gofast:gofast_og')),
     'ajax' => TRUE,
     're_render' => FALSE,
     'no_redirect' => TRUE,
@@ -8109,56 +8880,38 @@ function gofast_og_modal_og_contact_admins($js, $node){
 /**
  * Implements hook_form_FORM_ID_alter()
  *
- * @param type $form
- * @param type $form_state
- * @param type $nid    nid can be nid of space or document
+ * @param $form
+ * @param $form_state
+ * @param array $spaces : array of space nids
+ *
+ * @throws \Exception
  */
-function gofast_og_contactform_admins_form($form, &$form_state, $nid) {
+function gofast_og_contactform_admins_form($form, &$form_state, array $spaces): array {
 
-  $node = node_load($nid);
-  if(!isset($node->nid)){
-    return;
-  }
+  $warning = t('You are about to send a message to the administrators of the following space(s):', array(), array('context' => 'gofast:gofast_og::contact_admins'));
+	
+	$form['admins_markup'] = array(
+		'#markup' => theme('gofast_og_contactadmins_list_admins', array('warning' => $warning, 'spaces' => $spaces)),
+	);
+	
+  $spaces = array_map(function($space){
+    return $space->nid;
+  }, $spaces);
 
-  $is_space = array_key_exists($node->type, gofast_og_node_types());
-  $is_space_content = !$is_space && in_array($node->type, gofast_og_content_bundles());
-
-
-  $admin_html = "";
-  if($is_space){
-    $admins = get_all_admin_group($nid);
-    if(count($admins) > 0){
-      foreach($admins as $uid){
-        $admin_user = user_load($uid);
-        $admin_html .= $admin_user->ldap_user_givenname[LANGUAGE_NONE][0]["value"]. " " . $admin_user->ldap_user_sn[LANGUAGE_NONE][0]["value"]." , ";
-      }
-    }
-  }elseif($is_space_content){
-    //TODO
-  }
-
-
-  $form['admins_markup'] = array(
-    '#type' => 'markup',
-    '#title' => t('Administrators', array(), array('context' => 'gofast')),
-    '#markup' => $admin_html,
-
-  );
-
-  $form['nid'] = array(
+  $form['spaces'] = array(
     '#type' => 'hidden',
-    '#value' => $nid
+    '#value' => json_encode($spaces)
   );
 
   $form['message'] = array(
-    '#title' => t('Message', array(), array('context' => 'gofast')),
+    '#title' => '<h4>'.t('Message',  array(), array('context' => 'gofast:gofast_og::contact_admins')).'</h4>',
     '#type' => 'textarea',
     '#size' => 62,
   );
 
   $form['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Contact administrators', array(), array('context' => 'gofast')),
+    '#value' => t('Contact administrators',  array(), array('context' => 'gofast:gofast_og')),
     '#attributes' => array('class' => array('btn', 'btn-success', 'btn-sm')),
   );
 
@@ -8166,19 +8919,36 @@ function gofast_og_contactform_admins_form($form, &$form_state, $nid) {
 }
 
 /**
- *
- * @param type $form
- * @param type $form_state
+ * Validate handler for the contact admins form.
+ * @param array $form
+ * @param array $form_state
  */
-function gofast_og_contactform_admins_form_validate($form, &$form_state) {
-  //TODO validate fields
+function gofast_og_contactform_admins_form_validate($form, &$form_state): void {
+  $space_nids = json_decode($form_state["values"]["spaces"]);
+  foreach ($space_nids as $nid) {
+    $admins = get_all_admin_group($nid);
+    if(count($admins) == 0){
+      $node_title = db_query("SELECT title FROM node WHERE nid = :nid", array(':nid' => $nid))->fetchField();
+      form_set_error('message', t('No administrators found for the space @title', array('@title' => $node_title),
+        array('context' => 'gofast:gofast_og::contact_admins')));
+    }
+  }
+
+  if (empty($form_state['values']['message'])) {
+    form_set_error('message', t('Please enter a message', array(), array('context' => 'gofast:gofast_og::contact_admins')));
+  }
 
 }
 
-function gofast_og_contactform_admins_form_submit($form,&$form_state){
+/**
+ * Submit handler for the contact admins form.
+ * @throws \Exception
+ */
+function gofast_og_contactform_admins_form_submit($form,&$form_state): void {
 
+  $space_nids = json_decode($form_state["values"]["spaces"]);
 
-  $nid = $form_state["values"]["nid"];
+  foreach ($space_nids as $nid) {
   $node = node_load($nid);
   if(!isset($node->nid)){
     return;
@@ -8187,29 +8957,7 @@ function gofast_og_contactform_admins_form_submit($form,&$form_state){
   $is_space = array_key_exists($node->type, gofast_og_node_types());
   $is_space_content = !$is_space && in_array($node->type, gofast_og_content_bundles());
 
-
-  $recpt = array();
-
-  if($is_space){
-    $admins = get_all_admin_group($nid);
-    if(count($admins) > 0){
-      foreach($admins as $uid){
-        $admin = user_load($uid);
-        $recpt[] = array('recpt' => $admin->mail, 'method' => 'to');
-      }
-    }
-  }elseif($is_space_content){
-    //TODO
-  }
-
-
   $site_name = variable_get('site_name', 'GoFast');
-  $l = array('langcode' => $member->language, 'context' => 'gofast_og');
-  $subject = t("A @role sent you a message", array("@role" => t(strtolower(GOFAST_ROLE_BUSINESS_ADMIN_VALUE), array(), array("context" => "gofast"))), $l); // subject of the message (that is seen before openning the message)
-  $title = t("A @role sent you a message", array("@role" => t(strtolower(GOFAST_ROLE_BUSINESS_ADMIN_VALUE), array(), array("context" => "gofast"))), $l);
-  $footer = t('Message sent from ', array(), $l).$site_name;
-
-
   $message = $form_state["values"]["message"];
 
   global $user;
@@ -8217,29 +8965,43 @@ function gofast_og_contactform_admins_form_submit($form,&$form_state){
 
   $name = gofast_user_display_name($user);
   $avatar = $user->picture->uri == null ? $base_url . '/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png' : file_create_url($user->picture->uri);
-  $author .=  "<a href='".$base_url."/user/".$user->uid."' ><img typeof='foaf:Image' src='" . $avatar . "' width='24' height='24' alt='user picture'>  " . $name ."</a>";
+    $author = "<a href='" . $base_url . "/user/" . $user->uid . "' ><img typeof='foaf:Image' src='" . $avatar . "' width='24' height='24' alt='user picture'>  " . $name . "</a>";
 
+  if($is_space){
+    $admins = get_all_admin_group($nid);
+    if(count($admins) > 0){
+      foreach($admins as $uid){
+        $admin = user_load($uid);
+        $recpt = array(array('recpt' => $admin->mail, 'method' => 'to'));
+        $l = array('langcode' => $admin->language, 'context' => 'gofast_og');
 
-  $body = theme('gofast_og_notify_admins_contactform', array(
-    'site_name' => $site_name,
-    'author' => $author,
-    'node_link' => $base_url . "/node/".$node->nid,
-    'node_title' => $node->title,
-    'subject' => $subject,
-    'message' => $message,
-    'l' => $l,
-  ));
+          $subject = t('A user "@role" sent you a message', array("@role" => t(GOFAST_ROLE_BUSINESS_ADMIN_VALUE, array(), array("context" => "gofast"))), $l); // subject of the message (that is seen before openning the message)
+          $title = t('A user "@role" sent you a message', array("@role" => t(GOFAST_ROLE_BUSINESS_ADMIN_VALUE, array(), array("context" => "gofast"))), $l);
+        $footer = t('Message sent from ', array(), $l).$site_name;
 
-  $mail = array(
-    'body' => $body,
-    'title' => $title,
-    'subject' => $subject,
-    'footer' => $footer
-  );
-  gofast_mail_queue_api_queue_ext($mail,  $recpt, time());
+        $body = theme('gofast_og_notify_admins_contactform', array(
+          'site_name' => $site_name,
+          'author' => $author,
+          'node_link' => $base_url . "/node/".$node->nid,
+          'node_title' => $node->title,
+          'subject' => $subject,
+          'message' => $message,
+          'l' => $l,
+        ));
 
+        $mail = array(
+          'body' => $body,
+          'title' => $title,
+          'subject' => $subject,
+          'footer' => $footer
+        );
+        gofast_mail_queue_api_queue_ext($mail,  $recpt, time());
+          drupal_set_message(t('Your message has been sent to the administrators of the space(s) you selected', array(), array('context' => 'gofast:gofast_og')));
+        }
+      }
+    }
+  }
 }
-
 
 function gofast_og_ask_join_space_form($form, &$form_state){
 
@@ -8272,9 +9034,9 @@ function gofast_og_ask_join_space_form_submit($form, &$form_state){
   $gid = $form_state['build_info']['args'][0];
   $comment = $form_state['values']['comment_input'];
 
-   if(isset($_SESSION["gids_bulk_actions"])){   
+   if(isset($_SESSION["gids_bulk_actions"])){
        $gids =$_SESSION["gids_bulk_actions"];
-   }else{    
+   }else{
        $gids = array($gid);
    }
 
@@ -8308,19 +9070,13 @@ function gofast_og_ask_join_space_form_submit($form, &$form_state){
 }
 
 function gofast_og_get_article_homepage_from_og($gid){
-  //$query = new EntityFieldQuery();
-  //$query->entityCondition("entity_type", "node")
-  //->entityCondition('bundle', 'article')
-  //->fieldCondition('field_is_homepage', 'value', 1)
-  //->fieldCondition('og_group_content_ref', 'og_group_content_ref_target_id', $gid);
+  $result = db_query("select homepage_value FROM field_data_homepage WHERE entity_id = :gid;", array(":gid" => $gid))->fetchAll();
 
-  $result = db_query("select nid from og_membership INNER JOIN node ON nid=etid INNER JOIN field_data_field_is_homepage ON etid=entity_id WHERE gid= :gid and node.type='article' and node.status=1;", array(":gid" => $gid))->fetchAll();
-
-  if(count($result) > 0){
-      $array_node = $result[0]->nid;
-      return $array_node;
-  }else{
-      return false;
+  if(count($result) > 0) {
+    $array_node = $result[0]->homepage_value;
+    return $array_node;
+  } else {
+    return false;
   }
 }
 
@@ -8342,23 +9098,24 @@ function gofast_og_edit_space_logo($space_node) {
     drupal_json_output(array('success' => FALSE, 'error' => t('You are not allowed to edit this space.', array(), array("context" => "gofast:gofast_og"))));
     exit();
   }
+
+  // prepare file data
+  $data = base64_decode($_POST['data']);
+  $ext = !empty($_POST['ext']) ? strtolower($_POST['ext']) : '';
+  $previous_logo_uri = $space_node->field_logo_uri[LANGUAGE_NONE][0]['value'];
+  $file_name = $space_node->title . '.' . $ext;
+
+  if (!in_array($ext, array("jpg", "jpeg", "bmp", "png"))) {
+    drupal_json_output(array('success' => FALSE, 'error' => t('The file extension @ext is not supported.', array("@ext" => $ext), array("context" => "gofast:gofast_og"))));
+    exit();
+  }
+
+  // prepare folder
   $destination = 'public://space_logos/';
   file_prepare_directory($destination, FILE_CREATE_DIRECTORY);
-  // $_FILES superglobal variable has to be structured the way Drupal expects it to be structured
-  foreach($_FILES['image'] as $key => &$value) {
-    if ($key == "error" && $value == 0) continue;
-    $_FILES['files'][$key]['image'] = $value;
-  }
-  $parts = pathinfo($_FILES['files']['name']['image']);
-  // a predictable filename facilitates direct retrieve of file info from db
-  $_FILES['files']['name']['image'] = $space_node->title . '.' . $parts['extension'];
-  $previous_logo_uri = $space_node->field_logo_uri[LANGUAGE_NONE][0]['value'];
 
-  $validators['file_validate_extensions'] = array('png jpg jpeg webp');
   // actual upload
-  if ($file = file_save_upload('image', $validators, $destination, FILE_EXISTS_REPLACE)) {
-    $file->status = FILE_STATUS_PERMANENT;
-    file_save($file);
+  if ($file = file_save_data($data, $destination . "/" . $file_name, FILE_EXISTS_REPLACE)) {
     $space_node->field_logo_uri[LANGUAGE_NONE][0]['value'] = $file->uri;
     node_save($space_node);
     // delete previous logo if needed
@@ -8371,19 +9128,505 @@ function gofast_og_edit_space_logo($space_node) {
       $room_avatar_upload_response = gofast_riot_api_upload_file($room_avatar_url);
       gofast_riot_api_change_room_avatar($space_node->field_riot_identifier[LANGUAGE_NONE][0]['value'], $room_avatar_upload_response['content_uri']);
     }
-    drupal_json_output(array('success' => TRUE));
+    drupal_json_output(array('success' => TRUE, 'src' => file_create_url($file->uri)));
     exit();
   } else {
     $messages = drupal_get_messages();
     drupal_json_output(array('success' => FALSE, 'error' => str_replace("\n", "", strip_tags($messages['error'][0]))));
     exit();
   }
-}function gofast_og_check_replication_delete_space($gid){
+}
+
+function gofast_og_check_replication_delete_space($gid){
   $results = db_query("SELECT aid from {alfresco_replication} WHERE gid = :gid", array(":gid" => $gid))->fetchAll();
   if(count($results) == 0){
     return TRUE;
   }else{
     return FALSE;
   }
-  
+
+
+
+}
+
+
+
+function gofast_og_fix_unset_roles($print = TRUE){
+
+  //Retrieve all memberships without role assignation
+
+  //Info : Use direct database query for performance purpose
+
+
+
+  //Select membership database
+
+  $query = "SELECT * FROM og_membership ";
+
+
+
+  //Join table containg roles, use LEFT JOIN to get empty entries on roles table
+
+  $query .= "LEFT JOIN og_users_roles ON ";
+
+
+
+  //Join conditions : Space ID and User id matching
+
+  $query .= "etid=uid AND og_membership.gid=og_users_roles.gid ";
+
+
+
+  //Conditions : Only user-space memberships, only when no role has been found
+
+  $query .= "WHERE field_name='og_user_node' AND og_users_roles.uid IS NULL";
+
+
+
+  //Execute query
+
+  $results = array_keys(db_query($query)->fetchAllAssoc('id'));
+
+
+
+  //Retrieve og role id for role read only for each type of spaces
+
+  $rid_group = array_search(GOFAST_OG_ROLE_READ_ONLY, og_roles('node', 'group', 4));
+
+  $rid_organisation = array_search(GOFAST_OG_ROLE_READ_ONLY, og_roles('node', 'organisation', 5));
+
+  $rid_extranet = array_search(GOFAST_OG_ROLE_READ_ONLY, og_roles('node', 'extranet', 6));
+
+  $rid_public = array_search(GOFAST_OG_ROLE_READ_ONLY, og_roles('node', 'public', 7));
+
+
+
+  foreach($results as $result){
+
+    //Load membership to edit and get space type
+
+    $og_membership = og_membership_load($result);
+
+    $node_type = node_load($og_membership->gid)->type;
+
+
+
+    //Get the role ID to assign accorging to the space type
+
+    $rid = eval('return $rid_' . $node_type . ';');
+
+
+
+    //Print and watchdog for debug purpose (print can be disabled in parameters)
+
+    watchdog('GOFAST_OG_FIX_UNSET_ROLES', "Fix space " . $og_membership->gid . " for user " . $og_membership->etid . ". Assign read only role.");
+
+    if($print){print "Fix space " . $og_membership->gid . " for user " . $og_membership->etid . ". Assign read only role.\n";}
+
+
+
+    //Grant the missing role
+
+    og_role_grant('node', $og_membership->gid, $og_membership->etid, $rid);
+
+  }
+
+}
+
+
+function gofast_og_edit_space_logo_modal($ajax, $node) {
+  global $user;
+  if ($ajax) {
+    ctools_include('modal');
+    ctools_include('ajax');
+
+    if (!in_array('administrator member', gofast_og_get_user_final_roles_for_space('node', $node->nid, $user->uid), true)) {
+      $commands[] = gofast_command_toast_message(t("You don't have permission to do this action", array(), array("context" => "gofast")), 'error');
+    } else {
+    $output = theme('gofast_og_logo_crop', array(
+      'logo' => $node->field_logo_uri[LANGUAGE_NONE][0]['value'] ?? NULL,
+      'gid'    => $node->nid
+    ));
+
+    $commands[] = ctools_modal_command_display(t('Cropping space logo', array(), array('context' => 'gofast')), $output);
+    }
+
+    print ajax_render($commands);
+    exit;
+  } else {
+    return "";
+  }
+}
+
+function gofast_get_root_space_gid($root_space_name = GOFAST_CMIS_LOCATIONS_FIELD_GROUPS_VALUE) {
+  // use cache to prevent useless db calls or adding 
+  $cached_gid = cache_get($root_space_name . "_gid", 'cache');
+  if ($cached_gid) {
+    return $cached_gid->data;
+  }
+  if ($root_space_name[0] === "_") {
+    $root_space_name = substr($root_space_name, 1);
+  }
+  $query = db_select('node', 'n');
+  $query->addExpression('MIN(nid)');
+  //$query->fields("n", array("nid"));
+  $query->condition('type', array('group', 'organisation', 'extranet', 'public'), 'IN');
+  $gid = $query->condition('title', $root_space_name)->execute()->fetchField();
+  cache_set($root_space_name . "_gid", $gid, 'cache', CACHE_PERMANENT);
+  return $gid;
+}
+
+
+/**
+ * Get Essential Mode space administrator actions.
+ * To add more actions just add them to the array with their corresponding title,
+ * link, classes and icon.
+ *
+ * NB: The global $user must be an administrator of the space.
+ * The purpose of this function is to ONLY return the themed actions of a space
+ * and will not do a permission check. A permission check must be done by the
+ * caller of this function.
+ *
+ *  Ideally this function should be called by gofast_get_essential_space_actions().
+ * @param String|Object|Integer $node (Space node id)
+ */
+function gofast_og_get_essential_space_actions(object|int|string $node): array {
+  $node = is_numeric($node) ? node_load($node) : $node;
+
+  $array_actions =  gofast_contextual_menu_get_node_actions_dropdown($node);
+
+  $user_contextual_actions = array();
+  $user_contextual_actions[] = array(
+    'id' => 'account-dropdown',
+    'title' => 'Contextual actions',
+    'button-text' => '',
+    'icon-class' => 'fa fa-bars',
+    'children' => $array_actions,
+    'dropleft' => TRUE
+  );
+
+  return $user_contextual_actions;
+}
+
+/**
+ * Checks if there are tasks assigned to users/userlist in a space and generate
+ * a warning message if there are.
+ *
+ * Returns an array with the following keys:
+ * - hasTasks: boolean Whether there are tasks or not
+ * - warning: string The message to display
+ * - name: string The name of the user/userlist
+ *
+ * @param $gid
+ * @param $type
+ * @param mixed $account
+ * @param $og_membership
+ * @param $name
+ * @return array
+ */
+function gofast_og_checkIfTasksInSpace($gid, $type, mixed $account, $og_membership, $name): array {
+  $kanban_nid = gofast_kanban_get_space_kanban($gid);
+  $kanban = node_load($kanban_nid[0], NULL, TRUE);
+  $columns = gofast_kanban_get_tasks($kanban);
+  $hasTasks = false;
+
+  foreach ($columns as $tasks) {
+    foreach($tasks as $task){
+      if ($type == "people" || $type == 'user') {
+        if ($task['person_in_charge'] == $account->uid) {
+          $hasTasks = true;
+        }
+      }
+      else if ($type == "userlist") {
+        $userlist = entity_load_single("userlist", $og_membership->etid);
+        foreach ($userlist->field_userlist_members[LANGUAGE_NONE] as $userlist_member) {
+          $userlist_member = $userlist_member['value'];
+          if ($task['person_in_charge'] == $userlist_member) {
+            $hasTasks = true;
+            $name = user_load($userlist_member)->name;
+          }
+        }
+      }
+    }
+  }
+
+  if ($type != 'userlist') {
+    $warning = t("Please note that <b>@user</b> is responsible for some tasks in this space. <br/>This action may affect their access to these tasks.", ['@user' => $name],
+      ['context' => "gofast:gofast_og"]);
+  }
+  else {
+    $warning = t("Please note that one or more users in this userlist are responsible for some tasks in this space. <br/>This action may affect their access to these tasks.", [
+      '@user' => $name,], ['context' => "gofast:gofast_og"]);
+  }
+  return array($hasTasks, $name, $warning);
+}
+
+function gofast_og_get_first_available_space_location($node) {
+  if(!isset($node->{GOFAST_OG_CONTENT_MEMBERSHIP_FIELD}[LANGUAGE_NONE][0]['target_id'])){
+    return NULL;
+  }
+  global $user;
+  $path = null;
+  foreach ($node->{GOFAST_OG_CONTENT_MEMBERSHIP_FIELD}[LANGUAGE_NONE] as $gid) {
+    $gid = $gid["target_id"];
+    if(!empty(gofast_og_get_user_final_roles_for_space("node", $gid, $user->uid))){
+      $path = gofast_cmis_space_get_webdav_path($gid);
+      $path = str_replace("/alfresco/webdav", "", $path);
+      break;
+    }
+  }
+  return $path;
+}
+
+
+/**
+ * Display the bulk space subscribe modal form
+ * @param $ajax
+ * @param $space_ids
+ *
+ * @return array|mixed|void
+ */
+function gofast_og_modal_space_bulk_subscribe($ajax,$space_ids){
+
+  $form_id = 'gofast_og_space_subscribe_confirm_form';
+
+  if(!$ajax){
+    return  drupal_get_form($form_id, $space_ids);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'title' => t('Subscribe to spaces', array(), array('context' => 'gofast:gofast_og:space_subscribe')),
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+    'build_info' => array(
+      'args' => array('space_ids' => $space_ids),
+    ),
+
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  if ($form_state['executed']) {
+    //add command for gofast toast message
+    $commands[] = gofast_command_toast_message(t('You have been subscribed to the selected space(s)',
+      array(), array('context' => 'gofast:gofast_og:space_subscribe')),'success');
+    $commands[] = ctools_modal_command_dismiss();
+  }
+
+  print ajax_render($commands);
+}
+
+/**
+ * The bulk space subscribe confirmation modal form
+ *
+ * @param $form
+ * @param $form_state
+ * @param int|string $space_ids
+ *
+ * @return mixed
+ */
+function gofast_og_space_subscribe_confirm_form($form, $form_state, int|string $space_ids): mixed {
+  $is_single_node  = !str_contains($space_ids, "-");
+  $spaces = array();
+  if(!$is_single_node){
+    $nids = gofast_og_get_bulk_nids_in_string($space_ids);
+    foreach($nids as $nid){
+      $spaces[] = gofast_cmis_space_get_webdav_path($nid);
+    }
+  }
+  else{
+    $spaces[] = gofast_cmis_space_get_webdav_path($space_ids);
+  }
+
+  $form['spaces'] = array(
+    '#type' => 'hidden',
+    '#value' => $space_ids,
+  );
+
+  $form['markup'] = array(
+    '#markup' => '<h1>' . t('Are you sure you want to subscribe to the following space(s) ?',
+        array(), array('context' => 'gofast:gofast_og:space_subscribe')) . '</h1>',
+  );
+
+  $form['spaces_list'] = array(
+    '#type' => 'item',
+    '#markup' => '<ul style="padding: 0; margin: 1rem 1rem 1rem 2em;">' . implode(array_map(function($space_path){
+        return '<li style="margin-bottom: 10px;">' . $space_path . '</li>';
+      }, $spaces)) . '</ul>',
+  );
+
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Confirm', array(), array('context' => 'gofast:gofast_og')),
+    '#attributes' => array('class' => array('btn', 'btn-success', 'btn-sm')),
+  );
+
+  return $form;
+}
+
+/**
+ * Submit handler for the bulk space subscribe confirmation modal form
+ * @param $form
+ * @param $form_state
+ *
+ * @return void
+ */
+function gofast_og_space_subscribe_confirm_form_submit($form, &$form_state): void {
+  $space_ids = $form_state['values']['spaces'];
+  $is_single_node  = !str_contains($space_ids, "-");
+  $spaces = array();
+  if(!$is_single_node){
+    $nids = explode("-", $space_ids);
+    $nids = array_filter($nids);
+    foreach($nids as $nid){
+      $spaces[] = $nid;
+    }
+  }
+  else{
+    $spaces[] = $space_ids;
+  }
+
+  foreach($spaces as $space_id) {
+    global $user;
+    $flag = flag_get_flag('subscribe_og');
+    $flag->flag('flag', $space_id, $user, TRUE);
+  }
+
+  $form_state['executed'] = TRUE;
+}
+
+/**
+ * Display the bulk space unsubscribe modal form
+ * @param $ajax
+ * @param $space_ids
+ *
+ * @return array|mixed|void|null
+ */
+function gofast_og_modal_space_bulk_unsubscribe($ajax,$space_ids) {
+
+  $form_id = 'gofast_og_space_unsubscribe_confirm_form';
+
+  if(!$ajax){
+    return  drupal_get_form($form_id, $space_ids);
+  }
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'title' => t('Unsubscribe from spaces', array(), array('context' => 'gofast:gofast_og:space_unsubscribe')),
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+    'build_info' => array(
+      'args' => array('space_ids' => $space_ids),
+    ),
+
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  if ($form_state['executed']) {
+    $commands[] = gofast_command_toast_message(t('You have been unsubscribed from the selected space(s)',
+      array(), array('context' => 'gofast:gofast_og:space_subscribe')),'success');
+    $commands[] = ctools_modal_command_dismiss();
+  }
+
+  print ajax_render($commands);
+
+}
+
+/**
+ * The bulk space unsubscribe confirmation modal form
+ *
+ * @param $form
+ * @param $form_state
+ * @param $space_ids
+ *
+ * @return mixed
+ */
+function gofast_og_space_unsubscribe_confirm_form($form, $form_state, $space_ids): mixed {
+
+  $is_single_node  = !str_contains($space_ids, "-");
+  $spaces = array();
+  if(!$is_single_node){
+    $nids = gofast_og_get_bulk_nids_in_string($space_ids);
+    foreach($nids as $nid){
+      $spaces[] = gofast_cmis_space_get_webdav_path($nid);
+    }
+  }
+  else{
+    $spaces[] = gofast_cmis_space_get_webdav_path($space_ids);
+  }
+
+  $form['spaces'] = array(
+    '#type' => 'hidden',
+    '#value' => $space_ids,
+  );
+
+  $form['markup'] = array(
+    '#markup' => '<h1>' . t('Are you sure you want to unsubscribe from the following space(s) ?',
+        array(), array('context' => 'gofast:gofast_og:space_unsubscribe')) . '</h1>',
+  );
+
+  // Display the list of spaces using the node loaded title in an unordered list
+  $form['spaces_list'] = array(
+    '#type' => 'item',
+    '#markup' => '<ul style="padding: 0; margin: 1rem 1rem 1rem 2em;">' . implode(array_map(function($space){
+        return '<li style="margin-bottom: 10px;">' . $space . '</li>';
+      }, $spaces)) . '</ul>',
+  );
+
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Confirm', array(), array('context' => 'gofast:gofast_og')),
+    '#attributes' => array('class' => array('btn', 'btn-success', 'btn-sm')),
+  );
+
+  return $form;
+}
+
+/**
+ * Submit handler for the bulk space unsubscribe confirmation modal form
+ * @param $form
+ * @param $form_state
+ *
+ * @return void
+ */
+function gofast_og_space_unsubscribe_confirm_form_submit($form, &$form_state): void {
+  $space_ids = $form_state['values']['spaces'];
+  $is_single_node  = !str_contains($space_ids, "-");
+  $spaces = array();
+  if(!$is_single_node){
+    $nids = gofast_og_get_bulk_nids_in_string($space_ids, "-");
+    foreach($nids as $nid){
+      $spaces[] = $nid;
+    }
+  }
+  else{
+    $spaces[] = $space_ids;
+  }
+
+  foreach($spaces as $space_id) {
+    global $user;
+    $flag = flag_get_flag('subscribe_og');
+    $flag->flag('unflag', $space_id, $user, TRUE);
+  }
+
+  $form_state['executed'] = TRUE;
+}
+
+/**
+ * Returns an array of node IDs from a string of node IDs separated by a delimiter
+ *
+ * @param mixed $nids
+ * @param string $delimiter
+ *
+ * @return string[]
+ */
+function gofast_og_get_bulk_nids_in_string(mixed $nids, string $delimiter = "-"): array {
+  $nids = explode($delimiter, $nids);
+  return array_filter($nids);
 }

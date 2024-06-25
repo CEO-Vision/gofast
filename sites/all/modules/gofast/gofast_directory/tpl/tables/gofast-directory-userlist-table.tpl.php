@@ -8,17 +8,31 @@
 <script defer>
   Drupal.behaviors.gofast_directories_userlist_breadcrumb = {
     attach: function(context) {
-      if (jQuery("[id^='contextual-actions-loading-'].not-processed").length) {
-        jQuery("[id^='contextual-actions-loading-']").each(function() {
+      if (jQuery("[id^='dropdown-placeholder-'].not-processed").length) {
+        jQuery("[id^='dropdown-placeholder-'].not-processed").each(function() {
           $(this).removeClass('not-processed');
-          const nid = $(this).attr("id").replace("contextual-actions-loading-", "");
-          jQuery.get(location.origin + "/gofast/node-actions/" + nid, function(data) {
-            jQuery("#contextual-actions-loading-" + nid).remove();
-            jQuery('#userlist-node-actions-' + nid).replaceWith(data);
-            Drupal.attachBehaviors();
-          });
+          $(this).addClass("dropdown-processed")
+          const nid = $(this).attr("id").replace("dropdown-placeholder-", "");
+          $(this).on("click", () => {
+            // Make the request only the first time
+            if(jQuery(`#dropdownactive-placeholder-${nid}`).length){
+              jQuery.get(location.origin + "/gofast/node-actions/" + nid, function(data) {
+                // Because core.datatable.js tweak dropdown, we need to update the new dropdown with the data
+                const dropdownStyle = jQuery(`#dropdownactive-placeholder-${nid}`).attr("style")
+                const newDropdownMenu = $(data).find(".dropdown-menu");
+                jQuery(`#dropdownactive-placeholder-${nid}`).replaceWith(newDropdownMenu)
+                newDropdownMenu.attr("style", dropdownStyle)
+                jQuery('#dropdown-placeholder-' + nid).append($(data).find(".dropdown-menu"));
+              });
+            }
+          })
         });
       }
     }
   }
+  // Clean dropdown in the body to prevent duplicated dropdown
+  jQuery("body").on("hidden.bs.dropdown", (e) => {
+    jQuery("body").find(">.dropdown-menu").remove()
+    $(e.target).find("[id^=dropdownactive-placeholder-]").remove()
+  })
 </script>

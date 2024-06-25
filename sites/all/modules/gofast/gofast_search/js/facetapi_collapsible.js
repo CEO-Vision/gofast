@@ -100,6 +100,7 @@
           const $cardTitle = $(this).closest(".card").find(".card-title");
           if ($cardTitle.hasClass('collapsed')) {
             $cardTitle.click();
+            this.scrollIntoView({behavior: "smooth", block: "end"});
           }
         }
         else {

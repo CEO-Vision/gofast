@@ -6,10 +6,12 @@
  *
  */
 
-(function ($, Drupal) {
-
+(function ($, Gofast, Drupal) {
   Drupal.behaviors.initTagify = {
     attach: function (context) {
+      if (typeof Tagify == "undefined") {
+        return;
+      }
       var inputElmList = document.querySelectorAll('input[name^="ac-list-tags"]'); // get all inputs whose attribute name begins with substring 'ac-list-tags'
         inputElmList.forEach(function (inputElm) {
           if (!$(inputElm).hasClass('js-tagify-processed')) {
@@ -26,15 +28,20 @@
         });
 
       function gofastInitTagify(inputElm, dataList) {
+        inputElm.value = inputElm.value.replaceAll("`", "'");
         const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
         var enforce = !inputElm.hasAttribute("data-enforce");
         var mode = inputElm.hasAttribute("data-oc-select-one");
         var input_id = inputElm.id;
-        var is_metadata = input_id == "edit-field-taget-link" || input_id == "edit-field-keywords";
-        var custom_dropdown =  input_id == "edit-field-taget-link" || input_id == "edit-list-documents" || input_id == "edit-field-keywords" || input_id.startsWith("edit-translations");
+        var node_nid = inputElm.hasAttribute("data-pk") == true ? inputElm.getAttribute("data-pk") : null
+        var vid = inputElm.hasAttribute("data-vid") == true ? inputElm.getAttribute("data-vid") : null
+        var node_name = inputElm.hasAttribute("data-name") == true ? inputElm.getAttribute("data-name") : null
+        var is_metadata = new RegExp(/edit.*taget-link/).test(input_id) || new RegExp(/edit.*keywords/).test(input_id) || new RegExp(/edit.*nodes/).test(input_id);
+        var custom_dropdown = new RegExp(/edit.*taget-link/).test(input_id) || input_id == "edit-list-documents" ||  new RegExp(/edit.*keywords/).test(input_id) || input_id.startsWith("edit-translations") || new RegExp(/edit.*nodes/).test(input_id);
+        var has_draft_mode = inputElm.classList.contains("tagify-draft");
+        var max_tags = inputElm.hasAttribute("data-ac-max-tags") ? inputElm.getAttribute("data-ac-max-tags") : Infinity;
         var tagify = new Tagify(inputElm, {
-          placeholder: Drupal.t('None'),
-          tagTextProp: 'name', // very important since a custom template is used with this property as text. allows typing a "value" or a "name" to match input with whitelist
+          tagTextProp: 'value', // allows typing a "value" or a "name" to match input with whitelist
           enforceWhitelist: enforce, // true : Do Not allow adding value that not in the whitelist
           skipInvalid: false, // do not temporarily add invalid tags
           dropdown: {
@@ -42,7 +49,7 @@
             enabled: 3,            // show suggestion after 3 typed character
             fuzzySearch: true,    // Do not match only suggestions that starts with the typed characters
             caseSensitive: true,   // allow adding duplicate items if their case is different
-            maxItems: 20,           // mixumum allowed rendered suggestions
+            maxItems: 50,           // mixumum allowed rendered suggestions
             enabled: 1,             // show suggestions on focus 1 to set True 0 for false
             closeOnSelect: true,    // hide the suggestions dropdown once an item has been selected
             searchKeys: ['name', 'email', 'request']// very important to set by which keys to search for suggestions when typing
@@ -51,7 +58,8 @@
             tag: tagTemplate,
             dropdownItem: suggestionItemTemplate
           },
-          whitelist: dataList != null ? JSON.parse(dataList) : []
+          whitelist: dataList != null ? JSON.parse(dataList) : [],
+          maxTags: max_tags,
         }), controller; // for aborting the call
         if(typeof tagify.on == "undefined"){
           //Element is already tagified
@@ -62,7 +70,7 @@
         tagify.on('keydown', onInput);
 
         // if the user is pasting a node name or link, we still need to trigger the autocomplete
-        if (input_id == "edit-field-taget-link" || input_id == "edit-list-documents" || input_id.startsWith("edit-translations")) {
+        if (new RegExp(/edit.*taget-link/).test(input_id) || input_id == "edit-list-documents" || input_id.startsWith("edit-translations")) {
           tagify.on('invalid', onInput);
         }
 
@@ -82,12 +90,12 @@
             if (e.detail.tag.value != "undefined") {
               return;
             }
-            let newTag = { value: e.detail.data.name, name: e.detail.data.name };
-            if (emailRegex.test(e.detail.data.name)) {
-              newTag = await getUserFromMail(e.detail.data.name);
+            let newTag = { value: e.detail.data.value, name: e.detail.data.value };
+            if (emailRegex.test(e.detail.data.value)) {
+              newTag = await getUserFromMail(e.detail.data.value);
             }
             tagify.replaceTag(e.detail.tag, newTag);
-            let isDuplicate = tagify.value.filter(tag => tag.name == e.detail.data.name).length > 1;
+            let isDuplicate = tagify.value.filter(tag => tag.name == e.detail.data.value).length > 1;
             if (isDuplicate) {
               const allTags = tagify.value;
               tagify.removeAllTags();
@@ -126,10 +134,10 @@
         }
 
         async function onInvalidEmail(e) {
-          if (!emailRegex.test(e.detail.data.name)) {
+          if (!emailRegex.test(e.detail.data.value)) {
             return;
           }
-          let newTag = await getUserFromMail(e.detail.data.name);
+          let newTag = await getUserFromMail(e.detail.data.value);
           tagify.settings.whitelist.push(newTag, ...tagify.value);
           tagify.addTags([newTag]);
         }
@@ -138,7 +146,7 @@
           tagify.on('invalid', onInvalidEmail);
         }
 
-        if (inputElm.hasAttribute("data-taxonomy_term") && input_id == "edit-field-keywords"){
+        if (inputElm.hasAttribute("data-taxonomy_term") && new RegExp(/edit.*keywords/).test(input_id)){
           $('#' + input_id).parent().find("tags.js-tagify x.tagify__tag__removeBtn").hide();
           $('#' + input_id).parent().find("tags.js-tagify div.gofast-sub-icon span.flag-wrapper.flag-subscribe-term").addClass('d-flex justify-content-center align-items-center');
 
@@ -161,9 +169,11 @@
         }
 
 
-        if (inputElm.hasAttribute("data-node") && input_id == "edit-field-taget-link") {
-          $('#' + input_id).parent().find("tags.js-tagify x.tagify__tag__removeBtn").hide();
-          $('#' + input_id).parent().find("tags.js-tagify tag").css("background-color", "white");
+        if (inputElm.hasAttribute("data-node") && (new RegExp(/edit.*taget-link/).test(input_id)) || new RegExp(/edit.*nodes/).test(input_id)) {
+          if (input_id == "edit-field-taget-link") {
+            $('#' + input_id).parent().find("tags.js-tagify x.tagify__tag__removeBtn").hide();
+            $('#' + input_id).parent().find("tags.js-tagify tag").css("background-color", "white");
+          }
 
           tagify.on('focus', onTagifyFocusBlur)
             .on('blur', onTagifyFocusBlur)
@@ -205,6 +215,38 @@
             }
         }
 
+        function tagifySaveCallback(elem) {
+          // Implements a hook to alter behavior before saving
+          var override = elem.attr("data-callback-submit") != false ? elem.attr("data-callback-submit") : false;
+          if (override) {
+            eval(override)(elem);
+          }
+          $.ajax({
+            url: Drupal.settings.gofast.baseUrl + '/update_node_field',
+            type: 'POST',
+            dataType: 'json',
+            data: {
+              'name': node_name,
+              'value': tagify.value,
+              'pk': node_nid,
+              'vid': vid
+              },
+            success: function (content, status) {
+              // We can add a validate messge here, or in the php function
+              // Implements a hook to alter behavior after saving
+              var override = elem.attr("data-callback-success") != false ? elem.attr("data-callback-success") : false;
+              if(override){
+                eval(override)(elem, content, status);
+              }
+            }
+          });
+        };
+
+        if (has_draft_mode) {
+          $("#" + input_id).hide();
+          setDraftMode(inputElm);
+        }
+
         // specifique pour la page document
         function onTagifyFocusBlur(e) {
           if (e.type == 'focus' ) { // || e.type == 'click'
@@ -213,7 +255,7 @@
               Gofast.Poll.abort();
             }
             $('#' + input_id).parent().find('tags.js-tagify').addClass("metadata-focus");
-            $('#' + input_id).parent().find("tags.js-tagify x.tagify__tag__removeBtn").show();
+            $('input#' + input_id).parent().find("tags.js-tagify x.tagify__tag__removeBtn").show();
 
             if (input_id == "edit-field-taget-link") {
               cleanInput();
@@ -224,33 +266,20 @@
               $('#' + input_id).parent().find("tags.js-tagify div.gofast-sub-icon").hide();
             }
           } else if (e.type == 'blur' && !$(e.detail.relatedTarget).hasClass("tagify__tag")){
-            var node_nid = inputElm.hasAttribute("data-pk") == true ? inputElm.getAttribute("data-pk") : null
-            var vid = inputElm.hasAttribute("data-vid") == true ? inputElm.getAttribute("data-vid") : null
-            var name = inputElm.hasAttribute("data-name") == true ? inputElm.getAttribute("data-name") : null
-
-                $.ajax({
-                  url: Drupal.settings.gofast.baseUrl + '/update_node_field',
-                  type: 'POST',
-                  dataType: 'json',
-                  data: {
-                    'name': name,
-                    'value': tagify.value,
-                    'pk': node_nid,
-                    'vid': vid
-                    },
-                  success: function (content, status) {
-                    // We can add a validate messge here , or in the php function
-                  }
-                });
+              if (has_draft_mode) {
+                // no save callback on blur
+              } else {
+                tagifySaveCallback($('#' + input_id));
+            }
 
             $('#' + input_id).parent().find('tags.js-tagify').removeClass("metadata-focus");
-            $('#' + input_id).parent().find("tags.js-tagify x.tagify__tag__removeBtn").hide();
+            $('input#' + input_id).parent().find("tags.js-tagify x.tagify__tag__removeBtn").hide();
 
-            if (input_id == "edit-field-taget-link") {
+            if (new RegExp(/edit.*taget-link/).test(input_id)) {
               $('#' + input_id).parent().find("tags.js-tagify tag").css("background-color", "white");
             }
 
-            if (input_id == "edit-field-keywords") {
+            if (new RegExp(/edit.*keywords/).test(input_id)){
               $('#' + input_id).parent().find("tags.js-tagify div.gofast-sub-icon").show();
             }
             
@@ -279,8 +308,13 @@
           var formData = new FormData();
           formData.append('str', value);
           formData.append('get_spaces', inputElm.hasAttribute("data-get-spaces"));
+          formData.append('exclude_root_spaces', inputElm.hasAttribute("data-exclude-root-spaces"));
+          formData.append('exclude-current-user', inputElm.hasAttribute("data-exclude-current-user"));
+          formData.append('exclude-current-members', inputElm.hasAttribute("data-exclude-current-members") ? inputElm.getAttribute("data-exclude-current-members") : false);
           formData.append('get_user', inputElm.hasAttribute("data-user") == true ? true : false);
           formData.append('get_node', inputElm.hasAttribute("data-node") == true ? true : false);
+          formData.append("space_type", inputElm.hasAttribute("data-space-type") ? inputElm.getAttribute("data-space-type") : false)
+          formData.append("filter_extranet", inputElm.hasAttribute("extranet-users-form") ? true : false)
           formData.append('vid', inputElm.hasAttribute("data-vid") == true ? inputElm.getAttribute("data-vid") : false);
           formData.append('enforce', inputElm.hasAttribute("data-enforce") == true ? true : false);
           formData.append('broadcast', inputElm.hasAttribute("data-broadcast") == true ? true : false);
@@ -291,10 +325,16 @@
           // Additional data
           inputElm.hasAttribute("data-space-nid") == true ? formData.append('space_nid', inputElm.getAttribute("data-space-nid")) : false;
           inputElm.hasAttribute("data-language") == true ? formData.append('node_language', inputElm.getAttribute("data-language")) : false;
+          inputElm.hasAttribute("data-translate") ? formData.append("translate", true) : false;
 
           fetch(url, { signal: controller.signal, method: "POST", body: formData })
             .then(RES => RES.json())
             .then(function (newWhitelist) {
+              //Make sure our whitelist can be iterrated
+              if(typeof newWhitelist == "object" && !Array.isArray(newWhitelist)){
+                newWhitelist = Object.values(newWhitelist)
+              }
+              
               // replace tagify "whitelist" array values with new values
               // and add back the ones already choses as Tags
               tagify.settings.whitelist.push(...newWhitelist, ...tagify.value);
@@ -305,7 +345,7 @@
               }
             }).catch((err) => {
               console.log(err);
-            });;
+            });
           return false;
         }
 
@@ -351,7 +391,11 @@
         }
 
         // specifique pour les formulaires
-        function onInput(e) {    
+        function onInput(e) {
+          var oninput_callback = $(e.detail.tagify.DOM.originalInput).attr("data-oninput");
+          if(oninput_callback){
+            eval(oninput_callback)(e);
+          }
           clearTimeout(Gofast.tagifyInterval);
           Gofast.tagifyInterval = setTimeout(function(){
             var value = "";
@@ -361,7 +405,7 @@
               value = keydownValue;
             }
             if (e.type == "invalid") {
-              var invalidValue = e.detail.data.name;
+              var invalidValue = e.detail.data.name || e.detail.data.value;
               value = invalidValue;
             }
 
@@ -407,7 +451,11 @@
           } else if (tagData.type == 'email') {
             imageData = "<div><i class=\"fa fa-envelope text-info mr-2\"></i></div>";
           } else {
-            imageData = "<div class='tagify__tag__avatar-wrap'><i class=\"flaticon2-tag icon-2x text-info\"></i></div>";
+            let tagClass = "flaticon2-tag";
+            // if (tagData.taxonomy_type && tagData.taxonomy_type == "category") {
+            //   tagClass = "flaticon2-setup";
+            // }
+            imageData = "<div class='tagify__tag__avatar-wrap'><i class=\"" + tagClass + " icon-2x text-info\"></i></div>";
           }
 
           tempate += imageData + " <strong>" + tagData.name + "</strong> ";
@@ -454,8 +502,11 @@
               subButtonHtml = Drupal.getSubButtonHtml(tagData.value);
               subButtonHtml = "<div class='gofast-sub-icon'>" + subButtonHtml.responseText + " </div>";
             }
-            imageData = "<div><i class=\"flaticon2-tag icon-nm text-info mr-2\"></i></div>";
-            imageData = "";
+            let tagClass = "flaticon2-tag";
+            // if (tagData.taxonomy_type && tagData.taxonomy_type == "category") {
+            //   tagClass = "flaticon2-setup";
+            // }
+            imageData = "<div><i class=\"" + tagClass + " icon-nm text-info mr-2\"></i></div>";
           } else if (tagData.type == 'email') {
             tagColorClass = "tagify__tag-light--primary";
             imageData = "<div><i class=\"fa fa-envelope text-info mr-2\"></i></div>";
@@ -479,7 +530,128 @@
           
           return "<tag title=\"" + (tagTitle || tagData.email || tagData.name) + "\"  contenteditable='false'  spellcheck='false'  tabIndex=\"-1\"  class=\"" + this.settings.classNames.tag + " " + tagColorClass + " " + (tagData.class ? tagData.class : "") + "\"  " + this.getAttributes(tagData) + ">  " + removeButton + "  <div>  " + imageData + "  <span class='tagify__tag-text'>" + text + "</span>  " + subButtonHtml + "  </div>  </tag>";
         }
+
+        function setDraftMode(elem) {
+          confirmationHookPromise().then(() => tagifySaveCallback(elem));
+          tagify.on("dropdown:select remove", function() {
+            renderConfirmationButtons();
+          });
+          tagify.on("change", function(e) {
+              if (tagify.changingOnBlur) {
+                return;
+              }
+              const nid = $(inputElm).attr("data-pk");
+              sessionStorage.setItem("gofastEditableValue_" + input_id + "_" + Gofast.get("user").uid + "_" + nid, tagify.DOM.originalInput.value);
+          });
+          tagify.on("remove", function() {
+              // prevent blur bug occurring with FF
+              tagify.DOM.input.focus();
+          });
+          tagify.on("blur", function() {
+              // cleanup
+              $("#editableInputPendingConfirmationLabel").remove();
+              $(".editableInputConfirmationButtons").remove();
+              const nid = $(inputElm).attr("data-pk");
+              const draftValue = sessionStorage.getItem("gofastEditableValue_" + input_id + "_" + Gofast.get("user").uid + "_" + nid);
+              const draftOriginalValue = sessionStorage.getItem("gofastEditableOriginalValue_" + input_id + "_" + Gofast.get("user").uid + "_" + nid);
+              if(tagify.hasPendingConfirmation && draftValue && draftValue != draftOriginalValue) {
+                  // display a label if there are unsaved changes
+                  $('<div id="editableInputPendingConfirmationLabel" class="w-100 h-100 label label-xl label-light-warning label-inline font-weight-bolder d-flex m-auto">' + Drupal.t("You have unsaved pending changes, please go back to edition mode to confirm or discard them.", {}, {context: "gofast"}) + '</div>').insertAfter($(tagify.DOM.scope.parentElement));
+                  // we don't want to display unsaved change if the user is not editing anymore (after blur)
+                  const draftOriginalValue = sessionStorage.getItem("gofastEditableOriginalValue_"+ input_id + "_" + Gofast.get("user").uid + "_" + nid);
+                  tagify.changingOnBlur = true;
+                  tagify.settings.whitelist = JSON.parse(draftOriginalValue);
+                  tagify.removeAllTags();
+                  tagify.addTags(JSON.parse(draftOriginalValue), true);
+                  tagify.changingOnBlur = false;
+                  return;
+              }
+              sessionStorage.removeItem("gofastEditableValue_" + input_id + "_" + Gofast.get("user").uid + "_" + nid);
+              sessionStorage.removeItem("gofastEditableOriginalValue_" + input_id + "_" + Gofast.get("user").uid + "_" + nid);
+          });
+          tagify.on("focus", function() {
+            // cleanup
+            $("#editableInputPendingConfirmationLabel").remove();
+            $(".editableInputConfirmationButtons").remove();
+            const nid = $(inputElm).attr("data-pk");
+            const draftValue = sessionStorage.getItem("gofastEditableValue_" + input_id + "_" + Gofast.get("user").uid + "_" + nid);
+            const draftOriginalValue = sessionStorage.getItem("gofastEditableOriginalValue_" + input_id + "_" + Gofast.get("user").uid + "_" + nid);
+            if (!tagify.hasPendingConfirmation && !draftValue) {
+                // keep track of unsaved changes for this card and user for the whole browsing session
+                sessionStorage.setItem("gofastEditableOriginalValue_" + input_id + "_" + Gofast.get("user").uid + "_" + nid, JSON.stringify(tagify.value));
+            }
+            if (draftValue && draftValue != draftOriginalValue) {
+                renderConfirmationButtons();
+                $('<div id="editableInputPendingConfirmationLabel" class="label label-xl label-light-warning label-inline font-weight-bolder">' + Drupal.t("You are editing previously unsaved changes.", {}, {context: "gofast"}) + '</div>').insertAfter($(tagify.DOM.scope.parentElement));
+                tagify.settings.whitelist = JSON.parse(draftValue);
+                tagify.removeAllTags();
+                tagify.addTags(JSON.parse(draftValue), true);
+            }
+          });
+          const nid = $(inputElm).attr("data-pk");
+          const draftValueOnInit = sessionStorage.getItem("gofastEditableValue_"  + input_id + "_" + Gofast.get("user").uid + "_" + nid);
+          const draftOriginalValueOnInit = sessionStorage.getItem("gofastEditableOriginalValue_"  + input_id + "_" + Gofast.get("user").uid + "_" + nid);
+          if (draftValueOnInit && draftValueOnInit != draftOriginalValueOnInit) {
+              $('<div id="editableInputPendingConfirmationLabel" class="label label-xl label-light-warning label-inline font-weight-bolder">' + Drupal.t("You have unsaved pending changes, please go back to edition mode to confirm or discard them.", {}, {context: "gofast"}) + '</div>').insertAfter($(tagify.DOM.scope.parentElement));
+          }
+        }
+
+        function renderConfirmationButtons(textInput = false) {
+          // if ($(".editableInputConfirmationButtons").length) {
+          //     return;
+          // }
+          const $confirmButton = $("<button class=\"btn btn-icon btn-sm\"><i class=\"fas fa-check text-success\"></i></button>");
+          const $cancelButton = $("<button class=\"btn btn-icon btn-sm\"><i class=\"fas fa-times text-danger\"></i></button>");
+          const $buttonsContainer = $("<span class=\"editableInputConfirmationButtons d-flex align-items-center justify-content-center\" style=\"margin-left: auto; margin-block: auto;\"></span>");
+          $buttonsContainer.append($confirmButton).append($cancelButton);
+          $buttonsContainer.insertAfter($(tagify.DOM.scope.parentElement.parentElement));
+          $confirmButton.on("mousedown", (e) => window.dispatchEvent(new Event(input_id + "TagifyHookConfirm")));
+          $cancelButton.on("mousedown", (e) => window.dispatchEvent(new Event(input_id + "TagifyHookCancel")));
+        };
+
+        function confirmationHookPromise() {
+          $(".tagify__dropdown").remove();
+          // cleanup previous confirmation promise
+          window.dispatchEvent(new Event(input_id + "TagifyHookClean"));
+          tagify.hasPendingConfirmation = true;
+          tagify.confirmationPromise = new Promise((resolve, reject) => {
+              const cleanPromiseListeners = () => {
+                  window.removeEventListener(input_id + "TagifyHookConfirm", resolveCallback);
+                  window.removeEventListener(input_id + "TagifyHookCancel", rejectCallback);
+                  window.removeEventListener(input_id + "TagifyHookClean", cleanCallback);
+              };
+              const resolveCallback = (e) => {
+                  // avoid overcrowding listeners
+                  cleanPromiseListeners();
+                  clearInputConfirmation();
+                  resolve();
+              };
+              const rejectCallback = (e) => {
+                  // avoid overcrowding listeners
+                  cleanPromiseListeners();
+                  clearInputConfirmation();
+                  reject();
+              };
+              const cleanCallback = (e) => {
+                cleanPromiseListeners();
+                reject();
+              };
+              const clearInputConfirmation = () => {
+                $("#editableInputPendingConfirmationLabel").remove();
+                $(".editableInputConfirmationButtons").remove();
+                $(".EditableInput__loader").hide();
+                tagify.hasPendingConfirmation = false;
+                sessionStorage.clear();
+              }
+              window.addEventListener(input_id + "TagifyHookConfirm", resolveCallback);
+              window.addEventListener(input_id + "TagifyHookCancel", rejectCallback);
+              window.addEventListener(input_id + "TagifyHookClean", cleanCallback);
+          });
+          return tagify.confirmationPromise;
+        }
+        window.tagify = window.tagify || {};
+        window.tagify[inputElm.name] = tagify;
       }
     }
   }
-})(jQuery, Drupal);
+})(jQuery, Gofast, Drupal);

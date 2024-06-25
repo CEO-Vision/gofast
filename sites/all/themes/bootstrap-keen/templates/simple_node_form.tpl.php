@@ -1,5 +1,7 @@
+<?php if (!$form["#modal"]) : ?>
 <div class="card card-custom GofastForm__CardContainer">
   <div class="card-body">
+<?php endif; ?>
     <div class="GofastForm__Field GofastForm__Field--title">
       <?php echo render($form['wrapper']['title']); ?>
     </div>
@@ -21,5 +23,7 @@
     <?php echo render($form['actions']); ?>
     <?php drupal_process_attached($form); ?>
     <div class="d-none"><?php echo drupal_render_children($form); ?></div>
+<?php if (!$form["#modal"]) : ?>
   </div>
 </div>
+<?php endif; ?>

@@ -167,6 +167,10 @@
       src: url("<?= $base_url ?>/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-Black.otf") format("opentype");
     }
 
+    .separate>table {
+      border-collapse: separate;
+    }
+
     /** GoFAST */
     body {
       font-family: Poppins, Candara, Helvetica, Arial, sans-serif;

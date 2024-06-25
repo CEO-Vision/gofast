@@ -64,14 +64,15 @@ function elysia_cron_menu() {
  */
 function elysia_cron_menu_alter(&$items) {
   // Override default cron page.
-  $items['admin/config/system/cron'] = array(
-    'title' => 'Cron Settings',
-    'description' => 'View and manage cron table',
-    'page callback' => 'elysia_cron_admin_page',
-    'access callback' => 'elysia_cron_access',
-    'access arguments' => array('view elysia_cron'),
-    'file' => NULL,
-  ) + $items['admin/config/system/cron'];
+  $items['admin/config/system/cron']['title'] = 'Cron Settings';
+  $items['admin/config/system/cron']['description'] = 'View and manage cron table';
+  $items['admin/config/system/cron']['page callback'] = 'elysia_cron_admin_page';
+  $items['admin/config/system/cron']['access callback'] = 'elysia_cron_access';
+  $items['admin/config/system/cron']['access arguments'] = array('view elysia_cron');
+  $items['admin/config/system/cron']['file'] = NULL;
+
+  $items['admin/reports/status/run-cron']['page callback'] = 'elysia_cron_run_manually';
+  $items['admin/reports/status/run-cron']['file'] = NULL;
 }
 
 /**
@@ -113,7 +114,7 @@ function elysia_cron_permission() {
     'administer elysia_cron' => array(
       'title' => t('Administer elysia cron'),
       'description' => t('Perform changes to cron jobs timings, disable cron or single jobs and access cron execution statistics'),
-      'restrict access' => TRUE,  
+      'restrict access' => TRUE,
     ),
     'execute elysia_cron' => array(
       'title' => t('Execute elysia cron jobs'),
@@ -143,6 +144,15 @@ function elysia_cron_exit() {
 function elysia_cron_cron() {
   global $_elysia_cron_exit_phase, $_elysia_cron_drush;
 
+  // First cron run is executed in standard drupal way.
+  // This is to enable the use of install profiles.
+  if (variable_get('cron_last', 0) <= variable_get('install_time', 0)) {
+    return;
+  }
+
+  // Log that cron started.
+  elysia_cron_debug('Started Elysia Cron.');
+
   // If cron has been executed via "drush core-cron" or any other custom drush
   // command then we run internal cron handler which is designed to handle
   // cron executions from drush.
@@ -150,11 +160,6 @@ function elysia_cron_cron() {
     elysia_cron_drush_invoke();
   }
 
-  // First cron run is executed in standard drupal way.
-  // This is to enable the use of install profiles.
-  if (variable_get('cron_last', 0) <= variable_get('install_time', 0)) {
-    return;
-  }
   // If the path is 'admin/*', or if the user is not anonymous,
   // this is a manual cron run (probably by admin/logs/status),
   // but not if we are in the exit phase (= this a "poormanscron" run).
@@ -164,9 +169,11 @@ function elysia_cron_cron() {
 
   if ($manual_run) {
     if ($result) {
+      elysia_cron_debug('Cron ran successfully.');
       elysia_cron_message('Cron ran successfully');
     }
     else {
+      elysia_cron_debug('Cron run failed, disabled or nothing to do.');
       elysia_cron_message('Cron run failed, disabled or nothing to do');
     }
     // In manual execution it's better to set cron_last variable in standard way
@@ -187,7 +194,7 @@ function elysia_cron_cron() {
     variable_set('cron_last', time());
   }
 
-  exit();
+  drupal_exit();
 }
 
 /**
@@ -238,8 +245,11 @@ $GLOBALS['_ec_variables_allowed'] = array(
  */
 function _ec_variable_init() {
   global $_ec_variables, $_ec_variables_allowed;
+
   $_ec_variables = array();
-  $_ec_variables = array_map('unserialize', db_query("SELECT name, value FROM {variable} where name like '" . implode("' or name like '", $_ec_variables_allowed) . "'")->fetchAllKeyed());
+  foreach ($_ec_variables_allowed as $name) {
+    $_ec_variables[$name] = variable_get($name);
+  }
 }
 
 /**
@@ -925,7 +935,7 @@ function elysia_cron_debug($message, $vars = array(), $type = WATCHDOG_NOTICE) {
   if ($type < WATCHDOG_NOTICE || variable_get('elysia_cron_debug_messages', 0)) {
     watchdog('cron', $message, $vars, $type);
   }
-  if (!empty($_elysia_cron_drush) && $_elysia_cron_drush >= 2 && ($type >= WATCHDOG_NOTICE || !drush_get_option("verbose", FALSE))) {
+  if (!empty($_elysia_cron_drush) && $_elysia_cron_drush >= 2 && ($type >= WATCHDOG_NOTICE || drush_get_option("verbose", FALSE))) {
     if ($type >= WATCHDOG_NOTICE) {
       drush_print(strip_tags(dt($message, $vars)));
     }
@@ -953,7 +963,7 @@ function elysia_cron_decode_script($text, $apply = TRUE) {
   foreach ($lines as $line) {
     $line = trim($line);
     if (!empty($line)) {
-      if ($line{0} == '#') {
+      if ($line[0] == '#') {
         $lastcomment = trim(substr($line, 1));
 
       }
@@ -1142,8 +1152,8 @@ function elysia_cron_prepare_run($manual_run, $start = TRUE) {
     @ignore_user_abort(TRUE);
 
     // Try to allocate enough time to run all the hook_cron implementations.
-    if (!ini_get('safe_mode') && _elysia_cron_function_available('set_time_limit')) {
-      set_time_limit(variable_get('elysia_cron_time_limit', 240));
+    if (_elysia_cron_function_available('set_time_limit')) {
+      @set_time_limit(variable_get('elysia_cron_time_limit', 240));
     }
 
     // Prevent session information from being saved while cron is running.
@@ -1295,6 +1305,21 @@ function elysia_cron_run($manual_run = FALSE, $ignore_disable = FALSE, $ignore_t
 }
 
 /**
+ * Menu callback: run cron manually.
+ */
+function elysia_cron_run_manually() {
+  // Run cron manually
+  if (elysia_cron_run(TRUE)) {
+    drupal_set_message(t('Cron ran successfully.'));
+  }
+  else {
+    drupal_set_message(t('Cron run failed.'), 'error');
+  }
+
+  drupal_goto('admin/reports/status');
+}
+
+/**
  * Public function to execute all jobs in a channel.
  *
  * @param bool $ignore_disable
@@ -1303,6 +1328,9 @@ function elysia_cron_run($manual_run = FALSE, $ignore_disable = FALSE, $ignore_t
  *   Run channel (and all it's jobs) job even if not ready.
  * @param bool $ignore_running
  *   Run the channel (and all it's jobs) even if already running.
+ *
+ * @return bool
+ *   Result of execution.
  */
 function elysia_cron_run_channel($channel, $ignore_disable = FALSE, $ignore_time = FALSE, $ignore_running = FALSE) {
   global $_elysia_cron_settings_by_channel;
@@ -1505,14 +1533,14 @@ function elysia_cron_check_run_channel($channel, $ignore_disable = FALSE, $ignor
     elysia_cron_set_channel_running($channel, 0);
     $last_job = elysia_cron_execute_aborted($channel);
     unset($sem);
-     /*
+		/*
      * Patch CEO-Vision
      * Catch this error and fill drupal variable to indicate the cron has stuck
      */
     $gofast_status = variable_get("gofast_status", array());
     //first we check if the variable already contain this stuck
     if($gofast_status["cron"]["state"] !== "KO"){
-         watchdog("GOFAST Report", "Cron has stuck");
+        watchdog("GOFAST Report", "Cron has stuck");
         $gofast_status["cron"]["state"] = "KO";
         $timestamp_up = $gofast_status["cron"]["timestamp"];
         $gofast_status["cron"]["timestamp"] = time();
@@ -1532,9 +1560,9 @@ function elysia_cron_check_run_channel($channel, $ignore_disable = FALSE, $ignor
         $mail_sent = gofast_mail_queue_api_send_mail($subject, $title, $footer, $body, $recpt);
         if($mail_sent == true){
             $gofast_status["cron"]["notified"] = true;
-        }      
+        }
     }
-    variable_set("gofast_status",  $gofast_status);        
+    variable_set("gofast_status",  $gofast_status);
   }
   if (($ignore_running || empty($sem)) && ($ignore_disable || !$_elysia_cron_settings_by_channel[$channel]['#data']['disabled'])) {
     $jobs = elysia_cron_active_jobs($channel, $ignore_disable, $ignore_time);
@@ -1559,7 +1587,8 @@ function elysia_cron_check_run_job($job) {
 /**
  * Find an idle channel (not running, or stuck). If found one, set it as running and returns available jobs.
  *
- * @return if found returns array { 'name' => name of channel, 'jobs' => array of active jobs }, else return FALSE
+ * @return array|bool
+ *   If found returns array { 'name' => name of channel, 'jobs' => array of active jobs }, else return FALSE.
  */
 function elysia_cron_run_available_channel($ignore_disable = FALSE, $ignore_time = FALSE, $ignore_running = FALSE) {
   global $_elysia_cron_settings_by_channel;
@@ -1621,7 +1650,7 @@ function elysia_cron_execute_aborted($channel) {
  * Used for unexpected termination of code.
  */
 function elysia_cron_internal_execute_channel_cleanup() {
-  global $_elysia_cron_settings, $_elysia_cron_current_channel, $_cron_completed, $_cron_completed_time;
+  global $_elysia_cron_current_channel, $_cron_completed;
 
   if ($_cron_completed) {
     return;
@@ -1644,15 +1673,14 @@ function elysia_cron_internal_execute_channel_completed() {
   _ec_variable_set('cron_last', time());
 
   elysia_cron_debug('Cron channel %channel run completed.', array('%channel' => $_elysia_cron_current_channel));
-
   /*
-     * Patch CEO-Vision
-     * Catch this error and fill drupal variable to indicate the cron has stuck
-     */
-    $gofast_status = variable_get("gofast_status", array());
-    //first we check if the variable already contain this stuck
-    if($gofast_status["cron"]["state"] == "KO"){
-        watchdog("GOFAST Report", "Cron stuck finished");
+   * Patch CEO-Vision
+   * Catch this error and fill drupal variable to indicate the cron has stuck
+   */
+  $gofast_status = variable_get("gofast_status", array());
+  //first we check if the variable already contain this stuck
+  if($gofast_status["cron"]["state"] == "KO"){
+      watchdog("GOFAST Report", "Cron stuck finished");
         $gofast_status["cron"]["state"] = "OK";
         $timestamp_down = $gofast_status["cron"]["timestamp"];
         $gofast_status["cron"]["timestamp"] = time();
@@ -1677,8 +1705,8 @@ function elysia_cron_internal_execute_channel_completed() {
             $gofast_status["cron"]["notified"] = true;
         }      
     }
-    variable_set("gofast_status",  $gofast_status); 
-  
+    variable_set("gofast_status",  $gofast_status);
+
   $stats = elysia_cron_get_channel_stats($_elysia_cron_current_channel);
   $time = time() - $stats['last_run'];
 
@@ -1888,16 +1916,16 @@ function elysia_cron_ping_page() {
   $max_interval = variable_get('elysia_cron_alert_interval', 60) * 60;
 
   if ($diff > $max_interval) {
-    return drupal_not_found();
+    drupal_not_found();
+    drupal_exit();
   }
-  else {
-    $aoutput = array();
-    $aoutput[] = array(
-      '#type' => 'markup',
-      '#markup' => t('Cron has been called within maximum lapse time.'),
-    );
-    return $aoutput;
-  }
+
+  $aoutput = array();
+  $aoutput[] = array(
+    '#type' => 'markup',
+    '#markup' => t('Cron has been called within maximum lapse time.'),
+  );
+  return $aoutput;
 }
 
 /*******************************************************************************
@@ -1905,6 +1933,9 @@ function elysia_cron_ping_page() {
  * ONLY FOR D7
  ******************************************************************************/
 
+/**
+ * Implements hook_cronapi().
+ */
 function elysia_cron_cronapi($op, $job = FALSE) {
   $items = array();
 
@@ -1942,6 +1973,14 @@ function elysia_cron_cronapi($op, $job = FALSE) {
   return $items;
 }
 
+/**
+ * Callback for cronapi.
+ *
+ * @param string $queue_name
+ *   Queue name.
+ * @param array $info
+ *   Info about queue.
+ */
 function elysia_cron_queue_exec($queue_name, $info) {
   $function = $info['worker callback'];
   $end = time() + (isset($info['time']) ? $info['time'] : 15);
@@ -1971,6 +2010,9 @@ function elysia_cron_queue_exec($queue_name, $info) {
  *   Array of links under admin/* that were removed by
  *   admin_menu_adjust_items(). If one of these links is added back,
  *   it should be removed from the array.
+ *
+ * @return array
+ *   Links array.
  */
 function elysia_cron_admin_menu(&$deleted) {
   $links = array();

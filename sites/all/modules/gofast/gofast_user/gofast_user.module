@@ -115,6 +115,7 @@ function gofast_user_init() {
   }
 
   global $user;
+  global $conf;
 
   if(isset($_SESSION['pass_reset_' . $user->uid])){
     $warning_message = t('You are using a temporarily session in order to change your password. Please change it from your profil', array(), array('context' => 'gofast'));
@@ -152,6 +153,11 @@ function gofast_user_init() {
 
     $user->display_carousel = TRUE;
   }
+  if(!isset($conf['gofast-atatus-key']) || user_load($user->uid)->field_atatus_tracking[LANGUAGE_NONE]['0']['value'] != 0){
+    $user->atatus_set = TRUE;
+  }else{
+    $user->atatus_set = FALSE;
+  }
 
   $picture_path = variable_get('user_picture_default', '');
   $user->avatar_anon = url($picture_path, ['absolute' => TRUE]);
@@ -176,6 +182,15 @@ function gofast_user_init() {
   lock_release("gofast_carousel_users");
 
   drupal_add_js(array('gofast' => array('user' => $user)), 'setting');
+  $spaces_config = variable_get("spaces_defaults");
+  drupal_add_js(
+    array(
+      'filterExtranet' => array(
+        'config' => $spaces_config,
+      )
+    ),
+    'setting'
+  );
   drupal_add_library('gofast_user','user_directories');
 }
 
@@ -293,11 +308,11 @@ function gofast_user_library()
   $lib = 'sites/all/libraries/cropper';
   $path = drupal_get_path('module', 'gofast_user');
   $libraries = array();
-  $libraries['cropper'] = array(
+  $libraries['avatar_cropper'] = array(
     'title' => 'Cropper library',
     'version' => '1.0',
     'js' => array(
-      $path . '/js/gofast_crop.js' => array(
+      $path . '/js/gofast_avatar_crop.js' => array(
         'group' => JS_DEFAULT
       )
     ),
@@ -581,6 +596,8 @@ function gofast_user_og_membership_delete(OgMembership $og_membership) {
  *  object will not be saved in the database.
  * @param $category
  *  The active category of user information being edited.
+ *
+ * @throws \Exception
  */
 function gofast_user_user_presave(&$edit, $account, $category) {
   // Store update timestamp into 'data' storage.
@@ -617,9 +634,9 @@ function gofast_user_user_presave(&$edit, $account, $category) {
 
         $userPassword = "{SASL}{$account->name}@{$domain}";
       }else{
-        $current_pass_encrypt = gofast_ldap_get_user_pwd($account);      
-        $userPassword = base64_decode($current_pass_encrypt);           
-        $userPassword = str_replace("_blocked_", "", $userPassword);         
+        $current_pass_encrypt = gofast_ldap_get_user_pwd($account);
+        $userPassword = base64_decode($current_pass_encrypt);
+        $userPassword = str_replace("_blocked_", "", $userPassword);
       }
       $server->modifyLdapEntry($dn, array('userPassword' => $userPassword));
     }
@@ -637,32 +654,46 @@ function gofast_user_user_presave(&$edit, $account, $category) {
 	$LdapServer->groupAddMember($gofast_ldap_gofast_admin_basedn, $account);
     }
 
-    if(isset($edit['roles'][3]) && isset($account->roles[4])){
+    if(isset($account->is_new) && isset($edit['roles'][7])){
+      ## if the user will be admin then add ADMIN_GOFAST
+      $LdapServer = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
+      $LdapServer->connectAndBindIfNotAlready();
+      $ldap_basedn = variable_get('gofast_ldap_int_base_dn');
+      $attributes = array();
+      $attributes['objectclass'] = array('groupOfNames');
+      $attributes['description'] = GOFAST_BUSINESS_ADMIN_PLATFORM;
+      $attributes['cn'] = GOFAST_BUSINESS_ADMIN_PLATFORM;
+      $gofast_ldap_gofast_admin_basedn = 'cn=' . $attributes['cn'] . ',ou=Groups,' . $ldap_basedn;
+
+      $LdapServer->groupAddMember($gofast_ldap_gofast_admin_basedn, $account);
+    }
+
+    if(isset($edit['roles'][3]) && !isset($account->roles[3])){
         ## if the user will be admin then add ADMIN_GOFAST
-	$LdapServer = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
-	$LdapServer->connectAndBindIfNotAlready();
-	$ldap_basedn = variable_get('gofast_ldap_int_base_dn');
-	$attributes = array();
-	$attributes['objectclass'] = array('groupOfNames');
-	$attributes['description'] = GOFAST_ADMIN_PLATFORM;
-	$attributes['cn'] = GOFAST_ADMIN_PLATFORM;
-	$gofast_ldap_gofast_admin_basedn = 'cn=' . $attributes['cn'] . ',ou=Groups,' . $ldap_basedn;
+        $LdapServer = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
+        $LdapServer->connectAndBindIfNotAlready();
+        $ldap_basedn = variable_get('gofast_ldap_int_base_dn');
+        $attributes = array();
+        $attributes['objectclass'] = array('groupOfNames');
+        $attributes['description'] = GOFAST_ADMIN_PLATFORM;
+        $attributes['cn'] = GOFAST_ADMIN_PLATFORM;
+        $gofast_ldap_gofast_admin_basedn = 'cn=' . $attributes['cn'] . ',ou=Groups,' . $ldap_basedn;
 
-	$LdapServer->groupAddMember($gofast_ldap_gofast_admin_basedn, $account);
-        
+        $LdapServer->groupAddMember($gofast_ldap_gofast_admin_basedn, $account);
+
          watchdog("debug roles test", "pas superadmin avant mais maintenant oui");
-    }else if($edit['roles'][4] && isset($account->roles[3])){
+  }else if(isset($edit['roles']) && !$edit['roles'][3] && isset($account->roles[3])){
         ## else remove it
-	$LdapServer = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
-	$LdapServer->connectAndBindIfNotAlready();
-	$ldap_basedn = variable_get('gofast_ldap_int_base_dn');
-	$attributes = array();
-	$attributes['objectclass'] = array('groupOfNames');
-	$attributes['description'] = GOFAST_ADMIN_PLATFORM;
-	$attributes['cn'] = GOFAST_ADMIN_PLATFORM;
-	$gofast_ldap_gofast_admin_basedn = 'cn=' . $attributes['cn'] . ',ou=Groups,' . $ldap_basedn;
+        $LdapServer = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
+        $LdapServer->connectAndBindIfNotAlready();
+        $ldap_basedn = variable_get('gofast_ldap_int_base_dn');
+        $attributes = array();
+        $attributes['objectclass'] = array('groupOfNames');
+        $attributes['description'] = GOFAST_ADMIN_PLATFORM;
+        $attributes['cn'] = GOFAST_ADMIN_PLATFORM;
+        $gofast_ldap_gofast_admin_basedn = 'cn=' . $attributes['cn'] . ',ou=Groups,' . $ldap_basedn;
 
-	$LdapServer->groupRemoveMember($gofast_ldap_gofast_admin_basedn, $account);
+        $LdapServer->groupRemoveMember($gofast_ldap_gofast_admin_basedn, $account);
         //also remove admin permissions on root spaces
         $uid = $account->uid;
         $root_spaces = gofast_og_get_root_spaces(FALSE, TRUE);
@@ -694,7 +725,21 @@ function gofast_user_user_presave(&$edit, $account, $category) {
 
         }
         watchdog("debug roles test", "superadmin avant mais maintenant non");
-    }elseif(isset($edit['roles']) && !$edit['roles'][7] && isset($account->roles[7])){
+    }
+
+    if(isset($edit['roles']) && !$edit['roles'][7] && isset($account->roles[7])){
+        ## Remove LDAP role
+        $LdapServer = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
+        $LdapServer->connectAndBindIfNotAlready();
+        $ldap_basedn = variable_get('gofast_ldap_int_base_dn');
+        $attributes = array();
+        $attributes['objectclass'] = array('groupOfNames');
+        $attributes['description'] = GOFAST_BUSINESS_ADMIN_PLATFORM;
+        $attributes['cn'] = GOFAST_BUSINESS_ADMIN_PLATFORM;
+        $gofast_ldap_gofast_admin_basedn = 'cn=' . $attributes['cn'] . ',ou=Groups,' . $ldap_basedn;
+
+        $LdapServer->groupRemoveMember($gofast_ldap_gofast_admin_basedn, $account);
+
         //also remove admin permissions on root spaces
         $uid = $account->uid;
         $root_spaces = gofast_og_get_root_spaces(FALSE, TRUE);
@@ -726,6 +771,18 @@ function gofast_user_user_presave(&$edit, $account, $category) {
 
         }
     }elseif($edit['roles'][7] && !isset($account->roles[7])){
+        // Add LDAP role
+        $LdapServer = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
+        $LdapServer->connectAndBindIfNotAlready();
+        $ldap_basedn = variable_get('gofast_ldap_int_base_dn');
+        $attributes = array();
+        $attributes['objectclass'] = array('groupOfNames');
+        $attributes['description'] = GOFAST_BUSINESS_ADMIN_PLATFORM;
+        $attributes['cn'] = GOFAST_BUSINESS_ADMIN_PLATFORM;
+        $gofast_ldap_gofast_admin_basedn = 'cn=' . $attributes['cn'] . ',ou=Groups,' . $ldap_basedn;
+
+        $LdapServer->groupAddMember($gofast_ldap_gofast_admin_basedn, $account);
+
         //also add admin permissions on root spaces
         $uid = $account->uid;
         $root_spaces = gofast_og_get_root_spaces(FALSE, TRUE);
@@ -760,6 +817,17 @@ function gofast_user_user_presave(&$edit, $account, $category) {
     }
 }
 
+/**
+ * Hook cronapi (defined the cron items).
+ */
+function gofast_user_cronapi($op, $job = NULL) {
+  $items['gofast_user_disable_expired_accounts_cron'] = array(
+    'description' => 'Deactivate all extranet accounts whose expiry date has passed',
+    'rule' => '0 1 * * *', // Every day at 01:00
+  );
+
+  return $items;
+}
 function gofast_user_mail_alter(&$message) {
 
   // some useful variables
@@ -775,7 +843,7 @@ function gofast_user_mail_alter(&$message) {
   if($message["id"] == "user_register_admin_created"){
     $author_pic = [
       "src" =>  gofast_get_url_picture_by_id($user->picture),
-      "alt" => t("@user's picture", array('@user' => format_username($user)), array('context' => 'gofast:gofast_user')), 
+      "alt" => t("@user's picture", array('@user' => format_username($user)), array('context' => 'gofast:gofast_user')),
     ];
     $user_login = $account->name;
     $user_password = $account->password;
@@ -1123,6 +1191,12 @@ function gofast_user_user_update(&$edit, $account, $category) {
             gofast_audit_insert_line_audit(0, 'user_blocked', $last_event_serialized, $last_event_unserialized); //The value 0 is define in order to not render node in the audit
       }
   }
+  
+  if(variable_get('gofast_user_current_username_updated', FALSE)){
+    variable_set('gofast_user_current_username_updated', FALSE);
+    user_logout();
+  }
+  
   //watchdog('user_update', json_encode($edit));
 
 }
@@ -1197,7 +1271,7 @@ function gofast_user_preprocess_user_profile(&$variables) {
 
    $account = $variables['elements']['#account'];
 
-   drupal_add_library('gofast_user', 'cropper');
+   drupal_add_library('gofast_user', 'avatar_cropper');
    drupal_add_js(drupal_get_path('module', 'gofast_user') . '/js/gofast_profile.js', array('type' => 'file', 'weight' => 5));
 
    // Is the current user theme administrator ?
@@ -1336,6 +1410,10 @@ function gofast_user_preprocess_user_profile(&$variables) {
 
    $variables['profile_birthdate'] = $formatted_birthdate;
 
+   if(!empty($account->field_extranet_expiration_date)){
+      $variables["profile_expiration_date"] = $account->field_extranet_expiration_date[LANGUAGE_NONE][0]["value"];
+   }
+
    $variables['manager_default'] = isset($account->ldap_user_manager[LANGUAGE_NONE][0]['value']) ? $account->ldap_user_manager[LANGUAGE_NONE][0]['value'] : '';
 
    // Provide in place editing options.
@@ -1360,7 +1438,7 @@ function gofast_user_preprocess_user_profile(&$variables) {
    if ($self || $user->uid == 1 || user_access('gofast administer users') ) {
      // Advanced settings link
      $text = '';
-     if( ! gofast_mobile_is_mobile_domain()){
+     if( ! gofast_essential_is_essential()){
        $text = t('Account settings', array(), array('context' => 'gofast:gofast_user'));
      }
 
@@ -1377,7 +1455,7 @@ function gofast_user_preprocess_user_profile(&$variables) {
    $variables['groups'] = $groups;
    $variables['public'] = $public;
    $variables['extranet'] = $extranet;
-   $variables['requested_groups'] = implode(' ', $requested_groups);
+   $variables['requested_groups'] = implode(' ', (array) $requested_groups);
 
    $variables['og_button_join'] = "";
 
@@ -1801,7 +1879,6 @@ function gofast_ajax_login_version_submit_callback(&$form, &$form_state)
 {
   global $user;
   global $cookie_domain;
-  global $mobile_url;
 
   $standard_prefix_url = variable_get_value('base_url_standard');
   $user = user_load($form_state['uid']);
@@ -1809,92 +1886,60 @@ function gofast_ajax_login_version_submit_callback(&$form, &$form_state)
 
   setcookie('gofast_version_login_selected', $selectVersion, strtotime('+1 year'), '/', $cookie_domain, true, true); // set the chosen version cookie ininite
 
-  if (gofast_mobile_is_mobile_domain() && $selectVersion == GOFAST_COMPLETE_VERSION) {
-    gofast_user_handle_redirect_login_to('standard', $user->uid, $mobile_url, $standard_prefix_url);
-  }elseif(!gofast_mobile_is_mobile_domain() && $selectVersion == GOFAST_SIMPLE_VERSION){
-    gofast_user_handle_redirect_login_to('mobile', $user->uid, $mobile_url, $standard_prefix_url);
-  } else {
-    $form_state['redirect'] = 'user/' . $user->uid;
-  }
-}
-
-function gofast_user_handle_redirect_login_to($goToDomain, $uid, $mobile_url, $standard_prefix_url)
-{
-
-  $token = variable_get("gofast_token_user_login");
-  $request_uri = str_replace($_SERVER['REQUEST_SCHEME'] . "://" . $_SERVER['SERVER_NAME'], "", $_SERVER['HTTP_REFERER']);
-
-  if ($goToDomain == "mobile") {
-    header('Location: ' . $mobile_url . '/gofast/user/login/redirect/' . $token . '/' .$uid . "?request_uri=" . urlencode($request_uri));
-  } elseif ($goToDomain == "standard") {
-    header('Location: ' . $standard_prefix_url . '/gofast/user/login/redirect/' . $token . '/' .$uid . "?request_uri=" . urlencode($request_uri));
-  }
-  exit;
+  $form_state['redirect'] = 'user/' . $user->uid;
 }
 
 function gofast_user_login_and_redirect_to_mobile()
 {
-  global $user;
-  global $mobile_url;
-  $token = variable_get("gofast_token_user_login");
+  $front_page = variable_get("site_frontpage", "activity");
+  gofast_essential_choose_version("Essential");
 
-  header('Location: ' . $mobile_url . '/gofast/user/login/redirect/' . $token . '/' . $user->uid);
-  exit;
+  drupal_goto($front_page);
 }
 
 function gofast_user_login_and_redirect_to_standard()
 {
-  global $user;
-  $standard_prefix_url = variable_get_value('base_url_standard');
-  $token = variable_get("gofast_token_user_login");
+  $front_page = variable_get("site_frontpage", "activity");
+  gofast_essential_choose_version("Plus");
 
-  header('Location: ' . $standard_prefix_url . '/gofast/user/login/redirect/' . $token . '/' . $user->uid);
-  exit;
-}
-
-function gofast_user_login_with_token($token,$uid)
-{
-  global $user;
-  global $base_url;
-  global $mobile_url;
-  global $cookie_domain;
-
-  $timestamp = db_query('SELECT timestamp FROM {gofast_token} WHERE token = :token AND uid = :uid', array(':token' => $token, ':uid' => $uid))->fetchCol();
-
- // check timestamp
- if(!empty($timestamp)){
-    $tokenDate = date('m/d/Y H:i:s', $timestamp[0]);
-    $DateNow = date('m/d/Y H:i:s');
-    if ($tokenDate > $DateNow) {
-      $user = user_load($uid);
-      drupal_session_regenerate();
-    }
- }
-
-  $standard_prefix_url = variable_get_value('base_url_standard');
-
-  if ($base_url == $mobile_url) {
-    setcookie('gofast_mobile_login_sid', session_id(), strtotime('+1 year'), '/', $cookie_domain, true, true); // set the mobile version sid cookie
-  } elseif ($base_url == $standard_prefix_url) {
-    setcookie('gofast_complete_login_sid', session_id(), strtotime('+1 year'), '/', $cookie_domain, true, true); // set the complete version sid cookie
-  }
-
- header("Location: https://".$_SERVER['HTTP_HOST'].$_GET['request_uri']);
-
+  drupal_goto($front_page);
 }
 
 
 function gofast_user_login_form_validation($form, &$form_state)
 {
   $errors = form_get_errors();
-  if (isset($errors['login'])) {
+  if (isset($errors["login"]) || isset($errors['name'])) {
+    $errors['name'] = t('Sorry, unrecognized username or password.');
     gofast_form_unset_error('name');
+    form_set_error('name', $errors['name']);
   }
   $login_form_disabled = variable_get("gofast_disable_login_form", FALSE);
   if($login_form_disabled){
       if($form_state["values"]["name"] !== "adm" && $form_state["values"]["name"] !== "admin"){
           form_set_error("Unable to login without using SSO");return;
       }
+  }
+  $account = user_load_by_name($form_state["values"]["name"]);
+  // If the user is disabled, we signal it so our patch in the core handler will increment login attempts (to prevent exposing that this username exists)
+  if ($account->status == 0) {
+    $form_state["values"]["status"] = 0;
+  }
+  // this account logs using sasl but the external ldap is unreachable: prevent login and warn the user instead of decrementing login attempts
+  if ($account->sasl_auth[LANGUAGE_NONE][0]['value'] == 1 && !gofast_ldap_is_directory_reachable(FALSE)) {
+    form_set_error("gofast_user", t("Unable to reach the company directory. If the problem persists, please contact your IT department.",  [], ["context" => "gofast:gofast_ldap"]));
+    flood_clear_event('failed_login_attempt_user', $form_state['flood_control_user_identifier']);
+    _login_security_remove_events($form_state["values"]["name"]);
+    return;
+  }
+  if (module_exists('gofast_community')){
+    if ($account && $account->name == 'admin') {
+      // If the user is admin, deny access.
+      form_set_error('name', t('Access denied for admin.'));
+      flood_clear_event('failed_login_attempt_user', $form_state['flood_control_user_identifier']);
+      _login_security_remove_events($form_state["values"]["name"]);
+      return;
+    }
   }
 }
 
@@ -1921,5 +1966,25 @@ function template_preprocess_gofast_user_profile_personal_info(&$variables){
   global $user;
   foreach(taxonomy_get_vocabularies() as $vocabulary){
           $variables[$vocabulary->machine_name . "_vid"] = $vocabulary->vid;
+  }
+}
+
+/**
+ * Deactivate all extranet accounts whose expiry date has passed
+ */
+function gofast_user_disable_expired_accounts_cron(){
+  $query = db_select("field_data_field_extranet_expiration_date", "fdfeed")
+            ->fields("fdfeed", array("entity_id", "field_extranet_expiration_date_value"));
+  $query->innerJoin("field_data_is_extranet", "fdie", "fdie.entity_id = fdfeed.entity_id");
+  $query->condition("fdie.is_extranet_value", 1, "=");
+  $results = $query->execute()
+                  ->fetchAllAssoc("entity_id");
+
+  foreach($results as $result){
+    $actual_timestamp = time();
+    $expire_timestamp = $result->field_data_field_extranet_expiration_date;
+    if($expire_timestamp < $actual_timestamp){
+      gofast_user_leave_user($result->entity_id);
+    }
   }
 }

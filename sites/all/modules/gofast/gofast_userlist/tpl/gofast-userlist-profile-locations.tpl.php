@@ -8,16 +8,20 @@
     <td class="profile-groups">
       <div style="max-height:200px; overflow-y:scroll;">
         <?php
-        $path = $groups['path'];
-        if(empty($path)){ ?>
+        $path_groups = $groups['path'];
+        if(empty($path_groups)){ ?>
           <span class="text-muted mt-2 font-size-sm">
             <span><?php echo t('No groups locations') ?></span>
           </span>
-        <?php }
-        foreach ($path as $gid => $webdav_path) {
-          print gofast_breadcrumb_display_breadcrumb($gid, ['return' => TRUE, "title_link" => TRUE, "editable" => FALSE, "show_role" => TRUE, "show_role_for_ul" => $ulid]);
-        }
-        ?>
+        <?php }else {?>
+           <ul style="margin-left: 0;padding-left:0;list-style: none;">
+           <?php
+           foreach ($path_groups as $gid => $webdav_path) {
+             print gofast_breadcrumb_get_simplified_breadcrumb($gid, $ulid, $webdav_path, FALSE);
+           }
+           ?>
+         </ul>
+         <?php }?>
       </div>
     </td>
   </tr>
@@ -34,11 +38,15 @@
           <span class="text-muted mt-2 font-size-sm">
             <span><?php echo t('No organisations locations') ?></span>
           </span>
-        <?php }
-        foreach ($path_orga as $gid => $webdav_path) {
-          print gofast_breadcrumb_display_breadcrumb($gid, ['return' => TRUE, "title_link" => TRUE, "editable" => FALSE, "show_role" => TRUE, "show_role_for_ul" => $ulid]);
-        }
-        ?>
+        <?php } else {?>
+           <ul style="margin-left: 0;padding-left:0;list-style: none;">
+           <?php
+           foreach ($path_orga as $gid => $webdav_path) {
+             print gofast_breadcrumb_get_simplified_breadcrumb($gid, $ulid, $webdav_path, FALSE);
+           }
+           ?>
+         </ul>
+         <?php }?>
       </div>
     </td>
   </tr>
@@ -55,11 +63,15 @@
           <span class="text-muted mt-2 font-size-sm">
             <span><?php echo t('No public locations') ?></span>
           </span>
-        <?php }
-        foreach ($path_public as $gid => $webdav_path) {
-          print gofast_breadcrumb_display_breadcrumb($gid, ['return' => TRUE, "title_link" => TRUE, "editable" => FALSE, "show_role" => TRUE, "show_role_for_ul" => $ulid]);
-        }
-        ?>
+        <?php } else {?>
+           <ul style="margin-left: 0;padding-left:0;list-style: none;">
+           <?php
+           foreach ($path_public as $gid => $webdav_path) {
+             print gofast_breadcrumb_get_simplified_breadcrumb($gid, $ulid, $webdav_path, FALSE);
+           }
+           ?>
+         </ul>
+         <?php }?>
       </div>
     </td>
   </tr>
@@ -72,15 +84,19 @@
       <div style="max-height:200px; overflow-y:scroll">
         <?php
         $path_extranet = $extranet['path'];
-        if(empty($path_public)){ ?>
+        if(empty($path_extranet)){ ?>
           <span class="text-muted mt-2 font-size-sm">
             <span><?php echo t('No extranet locations') ?></span>
           </span>
-        <?php }
-        foreach ($path_extranet as $gid => $webdav_path) {
-          print gofast_breadcrumb_display_breadcrumb($gid, ['return' => TRUE, "title_link" => TRUE, "editable" => FALSE, "show_role" => TRUE, "show_role_for_ul" => $ulid]);
-        }
-        ?>
+        <?php } else {?>
+           <ul style="margin-left: 0;padding-left:0;list-style: none;">
+           <?php
+           foreach ($path_extranet as $gid => $webdav_path) {
+             print gofast_breadcrumb_get_simplified_breadcrumb($gid, $ulid, $webdav_path, FALSE);
+           }
+           ?>
+         </ul>
+         <?php }?>
       </div>
     </td>
   </tr>

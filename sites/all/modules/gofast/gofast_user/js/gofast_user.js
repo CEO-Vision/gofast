@@ -190,6 +190,11 @@
         inputElClass: "GofastUser__birthdateInput",
         type: "date",
       },
+      expiration_date: {
+        wrapperSelector: ".profile-expiration-date-info",
+        inputElClass: "GofastUser__expirationDateInput",
+        type: "expiration_date",
+      },
       manager: {
         wrapperSelector: ".profile-manager-info",
         inputElClass: "GofastUser__managerInput",
@@ -238,6 +243,7 @@
           email: {field: "mail", placeholder: "Your email address"},
           department: {field: "ldap_user_o", placeholder: "Your organisation"},
           birthdate: {field: "field_birthdate", placeholder: "Your birthdate"},
+          expiration_date: {field: "field_extranet_expiration_date", placeholder: ""},
           manager: {field: "ldap_user_manager", placeholder: "Your manager"},
           description: {field: "ldap_user_description", placeholder: "Description"},
           skills: {field: "field_skills", placeholder: "Your skills"},
@@ -246,7 +252,7 @@
         },
 
         // update callback
-        userProfileUpdate: async function (userId, field, value) {
+        userProfileUpdate: async function (userId, field, value, initialValue) {
           let formData = new FormData();
           // we don't forget to translate the DTO field into a Drupal user form field
           formData.append("pk", userId);
@@ -256,8 +262,11 @@
           if (field === "birthdate") {
             formData.append("date_str", (new Date(value)).getTime());
           }
+          if (field === "expiration_date") {
+            formData.append("expiration_date_timestamp", value)
+          }
           if (field === "manager") {
-            if(value !== undefined){
+            if(typeof value.ldap_user_prov_entries_value != "undefined"){
               formData.set("value", value.ldap_user_prov_entries_value.replace('gofastLDAP|', ''));
             }
           }
@@ -309,14 +318,30 @@
           this.inputEl = inputEl;
           this.initialValue = initialValue;
           this.type = type;
+          this.editableInput = null;
           // we pass the update callback inside the generic GofastEditableInput pseudo-constructor
           let userEditableInputProps = {
-            save: (newData) => {
+            save: async (newData) => {
+              let emailValid = false;
+              if (field == "email") {
+                emailValid = await Gofast.user.validateUserEmail(newData);
+              }
+              // If the email is not valid, don't save the new data and show the last valid value
+              if(field == "email" && newData != "" && !emailValid){
+                newData = this.initialValue;
+                if(this.editableInput){
+                  this.editableInput.DOM.input.value = newData
+                  this.editableInput.saveData(newData)
+                }
+              }
               if (newData !== this.initialValue) {
+                // Set the initial value to the last valid data
+                this.initialValue = newData
                 const response = this.userProfileUpdate(
                   this.userId,
                   this.field,
-                  newData
+                  newData,
+                  this.initialValue
                 );
               }
             },
@@ -340,6 +365,7 @@
             type,
             userEditableInputProps,
           );
+          this.editableInput = userEditableInput
         },
       };
 
@@ -507,43 +533,39 @@
   Drupal.behaviors.gofastUserAdminRolesStates = {
     attach : function (context, settings) {
       $('.GofastForm__Field--Roles label.checkbox').each(function() {
-        $(this).addClass('switch switch-icon font-size-h6');
+        $(this).addClass('switch switch-icon switch-sm gofast-switch-icon');
       });
 
-      $('.og-roles-force-single:not(".processed")').addClass('processed').on('change', function(e){
-        if($('#'+e.target.id).hasClass('role_administrator')){
-          $('.field-name-is-extranet').find('input').prop('checked', false);
-          $('.field-name-is-extranet').find('input').prop('disabled', true);
-        }
-
-        if($('#'+e.target.id).hasClass('role_contributor')){
-          $('.field-name-is-extranet').find('input').prop('disabled', false);
-        }
-        
-        // Check if single role is selected
-        var item_checked = $('.og-roles-force-single .form-checkbox:checked');
-        // if item is empty disabled submit button and add message to the right
-        if(item_checked.length == 0){
-          $('.form-submit').prop('disabled', true);
-          $('.form-submit').addClass('disabled');
-          if($('.form-item-submit-message') != undefined){
-            $('#modal-footer #edit-submit').after('<div class="form-item form-type-textfield form-item-submit-message"><i class="fas fa-exclamation-triangle mr-2" style="color:#FFA800"></i>'+ Drupal.t('Please select at least one role') +'</div>');
+      var $roles = $('.user-roles-force-single input[type=checkbox]', context);
+      $roles.once('single-role', function () {
+        $(this).on('change', function () {
+          if ($(this).hasClass("role_contributor")) {
+            $roles.not(this).not(':disabled').prop('checked', false);
+            $('.field-name-is-extranet').find('input').prop('disabled', false);
           }
-        }else{
-          $('.form-submit').prop('disabled', false);
-          $('.form-submit').removeClass('disabled');
-          $('.form-item-submit-message').remove();
-        }
-        
+          if ($(this).hasClass("role_administrator") || $(this).hasClass("role_business_adm")) {
+            $('.role_contributor').prop('checked', false);
+            $('.field-name-is-extranet').find('input').prop('checked', false);
+            $('.field-name-is-extranet').find('input').prop('disabled', true);
+          }
+        });
       });
     }
   };
   
    Drupal.behaviors.gofastUserFormMailCheck = {
     attach : function (context, settings) {
+      var $form_element = $("#user-register-form");
       var $input_mail = $('#user-register-form #edit-mail', context);
+      if($form_element.length == 0){
+        $form_element = $("#user-profile-form");
+        $input_mail = $("#user-profile-form #edit-mail");
+      }
+      if($form_element.length == 0){
+        return
+      }
       $input_mail.once('check_mail_processed', function() {
-        $(this).on('blur', function() {
+        $(this).on('blur', function(e) {
             // we do nothing if we don't have a valid email
             if (!/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/.test($(this).val())) {
               return;
@@ -552,10 +574,38 @@
             var mail_domain = $(this).val().split('@').pop();
             if(current_domain !== mail_domain){             
                 $("#edit-sasl-auth-und").prop("checked", false );             
-                $('#user-register-form input[type="password"]').prop('disabled', false);
-                $('#user-register-form .form-item-select-pass').toggle(300);
-                $("input[name*='is_extranet']").prop("checked", true );
+                $($form_element).find('input[type="password"]').prop('disabled', false);
+                $($form_element).find('.form-item-select-pass').show(300);
+                $("input[name*='is_extranet']").prop("checked", true ).trigger("change");
             }
+           
+            //GOFAST-7400 check if GF is sync with LDAP and if LDAP user already exists with this email, to be sur to
+            // not make mistake with other fields ( id, etc)
+            var path = 'gofast/user/check/ldap?mail='+$(this).val();
+            $.ajax({
+              url: Drupal.settings.basePath + path,
+              type: 'GET',
+              dataType: 'json',
+              success: function (data) {
+               if(data.login){
+                if($($form_element).find('#edit-name').val() != data.login){
+                  var message = Drupal.t("A user with same email already exists into your internal directory, with username ", {}, {context: "gofast:gofast_user"})+" : "+data.login;
+                  message += '<br/>';
+                  message += Drupal.t("Please, check before to create this user", {}, {context: "gofast:gofast_user"});
+
+                  Gofast.toast(message, "warning");
+                  if($("#ldap_already_exists_message").length == 0){
+                    $(".ldap-account").append("<div id='ldap_already_exists_message' style='color:red;'>"+message+"</div>");
+                  }else{
+                    $("#ldap_already_exists_message").html(message);
+                  }
+                }
+               }else{
+                $("#ldap_already_exists_message").remove();
+               }
+              }
+            });
+            
         });
       });
     }
@@ -606,4 +656,207 @@
     }
   }, 600000);
 
+  Drupal.behaviors.extranetConfig = {
+    attach: function (context, settings) {
+      let content = $('body', context);
+      $(document).one('DOMNodeInserted', content, function() {    
+        let groups = $('#og-user-node-add-more-wrapper').find('#ztree_component_user').children('li:nth-child(2)');
+        let organizations = $('#og-user-node-add-more-wrapper').find('#ztree_component_user').children('li:nth-child(3)');
+    if(groups.length == 1 &&  organizations.length == 1 && !$("#user-register-form").hasClass("gofast-extranet-processed")){     
+        $("#user-register-form").addClass("gofast-extranet-processed");      
+        let groups = $('#og-user-node-add-more-wrapper').find('#ztree_component_user').children('li:nth-child(2)');
+        let organizations = $('#og-user-node-add-more-wrapper').find('#ztree_component_user').children('li:nth-child(3)');
+        let config = Drupal.settings.filterExtranet.config;
+        let html_extranet_message = "<div id='extranet_message' style='color:red;'>"+Drupal.t("The GoFast configuration doesn't allow you to add external users into some internal spaces types")+"</div>";
+        if(config && config['group_add_external_user'] === 1 && config['organization_add_external_user'] === 1){
+          var click = 2;
+          if($("[id^='edit-is-extranet-und']").is(':checked') === true){
+            click = 3;
+            groups.css("pointer-events", "none");
+            organizations.css("pointer-events", "none");
+            groups.css("background-color", "#d3d3d3");
+            organizations.css("background-color", "#d3d3d3");
+            $("#og-user-node-add-more-wrapper").before(html_extranet_message);
+          }
+          $("[id^='edit-is-extranet-und']").on("change", function() {
+            if(click % 2 === 1){
+              groups.css("pointer-events", "auto");
+              organizations.css("pointer-events", "auto");
+              groups.css("background-color", "#ffffff");
+              organizations.css("background-color", "#ffffff");
+              $("#extranet_message").remove();
+            }else{
+              let groupsChecks = [];
+              $('#ztree_component_user > li:nth-child(2) span.checkbox_true_full, #ztree_component_user > li:nth-child(2) span.checkbox_true_part').each(function( index ){
+                groupsChecks[index] = $(this);
+              });
+              groupsChecks.forEach(element => element.click());
+              let organizationsChecks = [];
+              $('#ztree_component_user > li:nth-child(3) span.checkbox_true_full, #ztree_component_user > li:nth-child(3) span.checkbox_true_part').each(function( index ){
+                organizationsChecks[index] = $(this);
+              });
+              organizationsChecks.forEach(element => element.click());
+              groups.css("pointer-events", "none");
+              organizations.css("pointer-events", "none");
+              groups.css("background-color", "#d3d3d3");
+              organizations.css("background-color", "#d3d3d3");
+              $("#og-user-node-add-more-wrapper").before(html_extranet_message);
+            }
+            click++;
+          });
+        }
+        else if(config && config['group_add_external_user'] === 1){
+          var click = 2;
+          if($("[id^='edit-is-extranet-und']").is(':checked') === true){
+            click = 3;
+            groups.css("pointer-events", "none");
+            groups.css("background-color", "#d3d3d3");
+            $("#og-user-node-add-more-wrapper").before(html_extranet_message);
+          }
+          $("[id^='edit-is-extranet-und']").on("change", function() {
+            if(click % 2 === 1){
+              $("#extranet_message").remove();
+              groups.css("pointer-events", "auto");
+              groups.css("background-color", "#ffffff");
+            }else{
+              let groupsChecks = [];
+              $('#ztree_component_user > li:nth-child(2) span.checkbox_true_full, #ztree_component_user > li:nth-child(2) span.checkbox_true_part').each(function( index ){
+                groupsChecks[index] = $(this);
+              });
+              groupsChecks.forEach(element => element.click());
+              groups.css("pointer-events", "none");
+              groups.css("background-color", "#d3d3d3");
+              $("#og-user-node-add-more-wrapper").before(html_extranet_message);
+            }
+            click++;
+          });
+        }
+        else if(config && config['organization_add_external_user'] === 1){
+          var click = 2;
+          if($("[id^='edit-is-extranet-und']").is(':checked') === true){
+            click = 3;
+            organizations.css("pointer-events", "none");
+            organizations.css("background-color", "#d3d3d3");
+            $("#og-user-node-add-more-wrapper").before(html_extranet_message);
+          }
+          $("[id^='edit-is-extranet-und']").on("change", function() {
+            if(click % 2 === 1){
+              organizations.css("pointer-events", "auto");
+              organizations.css("background-color", "#ffffff");
+              $("#extranet_message").remove();
+            }else{
+              let organizationsChecks = [];
+              $('#ztree_component_user > li:nth-child(3) span.checkbox_true_full, #ztree_component_user > li:nth-child(3) span.checkbox_true_part').each(function( index ){
+                organizationsChecks[index] = $(this);
+              });
+              organizationsChecks.forEach(element => element.click());
+              organizations.css("pointer-events", "none");
+              organizations.css("background-color", "#d3d3d3");
+              $("#og-user-node-add-more-wrapper").before(html_extranet_message);
+            }
+            click++;
+          });
+        }
+      }
+      });
+    }
+  };
+
+  
+  Drupal.behaviors.initExpirationDateInput = {
+    attach: function (context, settings) {
+      let is_extranet_checkbox = $('input[name="is_extranet[und]"]')
+      let expiration_input_group = $("#edit-expiration-date-group");
+      let enable_expiration_date_checkbox = $("#edit-enable-expiration-date")
+      let date_time_picker_input = $(".gofastDatetimepickerExpirationDate")
+
+      if(is_extranet_checkbox.length != 0 && !is_extranet_checkbox.hasClass("processed")){
+        is_extranet_checkbox.addClass("processed");
+        // Show expiration date group only if the switch "is extranet" is enabled
+        if(is_extranet_checkbox.is(":checked")){
+          expiration_input_group.removeClass("d-none")
+        } else {
+          expiration_input_group.addClass("d-none")
+        }
+        // Enable expiration date input only of the switch "enable expiration date" is enabled
+        if(enable_expiration_date_checkbox.is(":checked")){
+          date_time_picker_input.removeAttr("disabled")
+        } else {
+          date_time_picker_input.val("")
+          date_time_picker_input.attr("disabled", "")
+        }
+        // Update visibility of expiration date group when changing "is extranet" switch status
+        is_extranet_checkbox.on("change", () => {
+          if(is_extranet_checkbox.is(":checked")){
+            expiration_input_group.removeClass("d-none")
+          } else {
+            expiration_input_group.addClass("d-none")
+          }
+        })
+        // Enable / Disable input when changing status of "enable expiration date"
+        enable_expiration_date_checkbox.on("change", () => {
+          if(enable_expiration_date_checkbox.is(":checked")){
+            date_time_picker_input.removeAttr("disabled")
+          } else {
+            date_time_picker_input.val("")
+            date_time_picker_input.attr("disabled", "")
+          }
+        })
+
+        // Put the actual value from timestamp to date as default value
+        if(date_time_picker_input.length && !date_time_picker_input.hasClass("processed")){
+          let timestamp = date_time_picker_input.val();
+          let date_value = ""
+          if(timestamp != ""){
+            // Convert timestamp to well formatted string with the user date pattern
+            date_value = moment.unix(timestamp).format(window.GofastConvertDrupalDatePattern("bootstrapDate").toUpperCase());
+          }
+          date_time_picker_input.addClass("processed")
+          Gofast.user.setDateTimePickerExpirationDate(date_time_picker_input, date_value);
+        }
+      }
+    }
+  };
+
+  Gofast.user.setDateTimePickerExpirationDate = function(element, value) {
+    
+    element.datetimepicker({
+      locale: window.GofastLocale, 
+      timepicker: false,
+      format: window.GofastConvertDrupalDatePattern("bootstrapDate").toUpperCase(),
+      minDate: new Date(),
+      keepOpen: true,
+    });
+
+    element.val(value)
+    element.on("blur", e => element.datetimepicker("hide"));
+    element.on("show.datetimepicker update.datetimepicker change.datetimepicker", (e) => {
+      GofastWidgetsCallbacks.dateTimePickerCallback();
+    });
+    
+  }
+  
+  Gofast.user.validateUserEmail = async function(email) {
+    var isValid = false;
+
+    await $.post("/gofast/user/check/mail", {mail: email}).done((data) => {
+      isValid = data.isValid
+      if(!data.isValid && data.error != undefined){
+        var message = "";
+        var messageType = "warning";
+        switch(data.error) {
+          case "already exist":
+            message = Drupal.t("A user with same email already exists, with username : %username", {"%username": data.login}, {context: "gofast:gofast_user"});
+            messageType = "error";
+            break;
+          case "invalid":
+            message = Drupal.t("The e-mail address %mail is not valid.", {"%mail": email}, {context: "gofast:gofast_user"});
+            messageType = "error";
+            break;
+        }
+        Gofast.toast(message, messageType);
+      }
+    })
+    return isValid;
+  }
 })(jQuery, Gofast, Drupal);

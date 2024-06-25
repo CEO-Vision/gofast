@@ -276,7 +276,7 @@ function webform_conditionals_form_submit($form, &$form_state) {
  * AJAX callback to render out adding a new condition.
  */
 function webform_conditionals_ajax($form, $form_state) {
-  $rgids = element_children($form['conditionals']);
+  $rgids = array_filter(element_children($form['conditionals']), 'is_numeric');
   $new_rgid = max($rgids);
   $form['conditionals'][$new_rgid]['#ajax_added'] = TRUE;
 
@@ -533,6 +533,7 @@ function _webform_conditional_rule_expand($element, $rid, $conditional, $level, 
       '#title' => t('Value'),
       '#size' => 20,
       '#default_value' => $conditional['value'],
+      '#maxlength' => 1024,
     ),
     'add_subconditional' => _webform_conditional_add_expand($element, $rid, TRUE),
     'add' => _webform_conditional_add_expand($element, $rid, FALSE),
@@ -1285,7 +1286,7 @@ function webform_conditional_form_select($node) {
   webform_component_include('select');
   foreach ($node->webform['components'] as $cid => $component) {
     if (webform_component_property($component['type'], 'conditional_type') == 'select') {
-      // @todo: Use a pluggable mechanism for retrieving select list values.
+      // @todo Use a pluggable mechanism for retrieving select list values.
       $options = _webform_select_options($component);
       $element = array(
         '#type' => 'select',
@@ -1542,7 +1543,8 @@ function webform_conditional_prepare_time_js($rule_value) {
 function webform_conditional_operator_string_equal($input_values, $rule_value) {
   foreach ($input_values as $value) {
     // Checkbox values come in as 0 integers for unchecked boxes.
-    $value = ($value === 0) ? '' : $value;
+    // Radio values come in as NULL if none of the options are selected.
+    $value = in_array($value, [0, NULL], TRUE) ? '' : $value;
     if (strcasecmp($value, $rule_value) === 0) {
       return TRUE;
     }

@@ -12,27 +12,22 @@ define('KANBAN_STATUS_VID', 10);
 define('KANBAN_NOTIFICATION_DELAY', 300);
 
 function gofast_kanban_cron(){
-   $hour = date("G");
-   $minute = date("i");
-   $now=time();
-   $n = variable_get('kanban_notifications',array());
-   if(count($n)){
-       $update=false;
+   $now = time();
+   $n = variable_get('kanban_notifications', array());
+   if(count($n)) {
+      $update = false;
       foreach($n as $nid => $values){
-           if($values['last_update']  + KANBAN_NOTIFICATION_DELAY > $now ){
-              $sent_to=array();
-              if(isset($values['task'])){
-                 $sent_to= gofast_kanban_send_notification($nid,$values['participants'],$values['task']);
+        if($values['last_update']  + KANBAN_NOTIFICATION_DELAY < $now) {
+              if(isset($values['task']) || isset($values['items'])){
+                $tasks = $values["task"] ?? [];
+                $items = $values['items'] ?? [];
+                gofast_kanban_send_notification($nid, $values['participants'], $tasks, $items);
               }
-              if(isset($values['items'])){
-                  $tu=array_unique(array_merge($values['participants'],$send_to));
-                  gofast_kanban_checklistItem_notification($nid,$tu,$values['items']);
-              }
-              $update=true;
+              $update = true;
               unset($n[$nid]);
            }
        }
-       if($update)variable_set('kanban_notifications',$n);
+       if($update) variable_set('kanban_notifications',$n);
    }
 }
 
@@ -129,6 +124,14 @@ function gofast_kanban_menu() {
       'access callback' => 'gofast_kanban_access',
       'access arguments' => array(2, 'view')
   );
+  $items['kanban/task/%/get_status'] = array(
+    'title' => 'Kanban get task status (Published/Deleted)',
+    'page callback' => 'gofast_kanban_get_task_status',
+    'page arguments' => array(2),
+    'type' => MENU_CALLBACK,
+    'access callback' => 'gofast_kanban_access',
+    'access arguments' => array(2, 'view')
+);
   $items['kanban/task/%/render/audit'] = array(
       'title' => 'Kanban get task audit',
       'page callback' => 'gofast_kanban_render_task_activities',
@@ -137,36 +140,6 @@ function gofast_kanban_menu() {
       'access callback' => 'gofast_kanban_access',
       'access arguments' => array(2, 'view')
   );
-    
-  /*******/
-/* GF3 entry
-  $items['modal/%ctools_js/node/%/add/task'] = array(
-      'title' => 'Kanban new task',
-      'page callback' => 'gofast_kanban_task_add',
-      'page arguments' => array(1,3),
-      'type' => MENU_CALLBACK,
-      'access callback' => 'gofast_kanban_access',
-      'access arguments' => array(5, 4, NULL, 3)
-  );
-
-  $items['modal/%ctools_js/node/%/add/task/%'] = array(
-      'title' => 'Kanban new task',
-      // 'page callback' => 'gofast_kanban_task_add',
-      'page callback' => 'gofast_kanban_task_add_async',
-      'page arguments' => array(1,3,6),
-      'type' => MENU_CALLBACK,
-      'access callback' => 'gofast_kanban_access',
-      'access arguments' => array(5, 4, NULL, 3)
-  );
-  $items['modal/%ctools_js/task/%/view'] = array(
-      'title' => 'Kanban task',
-      'page callback' => 'gofast_kanban_task_view',
-      'page arguments' => array(1,3),
-      'type' => MENU_CALLBACK,
-      'access callback' =>  'gofast_kanban_access',
-      'access arguments' => array(3, 4)
-  );
-*/
   $items['kanban/task/%/update'] = array(
       'title' => 'Kanban task',
       'page callback' => 'gofast_kanban_task_update',
@@ -331,14 +304,14 @@ function gofast_kanban_node_view($node, $view_mode, $langcode) {
     $kanban_nid = gofast_kanban_get_space_kanban($parent_space)[0];
 
     if(gofast_request_is_ajax()){
-
+      
       $command = array();
       
       global $base_url;
-      global $mobile_url;
+      $detect = new Mobile_Detect();
 
-      if ($base_url == $mobile_url) {
-         if($node->type == 'task'){
+      if (gofast_mobile_is_phone()) {
+        if($node->type == 'task'){
           $command[] = gofast_command_processAjax("https://" . $_SERVER['SERVER_NAME'] . '/tasks_page_navigation?card_id='.arg(1).'&parent_space='.$kanban_nid.'#navKanban');
           $command[] = ajax_command_invoke('#navigation_kanban', 'click', array());  
         }else{
@@ -597,8 +570,9 @@ function gofast_kanban_post_install(){
  * Implement HOOK_init()
  */
 function gofast_kanban_init(){
-    global $user;
-
+  global $user;
+  drupal_add_js(drupal_get_path('module', 'gofast_kanban') . "/js/gofastKanbanCardDetail.js");
+  drupal_add_js(drupal_get_path('module', 'gofast_kanban') . "/js/gofastTodoList.js");
   //set default context for polling
   if (strpos($_GET['q'], 'kanban/') === 0) {
 
@@ -606,15 +580,19 @@ function gofast_kanban_init(){
 
     $kanban = node_load($kanban_nid, NULL, TRUE);
     $new_columns = array_keys(gofast_kanban_get_columns($kanban));
+    $new_tasks = gofast_kanban_get_tasks($kanban);
+    $new_checklists_progress = gofast_kanban_get_checklists_progress_by_board_tasks($new_tasks);
 
-    gofast_kanban_set_context("node", "kanban_columns", $new_columns);
-    gofast_kanban_set_tasks_context("node", "kanban_tasks_updated", gofast_kanban_get_tasks($kanban));
+    gofast_kanban_set_context("kanban_columns", $new_columns);
+    gofast_kanban_set_context("kanban_tasks_updated", $new_tasks, "gofast_kanban_task");
+    gofast_kanban_set_context("kanban_checklists_progress", $new_checklists_progress, "gofast_kanban_checklist");
   }
 
-  $tasks = gofast_kanban_get_user_tasks($user->uid, TRUE);
+  $tasks_count_with_progress = gofast_kanban_get_user_tasks_count($user->uid, TRUE);
   $tasks_progress = array();
-  foreach($tasks as $task){
-    $tasks_progress["kanban-" . $task['nid']] = $task['progress'];
+  foreach($tasks_count_with_progress as $count_with_progress){
+    $count_with_progress->progress = ($count_with_progress->checklist_done_items_count / $count_with_progress->checklist_items_count) * 100;
+    $tasks_progress["kanban-" . $count_with_progress->task_nid] = $count_with_progress->progress;
   }
   gofast_poll_set_context('workflows', 'tasks_progress', $tasks_progress);
 }
@@ -660,14 +638,11 @@ function gofast_kanban_form_node_form_alter(&$form, &$form_state, $form_id){
  * @return type
  */
 function gofast_kanban_access($nid, $access, $account = NULL, $args = NULL) {
-  $timer_start = microtime(true);
-//watchdog('gofast_kanban', '%name() START args=[%args]', array('%name' => __FUNCTION__, '%args' => implode(', ', func_get_args())), WATCHDOG_DEBUG);
-
   $canAccess = FALSE;
   $space_id = null;
 
   if(is_numeric($nid)){
-    $nid = node_load($nid);
+    $nid = $node = node_load($nid);
     $type = $nid->type;
   }else{
     $type = is_string($nid) ? $nid : (is_array($nid) ? $nid['type'] : $nid->type);
@@ -678,35 +653,44 @@ function gofast_kanban_access($nid, $access, $account = NULL, $args = NULL) {
     $account = $user;
   }
 
-  if(! $account->uid){
+  if(!$account->uid){
     return $canAccess;
   }
-  
+
   switch($type):
     case 'kanban':
     case 'column':
-       if ($access == 'create' || $access == 'add' || $access == 'move' || $access = 'update' || $access == 'delete') {
-         $kanban = node_load($args);
-         $space_id = $kanban->og_group_content_ref[LANGUAGE_NONE][0]['target_id'];
-
-        if (gofast_og_is_root_space(node_load($space_id) && !gofast_og_is_user_private_space($space_id))) {
-            $canAccess = FALSE;
-          }else{
-            if (! in_array(GOFAST_OG_ROLE_ADMIN ,gofast_og_get_user_final_roles_for_space('node', $space_id, $account->uid)) ) {
-              $canAccess = FALSE;
-            }else{
-              $canAccess = node_access('update', $space_id, $account);
-            }
-          }
+      if ($access == 'create' || $access == 'add' || $access == 'move' || $access == 'update' || $access == 'delete') {
+        $kanban = node_load($args);
+        $space_id = $kanban->og_group_content_ref[LANGUAGE_NONE][0]['target_id'];
+        $space = node_load($space_id);
+        if (gofast_og_is_root_space($space) && !gofast_og_is_user_private_space($space_id)) {
+          $canAccess = FALSE;
         }
-      break;
+        if ($access == "add") {
+          $access = "create";
+        }
+        if ($access == "move") {
+          $access = "update";
+        }
+        // will grant rights to space admins, but not to space contributors
+        $canAccess = node_access($access, $kanban, $account);
+      }
+    break;
+    break;
     case 'task':
         if ($access == 'create' || $access == 'add') {
           $kanban = node_load($args);
-          $space_id = $kanban->og_group_content_ref[LANGUAGE_NONE][0]['target_id'];
-          $canAccess = og_user_access('node', $space_id, 'create task content', $account);
-
-        } else if (in_array($access, array('view')) ) {
+          $space_id = $kanban->og_group_content_ref[LANGUAGE_NONE][0]['target_id'];     
+          $canAccess = og_user_access('node', $space_id, 'create task content', $account);          
+          if(!$canAccess){
+            $canAccess = gofast_kanban_check_group_access($space_id, $account, $node, $user);
+          }
+          if(in_array(GOFAST_OG_ROLE_READ_ONLY, gofast_og_get_user_final_roles_for_space('node', $space_id, $account->uid))){
+            $canAccess = FALSE;
+          }  
+        } 
+        else if (in_array($access, array('view')) ) {
            $canAccess = node_access($access, $nid, $account);
            
         } else if (in_array($access, array('delete', 'update')) ) {
@@ -722,12 +706,9 @@ function gofast_kanban_access($nid, $access, $account = NULL, $args = NULL) {
           }else{
             $space_id = $nid->og_group_content_ref[LANGUAGE_NONE][0]['target_id'];
           }
-
-          $roles = gofast_og_get_user_final_roles_for_space('node', $space_id, $account->uid);
-          $role = reset($roles);
-
-          if(in_array($role, array("administrator member", "group contributor")) || $node->uid == $user->uid){
-               $canAccess = true;
+          $canAccess = gofast_kanban_check_group_access($space_id, $account, $node, $user);
+          if(in_array(GOFAST_OG_ROLE_READ_ONLY, gofast_og_get_user_final_roles_for_space('node', $space_id, $account->uid))){
+            $canAccess = FALSE;
           }
         }
       break;
@@ -750,7 +731,7 @@ function gofast_kanban_access($nid, $access, $account = NULL, $args = NULL) {
 
       } else if (in_array($access, array('delete', 'update')) ) {
 
-        //retreive task from checklistItem
+        //retrieve task from checklistItem
         $checklistItem = gofast_kanban_checklistItem_get($args);
         $checklist = gofast_kanban_mychecklist_load($checklistItem->cid);
         $task = node_load($checklist->task_nid);
@@ -775,10 +756,44 @@ function gofast_kanban_access($nid, $access, $account = NULL, $args = NULL) {
       $canAccess = FALSE;
   }
 
-  $timer_stop = microtime(true);
-//watchdog('gofast_kanban', '%name() END - canAccess = %canAccess [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start), '%canAccess' => $canAccess), WATCHDOG_DEBUG);
-
   return $canAccess;
+}
+
+/**
+ * Check if a user has access to contribute to the space as part of a userlist or 
+ * administration group. 
+ * This function can be used to check if a userlist member in a space can 
+ * contribute to a kanban based on the userlist role in the space. 
+ */
+function gofast_kanban_check_group_access($space_id, $account, $node, $user){
+  $roles = gofast_og_get_user_final_roles_for_space('node', $space_id, $account->uid);
+  $role = reset($roles);
+  if(in_array($role, array(GOFAST_OG_ROLE_ADMIN, GOFAST_OG_ROLE_STANDARD)) || $node->uid == $user->uid){
+    return TRUE;
+  }
+  return FALSE;
+}
+/**
+ * Implements hook_node_access().
+ */
+function gofast_kanban_node_access($node, $op, $account){
+  
+  // If node type is not task then return
+  if($node->type != 'task'){
+    return;
+  }
+  
+  // If op is view then check if user have access to the node
+  // I do this because the node_access called inside /kanban/get only check in the node_access db table and it's not include the userlist
+  if($op == 'view'){
+    // Check if user is member of the space (userlist included)
+    $parent_space = $node->og_group_content_ref[LANGUAGE_NONE][0]['target_id'];
+    $members = gofast_og_get_members_userlist_included(node_load($parent_space));
+    if(in_array($account->uid,$members)){
+      return NODE_ACCESS_ALLOW;
+    }
+  }
+
 }
 
 /**
@@ -809,6 +824,7 @@ function gofast_kanban_view_async($nid = NULL){
     global $user;
     $kanbanData = [];
     $boards = [];
+    $filter = [];
 
     foreach(gofast_kanban_build($nid, $filter)['tasklists'] as $board) {
         array_push($boards, $board);
@@ -979,6 +995,37 @@ function gofast_api_kanban_user_task($params){
 
 }
 
+/*
+ * Implements hook_api_RESSOURCE_ACTION
+ * retreive all the kanban task (still in progress) for the current user
+ * @global type $user
+ * @param type $params
+ * @return type
+ */
+function gofast_api_kanban_user_task_other($params){
+  //Check content type
+    if(strpos($params['Content-Type'], "application/json") === FALSE){
+        return gofast_api_not_implemented("This Content-Type");
+    }
+
+    //Check method
+    if($params['method'] != "GET"){
+        gofast_api_not_implemented("This method");
+    }
+
+    //Check authentication
+    global $user;
+    if($user->uid == 0){
+       gofast_api_not_authorized("Unavailable ressource for anonymous user");
+    }
+
+    $user_tasks = gofast_kanban_get_other_tasks($user->uid, TRUE);
+    $json_tasks = array("tasks" => $user_tasks) ;
+    $user_tasks_json =  $json_tasks;
+
+    gofast_api_success(array('userTasks' => $user_tasks_json));
+}
+
 
 /**
  * Implements HOOK_theme()
@@ -1051,14 +1098,14 @@ function gofast_kanban_theme() {
           'template' => 'tpl/gofast_kanban_checklist_item_form',
           'render element' => 'form'
       ),
-      'gofast-notifications-node-task-deadline-change' => array(
-          'template' => 'tpl/gofast-notifications-node-task-deadline-change'
-      ),
       'gofast-notifications-node-kanban-event' => array(
           'template' => 'tpl/gofast-notifications-node-kanban-event'
       ),
-      'gofast-notifications-node-task-status' => array(
-          'template' => 'tpl/gofast-notifications-node-task-status'
+      'gofast-notifications-node-task-body' => array(
+          'template' => 'tpl/gofast-notifications-node-task-body'
+      ),
+      'gofast-notifications-node-task-description' => array(
+          'template' => 'tpl/gofast-notifications-node-task-description'
       ),
       'gofast-notifications-node-task-deadline' => array(
           'template' => 'tpl/gofast-notifications-node-task-deadline'
@@ -1068,7 +1115,7 @@ function gofast_kanban_theme() {
           'variable' => array(
             'node' => NULL,
             'task' => NULL,
-            'l' => NULL
+            'l' => []
           )
       ),
 

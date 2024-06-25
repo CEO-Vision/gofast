@@ -85,6 +85,7 @@ function gofast_ldap_install() {
     // Cannot create server configuration here cause only .module file is being 
     // loaded (cannot rely on LdapServerAdmin.class).  
     gofast_ldap_fields_create();
+    gofast_ldap_fields_set_default_values();
 }
 
 
@@ -257,3 +258,8 @@ function gofast_ldap_fields_create() {
 //        }   
 //    variable_set('ldap_servers_encryption' , LDAP_SERVERS_ENC_TYPE_BLOWFISH);
   }
+
+function gofast_ldap_update_7401() {
+  module_load_include('inc', 'gofast_ldap', 'gofast_ldap.fields');
+  gofast_ldap_fields_set_default_values();
+}

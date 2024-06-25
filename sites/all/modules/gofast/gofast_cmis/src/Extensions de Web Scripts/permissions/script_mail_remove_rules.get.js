@@ -26,9 +26,13 @@ function updateAspects(document) {
 }
 
 var document = search.findNode(args.reference);
-updateAspects(document);
+if (document !== null) {
+  updateAspects(document);
+  model.myStatus = "OK";
+} else {
+  model.myStatus = "KO";
+}
 
-model.myStatus = "OK";
 
 logger.log("==== " + "ENDING SCRIPT " + "REMOVE MAIL ASPECTS" + " ====");
 

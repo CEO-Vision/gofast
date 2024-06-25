@@ -96,10 +96,14 @@ function gofast_user_set_group_roles_form_field(&$form) {
   $form['group_roles']['roles'][$role_contrib->rid]['#description'] = t('The Standard user can read and manage authorized contents but will not be able to manager other users.', array(), array('context' => 'gofast:user'));
   $form['group_roles']['roles'][$role_contrib->rid]['#weight'] = -3;
 
-  $form['group_roles']['is_extranet']['#suffix'] = "<hr>";
-  $form['group_roles']['is_extranet'][LANGUAGE_NONE]['#title'] = t("External", array(), array('context' => 'gofast:user'));
-  $form['group_roles']['is_extranet']['#prefix'] ='<label class="control-label" >'.t('Type', array(), array('context' => 'gofast')).'</label>';
-
+  $form['group_roles']['extranet_group']['is_extranet'][LANGUAGE_NONE]['#title'] = t("External", array(), array('context' => 'gofast:user'));
+  $form['group_roles']['extranet_group']['#prefix'] ='<label class="control-label" >'.t('Type', array(), array('context' => 'gofast')).'</label>';
+  $form['group_roles']['extranet_group']['expiration_date_group']['field_extranet_expiration_date'][LANGUAGE_NONE][0]["value"]['#attributes']['class'][] = 'gofastDatetimepickerExpirationDate';
+  $form['group_roles']['extranet_group']['expiration_date_group']['field_extranet_expiration_date'][LANGUAGE_NONE][0]['value']['#attributes']['data-toggle'] = 'datetimepicker';
+  $form['group_roles']['extranet_group']['expiration_date_group']['field_extranet_expiration_date'][LANGUAGE_NONE][0]['value']['#attributes']['data-target'] = '#edit-field-extranet-expiration-date-und-0-value--2-datepicker-popup-0';
+  $form['group_roles']['extranet_group']['expiration_date_group']['field_extranet_expiration_date'][LANGUAGE_NONE][0]['value']['#attributes']['autocomplete'] = 'off';
+  $form['group_roles']['extranet_group']['expiration_date_group']['field_extranet_expiration_date'][LANGUAGE_NONE][0]["value"]['#title'] = "";
+  $form['group_roles']['extranet_group']['#suffix'] = "<hr>";
   $form['group_roles']['is_broadcaster']['#prefix'] ='<label class="control-label" >'.t('Permissions', array(), array('context' => 'gofast')).'</label>';
 
   //Add custom classes on flag to trigger js
@@ -133,18 +137,24 @@ function gofast_user_form_user_register_form_alter(&$form, &$form_state)
   if (!empty($_GET['gids']) && empty($form_state[GOFAST_OG_USER_MEMBERSHIP_FIELD])) {
     $form[GOFAST_OG_USER_MEMBERSHIP_FIELD][LANGUAGE_NONE][0]['default']['#default_value'] = $_GET['gids'];
   }
-
+  // Get all spaces the user has access to only loop on user's spaces
+  $user_gids = array_keys(gofast_og_get_spaces_by_user(user_load($user->uid), false));
+  $user_gids = array_intersect($user_gids, array_keys($form['ldap_user_ou'][LANGUAGE_NONE]['#options']));
+  $user_admin_gids = [];
   //We check if the user that is creating the new account has admin privileges to
   //some organisations and build the form according to that
-  foreach ($form['ldap_user_ou'][LANGUAGE_NONE]['#options'] as $gid => $name) {
-    if (is_numeric($gid) && !in_array('administrator member', gofast_og_get_user_final_roles_for_space('node', $gid, $user->uid), true)) {
-      unset($form['ldap_user_ou'][LANGUAGE_NONE]['#options'][$gid]);
-      unset($form['group_profile_data']['ldap_user_ou'][LANGUAGE_NONE]['#options'][$gid]);
+  foreach($user_gids as $gid) {
+    if (is_numeric($gid) && in_array('administrator member', gofast_og_get_user_final_roles_for_space('node', $gid, $user->uid), true)) {
+      $user_admin_gids[$gid] = $form['ldap_user_ou'][LANGUAGE_NONE]['#options'][$gid];
     }
   }
+  $first_item = array("_none" => $form['ldap_user_ou'][LANGUAGE_NONE]['#options']["_none"]);
+  $form['ldap_user_ou'][LANGUAGE_NONE]['#options'] = $first_item + $user_admin_gids;
+  $form['group_profile_data']['ldap_user_ou'][LANGUAGE_NONE]['#options'] = $first_item + $user_admin_gids;
 
+  $form['group_profile_data']['ldap_user_o'][LANGUAGE_NONE][0]['value']['#title'] = t('Entity', array(), array('context' => 'gofast'));
   if ($user->uid == 1) {
-    $spaces = array_merge(gofast_og_get_children("4", TRUE, FALSE, TRUE), gofast_og_get_children("5", TRUE, FALSE, TRUE), gofast_og_get_children("6", TRUE, FALSE, TRUE), gofast_og_get_children("7", TRUE, FALSE, TRUE));
+    $spaces = array_merge(gofast_og_get_children(GOFAST_CMIS_LOCATIONS_FIELD_GROUPS_GID, TRUE, FALSE, TRUE), gofast_og_get_children(GOFAST_CMIS_LOCATIONS_FIELD_ORGANISATIONS_GID, TRUE, FALSE, TRUE), gofast_og_get_children(GOFAST_CMIS_LOCATIONS_FIELD_EXTRANET_GID, TRUE, FALSE, TRUE), gofast_og_get_children(GOFAST_CMIS_LOCATIONS_FIELD_PUBLIC_GID, TRUE, FALSE, TRUE));
     foreach ($spaces as $gid) {
       $form['ldap_user_ou'][LANGUAGE_NONE]['#options'][$gid] = gofast_get_node_title($gid);
       $form['group_profile_data']['ldap_user_ou'][LANGUAGE_NONE]['#options'][$gid] = gofast_get_node_title($gid);
@@ -166,11 +176,29 @@ function gofast_user_form_user_register_form_alter(&$form, &$form_state)
   );
   $user_form_defaults = variable_get("user_form_defaults", $default_user_form_configuration);
 
+    #GOFAST-9054
+  if(variable_get("gofast_standby_enabled", false) == true){
+    $form["field_standby"][LANGUAGE_NONE]['#title'] = t("Standby", array(), array("context"=>"gofast:gofast_user"));
+    $form["field_standby"][LANGUAGE_NONE]['#description'] = t("The user will be created in standby mode. A 'User-support' administrator must validate this account after. The notification will be send only on the user validation", array(), array("context"=>"gofast:gofast_user"));
+    $form["field_standby"]["#weight"] = 0;
+    if(!gofast_user_is_business_admin()){
+      $form["field_standby"][LANGUAGE_NONE]["#default_value"] = 1;
+      $form["field_standby"][LANGUAGE_NONE]["#value"] = 1;
+      $form["field_standby"][LANGUAGE_NONE]['#prefix'] = "<span style='display:none;'>";
+      $form["field_standby"][LANGUAGE_NONE]['#suffix'] = "</span'></span><div style='color:red;'>".t("Standby", array(), array("context"=>"gofast:gofast_user"))."</div>";
+      $form["field_standby"][LANGUAGE_NONE]['#suffix'] .= "<div style='font-size:small;'>".  $form["field_standby"][LANGUAGE_NONE]['#description']."</div>";
+
+    }
+    $form['group_account']['account']["field_standby"] = $form['field_standby'];
+    unset($form['field_standby']);
+  }
+  
   $form['group_account']['account']['sasl_auth'][LANGUAGE_NONE]['#default_value'] = $user_form_defaults['sasl_auth'];
-  $form['group_roles']['is_extranet'][LANGUAGE_NONE]['#default_value'] = $user_form_defaults['extranet'];
-  $form['group_roles']['is_extranet'][LANGUAGE_NONE]['#title'] = t("External", array(), array('context' => 'gofast:user'));
-  $form['group_roles']['is_extranet']['#suffix'] = "<hr>";
-  $form['group_roles']['is_extranet']['#prefix'] ='<label class="control-label" >'.t('Type', array(), array('context' => 'gofast')).'</label>';
+  $form['group_roles']['extranet_group']['is_extranet'][LANGUAGE_NONE]['#default_value'] = $user_form_defaults['extranet'];
+  $form['group_roles']['extranet_group']['is_extranet'][LANGUAGE_NONE]['#title'] = t("External", array(), array('context' => 'gofast:user'));
+
+  $form['group_roles']['extranet_group']['#suffix'] = "<hr>";
+  $form['group_roles']['extranet_group']['#prefix'] ='<label class="control-label" >'.t('Type', array(), array('context' => 'gofast')).'</label>';
 
   $form['group_roles']['is_broadcaster']['#prefix'] ='<label class="control-label" >'.t('Permissions', array(), array('context' => 'gofast')).'</label>';
   $form['group_roles']['is_broadcaster'][LANGUAGE_NONE]['#default_value'] = $user_form_defaults['broadcaster'];
@@ -203,7 +231,7 @@ function gofast_user_form_user_register_form_alter(&$form, &$form_state)
   $form['og_user_node']['#collapsed'] = TRUE;
   $form['wrapper_language_settings_info']['locale']['#keen-accordion'] = TRUE;
   $form['message']['#keen-accordion'] = TRUE;
-
+  gofast_add_cancel_button_to_form($form);
 }
 function gofast_user_accordion_userlist(&$form, &$form_state){
     if(isset($form['og_userlist_node']['userlists']) && count($form['og_userlist_node']['userlists']['#options'])){
@@ -287,6 +315,12 @@ function gofast_user_username_field_validate($form, &$form_state)
 
   $output['error'] = FALSE;
   $username = $form_state['input']['name'];
+  // Prevent using non-ascii UTF-8 characters like (à, é, ...)
+  if(mb_detect_encoding($username, ["ASCII", "UTF-8"], true) == "UTF-8"){
+    $nonAllowedChars = ['à', 'é', 'ü', 'ñ', 'ö', 'ç', 'Æ', 'æ', 'α', 'β', 'Γ', 'γ', 'А', 'б', 'Я', 'я', 'ا', 'ب', 'ع', 'غ', '你', 'あ', '한'];
+    $output['error'] = TRUE;
+    $output['msg'] = t("The username must not contain the following non-ASCII characters: (@nonAllowedChars, ...).", array("@nonAllowedChars" => implode(", ", $nonAllowedChars)), array('context' => 'gofast:gofast_user'));
+  }
 
   if (strlen($username) < 2 || strlen($username) > 50) {
     $output['error'] = TRUE;
@@ -309,9 +343,17 @@ function gofast_user_username_field_validate($form, &$form_state)
  */
 function gofast_user_form_user_profile_form_alter(&$form, &$form_state)
 {
+  
   global $user;
   if ($user->uid == 1) {
     return;
+  }
+
+  $user_can_change_usernames = gofast_user_user_can_change_username($user);
+  if($user_can_change_usernames){
+    $form['account']['name']['#description'] .= ' <span class="text-danger">' .
+      t('Modifying this field will result in the creation of a new chat account with the new username. 
+    Your chats and groups will be lost. After saving this form you will be logged out to login with your new username.') . '</span>';
   }
 
   // Only use for edit profile
@@ -327,9 +369,13 @@ function gofast_user_form_user_profile_form_alter(&$form, &$form_state)
 
   //translate
   gofast_user_account_form_translate_field($form);
+  
+  $user_can_change_usernames = gofast_user_user_can_change_username($user);
+  if(!$user_can_change_usernames){
+    // The username is readonly 
+    $form['group_account']['wrapper_account']['name']['#attributes']['readonly'] = 'readonly';
+  }
 
-  // The username is readonly
-  $form['group_account']['wrapper_account']['name']['#attributes']['readonly'] = 'readonly';
   $form['picture']['#access'] = FALSE;
 
   $self = FALSE;
@@ -346,7 +392,7 @@ function gofast_user_form_user_profile_form_alter(&$form, &$form_state)
   }
 
   $can_be_edited = FALSE;
-  if (gofast_user_is_adm() || gofast_user_is_adm($editing_user) || user_access('gofast administer user')) {
+  if($self || user_access('gofast administer users')){
     $can_be_edited = TRUE;
   }
 
@@ -380,11 +426,9 @@ function gofast_user_form_user_profile_form_alter(&$form, &$form_state)
   $form['wrapper_language_settings_info']['locale']['#collapsed'] = FALSE;
   $form['account']['status']['#access'] = $can_be_edited;
 
-  if (!gofast_user_is_adm() || gofast_user_is_adm($editing_user)) {
-    $form['group_profile_data']['#access'] = $can_be_edited;
-    $form['group_profile_data']['ldap_user_ou']['#access'] = $can_be_edited;
-    $form['group_complement']['#access'] = $can_be_edited;
-  }
+  $form['group_profile_data']['#access'] = $can_be_edited;
+  $form['group_profile_data']['ldap_user_ou']['#access'] = $can_be_edited;
+  $form['group_complement']['#access'] = $can_be_edited;
 
   if ($self) {
     $form['group_profile_data']['#access'] = $self;
@@ -450,12 +494,12 @@ function gofast_user_form_user_profile_form_alter(&$form, &$form_state)
       'wrapper' => 'ajax_content',
       'callback' => 'gofast_user_ajax_submit_edit_user'
     ];
-  }
+  } 
 
    $form['wrapper_timezone'] = array('#type' => 'container',
-                                      '#attributes' => array(
-                                            'class' => array('row', 'wrapper_language_settings_info')
-                                     ));
+    '#attributes' => array(
+      'class' => array('row', 'wrapper_language_settings_info')
+    ));
    
    $form['wrapper_timezone']["#type"] = "fieldset";
    $form['wrapper_timezone']["timezone"] = $form['timezone'];
@@ -589,6 +633,46 @@ function gofast_unblocked_user_form_submit($form, &$form_state)
   gofast_user_unblock($uid_to_block);
 }
 
+/**
+ * This is the form that unblock a user
+ * @param type $form
+ * @param array $form_state
+ * @return array the form
+ */
+function gofast_unstandby_user_form($form, &$form_state)
+{
+  $uid = isset($form_state['build_info']['args'][0]) ? $form_state['build_info']['args'][0] : FALSE;
+  $user = user_load($uid);
+
+  $form['#submit'] = array(
+    'gofast_unstandby_user_form_submit',
+  );
+
+  $uid_to_unstandby = $uid;
+  $form['#uid_to_unstandby'] = $uid_to_unstandby;
+  $confirm_form = confirm_form(
+    $form,
+    t('Activate this user', array(), array('context' => 'gofast')) . ' ' . $user->name,
+    isset($_GET['destination']) ? $_GET['destination'] : 'user/' . $user->uid,
+    t('Are you sure you want to activate this standby user?', array(), array('context' => 'gofast:gofast_user')),
+    t('Activate', array(), array('context' => 'gofast')),
+    t('Cancel', array(), array('context' => 'gofast'))
+  );
+  $confirm_form['actions']['cancel']['#type'] = "submit";
+  $confirm_form['actions']['cancel']['#value'] = t('Cancel');
+  $confirm_form['actions']['cancel']['#attributes'] = array(
+      'id' => 'edit-cancel',
+      'class' => array('btn', 'btn-secondary')
+  );
+  return $confirm_form;
+}
+
+function gofast_unstandby_user_form_submit($form, &$form_state)
+{
+  $uid_to_unstandby = $form['#uid_to_unstandby'];
+  gofast_user_unstandby($uid_to_unstandby);
+}
+
 function gofast_delete_user_form($form, &$form_state) //Delete user - task
 {
   $uid = isset($form_state['build_info']['args'][0]) ? $form_state['build_info']['args'][0] : FALSE;
@@ -611,6 +695,45 @@ function gofast_delete_user_form($form, &$form_state) //Delete user - task
       'class' => array('btn', 'btn-secondary')
   );
   return $confirm_form;
+}
+
+function gofast_unstandby_or_unleave_user_form($form, &$form_state)
+{
+  $uid = isset($form_state['build_info']['args'][0]) ? $form_state['build_info']['args'][0] : FALSE;
+  $user = user_load($uid);
+
+  $form['#submit'] = array(
+    'gofast_unstandby_or_unleave_user_form_submit',
+  );
+
+  $uid_to_unstandby = $uid;
+  $form['#uid_to_unstandby'] = $uid_to_unstandby;
+  $confirm_form = confirm_form(
+    $form,
+    t('Unblock / Activate this user', array(), array('context' => 'gofast')) . ' ' . $user->name,
+    isset($_GET['destination']) ? $_GET['destination'] : 'user/' . $user->uid,
+    t('Are you sure you want to unblock / activate this user?', array(), array('context' => 'gofast:gofast_user')),
+    t('Unblock / Activate', array(), array('context' => 'gofast')),
+    t('Cancel', array(), array('context' => 'gofast'))
+  );
+
+  $confirm_form['actions']['submit']['#attributes'] = array(
+    'class' => array('btn', 'btn-primary')
+  );
+
+  $confirm_form['actions']['cancel']['#type'] = "submit";
+  $confirm_form['actions']['cancel']['#value'] = t('Cancel');
+  $confirm_form['actions']['cancel']['#attributes'] = array(
+      'id' => 'edit-cancel',
+      'class' => array('btn', 'btn-secondary')
+  );
+  return $confirm_form;
+}
+
+function gofast_unstandby_or_unleave_user_form_submit($form, &$form_state)
+{
+  $uid_to_unstandby = $form['#uid_to_unstandby'];
+  gofast_user_unstandby_or_unleave($uid_to_unstandby);
 }
 
 // Function delete user
@@ -892,7 +1015,12 @@ function gofast_user_account_form_translate_field_register(&$form)
 function gofast_user_account_form_alter(&$form, &$form_state, $form_id)
 {
 
-
+  if (isset(($form["wrapper_language_settings_info"]["locale"]["language"]["#options"]["gfen"]))) {
+    unset($form["wrapper_language_settings_info"]["locale"]["language"]["#options"]["gfen"]);
+  }
+  if (isset($form["locale"]["language"]["#options"]["gfen"])) {
+    unset($form["locale"]["language"]["#options"]["gfen"]);
+  }
   gofast_userlist_og_user_form_alter($form, $form_state);
 
   //Labels translation
@@ -987,6 +1115,10 @@ function gofast_user_account_form_alter(&$form, &$form_state, $form_id)
     '#name' => 'ac-list-tags-field-user-manager'
   );
 
+  if (module_exists('gofast_bluemind') && variable_get('gofast_bluemind_is_active', 0) && $self) {
+    gofast_bluemind_profile_config_fields($form);
+  }
+
   // Timezone: if configurable and default is not set, use site default.
   $config_timezone = variable_get('configurable_timezones', 1) && isset($form['timezone']['timezone']);
   if ($config_timezone && empty($form['timezone']['timezone']['#default_value'])) {
@@ -1022,6 +1154,14 @@ function gofast_user_form_validate(&$form, &$form_state)
   if (!gofast_user_is_adm()) {
     $form_state['values']['roles'][$role_contrib->rid] = $role_contrib->rid;
   }
+  
+  //GOFAST-9054
+  //check if standby is enabled on the server, if yes check if the default value must be forced, depending on user role
+  if(variable_get("gofast_standby_enabled", false) == true){
+    if(!gofast_user_is_business_admin() ){
+      $form_state['values']['field_standby']["value"]=1;
+    }
+  }
 
     $errors = form_get_errors();
     if ($errors) {
@@ -1037,26 +1177,47 @@ function gofast_user_form_validate(&$form, &$form_state)
 
 /**
  * Submit callback for user account forms (registration & edition).
+ *
+ * @throws \Exception
  */
 
 function gofast_user_form_submit(&$form, &$form_state) {
+  
   if($form['#form_id'] === 'user_profile_form'){
     //Disabled feature in GOFAST-3006
     unset($form['og_user_node']);
     unset($form_state['field']['og_user_node']);
   }
 
+  if(module_exists('gofast_bluemind') && $form['#form_id'] === 'user_profile_form'){
+    gofast_bluemind_profile_config_fields_submit($form, $form_state);
+  }
+  
   if ($form['group_complement']['status']['#value'] == 1 && $form['#user']->status == 0 && $form['#user']->uid !== 0){
     $user = $form['#user'];
     gofast_user_unblock($user->uid);
   }
 
   $account = $form['#user'];
+  if( $form['#form_id'] === 'user_profile_form' && isset($form_state['values']['name'])){
+    gofast_user_change_username($form_state['values']['name'], $account);
+  }
   if (isset($form_state['values']['pass'])) {
     // Keep track of password updates.
     _gofast_set_user_key($account->uid, $form_state['values']['pass']);
   }
 
+  // If the field expiration date is enabled and the user is extranet, convert date from datetimepicker to timestamp
+  if($form_state["values"]["is_extranet"][LANGUAGE_NONE][0]["value"] === 1 && $form_state["values"]["enable_expiration_date"] === 1){
+    $date_string = $form_state["values"]["field_extranet_expiration_date"][LANGUAGE_NONE][0]["value"];
+    if(is_string($date_string) && !empty($date_string)){
+      $date_obj = DateTime::createFromFormat("d/m/Y", $date_string);
+      $date_obj->setTime(0, 0, 0);
+      $form_state["values"]["field_extranet_expiration_date"][LANGUAGE_NONE][0]["value"] = $date_obj->getTimestamp();
+    }
+  } else {
+    $form_state['values']['field_extranet_expiration_date'][LANGUAGE_NONE][0]["value"] = null;
+  }
 
   // Clear XSS
   $form_state['values']['ldap_user_givenname']['und'][0]['value'] = trim(gofast_xss_clean($form_state['values']['ldap_user_givenname']['und'][0]['value'])); // firstname
@@ -1069,7 +1230,17 @@ function gofast_user_form_submit(&$form, &$form_state) {
   // END Clear XSS
 
 
-
+  //GOFAST-9054
+  // if user is created in standby mode, prevent sending notification and block user to prevent being able to login
+ if(!empty($form_state['values']['field_standby']) && $form_state['values']['field_standby'][LANGUAGE_NONE][0]["value"] == 1 ){
+    //Be sur we are not on the user edit form
+    if($form['#form_id'] !== 'user_profile_form'){
+      $form_state['values']['notify'] = false;
+      $form_state['values']['status'] = 0;
+      
+      drupal_set_message(t('The user has been created in standby, A "User-support" administrator must validate this account now', array(), array("context" => "gofast:gofast_user")));
+    }
+  }
  /* $self = $account->uid === $GLOBALS['user']->uid;
   $og_edit = isset($form_state['values'][GOFAST_OG_USER_MEMBERSHIP_FIELD][LANGUAGE_NONE]);
 
@@ -1102,6 +1273,80 @@ function gofast_user_form_submit(&$form, &$form_state) {
       }
     }
   }*/
+}
+
+/**
+ * Updates the user's username
+ * @throws \Exception
+ */
+function gofast_user_change_username($new_username, $account): void {
+  
+  global $user;
+  if(!gofast_user_user_can_change_username($user)){
+    return;
+  }
+  
+  $details = new stdClass();
+  $details->new_username   = $new_username;
+  $details->account        = user_load_by_name($account->name);
+  $details->old_username   = $account->name;
+  $details->domain         = "";
+  
+  $is_username_unique = gofast_user_is_username_unique($details->new_username);
+  if(!$is_username_unique){
+    return;
+  }
+  
+  // Change LDAP credentials
+  gofast_ldap_change_username($details);
+
+  // Change Alfresco user credentials.
+  gofast_cmis_change_username($details->old_username, $details->new_username);
+  
+  // Change bonita credentials
+  gofast_workflows_change_bonita_username($details);
+
+  // Change private space details
+   $private_space_node = gofast_og_get_user_private_space($account);
+
+  if(isset($private_space_node->nid)) {
+    $private_space_node = gofast_user_update_space_node($private_space_node);
+     $details->private_space = $private_space_node;
+    $node_reference = gofast_cmis_node_get_item_id($private_space_node);
+    gofast_cmis_item_rename($node_reference,  '_'.$details->new_username, TRUE);
+  }
+  variable_set("gofast_user_current_username_updated", TRUE);
+}
+
+/**
+ * Check if a given username is unique system-wide.
+ *
+ * @param string $username
+ *   The username to check.
+ *
+ * @return bool
+ *   TRUE if the username is unique, FALSE otherwise.
+ */
+function gofast_user_is_username_unique(string $username): bool {
+  $account = user_load_by_name($username);
+  if ($account) {
+    return FALSE;
+  }
+  return TRUE;
+}
+
+/**
+ * Checks if a user can change their or other users' usernames or not
+ * @param $user
+ *
+ * @return bool
+ */
+function gofast_user_user_can_change_username($user): bool {
+  $sso_creation_enabled = variable_get("create_by_sso", FALSE);
+  $account              = user_load($user->uid);
+  $is_business_admin    = gofast_user_is_business_admin($account) !== NULL && gofast_user_is_business_admin($account);
+  $is_ldap_active       = module_exists('gofast_ldap');
+  return (!$sso_creation_enabled && $is_business_admin && !$is_ldap_active);
 }
 
 /**
@@ -1159,15 +1404,22 @@ function gofast_user_form_gofast_admin_settings_alter(&$form, &$form_state)
 function gofast_user_reset_password_validate($form, &$form_state)
 {
   $name = trim($form_state['values']['name']);
-  // Try to load by email.
-  $users = user_load_multiple(array(), array('mail' => $name, 'status' => '1'));
-  $account = reset($users);
-  if (!$account) {
-    // No success, try to load by name.
-    $users = user_load_multiple(array(), array('name' => $name, 'status' => '1'));
-    $account = reset($users);
+
+  $account = user_load_by_name($name);
+
+  if(!$account){
+    $account = user_load_by_mail($name);
   }
 
+  // Try to load by email.
+  $users = user_load_multiple(array(), !gofast_user_is_left($account) ? array('mail' => $name) : array('mail' => $name, 'status' => '1'));
+  $account = reset($users);
+  
+  if (!$account) {
+    // No success, try to load by name.
+    $users = user_load_multiple(array(), !gofast_user_is_left($account) ? array('name' => $name) : array('mail' => $name, 'status' => '1'));
+    $account = reset($users);
+  }
   drupal_set_message(t('A password recovery email has just been sent to you in the event that your information is valid or authentication delegation is not activated on your account.'));
 
   if (isset($account->uid)) {
@@ -1191,8 +1443,7 @@ function gofast_user_alter_comments(&$form, &$form_alter)
  */
 function gofast_user_form_user_login_block_alter(&$form, &$form_state)
 {
-  $count = 'COUNT(*)';
-  $idp_configured = db_query("select COUNT(*) from saml_sp_idps")->fetchAll()[0]->${count};
+  $idp_configured = db_query("select COUNT(*) from saml_sp_idps")->fetchAll()[0]->{"COUNT(*)"};
 
   if ($idp_configured) {
     //Change redirect URL of SSO authentication link and format it as a button
@@ -1216,35 +1467,11 @@ function gofast_user_form_user_login_block_alter(&$form, &$form_state)
     unset($form['saml_sp_drupal_login_links']['#items'][0]['data']);
   }
 
-  $form['actions']["simplified_login"] = array(
-    '#type' => 'select',
-    "#weight" => "-5",
-    '#attributes' => array(
-      'data-minimum-results-for-search' => 'Infinity'
-    ),
-    '#default_value' => isset($_COOKIE["gofast_version_login_selected"]) ? $_COOKIE["gofast_version_login_selected"] : variable_get('gofast_admin_interface', GOFAST_COMPLETE_VERSION),
-    '#theme_wrappers' => array(),
-    '#options' => [1 => t("GoFAST Plus", array(), array('gofast')),2 => t("GoFAST Essential", array(), array('gofast'))],
-);
-
-  // If we have mobile or tablet, but not iPad, we have only one option.
-  $detect = new Mobile_Detect();
-  $is_mobile = ($detect->isMobile() || $detect->isTablet() || $detect->is('iPad') || gofast_mobile_is_mobile_domain());
-  $is_mobile_device = ($detect->isMobile() || $detect->isTablet() || $detect->is('iPad'));
-  if ($is_mobile) {
-    $form['actions']['simplified_login']['#default_value'] = 2;
-    $form['actions']['simplified_login']['#options'] = [2 => t('GoFAST Essential', [], ['gofast'])];
-  }
-
-  if ($is_mobile_device) {
-    // GOFAST-7657 - we don't have the select to be visible on mobile devices
-    unset($form['actions']['simplified_login']);
-  }
-
   unset($form['links']['#markup']);
 
   $form['#submit'][] = 'gofast_ajax_login_version_submit_callback';
-  $form['#validate'][] = 'gofast_user_login_form_validation';
+  // Put our validation handler _before_ core's one to be able to signal to it
+  array_unshift($form['#validate'], 'gofast_user_login_form_validation');
 
   $form['actions']["submit"]['#attributes']['class'][] = 'col-xs-4';
   $form['actions']["submit"]['#attributes']['style'][] = 'margin-right: 10px;width: 48%;margin-bottom: 10px;';
@@ -1252,13 +1479,12 @@ function gofast_user_form_user_login_block_alter(&$form, &$form_state)
   $form['actions']["forgot_password"]['#attributes']['style'][] = 'width: 100%;';
 }
 
-
 function gofast_user_form_alter(&$form, &$form_state)
 {
   if ($form['#action'] === '/user/password' && $form['#form_id'] === 'user_login_block') {
     $form['#action'] = '/';
   }
-  if ($form['#form_id'] === 'user_pass') {   
+  if ($form['#form_id'] === 'user_pass') {
     $form['actions']['submit']['#attributes']['class'][] = "btn-primary";
     $form["#validate"] = array('gofast_user_reset_password_validate');
   }
@@ -1270,4 +1496,118 @@ function gofast_user_form_alter(&$form, &$form_state)
     $form['actions']['submit']['#attributes']['class'][] = 'btn-success btn-sm';
     $form['actions']['submit']['#value'] = '<i class="fa fa-unlock"></i>   ' . t('Unblock', array(), array('context' => 'gofast'));
   }
+  if ($form['#form_id'] === 'user_pass_reset') {
+    $url = explode('/', $_SERVER['REQUEST_URI']);
+    $expiresOn = date('D d F Y - H:i', $url[4]);
+    $uid = (int)$url[3];
+    $account = user_load($uid);
+    $timestamp = (int)$url[4];
+    $token = user_pass_rehash($account->pass, $timestamp, $account->login, $account->uid);
+    if(!gofast_user_is_left($account)){
+      $_SESSION['pass_reset_hash'] = $token;
+      $form['#action'] = "user/reset/$uid/$timestamp/confirm";
+      $form['#validate'] = array('gofast_user_user_pass_reset_form_validate');
+      $form['message'] = array(
+        '#type' => 'markup',
+        '#markup' => '<div class="alert alert-info" role="alert">' .
+          t('This is a one time opportunity to reset your password. This page will expire on '.'<span style="font-style: italic">'.$expiresOn.'</span>', array(), array('context' => 'gofast')) . '</div>',
+      );
+      $form['help'] = array("#markup" => t("Please reset your password below."));
+      $form['new_password'] = array(
+        '#type' => 'password',
+        '#title' => t('New password'),
+        '#size' => 32,
+        '#prefix' => '<div style="margin-top:30px">',
+        '#suffix' => '</div>',
+        '#maxlength' => 32,
+        '#required' => TRUE,
+      );
+      $form['password_confirm'] = array(
+        '#type' => 'password',
+        '#title' => t('Confirm new password'),
+        '#size' => 32,
+        '#prefix' => '<div style="margin-top:30px">',
+        '#suffix' => '</div>',
+        '#maxlength' => 32,
+        '#required' => TRUE,
+      );
+      $form['actions']['submit'] = array(
+        '#type' => 'button',
+        '#value' => t('Update Password'),
+        '#prefix' => '<div style="margin-top:30px">',
+        '#suffix' => '</div>',
+        '#attributes' => array('class' => array('btn-primary')),
+      );
+    }
+  }
 }
+
+/**
+ * Submit handler for the user_pass_reset form
+ * @throws \Exception
+ */
+function gofast_user_user_pass_reset_form_submit($form, &$form_state){
+
+  $account = user_load($form_state['build_info']['args'][0]);
+  $server = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
+  $dn = gofast_ldap_user_dn($account->uid);
+  $newPassword = $form_state['values']['new_password'];
+  $edit = array(
+    'pass' =>  $newPassword,
+    'status' => !gofast_user_is_left($account) ? 1 : $account->status
+  );
+  if ($server) {
+    $modify_ldap_account = $server->modifyLdapEntry($dn, array('userPassword' => $newPassword));
+    if ($modify_ldap_account) {
+      $account = user_save($account, $edit);
+      if($account){
+        unset($_SESSION['pass_reset_hash']);
+        drupal_set_message(t('Your password has been updated.'));
+        drupal_goto("/");
+      }
+    }
+    else {
+      drupal_set_message(t('An error occurred while trying to reset your password on the LDAP server.'), 'error');
+    }
+  }
+}
+
+/**
+ * The user_pass_reset form validation handler.
+ * @throws \Exception
+ */
+function gofast_user_user_pass_reset_form_validate($form, &$form_state) {
+  $password = $form_state['values']['new_password'];
+  $password_confirm = $form_state['values']['password_confirm'];
+
+  $account = user_load($form_state['build_info']['args'][0]);
+  $error_message = gofast_ldap_validate_password($account, $password, $form['form_id']['#id'], TRUE);
+  if (!empty($error_message)) {
+    form_set_error('password_confirm', $error_message);
+    return FALSE;
+  }
+
+  if ($password != $password_confirm) {
+    form_set_error('password_confirm', t('The passwords do not match.'));
+    return FALSE;
+  }
+  gofast_user_user_pass_reset_form_submit($form, $form_state);
+}
+
+  /**
+   * @param mixed $private_space_node
+   *
+   * @return mixed
+   * @throws \Exception
+   */
+  function gofast_user_update_space_node(mixed $private_space_node): mixed {
+    gofast_ldap_space_set_dn($private_space_node, TRUE);
+    $private_space_node = gofast_prepare_node_save_technically($private_space_node);
+    $ruid = $private_space_node->revision_uid;
+    node_save($private_space_node);
+    db_update('node_revision')
+      ->fields(array('uid' => $ruid))
+      ->condition('nid', $private_space_node->nid)
+      ->execute();
+    return $private_space_node;
+  }

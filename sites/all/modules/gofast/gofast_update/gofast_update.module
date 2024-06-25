@@ -93,7 +93,7 @@ function gofast_update_get_infos($manifest){
  */
 function gofast_update_get_gofast_version($manifest, $last_hotfix = TRUE){
   $gofast = system_get_info("module", "gofast");
-  $current_version = substr($gofast['version'], strlen($gofast[core])+1);
+  $current_version = substr($gofast['version'], strlen($gofast['core'])+1);
   $current_version = str_replace('-', '_', $current_version);
   $versions = $manifest->versions;
   
@@ -129,7 +129,7 @@ function gofast_update_get_gofast_version($manifest, $last_hotfix = TRUE){
  */
 function gofast_update_get_gofast_hotfix_version($manifest){
   $gofast = system_get_info("module", "gofast");
-  $current_version = substr($gofast['version'], strlen($gofast[core])+1);
+  $current_version = substr($gofast['version'], strlen($gofast['core'])+1);
   $current_version = str_replace('-', '_', $current_version);
   $versions = $manifest->versions;
   
@@ -170,6 +170,9 @@ function gofast_update_get_available_version($manifest){
   //We transform the versions object to array using JSON API
   $versions = json_encode($versions);
   $versions = json_decode($versions, TRUE);
+
+  $do_break = FALSE;
+  $break = FALSE;
   
   foreach($versions as $version){    
     if($version['infos']['publicRelease'] == 0 && !variable_get('allow_private_release', 0)){ //Not a public release
@@ -187,12 +190,13 @@ function gofast_update_get_available_version($manifest){
         }
         continue;
     }    
-    if($break){
-      return $version;
-    }
     if($version['infos']['versionNumber'] == $current_version['infos']['versionNumber'] || $do_break){ //We found the current version in the release manifest
       //So, the next version available is the next version in the release manifest
       $break = TRUE;
+      continue;
+    }
+    if($break){
+      return $version;
     }
   }
 }
@@ -208,6 +212,9 @@ function gofast_update_get_available_hotfix_version($manifest){
   $current_version = gofast_update_get_gofast_version($manifest, FALSE);
   $hotfix_version = gofast_update_get_gofast_hotfix_version($manifest);
   $versions = $current_version['hotfix'];
+
+  $do_break = FALSE;
+  $break = FALSE;
   
   foreach($versions as $version){
     if(module_exists("gofast_community") && $version['infos']['community'] == 0){
@@ -221,12 +228,13 @@ function gofast_update_get_available_hotfix_version($manifest){
     if(!isset($hotfix_version)){
       return $version;
     }
-    if($break){
-      return $version;
-    }
     if($version['infos']['versionNumber'] == $hotfix_version['infos']['versionNumber'] || $do_break){ //We found the current version in the release manifest
       //So, the next version available is the next version in the release manifest
       $break = TRUE;
+      continue;
+    }
+    if($break){
+      return $version;
     }
   }
 }
@@ -348,6 +356,9 @@ function gofast_update_cron() {
     $users_count = count(db_query("select distinct u.uid \"uid\" from users u left join field_data_is_extranet e on e.entity_id=u.uid where u.status > 0 and (e.is_extranet_value = 0 OR e.is_extranet_value IS NULL)")->fetchAllAssoc('uid'));
     $users_count_extranet = count(db_query("select distinct u.uid \"uid\" from users u join field_data_is_extranet e on e.entity_id=u.uid where u.status > 0 and e.is_extranet_value = 1")->fetchAllAssoc('uid'));
     
+    // Count user who user the eseential version
+    $essential_users = count(db_query("SELECT distinct entity_id FROM field_data_field_version WHERE field_version_value='Essential'")->fetchAllAssoc('entity_id'));
+    
     $sso_active = db_query("select COUNT(*) \"count\" from saml_sp_idps")->fetchAll()[0]->count;
     $sasl_enabled = variable_get('gofast_sasl_auth',0);
     
@@ -371,6 +382,7 @@ function gofast_update_cron() {
     $url .= "&users_online_count=$users_online_count";
     $url .= "&users_online_12h_count=$users_online_12h_count";
     $url .= "&users_count_extranet=$users_count_extranet";
+    $url .= "&essential_users=$essential_users";
     $url .= "&users_count=$users_count";
     $url .= "&count_docs=$count_docs";
     $url .= "&count_nodes=$count_nodes";
@@ -400,6 +412,72 @@ function gofast_update_cron() {
     }
   
     curl_exec($ch);
+    
+    // HubSync
+    
+    // Round memory before send to hubsync
+    $memory_count = round($memory_count / 1024);
+    
+    // Get server CPU core count.
+    $core_count = (int) shell_exec('cat /proc/cpuinfo | grep processor | wc -l');
+    
+    // Get total disk space
+    // TO DO: Find better way without shell_exec needed
+    $physical_disks = shell_exec('lsblk -o "NAME,SIZE,MAJ:MIN" -d -n -b -e 11 | awk \'{print $2}\'');
+
+    $physical_disks = explode("\n", $physical_disks);
+
+    $physical_disks= array_filter($physical_disks);
+
+    $total_disk_space = 0;
+
+    foreach ( $physical_disks as $physical_disk ) {
+
+        $total_disk_space+=$physical_disk;
+    }
+    // Convert to G
+    $gofast_disk = round($total_disk_space / pow(1024, 3));
+    // Get number of docs
+    $count_docs = intval(db_query("SELECT COUNT(nid) FROM node WHERE type='alfresco_item' AND status=1")->fetchAssoc()['COUNT(nid)']);
+    
+    $url = "https://hub.ceo-vision.com/enroll";
+    
+    $data = array(
+      'gofast_hostname' => $hostname,
+      'gofast_url' => $base_url,
+      'gofast_server_key' => $server_key,
+      'gofast_version' => $version,
+      'gofast_hotfix' => $hotfix,
+      'gofast_count_users_onlyoffice' => $onlyoffice_simultaenous_users_max,
+      'gofast_users_online' => $users_online_count,
+      'gofast_users_online_last_twelve' => $users_online_12h_count, 
+      'gofast_count_users_extranet' => $users_count_extranet,
+      'gofast_essential_users' => $essential_users,
+      'gofast_users_count' => $users_count,
+      'gofast_count_docs' => $count_docs,
+      'gofast_memory' =>  $memory_count,
+      'gofast_cpu' => $core_count,
+      'gofast_disk' =>  $gofast_disk,
+      'gofast_auth_type' => $auth_type 
+    );
+    $data = json_encode($data);
+    
+    $curl = curl_init($url);
+    curl_setopt($curl, CURLOPT_HEADER, 0);
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($curl, CURLOPT_HTTPHEADER,
+        array("Content-type: application/json"));
+    curl_setopt($curl, CURLOPT_POST, 1);
+    curl_setopt($curl, CURLOPT_TIMEOUT, 5);
+    curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
+    
+    $username = gofast_update_get_enterprise_user();
+    $password = gofast_update_get_enterprise_password();
+    
+    curl_setopt($curl, CURLOPT_USERPWD, $username . ":" . $password);  
+    
+    curl_exec($curl);
+    
   }
 }
 

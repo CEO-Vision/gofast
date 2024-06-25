@@ -1,0 +1,1021 @@
+<?php 
+
+/**
+ * @file
+ * Gofast Bluemind module.
+ * 
+ * This module is responsible for syncing the user's bluemind conferences and meetings.
+ * 
+ */
+
+ 
+define("GOFAST_BLUEMIND_PAST_THRESHOLD", '-1 week');
+define("GOFAST_BLUEMIND_FUTURE_THRESHOLD", '+2 months');
+ 
+ 
+/**
+  * Implements hook_init().
+  */
+function gofast_bluemind_init(): void {
+  global $user;
+  $is_feature_active          = variable_get('gofast_bluemind_is_active', 0); 
+  $account                    = user_load($user->uid);
+  $is_feature_active_for_user = $account->gofast_bluemind_user_active_sync[LANGUAGE_NONE][0]['value'];
+  $user_last_sync             = $account->gofast_bluemind_last_sync[LANGUAGE_NONE][0]['value'];
+  if(!isset($is_feature_active_for_user)){
+    $is_feature_active_for_user = 0;
+  }
+
+  drupal_add_js([
+    'gofast_bluemind_is_feature_active_for_user' => $is_feature_active_for_user,
+    'gofast_bluemind_is_feature_active'          => $is_feature_active,
+    'gofast_bluemind_user_last_sync'             => $user_last_sync,
+  ], 'setting');
+}
+
+/**
+ * Implements hook_cronapi().
+ */
+function gofast_bluemind_cronapi($op, $job = NULL): array {
+  $items['gofast_bluemind_cron_job'] = array(
+    'description' => 'Sync user data with BlueMind',
+    'rule' => '*/5 * * * *',
+    'callback' => 'gofast_bluemind_cron_job',
+  );
+  return $items;
+}
+
+/**
+ * Callback function for the cron job.
+ *
+ * @throws \Exception
+ */
+function gofast_bluemind_cron_job(): void {
+  $is_active = variable_get('gofast_bluemind_is_active', 0);
+  if($is_active){
+    gofast_bluemind_sync_events();
+  } 
+}
+
+/**
+ * Synchronize events for users with an active BlueMind sync flag.
+ *
+ * This function retrieves users with an active synchronization flag from the
+ * 'field_data_gofast_bluemind_user_active_sync' database table and synchronizes
+ * their data with BlueMind if the last synchronization was more than 5 minutes ago.
+ * It processes users in batches, specified by the $offset and $limit parameters.
+ *
+ * @param int $offset The starting offset for retrieving users.
+ * @param int $limit  The number of users to process in each batch.
+ *
+ * @throws \Exception
+ */
+function gofast_bluemind_sync_events(int $offset = 0, int $limit = 50): void {
+  $five_minutes_ago = REQUEST_TIME - 5 * 60;
+  
+  $current_time = date('Y-m-d H:i:s');
+  $query = db_select('field_data_gofast_bluemind_user_active_sync', 'f');
+  $query->fields('f', array('entity_id'));
+  $query->condition('f.gofast_bluemind_user_active_sync_value', 1);
+  $query->range($offset, $limit);
+  
+  $users = $query->execute()->fetchAll();
+  if(!empty($users)){
+    foreach($users as $user){
+      $last_sync_q = db_select('field_data_gofast_bluemind_last_sync', 'f');
+      $last_sync_q->fields('f', array('gofast_bluemind_last_sync_value'));
+      $last_sync_q->condition('f.entity_id', $user->entity_id);
+      
+      $last_sync = $last_sync_q->execute()->fetchAll()[0]->gofast_bluemind_last_sync_value;
+      if((!isset($last_sync)) || ($last_sync < $five_minutes_ago)){
+        $account = user_load($user->entity_id);
+        gofast_bluemind_setup($account);
+        $account->gofast_bluemind_last_sync[LANGUAGE_NONE][0]['value'] = REQUEST_TIME;
+        user_save($account);
+      }
+    }
+
+    // If there are more users to process, call the function recursively with an updated offset
+    if(count($users) == $limit){
+      gofast_bluemind_sync_events($offset + $limit, $limit);
+    }
+  }
+}
+
+/**
+ * Manually triggers the sync of Bluemind Events.
+ *
+ * @throws \Exception
+ */
+function gofast_bluemind_trigger_sync(): void {
+  global $user;
+  drupal_json_output(['success' => TRUE]);
+  fastcgi_finish_request();
+  
+  $account = user_load($user->uid);
+  gofast_bluemind_setup($account);
+  $account->gofast_bluemind_last_sync[LANGUAGE_NONE][0]['value'] = REQUEST_TIME;
+  user_save($account);
+}
+
+/**
+ * Get the user's last sync date and time
+ */
+function gofast_bluemind_get_last_sync($account = null): void {
+  
+  if($account == null){
+    global $user;
+    $account = user_load($user->uid);
+  }
+
+  $response = $account->gofast_bluemind_last_sync[LANGUAGE_NONE][0]['value'] ?? 0;
+  drupal_json_output($response);
+}
+
+/**
+ * Sets up the Bluemind session for the current user.
+ *
+ * @param $account
+ *
+ * @return void
+ * @throws \Exception
+ */
+function gofast_bluemind_setup($account): void {
+  gofast_bluemind_authenticate_user($account);
+  gofast_bluemind_get_events($account);
+  
+  $events = $_SESSION['gofast_bluemind_sessionData']->events;
+  if(empty($events)){
+    return; 
+  }
+  
+  if($account == NULL){
+    global $user;
+    $account = user_load($user->uid);
+  }
+  gofast_bluemind_create_conferences($events, $account);
+}
+
+/**
+ * Authenticates CurrentUser to Bluemind and creates a session.
+ *
+ * @param mixed $account
+ * @param bool $return
+ *
+ * @return void|bool
+ */
+function gofast_bluemind_authenticate_user(mixed $account, bool $return = FALSE) {
+  $user_config = gofast_bluemind_get_config($account);
+  if( $user_config->email == 'empty' || $user_config->password == 'empty'){
+    return; 
+  }
+  
+  $credentials           = new \stdClass();
+  $credentials->email    = $user_config->email;
+  $credentials->password = $user_config->password;
+  
+  $response = gofast_bluemind_execute_authentication_request($credentials);
+  $decodedResponse = json_decode($response);
+  
+  if (isset($decodedResponse->authKey)) {
+    $success_msg = t('Bluemind Authentication successful.', ['context' => 'gofast:gofast_bluemind']);
+    drupal_set_message($success_msg, 'success');
+      
+    if($return)
+      return TRUE;
+  }
+  else {
+    $error_msg = t('Bluemind Authentication failed. Please verify your credentials.',
+      ['context' => "gofast:gofast_bluemind"]);
+    drupal_set_message($error_msg, 'error');
+
+    if($return)
+      return FALSE;
+    
+  }
+
+  if ($decodedResponse !== null) {
+    $_SESSION['gofast_bluemind_sessionData'] = $decodedResponse;
+  } else {
+    // Handle error when decoding response
+    watchdog("gofast_bluemind_authenticate_user", "Error decoding response");
+  }
+  
+}
+
+/**
+ * Validates given credentials by attempting to login to Bluemind using these 
+ * credentials.
+ * 
+ * @param mixed $values
+ *
+ * @return bool
+ */
+function gofast_bluemind_validate_credentials(mixed $values): bool {
+  $credentials           = new \stdClass();
+  $credentials->email    = $values->email;
+  $credentials->password = $values->password;
+  
+  $response = gofast_bluemind_execute_authentication_request($credentials);
+  $decodedResponse = json_decode($response);
+  
+  if (isset($decodedResponse->authKey))
+    return TRUE;
+  else  
+    return FALSE;
+}
+
+/**
+ * Executes the authentication api call
+ * 
+ * @param \stdClass $credentials
+ * @param array $extra_headers
+ *
+ * @return string
+ */
+
+function gofast_bluemind_execute_authentication_request(stdClass $credentials, array $extra_headers = array()): string {
+  
+  $headers = array(
+    'Content-Type: application/json',
+  );
+  
+  if(!empty($extra_headers)){
+    $headers = array_merge($headers, $extra_headers);
+  }
+
+  $body = '"'.$credentials->password.'"';
+  
+  $base_url = variable_get('gofast_bluemind_url', '');
+  $endpoint = '/api/auth/login';
+  
+  $query = 'login='.$credentials->email;
+  $url = $base_url . $endpoint . '?' . $query;
+  $curl = curl_init($url);
+
+  curl_setopt_array($curl, array(
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_HTTPHEADER => $headers,
+    CURLOPT_POST => true,
+    CURLOPT_POSTFIELDS => $body,
+  ));
+  
+  $response = curl_exec($curl);
+  curl_close($curl);
+  
+  return $response;
+}
+
+/**
+ * Gets the configuration for the current user.
+ *
+ * @param $account
+ *
+ * @return stdClass
+ */
+function gofast_bluemind_get_config($account): stdClass {
+
+  $config = new stdClass();
+  $config->bluemind_url = variable_get('gofast_bluemind_url', '');
+  $config->user = $account;
+
+  [$config->email, $config->password] = gofast_bluemind_get_user_credentials($account);
+  if(empty($config->email) || empty($config->password)){
+    watchdog("gofast_bluemind_fetch_config", "Configuration not set");
+  }
+  return $config;
+}
+
+
+function gofast_bluemind_get_user_credentials($account): array {
+  $email                = $account->gofast_bluemind_user_email[LANGUAGE_NONE][0]['value']; 
+  $password             = $account->gofast_bluemind_user_password[LANGUAGE_NONE][0]['value']; 
+  $unencrypted_password = gofast_decrypt('gofast_bluemind_password_'.$account->uid, $password);
+  return [$email, $unencrypted_password];
+}
+
+/**
+ * Gets the events/meetings for the current user.
+ *
+ * @param $account
+ *
+ * @return void
+ */
+function gofast_bluemind_get_events($account): void {
+  
+  $session = $_SESSION['gofast_bluemind_sessionData'];
+  if (!isset($session)) {
+    gofast_bluemind_authenticate_user($account);
+  }
+
+  $user_config = gofast_bluemind_get_config($account);
+
+  if( $user_config->email == 'empty' || $user_config->password == 'empty'){
+    return;
+  }
+  
+  $calendar = "calendar:Default:" . $session->authUser->uid;
+  $url = $user_config->bluemind_url . '/api/calendars/vevent/' . $calendar;
+
+  $headers = array(
+    'X-BM-ApiKey: ' . $session->authKey,
+    'Content-Type: application/json',
+  );
+
+  $curl = curl_init($url);
+
+  curl_setopt_array($curl, array(
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_HTTPHEADER => $headers,
+  ));
+
+  $response = curl_exec($curl);
+  $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+
+  curl_close($curl);
+
+  if ($httpCode === 200) {
+    $events = gofast_bluemind_clean_raw_events($response);
+
+    $_SESSION['gofast_bluemind_sessionData']->events = $events;
+    
+  } elseif ($httpCode === 401) {
+    // Handle authentication error
+    gofast_bluemind_authenticate_user($account);
+    gofast_bluemind_get_events($account);
+  } else {
+    // Handle other request errors
+    watchdog("gofast_bluemind_get_events", "Error getting events");
+  }
+}
+
+/**
+ * Unpublish events which were removed from the external conference source.
+ *
+ * @param $events
+ * @param null $account
+ *
+ * @return array $excluded_hashes ICS IDs of unpublished conferences
+ * @throws \Exception
+ */
+function gofast_bluemind_unpublish_conferences($filtered_events, $account = NULL, $external_provider = "bluemind"): array {
+  if($account == NULL){
+    global $user;
+    $account = user_load($user->uid);
+  }
+  // 1. Get all external conferences ics ids for target account (only in the sync time-window)
+  $past_threshold = date('Y-m-d H:i:s', strtotime(GOFAST_BLUEMIND_PAST_THRESHOLD));
+  $future_threshold = date('Y-m-d H:i:s', strtotime(GOFAST_BLUEMIND_FUTURE_THRESHOLD));
+
+  $query = db_select("field_data_field_external_conference_source", "ext");
+  $query->condition("ext.field_external_conference_source_value", "%" . $external_provider . "%", "LIKE");
+  $query->fields("ics", ["field_uid_ics_value", "entity_id"]);
+
+  $query->innerJoin("node", "n", "n.nid = ext.entity_id");
+  $query->condition("n.uid", $account->uid);
+
+  $query->innerJoin("field_data_field_uid_ics", "ics", "ics.entity_id = ext.entity_id");
+
+  $query->innerJoin("field_data_field_date", "d", "d.entity_id = ext.entity_id");
+  $query->condition("d.field_date_value", $past_threshold, ">");
+  $query->condition("d.field_date_value", $future_threshold, "<");
+
+  $external_conferences = [];
+  foreach ($query->execute() as $external_conference) {
+    $external_conferences[$external_conference->entity_id] = $external_conference->entity_id = $external_conference->field_uid_ics_value;
+  }
+
+  // 2. Keep only conferences which are not in the external conference source anymore
+  $events_uids = array_column($filtered_events, 'UID');
+  $missing_ids = array_diff($external_conferences, $events_uids);
+
+  // 3. Delete them
+  $excluded_hashes = [];
+  foreach ($missing_ids as $missing_nid => $uid_ics_value) {
+    node_delete($missing_nid);
+    $excluded_hashes[] = $uid_ics_value;
+  }
+  return $excluded_hashes;
+}
+
+/**
+ * Maps the events and creates Gofast Conferences and Meetings.
+ *
+ * @param $events
+ * @param null $account
+ *
+ * @return void
+ * @throws \Exception
+ */
+function gofast_bluemind_create_conferences($events, $account = NULL, $sync = TRUE): void {
+  $prod_id = $_SESSION['gofast_bluemind_sessionData']->prodid;
+
+  if($events == null){
+    return; 
+  }
+
+  // Keep only events in the sync time-window)
+  $past_threshold = strtotime(GOFAST_BLUEMIND_PAST_THRESHOLD);
+  $future_threshold = strtotime(GOFAST_BLUEMIND_FUTURE_THRESHOLD);
+  $filtered_events = array_filter($events, function($event) use ($past_threshold, $future_threshold) {
+    $event_date = strtotime($event["DTSTART"]);
+    return $event_date > $past_threshold && $event_date < $future_threshold;
+  });
+
+  // If it's a sync operation, remove events which have been removed from bluemind and keep track of them (to avoid reinserting them after)
+  if ($sync) {
+    $excluded_hashes = gofast_bluemind_unpublish_conferences($filtered_events, $account);
+  }
+
+  // Build conference objects and insert them
+  foreach($filtered_events as $event) {
+    if ($sync && in_array($event["UID"], $excluded_hashes)) {
+      continue;
+    }
+    $conference = new stdClass();    
+    $conference->field_date[LANGUAGE_NONE][0]['value'] = $event["DTSTART"];
+    $conference->title = !empty($event["SUMMARY"]) ? $event["SUMMARY"] : 'Bluemind Conference';
+    $conference->field_end_date[LANGUAGE_NONE][0]['value'] = $event["DTEND"];
+    $conference->field_conference_is_all_day[LANGUAGE_NONE][0]['value'] = gofast_bluemind_is_all_day($event["DTSTART"], $event["DTEND"]);
+    $conference->body[LANGUAGE_NONE][0]['value'] = !empty($event["DESCRIPTION"]) || $event["DESCRIPTION"] == "\n"
+      ? $event["DESCRIPTION"] : $event["SUMMARY"];
+    $body = gofast_xss_clean($conference->body[LANGUAGE_NONE][0]['value']);
+    $conference->body[LANGUAGE_NONE][0]['value'] = utf8_encode($body);
+    // trimming is important to remove "\r" characters from the ics string, otherwise a matching user will never be found
+    $organizer_email = trim($event["ORGANIZER"]["EMAIL"]);
+    $conference->field_conference_organizer[LANGUAGE_NONE][0]['value'] = $organizer_email;
+    $event_source = gofast_bluemind_get_event_source($prod_id);
+    $conference->field_external_conference_source[LANGUAGE_NONE][0]['value'] = json_encode($event_source);
+    $conference->timezone = $event["DTSTART_TZID"];
+    $conference->type = 'conference'; 
+    $conference->field_uid_ics[LANGUAGE_NONE][0]['value']  = $event["UID"];
+    $organizer = user_load_by_mail($organizer_email);
+    if($organizer && $organizer->uid != 0) {
+      $uid = $organizer->uid;
+    } else {
+      // if user matching organizer email is not found, maybe the user uses a different email for the calendar, so try to get the uid this way
+      $uid = reset(db_select("field_data_gofast_bluemind_user_email", "blem")->fields("blem", ["entity_id"])->condition("gofast_bluemind_user_email_value", $organizer_email)->execute()->fetchCol());
+    }
+    if ($uid) {
+      $conference->uid = $uid;
+    }
+    $conference->field_participants = array();
+    $conference->field_existing_participants[LANGUAGE_NONE] = array();
+
+    foreach($event["ATTENDEES"] as $attendee) {
+      $attendee_user = user_load_by_mail(trim($attendee["EMAIL"]));
+      if($attendee_user){
+        $conference->field_existing_participants[LANGUAGE_NONE][] = ["target_id" => $attendee_user->uid];
+      }
+      else{
+        $conference->field_participants[LANGUAGE_NONE][] = array('_weight' => '2', 'value' => $attendee["EMAIL"]);
+      }
+    }
+
+    $query = db_select('field_data_field_uid_ics', 'n');
+    $query->fields('n', array('field_uid_ics_value','entity_id'));
+    $query->condition('n.field_uid_ics_value', $conference->field_uid_ics[LANGUAGE_NONE][0]['value'] );
+    $result = $query->execute()->fetchAll()[0];
+    
+    if(!isset($result)){
+      $_POST['node_update_bluemind_event'] = FALSE;
+      node_save($conference);
+    }else{
+      $conference->nid = $result->entity_id;
+      $conference->field_external_conference_source[LANGUAGE_NONE] = array();
+      $conference->field_external_conference_source[LANGUAGE_NONE][0]['value'] = json_encode($event_source);
+      $node = node_load($conference->nid);
+      $diffs = [];
+      if(!empty($node)){
+        $diffs = gofast_conference_node_compare($conference, $node);
+      }
+      // Save node again only if there are differences
+      if (!empty($diffs)) {
+        // Merge back the changes to the node
+        foreach ($diffs as $field => $diff) {
+          $node->$field = $diff["to"];
+        }
+        // We don't notify the user for changes which were not made from GoFAST
+        $_POST['node_update_bluemind_event'] = TRUE;
+        node_save($node);
+      }
+    }
+  }
+}
+
+/**
+ * Checks if the event is an all day event.
+ *
+ * @param $start_date
+ * @param $end_date
+ *
+ * @return int
+ */
+function gofast_bluemind_is_all_day($start_date, $end_date): int {
+  $diffHours = (strtotime($end_date) - strtotime($start_date)) / 3600;
+  if ($diffHours >= 24) {
+    return 1; 
+  } else {
+    return 0;
+  }
+}
+
+/**
+ * Returns the event source.
+ *
+ * @param $prodid
+ *
+ * @return array
+ */
+function gofast_bluemind_get_event_source($prodid): array {
+  $calendar_color = $_SESSION['gofast_bluemind_sessionData']->calendar_color;
+  $calendar_color = $calendar_color ?? '#fff';
+  if(str_contains($prodid, 'Microsoft Exchange Server')){
+    return ['name' => 'exchange', 'icon' => 'fa fa-brands fa-microsoft', 'color' => $calendar_color];
+  }
+  else if(str_contains($prodid, 'Google Calendar')){
+    return ['name' => 'google', 'icon' => 'fa fa-brands fa-google', 'color' => $calendar_color];
+  }
+  else if(str_contains($prodid, 'Apple Inc')){
+    return ['name' => 'apple', 'icon' => 'fa fa-brands fa-apple', 'color' => $calendar_color];
+  }
+  else if(str_contains($prodid, 'Yahoo')){
+    return ['name' => 'apple', 'icon' => 'fa fa-brands fa-yahoo', 'color' => $calendar_color];
+  }
+  else if(str_contains($prodid, 'BlueMind Calendar')){
+    return ['name' => 'bluemind', 'icon' => 'fa fa-solid fa-envelope', 'color' => $calendar_color];
+  }
+  else{
+    return ['name' => 'other', 'icon' => 'fa fa-solid fa-envelope', 'color' => $calendar_color];
+  }
+}
+
+/**
+ * Cleans raw iCalendar data and returns an array of parsed events.
+ * 
+ * @param string $icalData
+ *
+ * @return array
+ */
+function gofast_bluemind_clean_raw_events(string $icalData): array {
+  // Split the iCalendar data into individual events
+  $events = preg_split('/BEGIN:VEVENT/', $icalData, -1, PREG_SPLIT_NO_EMPTY);
+  
+  //get the prodid id to determine the source of the event
+  preg_match('/PRODID:(.*?)\n/', $icalData, $matches);
+  $prodid = $matches[1];
+
+  $session_data = $_SESSION['gofast_bluemind_sessionData'];
+  if(isset($session_data)){
+    $_SESSION['gofast_bluemind_sessionData']->prodid = $prodid; 
+  } else {
+    $_SESSION['gofast_bluemind_sessionData'] = new stdClass();
+    $_SESSION['gofast_bluemind_sessionData']->prodid = $prodid;
+  }
+
+  // Initialize an array to store parsed events
+  $parsedEvents = array();
+
+  // Loop through each event and parse its properties
+  foreach ($events as $eventData) {
+    $event = array();
+
+    // Match both formats of DTSTART
+    if (preg_match('/DTSTART;VALUE=DATE:(.*?)\r?\n/', $eventData, $matches)) {
+      $event['DTSTART'] = date('Y-m-d H:i:s', strtotime($matches[1]));
+    } elseif (preg_match('/DTSTART;TZID=[^:]+:(.*?)\r?\n/', $eventData, $matches)) {
+      $event['DTSTART'] = date('Y-m-d H:i:s', strtotime($matches[1]));
+    } elseif (preg_match('/DTSTART:(.*?)Z\r?\n/', $eventData, $matches)) {
+      $event['DTSTART'] = date('Y-m-d H:i:s', strtotime($matches[1]));
+    }
+
+    // Match both formats of DTEND
+    if (preg_match('/DTEND;VALUE=DATE:(.*?)\r?\n/', $eventData, $matches)) {
+      $event['DTEND'] = date('Y-m-d H:i:s', strtotime($matches[1]));
+    } elseif (preg_match('/DTEND;TZID=[^:]+:(.*?)\r?\n/', $eventData, $matches)) {
+      $event['DTEND'] = date('Y-m-d H:i:s', strtotime($matches[1]));
+    } elseif (preg_match('/DTEND:(.*?)Z\r?\n/', $eventData, $matches)) {
+      $event['DTEND'] = date('Y-m-d H:i:s', strtotime($matches[1]));
+    }
+    preg_match('/SUMMARY:(.*?)\n/', $eventData, $matches);
+    $event['SUMMARY'] = stripslashes($matches[1]);
+
+    // Extract attendee information
+    preg_match_all('/ATTENDEE;.*?CN=(.*?);.*?:MAILTO:(.*?)\n/', $eventData, $matches, PREG_SET_ORDER);
+    $attendees = array();
+    foreach ($matches as $match) {
+      $attendee = array(
+        'CN' => $match[1],
+        'EMAIL' => $match[2]
+      );
+      $attendees[] = $attendee;
+    }
+    $event['ATTENDEES'] = $attendees;
+
+    // Extract organizer information
+    preg_match('/ORGANIZER;CN=(.*?):mailto:(.*?)\n/', $eventData, $matches);
+    $organizer = array(
+      'CN' => $matches[1],
+      'EMAIL' => $matches[2]
+    );
+    $event['ORGANIZER'] = $organizer;
+    
+    preg_match('/UID:(.*?)\n/', $eventData, $matches);
+    $event['UID'] = $matches[1];
+    
+    preg_match('/DTSTAMP:(.*?)\n/', $eventData, $matches);
+    $event['DTSTAMP'] = $matches[1];
+    
+    preg_match('/RRULE:(.*?)\n/', $eventData, $matches);
+    $event['RRULE'] = $matches[1];
+    
+    preg_match('/DESCRIPTION:(.*?)\n/', $eventData, $matches);
+    $event['DESCRIPTION'] = stripslashes($matches[1]);
+    
+    $parsedEvents[] = $event;
+  }
+  return $parsedEvents;
+}
+
+/**
+ *  Add gofast bluemind config fields to the profile settings form 
+ * 
+ * @param $form
+ * 
+ * @return void
+ */
+function gofast_bluemind_profile_config_fields(&$form): void {
+  global $user; 
+  
+  $account = user_load($user->uid);
+  
+  $form['group_gofast_bluemind'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Gofast Bluemind', [], ['context' => 'gofast:gofast_bluemind']),
+    '#weight' => 5,
+    '#access' => user_access('access content'),
+    '#attributes' => array('class' => array('mb-5')),
+  );
+
+  $form['#attributes']['class'][] = 'GofastForm GofastForm__UserRegister';
+  $form['group_gofast_bluemind']['#collapsible'] = TRUE;
+  $form['group_gofast_bluemind']['#keen-accordion'] = TRUE;
+  $form['group_gofast_bluemind']['#collapsed'] = FALSE;
+  
+  $form['group_gofast_bluemind']['bluemind_message'] = array(
+    '#prefix' => '<p class="mb-3">',
+    '#type' => 'markup',
+    '#markup' => t('Please enter your bluemind email and password to sync your conferences and meetings.', [], 
+      ['context' => 'gofast:gofast_bluemind']),
+    '#suffix' => '</p>',
+  );
+  
+  [$unencrypted_email, $unencrypted_password] = gofast_bluemind_get_user_credentials($account); 
+  
+  $form['group_gofast_bluemind']['bluemind_email'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Bluemind Email', [], ['context' => 'gofast:gofast_bluemind']),
+    '#default_value' => empty($unencrypted_email) ? $user->mail : $unencrypted_email,
+    '#description' => t('Enter your bluemind email address.', [], ['context' => 'gofast:gofast_bluemind']),
+  );
+
+  $form['group_gofast_bluemind']['bluemind_password'] = array(
+    '#type' => 'password',
+    '#title' => t('Bluemind Password', [], ['context' => 'gofast:gofast_bluemind']),
+    '#default_value' => $unencrypted_password,
+    '#attributes' => array('class' => array('mb-5')),
+  );
+  
+  $form['group_gofast_bluemind']['bluemind_activate'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Activate sync', [], ['context' => 'gofast:gofast_bluemind']),
+    '#default_value' => ($account->gofast_bluemind_user_active_sync[LANGUAGE_NONE][0]['value'] == '1') ? 1 : 0,
+    '#description' => t('Activating this will sync your bluemind conferences and meetings with @site_name Deactivating this will stop the sync but keep your configuration.', ['@site_name' => variable_get('site_name', 'GoFAST'), ], ['context' => 'gofast:gofast_bluemind']),
+  );
+  
+  if (isset($form['#submit'])) {
+    $form['#validate'][] =  'gofast_bluemind_profile_config_fields_validate';
+    $form['#submit'][]   =  'gofast_bluemind_profile_config_fields_submit';
+  }
+}
+
+/**
+ * Validation handler for profile configuration fields
+ * 
+ * @param $form
+ * @param $form_state
+ *
+ * @return void
+ */
+function gofast_bluemind_profile_config_fields_validate($form, $form_state):void {
+  $email    = $form_state['values']['bluemind_email'];
+  $password = $form_state['values']['bluemind_password'];
+  
+  if(!empty($email) && !empty($password)){
+    $credentials            = new stdClass();
+    $credentials->email     = $email;
+    $credentials->password  = $password;
+
+    if(!gofast_bluemind_validate_credentials($credentials)){
+      $error_msg = t('Bluemind Authentication failed. Please verify your credentials.',
+        ['context' => "gofast:gofast_bluemind"]);
+      form_set_error('gofast_bluemind', $error_msg);
+    }
+  }
+  
+}
+
+/**
+ * Saves the users bluemind configuration to a variable in the system.
+ *
+ * @param $form
+ * @param $form_state
+ *
+ * @return void
+ *
+ * @throws \Exception
+ */
+function gofast_bluemind_profile_config_fields_submit($form,$form_state): void {
+  $account = user_load($form['#user']->uid);
+
+  $email    = $form_state['values']['bluemind_email'];
+  $password = $form_state['values']['bluemind_password'];
+  
+  if(!empty($email) && !empty($password)){
+    $encrypted_password  = gofast_encrypt('gofast_bluemind_password_'.$account->uid, $password);
+    $activate_sync       = $form_state['values']['bluemind_activate'];
+  }
+
+  if(isset($account) && isset($email) && isset($encrypted_password) && isset($activate_sync)){
+    $account->gofast_bluemind_user_email[LANGUAGE_NONE][0]['value']        = $email; 
+    $account->gofast_bluemind_user_password[LANGUAGE_NONE][0]['value']     = $encrypted_password;
+    $account->gofast_bluemind_user_active_sync[LANGUAGE_NONE][0]['value']  = $activate_sync;
+    user_save($account);
+  }
+  
+  if(isset($activate_sync) && $activate_sync){
+    gofast_bluemind_setup($account);
+  }
+}
+
+/**
+ * Returns the Admin configuration form for the Bluemind module.
+ * Implement HOOK_form
+ */
+function gofast_bluemind_admin_settings_form(): array {
+
+  $form = [];
+
+  $form['gofast_bluemind_admin_settings_form'] = [
+    '#type' => 'fieldset',
+    '#title' => t('Gofast Bluemind Settings', [], ['context' => 'gofast:gofast_bluemind']),
+    '#weight' => -5,
+    '#attributes' => ['class' => ['mb-5']],
+  ];
+
+  $form['bluemind_url'] = [
+    '#type' => 'textfield',
+    '#title' => t('Bluemind URL', [], ['context' => 'gofast:gofast_bluemind']),
+    '#default_value' => variable_get('gofast_bluemind_url', ''),
+    '#description' => t('Enter the bluemind url', [], ['context' => 'gofast:gofast_bluemind']),
+    '#required' => FALSE,
+  ];
+
+  $form['bluemind_activate'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Activate Calendar Syncing', [], ['context' => 'gofast:gofast_bluemind']),
+    '#default_value' => (variable_get('gofast_bluemind_is_active', 0)) ? 1 : 0,
+    '#description' => t('Checking this option will activate this module, and calendar syncing on configured user profile will be activated.', [], ['context' => 'gofast:gofast_bluemind']),
+  );
+  
+  $form['submit'] = [
+    '#type' => 'submit',
+    '#value' => t('Save', [], ['context' => 'gofast']),
+    '#attributes' => ['class' => ['btn btn-success']],
+    '#submit' => ['gofast_bluemind_admin_settings_form_submit'],
+  ];
+  return $form;
+}
+
+/**
+ * Saves the admin configuration to a variables in the system.
+ * @param $form
+ * @param $form_state
+ *
+ * @return void
+ */
+function gofast_bluemind_admin_settings_form_submit(&$form, &$form_state): void {
+  variable_set('gofast_bluemind_url', $form_state['values']['bluemind_url']);
+  variable_set('gofast_bluemind_is_active', $form_state['values']['bluemind_activate']);
+}
+
+/**
+ * Returns the Add Calendar modal.
+ */
+function gofast_bluemind_add_calendar_modal(): void {
+  ctools_include('ajax');
+  ctools_include('modal');
+
+  $form_state = array(
+    'ajax' => TRUE,
+    'title' => t('Add Calendar', [], ['context' => 'gofast:gofast_bluemind']),
+  );
+
+  $commands = ctools_modal_form_wrapper('gofast_bluemind_add_calendar_modal_form', $form_state);
+  if($form_state['executed']){
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+  drupal_exit();
+}
+
+/**
+ * Returns the form for the Add Calendar modal.
+ */
+function gofast_bluemind_add_calendar_modal_form(&$form, $form_state){
+  drupal_get_messages();
+  $form['calendar_info'] = array(
+    '#prefix' => '<div class="alert alert-custom alert-notice alert-light-info" role="alert"><div class=\'alert-icon\'><i class=\'flaticon-information\'></i></div>',
+    '#type' => 'markup',
+    '#markup' => ' <div class=\'alert-text m-0\'>'.t('This will only import events from the last week going ahead and not the past.', [], ['context' => 'gofast:gofast_bluemind']).'</div>',
+    '#suffix' => '</div>',
+  );
+  $form['calendar'] = array(
+    '#prefix' => '<div class="row">',
+    '#suffix' => '</div>',
+  );
+
+  $form['calendar']['left'] = array(
+      '#prefix' => '<div class="col-md-6">',
+      '#suffix' => '</div>',
+  );
+
+  $form['calendar']['left']['calendar_type'] = array(
+      '#type' => 'select',
+      '#title' => t('Calendar Type', [], ['context' => 'gofast:gofast_bluemind']),
+      '#options' => array(
+        'link' => t('Link', [], ['context' => 'gofast:gofast_bluemind']),
+        'file' => t('File', [], ['context' => 'gofast:gofast_bluemind']),
+      ),
+      '#attributes' => array('style' => 'width: 100%;'),
+  );
+
+  $form['calendar']['left']['calendar_link'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Calendar Link', [], ['context' => 'gofast:gofast_bluemind']),
+      '#maxlength' => 255,
+      '#states' => array(
+        'visible' => array(
+          ':input[name="calendar_type"]' => array('value' => 'link'),
+        ),
+      ),
+      '#attributes' => array('style' => 'width: 100%;'),
+  );
+
+  $form['calendar']['left']['calendar_file'] = array(
+      '#type' => 'file',
+      '#title' => t('Calendar File', [], ['context' => 'gofast:gofast_bluemind']),
+      '#states' => array(
+        'visible' => array(
+          ':input[name="calendar_type"]' => array('value' => 'file'),
+        ),
+      ),
+      '#upload_validators' => array(
+        'file_validate_extensions' => array('ics'),
+      ),
+      '#attributes' => array('style' => 'margin-top: 2rem;'),
+  );
+
+  $form['calendar']['right'] = array(
+      '#prefix' => '<div class="col-md-6">',
+      '#suffix' => '</div>',
+  );
+
+  $form['calendar']['right']['calendar_color'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Choose calendar color', ['context' => 'gofast:gofast_bluemind']),
+      '#default_value' => '#000000',
+    '#maxlength' => 255,
+    '#attributes' => array('class' => array('form-type-color'), 'style' => 'width: 100%;'),
+  );
+  
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Add Calendar', [], ['context' => 'gofast:gofast_bluemind']),
+    '#attributes' => array('class' => array('btn btn-success')),
+    '#ajax' => array(
+      'callback' => 'gofast_bluemind_add_calendar_modal_form_submit',
+      'wrapper' => 'gofast_bluemind_add_calendar_modal_form',
+    ),
+  );
+
+  $form['#attached']['js'][] = drupal_get_path('module', 'gofast_bluemind') . '/js/gofastBluemindAddCalendarForm.js';
+
+  return $form;
+}
+
+/**
+ * Validates the Add Calendar modal form.
+ * @param $form
+ * @param $form_state
+ */
+function gofast_bluemind_add_calendar_modal_form_validate(&$form, &$form_state): void {
+  if($form_state['values']['calendar_type'] == 'file'){
+    $file = file_save_upload('calendar_file', array('file_validate_extensions' => array('ics')));
+
+    if(!$file){
+      $commands = array();
+      $commands[] = gofast_command_toast_message(t('Error uploading events, the file is not valid', 
+        ['context' => 'gofast:gofast_bluemind']), "error");
+      print ajax_render($commands);
+      exit;   
+    }
+  }
+  else if($form_state['values']['calendar_type'] == 'link'){
+    $link = $form_state['values']['calendar_link'];
+    
+    if(!empty($link)){
+      $file_contents = file_get_contents($link);
+    }else{
+      $commands = array();
+      $commands[] = gofast_command_toast_message(t('Error uploading events, the link is invalid', 
+        ['context' => 'gofast:gofast_bluemind']), "error");
+      print ajax_render($commands);
+      exit;
+    }
+
+    if(!$file_contents){
+      $commands = array();
+      $commands[] = gofast_command_toast_message(t('Error uploading events, the link is invalid', 
+        ['context' => 'gofast:gofast_bluemind']), "error");
+      print ajax_render($commands);
+      exit;
+    }
+  }
+  else {
+    $commands = array();
+    $commands[] = gofast_command_toast_message(t('Error uploading events, the link is invalid', 
+      ['context' => 'gofast:gofast_bluemind']), "error");
+    print ajax_render($commands);
+    exit;
+  }
+}
+
+/**
+ * Submits the Add Calendar modal form.
+ *
+ * @throws \Exception
+ */ 
+function gofast_bluemind_add_calendar_modal_form_submit($form, &$form_state): void {
+  if(isset($form_state['values']['calendar_color'])){
+    $calendar_color = $form_state['values']['calendar_color'];
+    $_SESSION['gofast_bluemind_sessionData'] = $_SESSION['gofast_bluemind_sessionData'] ?? new stdClass();
+    $_SESSION['gofast_bluemind_sessionData']->calendar_color = $calendar_color;
+  }
+
+  if($form_state['values']['calendar_type'] == 'file'){
+    $file = file_save_upload('calendar_file', array('file_validate_extensions' => array('ics')));
+    $file_contents = file_get_contents($file->uri);
+    gofast_bluemind_create_events_and_set_state($file_contents, $form_state);
+  }
+  else if($form_state['values']['calendar_type'] == 'link'){
+    $link = $form_state['values']['calendar_link'];
+    $file_contents = file_get_contents($link);
+    gofast_bluemind_create_events_and_set_state($file_contents, $form_state);
+  }
+  else {
+    $commands = array();
+    $commands[] = gofast_command_toast_message(t('Error uploading events', ['context' => 'gofast:gofast_bluemind']), "error");
+    print ajax_render($commands);
+    exit;
+  }
+}
+
+/**
+ * @param bool|string $file_contents
+ * @param $form_state
+ *
+ * @return void
+ * @throws \Exception
+ */
+function gofast_bluemind_create_events_and_set_state(bool|string $file_contents, &$form_state): void {
+  $events = gofast_bluemind_clean_raw_events($file_contents);
+  gofast_bluemind_create_conferences($events, NULL, FALSE);
+  $form_state['executed'] = TRUE;
+
+  ctools_include('ajax');
+  ctools_include('modal');
+  
+  $commands = [];
+  $commands[] = gofast_command_toast_message(t('Calendar upload started successfully.', ['context' => 'gofast:gofast_bluemind']), "success");
+  $commands[] = ajax_command_html('#ctools-add-js',"
+    <script type='text/javascript'>
+      Gofast.calendar.calInstance.refetchEvents();
+    </script>
+ ");
+
+  $commands[] = ctools_modal_command_dismiss();
+ 
+  print ajax_render($commands);
+  exit;
+}

@@ -80,12 +80,13 @@
     </div>
     <?php if ($feed_icon) : ?>
       <span class="text-muted">
-        <?php print t('Export : The export is limited to a maximum 5 000 results', array(), array("context" => "gofast")); ?>
+        <?php print t('Export : The export is limited to a maximum 50 000 results', array(), array("context" => "gofast")); ?>
       </span>
       <div class="d-flex flex-wrap py-2 mr-3">
         <span class="text-muted">
           <?php print t('Click for export ', array(), array("context" => "gofast"));
-            print $feed_icon; ?>
+            print "<span id='audit_export_xls_button' style='display:none;'>".$feed_icon."</span>"; 
+            print '<button style="margin-right: 10px; margin-left:18px;" onclick="Gofast.download_audit_export()" id="audit_export_btn_group_xlsx" type="button" class="btn btn-default"><span class="fa fa-file-excel-o"></span></button>'?>
         </span>
       </div>
     <?php endif; ?>

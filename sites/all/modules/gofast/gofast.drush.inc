@@ -50,9 +50,27 @@ function gofast_drush_command() {
     'bootsrap' => DRUSH_BOOTSTRAP_DRUPAL_FULL
   );
 
-   $items['import-translations'] = array(
+  $items['import-translations'] = array(
     'description' => dt('Import translations from .po stored into the source code'),
     'bootsrap' => DRUSH_BOOTSTRAP_DRUPAL_FULL
+  );
+
+  $items['import-technical-translations'] = array(
+    'description' => dt('Import technical translations to .po, cleaning up previous ones'),
+    'bootsrap' => DRUSH_BOOTSTRAP_DRUPAL_FULL,
+    'arguments' => array (
+      'language' => 'The langcode of the target language.',
+      'context' => 'The target context, given the strings have contexts formatted as gofast_technical:CONTEXT'
+    )
+  );
+
+  $items['export-technical-translations'] = array(
+    'description' => dt('Export technical translations to .po'),
+    'bootsrap' => DRUSH_BOOTSTRAP_DRUPAL_FULL,
+    'arguments' => array (
+      'language' => 'The langcode of the target language.',
+      'context' => 'The target context, given the strings have contexts formatted as gofast_technical:CONTEXT'
+    )
   );
 
   $items['full-reindex'] = array(
@@ -88,8 +106,11 @@ function gofast_drush_command() {
     'bootsrap' => DRUSH_BOOTSTRAP_DRUPAL_FULL,
     'callback' => 'drush_gofast_riot_sync_avatars'
   );  
-  
-
+  $items['remove-compress'] = array(
+    'description' => dt('Remove temporary zip files from the alfresco trashcan.'),
+    'bootsrap' => DRUSH_BOOTSTRAP_DRUPAL_FULL,
+    'callback' => 'drush_gofast_cmis_remove_compress',
+  );
   return $items;
 }
 
@@ -166,75 +187,144 @@ function drush_gofast_full_reindex($action = 'start') {
 
 
 function drush_gofast_import_translations(){
-set_time_limit(0);
+  set_time_limit(0);
 
-//FR
-//default po
-$file = new stdClass();
-$file->filename = "fr_default.po";
-$file->uri = "/var/www/d7/sites/all/modules/gofast/po/fr_default.po";
+  //FR
+  //default po
+  $file = new stdClass();
+  $file->filename = "fr_default.po";
+  $file->uri = "/var/www/d7/sites/all/modules/gofast/po/fr_default.po";
 
-$langcode = "fr";
-$mode = 0;
-$group = "default";
+  $langcode = "fr";
+  $mode = 0;
+  $group = "default";
 
-_locale_import_po($file, $langcode, $mode, $group);
+  _locale_import_po($file, $langcode, $mode, $group);
 
-//taxonomy po
-$file = new stdClass();
-$file->filename = "fr_taxonomy.po";
-$file->uri = "/var/www/d7/sites/all/modules/gofast/po/fr_taxonomy.po";
+  //taxonomy po
+  $file = new stdClass();
+  $file->filename = "fr_taxonomy.po";
+  $file->uri = "/var/www/d7/sites/all/modules/gofast/po/fr_taxonomy.po";
 
-$langcode = "fr";
-$mode = 0;
-$group = "taxonomy";
+  $langcode = "fr";
+  $mode = 0;
+  $group = "taxonomy";
 
-_locale_import_po($file, $langcode, $mode, $group);
+  _locale_import_po($file, $langcode, $mode, $group);
 
-//menu po
-$file = new stdClass();
-$file->filename = "fr_menu.po";
-$file->uri = "/var/www/d7/sites/all/modules/gofast/po/fr_menu.po";
+  //menu po
+  $file = new stdClass();
+  $file->filename = "fr_menu.po";
+  $file->uri = "/var/www/d7/sites/all/modules/gofast/po/fr_menu.po";
 
-$langcode = "fr";
-$mode = 0;
-$group = "menu";
+  $langcode = "fr";
+  $mode = 0;
+  $group = "menu";
 
-_locale_import_po($file, $langcode, $mode, $group);
+  _locale_import_po($file, $langcode, $mode, $group);
 
 
-//current search po
-$file = new stdClass();
-$file->filename = "fr_cs.po";
-$file->uri = "/var/www/d7/sites/all/modules/gofast/po/fr_cs.po";
+  //current search po
+  $file = new stdClass();
+  $file->filename = "fr_cs.po";
+  $file->uri = "/var/www/d7/sites/all/modules/gofast/po/fr_cs.po";
 
-$langcode = "fr";
-$mode = 0;
-$group = "current_search";
+  $langcode = "fr";
+  $mode = 0;
+  $group = "current_search";
 
-_locale_import_po($file, $langcode, $mode, $group);
+  _locale_import_po($file, $langcode, $mode, $group);
 
-//facetapi po
-$file = new stdClass();
-$file->filename = "fr_facetapi.po";
-$file->uri = "/var/www/d7/sites/all/modules/gofast/po/fr_facetapi.po";
+  //facetapi po
+  $file = new stdClass();
+  $file->filename = "fr_facetapi.po";
+  $file->uri = "/var/www/d7/sites/all/modules/gofast/po/fr_facetapi.po";
 
-$langcode = "fr";
-$mode = 0;
-$group = "facetapi";
+  $langcode = "fr";
+  $mode = 0;
+  $group = "facetapi";
 
-_locale_import_po($file, $langcode, $mode, $group);
+  _locale_import_po($file, $langcode, $mode, $group);
 
-//nodetype po
-$file = new stdClass();
-$file->filename = "fr_nt.po";
-$file->uri = "/var/www/d7/sites/all/modules/gofast/po/fr_nt.po";
+  //nodetype po
+  $file = new stdClass();
+  $file->filename = "fr_nt.po";
+  $file->uri = "/var/www/d7/sites/all/modules/gofast/po/fr_nt.po";
 
-$langcode = "fr";
-$mode = 0;
-$group = "node";
+  $langcode = "fr";
+  $mode = 0;
+  $group = "node";
 
-_locale_import_po($file, $langcode, $mode, $group);
+  _locale_import_po($file, $langcode, $mode, $group);
+}
+
+// main difference between vanilla "import-translations" command is that it only imports technical strings and removes all previously existing translations of given context before importing them again
+function drush_gofast_import_technical_translations($target_language = "gfen", $context = "gofast"){
+  set_time_limit(0);
+  // extermination: first remove the translations matching the target translation and context
+  $translated_strings = db_query("SELECT s.lid FROM {locales_source} s LEFT JOIN {locales_target} t ON s.lid = t.lid AND t.language = :language WHERE s.textgroup = :textgroup AND s.context LIKE :context ORDER BY t.plid, t.plural", array(':language' => $target_language, ':textgroup' => "default", ':context' => "gofast_technical:$context"));
+  foreach($translated_strings as $translated_string) {
+    db_delete("locales_target")
+      ->condition("language", $target_language)
+      ->condition("lid", $translated_string->lid)
+      ->execute();
+  }
+  // then remove all now-orphaned technical strings
+  $language_list = language_list();
+  foreach ($language_list as $key => $available_language) {
+    if($available_language->enabled == 0){
+      unset($language_list[$key]);
+    }
+  }
+  $language_list = array_keys($language_list);
+  $translated_lids = db_query("SELECT s.lid FROM {locales_source} s INNER JOIN {locales_target} t ON s.lid = t.lid AND t.language IN (:languages) WHERE s.textgroup = :textgroup AND s.context LIKE :context ORDER BY t.plid, t.plural", array(':languages' => $language_list, ':textgroup' => "default", ':context' => "gofast_technical:$context"))->fetchCol();
+  db_delete("locales_source")
+    ->condition("lid", $translated_lids, "NOT IN")
+    ->condition("textgroup", "default")
+    ->condition("context", "gofast_technical:$context")
+    ->execute();
+
+  $file = new stdClass();
+  $file->filename = $target_language . "_gofast_technical_" . $context . ".po";
+  $file->uri = "/var/www/d7/sites/all/modules/gofast/po/" . $file->filename;
+
+  $langcode = $target_language;
+  $mode = 0;
+  $group = "default";
+  _locale_import_po($file, $langcode, $mode, $group);
+}
+
+function drush_gofast_export_technical_translations($target_language = "gfen", $context = "gofast"){
+  set_time_limit(0);
+  $result = db_query("SELECT s.lid, s.source, s.context, s.location, t.translation, t.plid, t.plural FROM {locales_source} s LEFT JOIN {locales_target} t ON s.lid = t.lid AND t.language = :language WHERE s.textgroup = :textgroup AND s.context LIKE :context ORDER BY t.plid, t.plural", array(':language' => $target_language, ':textgroup' => "default", ':context' => "gofast_technical:$context"));
+  $strings = array();
+  foreach ($result as $child) {
+    $string = array(
+      'comment'     => $child->location,
+      'source'      => $child->source,
+      'context'     => $child->context,
+      'translation' => isset($child->translation) ? $child->translation : '',
+    );
+    if ($child->plid) {
+      // Has a parent lid. Since we process in the order of plids,
+      // we already have the parent in the array, so we can add the
+      // lid to the next plural version to it. This builds a linked
+      // list of plurals.
+      $string['child'] = TRUE;
+      $strings[$child->plid]['plural'] = $child->lid;
+    }
+    $strings[$child->lid] = $string;
+  }
+  $language = language_list()[$target_language];
+  if (!isset($language)) {
+    drush_log("Language {$target_language} not found");
+    return;
+  }
+  $file_content = _locale_export_po_generate($language, $strings);
+  $file_name = $target_language . "_gofast_technical_" . $context . ".po";
+  $po_file = fopen(DRUPAL_ROOT . "/sites/all/modules/gofast/po/$file_name", 'w+');
+  fwrite($po_file, $file_content);
+  fclose($po_file);
 }
 
 function drush_gofast_flush_advagg(){
@@ -386,4 +476,13 @@ function drush_gofast_riot_sync_avatars () {
   }
 
   drush_log('mx_content_id: ' . $output . "\n", $status);
+}
+
+function drush_gofast_cmis_remove_compress(){
+  $trashcan_queue_items = variable_get("alfresco_trashcan_queue", []);
+  foreach ($trashcan_queue_items as $trash_item) {
+    drush_log("Removing binary file $trash_item", "notice");
+    shell_exec('rm -f ' . $trash_item);
+  }
+  variable_set("alfresco_trashcan_queue", []);
 }

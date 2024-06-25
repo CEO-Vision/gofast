@@ -107,7 +107,7 @@
               <tbody>
                 <tr>
                   <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:18px;font-weight:600;line-height:1;text-align:left;color:#337ab7;"><?= t("Hello", array(), array("context" => "gofast")) ?> <?= $recipient_name ?></div>
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:18px;font-weight:600;line-height:1;text-align:left;color:#337ab7;"><?= t("Hello", array(), $l) ?> <?= $recipient_name ?></div>
                   </td>
                 </tr>
               </tbody>
@@ -136,10 +136,10 @@
                         <tbody>
                           <tr>
                             <td>
-                              <img src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'user-solid.png' ?>" alt="<?= t("User Icon", array(), array("context" => "gofast:gofast_conference")) ?>" width="18" />
+                              <img src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'user-solid.png' ?>" alt="<?= t("User Icon", array(), $l) ?>" width="18" />
                             </td>
                             <td>
-                              <span style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 400;">&nbsp;<?= t("You are invited to a new @sitename conference", array("@sitename" => variable_get("site_name", "GoFAST")), array("context" => "gofast:gofast_conference")) ?></span>
+                              <span style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 400;">&nbsp;<?= t("You are invited to a new @sitename conference", array("@sitename" => variable_get("site_name", "GoFAST")), $l) ?></span>
                             </td>
                           <tr>
                         </tbody>
@@ -232,7 +232,7 @@
                       <tbody>
                         <tr>
                           <td style="width:18px;">
-                            <img alt="<?= t("Calendar Icon", array(), array("context" => "gofast:gofast_conference")) ?>" height="auto" src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'calendar-alt-solid.png' ?>" style="border:0;display:block;outline:none;text-decoration:none;height:auto;width:100%;font-size:13px;" width="18" />
+                            <img alt="<?= t("Calendar Icon", array(), $l) ?>" height="auto" src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'calendar-alt-solid.png' ?>" style="border:0;display:block;outline:none;text-decoration:none;height:auto;width:100%;font-size:13px;" width="18" />
                           </td>
                         </tr>
                       </tbody>
@@ -241,7 +241,7 @@
                 </tr>
                 <tr>
                   <td align="center" style="font-size:0px;padding:3px;word-break:break-word;">
-                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#000000;"><?= t("Meeting Start", array(), array("context" => "gofast:gofast_conference")) ?></div>
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#000000;"><?= t("Meeting Start", array(), $l) ?></div>
                   </td>
                 </tr>
                 <tr>
@@ -262,7 +262,7 @@
                       <tbody>
                         <tr>
                           <td style="width:18px;">
-                            <img alt="<?= t("Calendar Icon", array(), array("context" => "gofast:gofast_conference")) ?>" height="auto" src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'calendar-alt-solid.png' ?>" style="border:0;display:block;outline:none;text-decoration:none;height:auto;width:100%;font-size:13px;" width="18" />
+                            <img alt="<?= t("Calendar Icon", array(), $l) ?>" height="auto" src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'calendar-alt-solid.png' ?>" style="border:0;display:block;outline:none;text-decoration:none;height:auto;width:100%;font-size:13px;" width="18" />
                           </td>
                         </tr>
                       </tbody>
@@ -271,7 +271,7 @@
                 </tr>
                 <tr>
                   <td align="center" style="font-size:0px;padding:3px;word-break:break-word;">
-                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#000000;"><?= t("Meeting End", array(), array("context" => "gofast:gofast_conference")) ?></div>
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#000000;"><?= t("Meeting End", array(), $l) ?></div>
                   </td>
                 </tr>
                 <tr>
@@ -292,7 +292,7 @@
                       <tbody>
                         <tr>
                           <td style="width:18px;">
-                            <img alt="<?= t("Clock Icon", array(), array("context" => "gofast:gofast_conference")) ?>" height="auto" src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'clock-regular.png' ?>" style="border:0;display:block;outline:none;text-decoration:none;height:auto;width:100%;font-size:13px;" width="18" />
+                            <img alt="<?= t("Clock Icon", array(), $l) ?>" height="auto" src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'clock-regular.png' ?>" style="border:0;display:block;outline:none;text-decoration:none;height:auto;width:100%;font-size:13px;" width="18" />
                           </td>
                         </tr>
                       </tbody>
@@ -301,7 +301,7 @@
                 </tr>
                 <tr>
                   <td align="center" style="font-size:0px;padding:3px;word-break:break-word;">
-                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#000000;"><?= t("Duration", array(), array("context" => "gofast:gofast_conference")) ?></div>
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#000000;"><?= t("Duration", array(), $l) ?></div>
                   </td>
                 </tr>
                 <tr>
@@ -322,7 +322,7 @@
                       <tbody>
                         <tr>
                           <td style="width:18px;">
-                            <img alt="<?= t("Map Icon", array(), array("context" => "gofast:gofast_conference")) ?>" height="auto" src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'map-marker-alt-solid.png' ?>" style="border:0;display:block;outline:none;text-decoration:none;height:auto;width:100%;font-size:13px;" width="18" />
+                            <img alt="<?= t("Map Icon", array(), $l) ?>" height="auto" src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'map-marker-alt-solid.png' ?>" style="border:0;display:block;outline:none;text-decoration:none;height:auto;width:100%;font-size:13px;" width="18" />
                           </td>
                         </tr>
                       </tbody>
@@ -331,12 +331,12 @@
                 </tr>
                 <tr>
                   <td align="center" style="font-size:0px;padding:3px;word-break:break-word;">
-                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#000000;"><?= t("Place", [], ["context" => "gofast:gofast_conference"]) ?></div>
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#000000;"><?= t("Place", [], $l) ?></div>
                   </td>
                 </tr>
                 <tr>
                   <td align="center" style="font-size:0px;padding:3px;word-break:break-word;">
-                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#666666;"><?= $conference_content["location"] ?: t("Online", array(), array("context" => "gofast:conference")) ?></div>
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;line-height:1;text-align:center;color:#666666;"><?= $conference_content["place"] ?: t("Online", array(), $l) ?></div>
                   </td>
                 </tr>
               </tbody>
@@ -387,7 +387,7 @@
               <tbody>
                 <tr>
                   <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:18px;font-weight:600;line-height:1;text-align:left;color:#de6502;"><?= t('Organisator') ?></div>
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:18px;font-weight:600;line-height:1;text-align:left;color:#de6502;"><?= t('Organisator', array(), $l) ?></div>
                   </td>
                 </tr>
                 <tr>
@@ -397,7 +397,7 @@
                         <tbody>
                           <tr>
                             <td>
-                              <img alt="<?= t("Organisator Avatar", array(), array("gofast" => "gofast:gofast_conference")) ?>" src="<?= $conference_owner->picture ?>" width="40" />
+                              <img alt="<?= t("Organisator Avatar", array(), $l) ?>" src="<?= $conference_owner->picture ?>" width="40" />
                             </td>
                             <td>
                               <span style="font-family: Poppins; font-size: 14px;">&nbsp;<?= $conference_owner->fullname ?></span>
@@ -439,7 +439,7 @@
                           <tbody>
                             <tr>
                               <td>
-                                <img alt="<?= t("User Avatar", array(), array("gofast" => "gofast:gofast_conference")) ?>" src="<?= $participant->picture ?>" width="40" />
+                                <img alt="<?= t("User Avatar", array(), $l) ?>" src="<?= $participant->picture ?>" width="40" />
                               </td>
                               <td>
                                 &nbsp;<?= $participant->fullname ?>
@@ -460,6 +460,41 @@
     </tbody>
   </table>
 </div>
+
+<!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+<div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
+  <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
+    <tbody>
+      <tr>
+        <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+          <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="" style="vertical-align:top;width:992px;" ><![endif]-->
+          <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+              <tbody>
+                <tr>
+                  <td align="center" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                  <div style="font-family:Poppins;font-size:12px;line-height:1;text-align:center;">
+                    <?php if (isset($conference_password)) : ?>
+                        <span style="color: #f64e60;">
+                            <?php echo t("Conference password : ", array(), $l) ?>
+                            <strong style="font-weight:900"><?php echo $conference_password; ?></strong>
+                        </span>
+                    <?php else: ?>
+                        <span><?php echo t("This conference is not locked with a password", array(), $l) ?></span>
+                    <?php endif; ?>
+                  </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!--[if mso | IE]></td></tr></table><![endif]-->
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
 <!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
 <div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
   <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
@@ -476,7 +511,7 @@
                       <tbody>
                         <tr>
                           <td align="center" bgcolor="#159992" role="presentation" style="border:none;border-radius:5px;cursor:auto;mso-padding-alt:10px 25px;background:#159992;" valign="middle">
-                            <a href="<?= $conference_url_external ?>" style="display:inline-block;background:#159992;color:#ffffff;font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:120%;margin:0;text-decoration:none;text-transform:none;padding:10px 25px;mso-padding-alt:0px;border-radius:5px;" target="_blank"><?= t('Go to the conference') ?></a>
+                            <a href="<?= $conference_url_external ?>" style="display:inline-block;background:#159992;color:#ffffff;font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:120%;margin:0;text-decoration:none;text-transform:none;padding:10px 25px;mso-padding-alt:0px;border-radius:5px;" target="_blank"><?= t('Go to the conference', array(), $l) ?></a>
                           </td>
                         </tr>
                       </tbody>
@@ -505,7 +540,7 @@
                 <tr>
                   <td align="center" style="font-size:0px;padding:10px 25px;word-break:break-word;">
                     <div style="font-family:Poppins;font-size:12px;font-weight:300;line-height:1;text-align:center;color:#666666;">
-                      <a href="<?= str_replace(CONFERENCE_URL, "https://meet.jit.si", $conference_url_external); ?>" style="color: #666666; text-decoration: none;"><?= t("If you find any problems, all participants can try to use this link (shared Jitsi SaaS)"); ?></a>
+                      <a href="<?= str_replace(CONFERENCE_URL, "https://meet.jit.si", $conference_url_external); ?>" style="color: #666666; text-decoration: none;"><?= t("If you find any problems, all participants can try to use this link (shared Jitsi SaaS)", array(), $l); ?></a>
                     </div>
                   </td>
                 </tr>
@@ -560,7 +595,7 @@
                 <tbody>
                   <tr>
                     <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                      <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:18px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= t("Documents: ", array(), array("context" => "gofast:gofast_conference")) ?></div>
+                      <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:18px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= t("Documents: ", array(), $l) ?></div>
                     </td>
                   </tr>
                 </tbody>
@@ -610,7 +645,7 @@
                 <tbody>
                   <tr>
                     <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                      <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:18px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= t("Folders: ", array(), array("context" => "gofast:gofast_conference")) ?></div>
+                      <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:18px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= t("Folders: ", array(), $l) ?></div>
                     </td>
                   </tr>
                 </tbody>

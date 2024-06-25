@@ -34,22 +34,27 @@ function gofast_pdf_compare_compare($nid_source, $version_source, $version_dest)
     if(!node_access('view', $node)){
         return drupal_access_denied();
     }
-    $content = theme("gofast_pdf_compare_page", array(
+
+    $extension = gofast_node_extension($node);
+    $theme = "gofast_pdf_compare_page";
+    $theme_variables = array(
       "nid_source" => gofast_xss_clean($nid_source),
       "version_source" => gofast_xss_clean($version_source),
       "version_dest" => gofast_xss_clean($version_dest),
-    ));
+    );
+
+    // if the document is previewable by OO, we use specific theme and variables to instantiate OO instead of using pdf-diff
+    if (!module_exists('gofast_community') && in_array($extension, gofast_onlyoffice_comparable_document_extensions())) {
+      $theme = "onlyoffice_compare";
+      $theme_variables["extension"] = $extension;
+      $theme_variables["node"] = $node;
+    }
+
+    $content = theme($theme, $theme_variables);
     return gofast_create_page_content($content);
 }
 
-function gofast_pdf_compare_compare_ajax($nid_source, $version_source, $version_dest){   
-    set_time_limit(0);
-    //Get both versions download URL
-    $node = node_load($nid_source);
-    if(!node_access('view', $node)){
-        return drupal_access_denied();
-    }
-    $reference = $node->field_reference[LANGUAGE_NONE][0]['value'];
+function gofast_pdf_compare_get_versions_links($reference, $version_source, $version_dest, $uuids_only = FALSE) {
     $versions = gofast_cmis_webservice_item_get_versions($reference);
     foreach($versions as $version){
         if($version->label === $version_source){
@@ -62,6 +67,21 @@ function gofast_pdf_compare_compare_ajax($nid_source, $version_source, $version_
             $version_dest_link = "http://localhost:8080/alfresco/service/api/node/content/versionStore/version2Store/" . $version_dest_uuid . "?a=true";
         }
     }
+    if ($uuids_only) {
+      return [$version_source_uuid, $version_dest_uuid];
+    }
+  return [$version_source_link, $version_dest_link];
+}
+
+function gofast_pdf_compare_compare_ajax($nid_source, $version_source, $version_dest){   
+    set_time_limit(0);
+    //Get both versions download URL
+    $node = node_load($nid_source);
+    if(!node_access('view', $node)){
+        return drupal_access_denied();
+    }
+    $reference = $node->field_reference[LANGUAGE_NONE][0]['value'];
+    [$version_source_link, $version_dest_link] = gofast_pdf_compare_get_versions_links($reference, $version_source, $version_dest);
     
     //Get both files
     $username = "admin";
@@ -88,8 +108,8 @@ function gofast_pdf_compare_compare_ajax($nid_source, $version_source, $version_
     
     //Convert PDF with soffice
     putenv('PATH=/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin');
-    shell_exec("libreoffice6.2 --headless --convert-to pdf /var/www/d7/sites/default/files/old_" . $random . " --outdir /var/www/d7/sites/default/files");
-    shell_exec("libreoffice6.2 --headless --convert-to pdf /var/www/d7/sites/default/files/new_" . $random . " --outdir /var/www/d7/sites/default/files");
+    shell_exec("libreoffice7.6 --headless --convert-to pdf /var/www/d7/sites/default/files/old_" . $random . " --outdir /var/www/d7/sites/default/files");
+    shell_exec("libreoffice7.6 --headless --convert-to pdf /var/www/d7/sites/default/files/new_" . $random . " --outdir /var/www/d7/sites/default/files");
     shell_exec("pdf-diff /var/www/d7/sites/default/files/old_" . $random . ".pdf /var/www/d7/sites/default/files/new_" . $random . ".pdf > /var/www/d7/sites/default/files/diff_" . $random . ".png");
     
     if(filesize("/var/www/d7/sites/default/files/diff_" . $random . ".png")){
@@ -110,6 +130,9 @@ function gofast_pdf_compare_theme(){
   return array(
     'gofast_pdf_compare_page' => array(
       'template' => 'tpl/gofast_pdf_compare-page',
+    ),
+    'gofast_pdf_compare_loader' => array(
+      'template' => 'tpl/gofast_pdf_compare-loader',
     ),
   );
 }

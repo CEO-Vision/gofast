@@ -46,19 +46,29 @@ function gofast_cmis_poll($poll_name, $poll_info, $context) {
       $version = $alfresco_infos['last_version'];
       $version_date = $alfresco_infos['last_modified'];
       if ($old_version != $version && $old_version != null && $version != null && $old_node->nid == $node->nid) {
+        $modification_date = (int) $node->changed;
+        if (isset($alfresco_infos['versions'][0]->modifiedDate)) {
+          $modification_date = strtotime($alfresco_infos['versions'][0]->modifiedDate);
+        }
+        // document has been edited with onlyoffice and the modification date has not been updated yet Drupal-side (more than 10 secondes of difference)
+        if (abs($modification_date - $node->changed) > 10) {
+          db_update('node')
+            ->fields(array('changed' => $modification_date))
+            ->condition('nid', $node->nid)
+            ->execute();
+        }
         gofast_cmis_set_context("node", "version", $version);
         //refresh metadata
         $editor = user_load_by_name($alfresco_infos['last_modified_by']);
         $editor_name = gofast_user_display_name($editor);
         $editor_avatar = theme('user_picture', array('account' => $editor, 'dimensions' => '20', 'popup' => FALSE));
-        // $commands[] = ajax_command_html("#document__infotab", gofast_metadata_get_node_infos($new_node, true));
-        $commands[] = ajax_command_html(".gofast_metadata_field.order-10 span.text-truncate", "(".$version.") ".$version_date);
-        $commands[] = ajax_command_html(".gofast_metadata_field.order-11 span.text-truncate", $editor_name);
-        $commands[] = ajax_command_html(".gofast_metadata_field.order-11 div.symbol", $editor_avatar);
-        $data_version = gofast_cmis_get_block_versions($node,null,true);
-        $history = theme('gofast_history_tab', ['version' => $data_version['str'], 'content_version' => $data_version['users_versions'], 'async' => TRUE]);
-        $commands[] = ajax_command_html("#historytab-container", $history);  
+        $commands[] = ajax_command_html("#gofast_metadata_field_last_version span.text-truncate", "(".$version.") ".$version_date);
+        $commands[] = ajax_command_html("#gofast_metadata_field_last_version_by span.text-truncate", $editor_name);
+        $commands[] = ajax_command_html("#gofast_metadata_field_last_version_by div.symbol", $editor_avatar);
+        $history_tab = gofast_render_historyByNode_async($node, FALSE);
+        $commands[] = ajax_command_invoke("#document__historytab", 'html', array($history_tab));
         $commands[] = gofast_command_toast_message(t("The document's version has changed from !old_version to !version. You can reload document preview.", array('!old_version' => $old_version, "!version" => $version), array('context' => 'gofast:gofast_cmis')));
+        $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>if(jQuery('#modal-content [id^=gofast-cmis-alfresco-file-form]').length == 1){Drupal.CTools.Modal.dismiss();}</script>");
         //reload contextual actions
          $node_contextual_actions = gofast_get_contextual_actions_node($node);       
          $commands[] = ajax_command_invoke("#breadcrumb-alt-actions", 'replaceWith', array(theme('contextual_links', array('btn_group_id' => 'breadcrumb-alt-actions', 'buttons' => $node_contextual_actions))));  
@@ -83,7 +93,7 @@ function gofast_cmis_poll($poll_name, $poll_info, $context) {
         $canEdit = node_access("update", $node) && $lock_state === "nolocked" && !gofast_get_content_state_archived($node);
         if(!$canEdit) {
           if($lock_state !== 'nolocked' && $lock_state !== $old_node->cmis_lock_owner){
-            if (!gofast_mobile_is_mobile_domain()) {
+            if (!gofast_essential_is_essential()) {
                $commands[] = ajax_command_invoke('.drop-area', 'css', array('display', 'none'));
             }
           $commands[] = ajax_command_invoke($poll_info['selector'], 'addClass', array('disabled'));
@@ -93,12 +103,12 @@ function gofast_cmis_poll($poll_name, $poll_info, $context) {
               //if current user editing
                   if ($lock_state !== 'nolocked' && $lock_state !== $old_node->cmis_lock_owner && $old_node->cmis_lock_owner == $user->name) {
                       $commands[] = ajax_command_invoke($poll_info['selector'], 'addClass', array('disabled'));
-                      if (!gofast_mobile_is_mobile_domain()) {
+                      if (!gofast_essential_is_essential()) {
                         $commands[] = ajax_command_invoke('.drop-area', 'css', array('display', 'none'));
                       }
                   } else if ($lock_state !== $old_node->cmis_lock_owner) {
                       $commands[] = ajax_command_invoke($poll_info['selector'], 'removeClass', array('disabled'));
-                      if (!gofast_mobile_is_mobile_domain()) {
+                      if (!gofast_essential_is_essential()) {
                         $commands[] = ajax_command_invoke('.drop-area', 'css', array('display', 'none'));
                       }
                   }

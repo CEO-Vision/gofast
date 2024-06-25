@@ -24,16 +24,16 @@
         </div>
         <span class="<?php echo $hidden_class; ?>"><?php print render($form['pass']); ?></span>
       </div>
-      <div class="pb-lg-0 pb-5 font-weight-bolder">
-        <?php echo render($form['actions']); ?>
-      </div>
-
+        <div class="pb-lg-0 pb-5 font-weight-bolder <?php if((bool)variable_get("gofast_disable_login_form", false) === true){echo "d-none";}else{echo "d-flex";}  ?> justify-content-center">
+          <?php echo render($form['actions']); ?>
+        </div>
       <div class="d-none"><?php echo drupal_render_children($form); ?></div>
     </div>
 <?php if (!gofast_ldap_is_directory_reachable()) : ?>
 <script>
   jQuery(document).ready(function() {
     Gofast.toast(Drupal.t("Unable to reach the company directory. If the problem persists, please contact your IT department.", {}, {context: 'gofast:gofast_ldap'}), "warning");
+    jQuery("#edit-submit").attr("disabled", true).css("cursor", "not-allowed");
   });
 </script>
 <?php endif; ?>

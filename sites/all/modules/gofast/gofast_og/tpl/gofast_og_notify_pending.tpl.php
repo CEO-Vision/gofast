@@ -138,6 +138,7 @@ foreach ($matches[0] as $index => $match) {
 <!--[if mso | IE]></td></tr></table><![endif]-->
 <!-- User Account Creation-->
 <!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+<?php if(!empty($message)): ?>
 <div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
   <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
     <tbody>
@@ -189,7 +190,7 @@ foreach ($matches[0] as $index => $match) {
                       <tbody>
                         <tr>
                           <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                            <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:400;line-height:1;text-align:left;color:#000000;"><?= $message ?>.</div>
+                            <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:400;line-height:1;text-align:left;color:#000000;"><?= $message ?></div>
                           </td>
                         </tr>
                       </tbody>
@@ -205,6 +206,7 @@ foreach ($matches[0] as $index => $match) {
     </tbody>
   </table>
 </div>
+<?php endif; ?>
 <!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
 <div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
   <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
@@ -241,7 +243,7 @@ foreach ($matches[0] as $index => $match) {
   </table>
 </div>
 <?php if (!$skip_body) : ?>
-  <?php foreach ($users as $user_iteration) : ?>
+  <?php foreach ($request_entities as $request_entity) : ?>
     <!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
     <div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
       <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
@@ -260,7 +262,11 @@ foreach ($matches[0] as $index => $match) {
                             <tbody>
                               <tr>
                                 <td>
-                                  <img alt="User Picture" height="auto" src="<?= gofast_get_url_picture_by_id($user_iteration->picture->fid) ?>" style="border:0;display:block;outline:none;text-decoration:none;" width="40" />
+                                <?php if($request_entity->entity_type == "user") :?>
+                                  <img alt="User Picture" height="auto" src="<?= gofast_get_url_picture_by_id($request_entity->picture->fid) ?>" style="border:0;display:block;outline:none;text-decoration:none;" width="40" />
+                                <?php elseif($request_entity->entity_type == "userlist") : ?>
+                                  <img alt="Userlist Picture" height="auto" src="<?= $base_url ?>/sites/all/modules/gofast/gofast_mail_queue/icon/users-primary.png" style="border:0;display:block;outline:none;text-decoration:none;" width="40" />
+                                <?php endif; ?>
                                 </td>
                               </tr>
                             </tbody>
@@ -280,7 +286,11 @@ foreach ($matches[0] as $index => $match) {
                             <tbody>
                               <tr>
                                 <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                                  <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= gofast_user_display_name($user_iteration) ?></div>
+                                <?php if($request_entity->entity_type == "user"): ?>
+                                  <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= gofast_user_display_name($request_entity) ?></div>
+                                <?php elseif($request_entity->entity_type == "userlist"): ?>
+                                  <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= $request_entity->name ?></div>
+                                <?php endif; ?>
                                 </td>
                               </tr>
                             </tbody>

@@ -66,7 +66,7 @@
     }
     .header-menu .menu-nav > .menu-item .menu-submenu {
       display: none;
-      z-index: 98;
+      z-index: 99;
       position: absolute;
       top: 100%;
       transform: translateZ(0);
@@ -706,6 +706,7 @@
     min-height: 580px;
     padding-right: 1rem;
     padding-left: 1rem;
+    max-height: calc(100vh - 5rem);
   }
 
   .gofastBookmarksTabs {
@@ -751,9 +752,6 @@
 }
 
 #gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows {
-  &.has-open-select .menu-submenu {
-    display: block !important;
-  }
   .menu-submenu {
     padding-left: 1rem;
     padding-right: 1rem;
@@ -767,7 +765,7 @@
     flex-wrap: wrap;
     justify-content: space-between;
     flex-direction: column;
-    min-width: 60vw;
+    min-width: 70vw;
     width: 100%;
     @media (min-width: 768px) and (max-width: 992px) {
       width: auto;
@@ -775,7 +773,7 @@
   }
 
   @media (max-width: 991px) {
-    position: unset;
+    position: relative;
     .menu-submenu {
       position: absolute;
       left: 10%;
@@ -824,5 +822,18 @@
   &::before{
     padding-left: 0.5px !important;
     padding-right: 0.5px !important;
+  }
+}
+
+#gf-profile-menu > .menu-submenu > .menu-subnav > .navi-item > .menu-item-hover {
+  background-color: #F3F6F9;
+  transition: all 0.15s ease;
+  
+  span{
+    color: #3699FF;
+    text-decoration: none !important;
+    i{
+      color: #3699FF;
+    }
   }
 }

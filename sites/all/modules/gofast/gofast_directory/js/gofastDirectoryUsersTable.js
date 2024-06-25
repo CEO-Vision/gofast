@@ -35,8 +35,10 @@
         Drupal.t("Disabled", {}, { context: "gofast:gofast_directory" }) +
         '</option><option value="2">' +
         Drupal.t("Activated", {}, { context: "gofast:gofast_directory" }) +
+        '</option><option value="3">' +
+        Drupal.t("Standby", {}, { context: "gofast:gofast_directory" }) +
         '</option></select>',
-        '<div class="GofastDirectoryFilterButtons d-flex ml-auto flex-column align-items-center" style="gap: .5rem; transform: translateY(-1rem);"><button type="submit" class="btn btn-xs btn-primary btn-icon m-0">' +
+        '<div class="GofastDirectoryFilterButtons d-flex ml-auto mt-auto align-items-center" style="gap: .5rem; transform: translate(.5rem, -.5rem);"><button type="submit" class="btn btn-xs btn-primary btn-icon m-0">' +
         '<i class="fas fa-search" style="font-size: 12px !important;"></i>' +
         '</button><button type="reset" class="btn btn-xs btn-light btn-icon m-0">' +
         '<i class="fas fa-undo" style="font-size: 12px !important;"></i>' +
@@ -188,13 +190,13 @@
                         field: 'picture',
                         title: '',
                         autoHide: false,
-                        width: 35,
+                        width: 40,
                         sortable: false,
                         template: function(data) {
                             if (!data || data.length == 0) return "-";
                             let picture = ''
                             if (data.picture) {
-                                output = data.picture
+                                output = `<span class="symbol symbol-40"><img src="${data.picture}"></span>`
                             } else {
 
                                 picture = '<span class="symbol-label"><i class="fas fa-user"></i></span>'
@@ -312,7 +314,11 @@
                             if(data.status.value == "2") {
                                 tem = '<span class="label label-primary label-dot mr-2"></span><span class="font-weight-bold text-primary">' + data.status.label + '</span>';
                                 } else if(data.status.value == "0") {
-                                tem = '<span class="label label-danger label-dot mr-2"></span><span class="font-weight-bold text-danger">' + data.status.label + '</span>';
+                                    if(data.standby.value == 1){
+                                        tem = '<span class="label label-danger label-dot mr-2"></span><span class="font-weight-bold text-danger">' + data.standby.label + '</span>';
+                                    }else{
+                                        tem = '<span class="label label-danger label-dot mr-2"></span><span class="font-weight-bold text-danger">' + data.status.label + '</span>';
+                                    }
                                 } else {
                                     tem ='<span class="label label-warning label-dot mr-2"></span><span class="font-weight-bold text-warning">' + data.status.label + '</span>';
                                 }
@@ -332,12 +338,13 @@
                     {
                         field: 'actions',
                         title: '',
-                        width: 0,
+                        width: 40,
                         autoHide: false,
                         sortable: false,
+                        textAlign: "left",
                         template: function(data) {
                             if (!data || data.length == 0) return "-";
-                            return data.actions;
+                            return "<div class=\"d-none\">" + data.actions + "</div>";
                         },
                     },
                     {           
@@ -380,6 +387,7 @@
                 }
                 $('#DirectoryUserFilterForm').on('submit', function(e){
                     e.preventDefault()
+                    _table.spinnerCallback(true)
                     let filterArr = $(this).serializeArray()
                     let filter = Object.create({})
     
@@ -441,7 +449,7 @@
                 if (selected_records.length) {
                     // disable delete action if one among checked user(s) never logged in
                     const selectedLoginValues = _table.getRecord(selected_records[0].dataset.row).getColumn("login").getValue();
-                    if (selectedLoginValues.includes(Drupal.t("Never logged in"))) {
+                    if (!selectedLoginValues.includes(Drupal.t("Never logged in"))) {
                         $("#gofastDeleteUserAction").addClass("disabled");
                     }
                 }

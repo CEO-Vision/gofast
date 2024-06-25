@@ -20,7 +20,9 @@ jQuery("document").ready(function () {
         clearInterval(iframeResizeInterval);
       }
 
-      obj.style.height = obj.contentWindow.document.body.scrollHeight + "px";
+      if(obj.contentWindow !== null){
+        obj.style.height = obj.contentWindow.document.body.scrollHeight + "px";
+      }
     }, 500);
   }
 

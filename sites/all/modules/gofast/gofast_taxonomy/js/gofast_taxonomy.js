@@ -116,7 +116,7 @@
             var found = false;
             //Fetch into all supposed locations
             $.each($(panel).find('.panel-body').find('ul').find('li'), function(i, slocation){
-              if($(slocation).text().trim() == location){
+              if($(slocation).text().replace(/\\n/g, "").trim() == location){
                 $(slocation).html($(slocation).text() + " <i class='fa fa-check' style='color:green' aria-hidden='true'></i>");
                 found = true;
                 return true;
@@ -186,26 +186,34 @@
         $.post(location.origin + "/taxonomy/manage_folders_locations/process", {process_folder: folder, process_locations: locations, broadcast: is_broadcast }).done(function (data) {
           var locations_output = JSON.parse(data);
           var success = true;
+          var alreadyExist = false;
 
           //Fetch into the locations array
-          locations_output.forEach(function (location) {
+          Object.entries(locations_output).forEach(entry =>{
+            const [location, exist] = entry;
             var found = false;
             //Fetch into all supposed locations
             $.each($(panel).find('.panel-body').find('ul').find('li'), function (i, slocation) {
-              if ($(slocation).text().trim() == location) {
+              
+              if ($(slocation).text().trim() == location && exist=="") {
                 $(slocation).html($(slocation).text() + " <i class='fa fa-check' style='color:green' aria-hidden='true'></i>");
                 found = true;
                 return true;
               }
             });
-            if (!found) {
+            if (!found && exist=="") {
               //Not found in the original expected locations
               $(panel).find('.panel-body').find('ul').append("<li>" + location + " <i class='fa fa-plus' style='color:red' aria-hidden='true'></i></li>");
               success = false;
             }
+            if(exist){
+              success = false;
+              alreadyExist = true;
+            }
           });
           //Check if all locations was applied
           $.each($(panel).find('.panel-body').find('ul').find('li'), function (i, plocation) {
+            
             if ($(plocation).html().indexOf("fa-plus") != -1) {
               success = false;
             } else if ($(plocation).html().indexOf("fa-check") == -1) {
@@ -237,7 +245,12 @@
             });
 
           } else {
-            $(panel).find('.panel-body').find(".manage-folders-locations-info").html("<i class='fa fa-times' style='color:red' aria-hidden='true'></i> " + Drupal.t("Processed but you might not have some necessary rights.", {}, { context: 'gofast:taxonomy' }));
+            
+            if(alreadyExist){
+              $(panel).find('.panel-body').find(".manage-folders-locations-info").html("<i class='fa fa-times' style='color:red' aria-hidden='true'></i> " + Drupal.t("A folder with the same name already exists in the destination folder.", {}, { context: 'gofast:taxonomy' }));
+            } else {
+              $(panel).find('.panel-body').find(".manage-folders-locations-info").html("<i class='fa fa-times' style='color:red' aria-hidden='true'></i> " + Drupal.t("Processed but you might not have some necessary rights.", {}, { context: 'gofast:taxonomy' }));
+            }
           }
         });
       }, timeout);

@@ -1,4 +1,4 @@
-<div class="card card-stretch gutter-b card-custom ">
+<div class="card card-stretch card-custom ">
     <!--begin::Header-->
     <div class="card-header min-h-30px px-4">
         <h3 class="card-title my-4">

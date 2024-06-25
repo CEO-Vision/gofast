@@ -195,7 +195,7 @@ function login_security_validate($form, &$form_state)
   $variables = _login_security_get_variables_by_name($name);
 
   /* CEO-Vision Patch */
-  if ($variables['@uid'] == 0) {
+  if ($variables['@uid'] == 0 || $form_state["values"]["status"] == 0) {
     $variables['@username'] = $name;
   }
   /* CEO-Vision Patch */
@@ -273,8 +273,8 @@ function login_security_validate($form, &$form_state)
       $notice_user = variable_get('login_security_notice_attempts_available', LOGIN_SECURITY_NOTICE_ATTEMPTS_AVAILABLE);
 
       /*  CEO-Vision Patch */
-      // if uid = 0 then the username dose not exist
-      if ($variables['@uid'] == 0) {
+      // if uid = 0 then the username does not exist
+      if ($variables['@uid'] == 0 || $form_state["values"]["status"] == 0) {
         $variables = login_security_fake_process($variables);
       }
       /*  CEO-Vision Patch */

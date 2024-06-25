@@ -11,24 +11,59 @@
   //   min-width: 100%;
   //   max-width: 100%;
   // }
-  &.active {
-    position: fixed;
-    top: 0px;
-    left: 0px;
-    min-height: 100vh;
-    z-index: 1000;
-    overflow: auto;
-    justify-content: center;
-    background: #eaf1f7;
-    padding: 0 1rem;
-    & .mainContent {
-      min-width: 99vw;
+  &:not(.active) {
+    .essential[data-isfullpage=true]{
+      position: fixed;
+      left: 0px;
+      z-index: 85;
+      justify-content: center;
+      background: #eaf1f7;
+      padding: 0 1rem;
+      & .mainContent {
+        min-width: calc(98vw - 68px);
+        margin: 0 1vw;
+        & .isStackedLayer {
+          box-shadow: rgba(0, 0, 0, 0.33) 0px -1px 10px;
+        }
+      }
+  
+      .fullScreen__col {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+        margin-bottom: 15px;
+      }
+      
+      .content__node__essential{
+        padding-right: 69px;
+        
+        .mainContent{
+          padding-right: 69px;
+        }
+      }
     }
+  }
+}
 
-    .fullScreen__col {
-      flex: 0 0 100% !important;
-      max-width: 100% !important;
-      margin-bottom: 15px;
-    }
+.fullScreen.active {
+  position: fixed;
+  top: 0px;
+  left: 0px;
+  min-height: 100vh;
+  z-index: 1000;
+  overflow: auto;
+  justify-content: center;
+  background: #eaf1f7;
+  & .mainContent {
+    min-width: 100vw;
+    margin: 0;
+    padding: 0;
+  }
+  .fullScreen__col {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 15px;
+  }
+  & #container_preview_element {
+    overflow: visible !important;
   }
 }

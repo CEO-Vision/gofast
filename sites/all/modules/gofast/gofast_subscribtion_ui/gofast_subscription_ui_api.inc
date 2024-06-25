@@ -279,6 +279,8 @@ function gofast_subscription_ui_get_user_subscriptions($uid, $limit = FALSE, $of
 
   if ($sortField) {
     $query_string .= " ORDER BY sortable_" . $sortField . " " . strtoupper($sortDir);
+  } else {
+    $query_string .= " ORDER BY sortable_name ASC";
   }
 
   if ($limit) {
@@ -456,8 +458,8 @@ function gofast_subscription_ui_api_reset_subscriptions($uid = -1){
   }
   else{
     $uid_obj = new stdClass();
-    $new_obj->uid = $uid;
-    $uids = array($new_obj);
+    $uid_obj->uid = $uid;
+    $uids = array($uid_obj);
   }
   return _gofast_subscription_ui_api_reset_subscriptions_multiple($uids);
 }

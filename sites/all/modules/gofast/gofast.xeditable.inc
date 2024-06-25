@@ -289,7 +289,6 @@ function gofast_update_node_field() {
   //Get OG node type to make specific cleaning
   $og_node_types = array_keys (gofast_og_node_types($prevent_translation = TRUE));
 
-
   if (is_array($value)) {
     $new_values = [];
     foreach($value as $vkey => $val){ // We need to clear technical values
@@ -297,6 +296,8 @@ function gofast_update_node_field() {
         array_push($new_values, gofast_xss_clean($val['value']));
       }else if($field_name == "field_tags"){
         array_push($new_values, gofast_xss_clean(is_array($val) ? $val['name'] : $val));
+      }else if($field_name == "field_external_page_url"){
+        array_push($new_values, gofast_xss_clean($val));
       }else if(strpos($val, '[GOFAST_TAG_SEPARATOR]') !== FALSE){
         unset ($value[$vkey]);
       }else{
@@ -306,7 +307,7 @@ function gofast_update_node_field() {
         );
         $documents_form_defaults = variable_get("documents_form_defaults", $default_documents_form_configuration);
         $xss_whitelist = is_array($documents_form_defaults['xss_whitelist']) ? $documents_form_defaults['xss_whitelist'] : [];
-        if(in_array($nid, $xss_whitelist, TRUE) || $node->field_is_homepage[LANGUAGE_NONE][0]['value'] == 1){
+        if(in_array($nid, $xss_whitelist, TRUE) || gofast_book_is_article_homepage($nid)){
           array_push($new_values, $val);
         }else{
           array_push($new_values, gofast_xss_clean($val));
@@ -321,7 +322,7 @@ function gofast_update_node_field() {
     );
     $documents_form_defaults = variable_get("documents_form_defaults", $default_documents_form_configuration);
     $xss_whitelist = is_array($documents_form_defaults['xss_whitelist']) ? $documents_form_defaults['xss_whitelist'] : [];
-    if(!in_array($nid, $xss_whitelist, TRUE) && $node->field_is_homepage[LANGUAGE_NONE][0]['value'] != 1){      
+    if(!in_array($nid, $xss_whitelist, TRUE) && !gofast_book_is_article_homepage($nid)){      
       $value = gofast_xss_clean($value);
     }
   }
@@ -398,6 +399,7 @@ function gofast_update_node_field() {
   // instead we manually build the info and call drupal_build_form().
   $form_id = $node->type . '_node_form';
   $form_state = array('build_info' => array('args' => array($node)));
+  $form_state['edit_metadata'] = TRUE;
   // Ensure include files are loaded so the form can be processed.
   form_load_include($form_state, 'inc', 'node', 'node.pages');
 
@@ -410,8 +412,10 @@ function gofast_update_node_field() {
         $form = drupal_build_form($form_id, $form_state);
    }
 
+  $is_date_field = in_array($wrapper->{$field_name}->info()['type'], array('date', 'time', 'datetime')) || $is_timestamp;
+
   // Custom process for date fields
-  if ($date_field = in_array($wrapper->{$field_name}->info()['type'], array('date', 'time', 'datetime'))) {
+  if ($is_date_field) {
     $_fdate = new DateTime();
     if ($value === "") {
       $value = null;
@@ -439,6 +443,14 @@ function gofast_update_node_field() {
               return gofast_update_field_error($field_name, 'field_category');
          }
      }
+    // if the category has a criticity: set the criticity of the node to the category criticity
+    if ($field_name == 'field_category') {
+      $category = reset(taxonomy_get_term_by_name($value, "category"));
+      if (isset($category->field_category_criticity[LANGUAGE_NONE][0]["tid"])) {
+        $node->field_criticity[LANGUAGE_NONE][0]["tid"] = $category->field_category_criticity[LANGUAGE_NONE][0]["tid"];
+        field_attach_update('node', $node);
+      }
+    }
   }else if (isset($form_state['values'][$field_name][LANGUAGE_NONE][0]['default'])) {
     $form_state['values'][$field_name][LANGUAGE_NONE][0]['default'] = $value;
   }
@@ -452,15 +464,13 @@ function gofast_update_node_field() {
       $form_state['values'][$field_name][LANGUAGE_NONE][0]['value'] = $value;
     }
   }
-
-
-
   // Validate form and check for error.
   drupal_validate_form($form_id, $form, $form_state);
   //$errors = form_get_errors();
-
+  
   //We unset target links related errors as a user may not have access to all target links but may be
   //Allowed to edit the node. This is a workaround for GOFAST-2982
+
   if(isset($errors)){
     $errors = array_filter( $errors, function($key){
       return strpos($key, 'field_target_link') !== 0;
@@ -518,7 +528,6 @@ function gofast_update_node_field() {
   }
 
 
-
   // At this point $value is validated so we can save it safely.
   try {
     // If vid param is present, we process taxonomy terms.
@@ -551,14 +560,24 @@ function gofast_update_node_field() {
       }else{
         $normalized_values = null;
       }
-
       // If dealing with other than tags, field is single valued
       if($vid !== GOFAST_VID_TAGS && $normalized_values !== null) {
         $normalized_values = reset($normalized_values);
       }
     }  else {
-      // If value is "", then the value we want to store DB wise is null
-      $normalized_values = !empty($value) ? $value : null;
+      if($field_name == "field_external_page_url" && empty($value)){
+        $normalized_values = [];
+      } else {
+        // If value is "", then the value we want to store DB wise is null
+        $normalized_values = !empty($value) ? $value : null;
+      }
+    }
+
+    foreach($normalized_values as $index => $normalized_value) {
+      // In case some paths have been miscoded because of special characters
+      if (gettype($normalized_value) == "string" && substr($normalized_value, -1) == ";") {
+        $normalized_values[$index] = substr($normalized_value, 0, -1);
+      }
     }
 
     // Then set and save the wrapped element
@@ -576,6 +595,9 @@ function gofast_update_node_field() {
 
       if(!in_array($nid, $xss_whitelist, TRUE)){
         $normalized_values = gofast_xss_clean($normalized_values);
+      } elseif (is_string($normalized_values)) {
+        // remove all mb4 characters
+        $normalized_values = preg_replace('/[\xF0-\xF7].../s', "", $normalized_values);
       }
 
       // In the case we would like to update the body, we set the summary field instead.
@@ -590,7 +612,7 @@ function gofast_update_node_field() {
 
       $node_current_og = array();
       foreach($node_og_field as $grid){
-        $node_current_og[] = $grid['target_id'];
+        $node_current_og[] = $grid['target_id']; 
       }
 
       $node_new_og = array();
@@ -773,6 +795,23 @@ function gofast_update_node_field() {
         }, $value);
         $value = implode("<br />", $external_links);
       }
+      $urls = json_decode($node->field_external_link_custom_data[LANGUAGE_NONE][0]["value"], true);
+      foreach($normalized_values as $external_link) {
+        if(!isset($urls[$external_link])){
+          $urls[$external_link]["title"] = $external_link;
+          $url_data = parse_url($external_link);
+          $urls[$external_link]["icon"] = $url_data['scheme']. "://" . $url_data['host'] . "/favicon.ico";
+          
+          if(variable_get("enable_automatic_external_link_title", true)) {
+            $urls[$external_link]["title"] = gofast_metadata_get_external_url_title($external_link);
+          }
+        }
+      }
+      $removed_urls = array_diff(array_keys($urls), $normalized_values);
+      foreach($removed_urls as $removed_url){
+        unset($urls[$removed_url]);
+      }
+      $urls = json_encode($urls);
       if(count($normalized_values) == 1){
         if(is_numeric($node->field_format[LANGUAGE_NONE][0]['tid']) && taxonomy_term_load($node->field_format[LANGUAGE_NONE][0]['tid'])->name == "External Web Page"){
             //This is an external page and we juste updated it's external url field, change the content
@@ -781,6 +820,7 @@ function gofast_update_node_field() {
             $updated_item = gofast_cmis_item_set_content($reference, gofast_cmis_extract_external_page_from_url($url));
         }
       }
+      $wrapper->{"field_external_link_custom_data"}->set($urls);
       $wrapper->{$field_name}->set($normalized_values);
     }else if ($field_name === 'title') {
       $old_title = $wrapper->{$field_name}->value();
@@ -811,8 +851,9 @@ function gofast_update_node_field() {
         }else{
             $wrapper->{$field_name}->set($normalized_values);
         }
-    }
 
+    }
+    
     //Only if module gofast_retention (DUA) enable
     if (module_exists('gofast_retention')) {
       if ($field_name === 'field_category' && $node->type  === 'alfresco_item') {
@@ -1019,18 +1060,18 @@ function gofast_update_field() {
         $format = $user->language === 'fr' ? 'd/m/Y' : 'm/d/Y';
         if(isValidTimeStamp($value)){
           $value = substr($value,0,-3);
-          $value = date($format,$value);
+          // null checks are necessary in order for the datepicker to be able to clear (null) a date
+          $value = !is_numeric($value) ? NULL : date($format,$value);
         }
-        $_fdate = DateTime::createFromFormat($format, $value);
-        $timestamp_date = $_fdate->getTimestamp();
-        $property_date = $_fdate->date;
+        $_fdate = $value ? DateTime::createFromFormat($format, $value) : NULL;
+        $timestamp_date = $_fdate ? $_fdate->getTimestamp() : NULL;
         $value = $timestamp_date;
       }
       $form_state['values'][$field_name][LANGUAGE_NONE][0]['value'] = $date_str;
     } else {
       if (is_array($form_state['values'][$field_name])) {
         if (is_array($form_state['values'][$field_name][LANGUAGE_NONE])) {
-          $form_state['values'][$field_name][LANGUAGE_NONE]['value'] = $value;
+          $form_state['values'][$field_name][LANGUAGE_NONE][0]['value'] = $value;
         }
         else {
           $form_state['values'][$field_name][LANGUAGE_NONE] = $value;
@@ -1050,7 +1091,14 @@ function gofast_update_field() {
     return gofast_update_field_error($field_name, NULL, $errors);
   } else {
       if ($field_name === 'mail') {
-        $account->mail = $value;
+        $already_existing_user = user_load_by_mail($value);
+        if($already_existing_user && $uid != $already_existing_user->uid){
+          if($already_existing_user->status != 1){
+            $account->mail = $value;
+          }
+        } else {
+          $account->mail = $value;
+        }
         //user_save($account);
     }
   }
@@ -1064,7 +1112,9 @@ function gofast_update_field() {
     else {
       $normalized_values = $value;
     }
-    $wrapper->{$field_name}->set($normalized_values);
+    if($field_name != "mail"){
+      $wrapper->{$field_name}->set($normalized_values);
+    }
     $wrapper->save();/** @todo : (missing) hooks implementations */
 
   }
@@ -1163,11 +1213,16 @@ function gofast_update_field_error_default() {
   );
 }
 
-function gofast_user_request_groups($group_ids, $uid) {
+function gofast_user_request_groups($group_ids, $entity_id, $entity_type = "user") {
   foreach ($group_ids as $gid) {
     if ($gid !== null) {
-      gofast_og_subscribe_user($gid, $uid, OG_STATE_PENDING);
-      watchdog("Gofast User Group Request", "User " . $uid . " requested group id " . $gid);
+      if($entity_type == "user"){
+        gofast_og_subscribe_user($gid, $entity_id, OG_STATE_PENDING);
+        watchdog("Gofast User Group Request", "User " . $entity_id . " requested group id " . $gid);
+      } else if($entity_type == "userlist"){
+        gofast_og_subscribe($gid, $entity_id, 'userlist', 'og_userlist_node', OG_STATE_PENDING);
+        watchdog("Gofast Userlist Group Request", "Userlist " . $entity_id . " requested group id " . $gid);
+      }
     }
   }
   if (!empty($group_ids)) {
@@ -1217,30 +1272,18 @@ function gofast_xeditable_content_editable($node) {
  * @param entity $term the entity term to check
  * @return boolean TRUE if allowed, FALSE otherwise.
  */
-function gofast_taxonomy_category_allowed($term, $node = null) {
-    $allowed_term = TRUE;
-    $filtered_categories = variable_get('gofast_map_category_spaces', array());
-    if(array_key_exists($term->tid, $filtered_categories) && !empty($filtered_categories[$term->tid]) && $node != null) {
-       if(!is_array($node)){
-           $node = array($node->nid => $node);
-       }
-       $count_disallowed_node = 0;
-       foreach($node as $nid=>$mynode){
-           $count_disallowed_node = $count_disallowed_node + 1;
-           foreach($filtered_categories[$term->tid] as $gid){
-             if(gofast_is_node_inside_space($mynode,$gid)){
-                $count_disallowed_node = $count_disallowed_node - 1;
-            }
-           }
-       }
-       if($count_disallowed_node == 0){
-           $allowed_term = TRUE;
-       }else{
-           $allowed_term = FALSE;
-       }
+function gofast_taxonomy_category_allowed($term, $nodes = null) {
+  if(!is_array($nodes)){
+    $nodes = array($nodes->nid => $nodes);
+  }
+  foreach($nodes as $node){
+    $is_allowed = gofast_taxonomy_categories_is_category_allowed_in_node($term->tid, $node->nid);
+    if (!$is_allowed) {
+      return FALSE;
     }
+  }
 
-    return $allowed_term;
+  return TRUE;
 }
 
 /**
@@ -1255,25 +1298,47 @@ function gofast_xeditable_vocabulary_to_select_items($vid, $node = null) {
   foreach (taxonomy_term_load_multiple(FALSE, array('vid' => $vid)) as $term) {
     if($vid === GOFAST_VID_CATEGORY) {
       $allowed_term = gofast_taxonomy_category_allowed($term, $node);
+    } else if($vid === GOFAST_VID_CLASSIFICATION){
+      $allowed_term = TRUE;
     }
-
+    
     if($allowed_term) {
       $localized_term = i18n_taxonomy_localize_terms($term);
 
       if($vid === GOFAST_VID_CATEGORY && $localized_term->field_standard_gf[LANGUAGE_NONE][0]['value'] == 1){
         $options_standard[] = array("id" => $localized_term->name, "text" => $localized_term->name, 'database_name' => $term->name);
-      }else{
+      }
+      else if ($vid === GOFAST_VID_CLASSIFICATION && $localized_term->field_classification_type[LANGUAGE_NONE][0]['tid']){
+        $type_tid = $localized_term->field_classification_type[LANGUAGE_NONE][0]['tid'];
+        $type_term = taxonomy_term_load($type_tid);
+        $localized_type_term = i18n_taxonomy_localize_terms($type_term);
+
+        if($term){
+          $localized_term = i18n_taxonomy_localize_terms($term);
+          $options_classification[] =  [
+            "text" => $localized_term->name,
+            "id" => $localized_term->name,
+            "database_name" =>  $term->name,
+            "type" =>  $localized_type_term ? $localized_type_term->name : '',
+            "weight" => $term->weight,
+          ];
+        }
+      }
+      else{
         $options[] = array("id" => $localized_term->name, "text" => $localized_term->name, 'database_name' => $term->name);
       }
     }
   }
-   //Sort terms alphabetically
+
+  $options_standard_sorted = [];
+  //Sort terms alphabetically
   foreach($options_standard as $option_unsorted_value){
     $options_standard_sorted[$option_unsorted_value['text'] . rand()] = $option_unsorted_value;
   }
   ksort($options_standard_sorted);
 
   //Sort terms alphabetically
+  $options_sorted = array();
   foreach($options as $option_unsorted_value){
     $options_sorted[$option_unsorted_value['text'] . rand()] = $option_unsorted_value;
   }
@@ -1284,9 +1349,30 @@ function gofast_xeditable_vocabulary_to_select_items($vid, $node = null) {
     $options[] = array('text' => t('Standard', array(), array('context' => 'gofast')) , 'children' => array_values($options_standard_sorted));
     $options[] = array('text' => htmlspecialchars_decode(t("@site_name's categories", array('@site_name' => variable_get('site_name') ), array('context' => 'gofast'))) , 'children' => array_values($options_sorted));
 
-  }else{
+  }
+  else if($vid === GOFAST_VID_CLASSIFICATION){
+    unset($options);
+    $uniqueTypes = array();
+    //Sort classification terms by weight
+    usort($options_classification, function ($a, $b) {
+      return $a['weight'] <=> $b['weight'];
+    });
+    foreach ($options_classification as $item) {
+      $type = $item['type'];
+      if (!array_key_exists($type, $uniqueTypes)) {
+        $uniqueTypes[$type] = array('type' => $type, 'children' => array());
+      }
+      $uniqueTypes[$type]['children'][] = $item;
+    }
+
+    foreach($uniqueTypes as $key => $ut){
+      $options[] = array('text' => $key, 'children' => $ut['children']);
+    }
+  }
+  else{
     $options = array_values($options_sorted);
   }
+
   //If fields of user profile are emtpy, tags will be an array.
   if (empty($options)) {
       $options = array();
@@ -1496,28 +1582,45 @@ function gofast_xeditable_node_autocomplete() {
  * @return type the results of the searched string, 20 first results if string is empty.
  */
 function gofast_xeditable_tag_autocomplete($print = true) {
-  $str = isset($_GET['query']) ? trim($_GET['query']) : '';
+  $str = isset($_GET['query']) ? gofast_xss_clean(trim($_GET['query'])) : '';
   $exact_match = isset($_GET['exact_match']) ? trim($_GET['exact_match']) : '';
   $tags = isset($_GET['tags']) ? $_GET['tags'] : '';
   $vid = isset($_GET['vid']) ? $_GET['vid'] : GOFAST_VID_TAGS;
+  $translate = isset($_GET['translate']) || isset($_POST['translate']);
 
   $query = db_select('taxonomy_term_data', 't')
           ->fields('t')
           ->condition('vid', $vid)
           ->range(0, 20);
 
+  if ($translate) {
+    global $user;
+    $query->leftJoin("locales_source", "ls", "ls.textgroup = 'taxonomy' AND ls.context LIKE CONCAT('%', t.uuid, '%')");
+    $query->leftJoin("locales_target", "lt", "lt.lid = ls.lid AND lt.language = :language", array(":language" => $user->language));
+    $query->addField("lt", "translation");
+  }
+
+  $condition_args = [];
   if (!empty($tags)) {
-    $query->condition('name', explode(',', $tags), 'IN');
+    $condition_args = [explode(',', $tags), 'IN'];
   }
   else {
     if (!empty($str)) {
       if ($exact_match) {
-        $query->condition('name', $str);
+        $condition_args = [$str];
       }
       else {
-        $query->condition('name', '%' . $str . '%', 'LIKE');
+        $condition_args = ['%' . $str . '%', 'LIKE'];
       }
     }
+  }
+  if ($translate && strlen($str) > 0) {
+    $translated_name_case_expression = "CASE WHEN lt.translation IS NOT NULL THEN lt.translation ELSE t.name END";
+    $translated_name_nocase_expression = "CASE WHEN lt.translation IS NOT NULL THEN LOWER(CAST(lt.translation AS CHAR(10000) CHARACTER SET utf8)) ELSE LOWER(t.name) END";
+    $query->addExpression($translated_name_case_expression, "translated_name");
+    $query->where($translated_name_nocase_expression .  " LIKE '%" . strtolower($str) . "%'");
+  } else {
+    $query->condition("name", ...$condition_args);
   }
 
   $result = $query->execute()->fetchAll();
@@ -1525,6 +1628,9 @@ function gofast_xeditable_tag_autocomplete($print = true) {
   $results = array();
 
   foreach ($result as $row) {
+    if ($translate && strlen($str) > 0) {
+      $row->name = $row->translated_name;
+    }
     $result = array('id' => $row->tid, 'text' => $row->name);
     $results[] = $result;
   }

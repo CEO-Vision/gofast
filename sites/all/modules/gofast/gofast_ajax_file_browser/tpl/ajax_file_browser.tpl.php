@@ -31,7 +31,7 @@
                   <span class="navi-text"><?php echo t('Folder', array(), array('context' => 'gofast:ajax_file_browser')); ?></span>
                 </a></li>
               <li class="navi-item"><?php print gofast_dropdown_link(t('Folders from a template', array(), array('context' => 'gofast:ajax_file_browser')), '/modal/nojs/add_folder_template', 'file_browser_tooolbar_new_folder_template', 'ctools-use-modal add-folder-template', 'fa fa-folder', array('onClick' => "Gofast.ITHit.attachInputEvents()")); ?></li>
-              <?php if (gofast_mobile_is_mobile_domain()) { ?>
+              <?php if (gofast_essential_is_essential()) { ?>
                 <li class="navi-item"><?php print gofast_dropdown_link(t('Document(s)', array(), array('context' => 'gofast:ajax_file_browser')), '/modal/nojs/node/add/alfresco-item', 'add_alfresco_item', 'ctools-use-modal add-alfresco_item navi-link', 'fa fa-folder', array('onClick' => "Gofast.ITHit.attachInputEvents()")); ?></li>
               <?php } else { ?>
                 <li class="navi-item"><a onclick="Gofast.ITHit.addAlfrescoItem(event);" id="file_browser_tooolbar_new_alfresco_item" class="center-block sidebar-items navi-link">
@@ -59,13 +59,17 @@
               print '<li class="navi-item">' . gofast_dropdown_link(t('Create publications', array(), array('context' => 'gofast')), '/modal/nojs/manage-publications', 'publications_open_span', 'ctools-use-modal manage-publications', 'fa fa-arrow-up', $attr) . '</li>';
               print '<li class="navi-item">' . gofast_dropdown_link(t('Share by email', array(), array('context' => 'gofast')), '/modal/nojs/manage-mail-sharing', 'linksharing_open_span', 'ctools-use-modal manage-mail-sharing', 'fa fa-envelope', $attr) . '</li>';
               print '<li class="navi-item">' . gofast_dropdown_link(t('Archive content'), '/modal/nojs/bulk-archive', 'archive_open_span', 'ctools-use-modal bulk-archive', 'fa fa-archive', $attr) . '</li>';
-              print '<li class="navi-item">' . gofast_dropdown_link(t('Add to cart', array(), array('context' => 'gofast')), '/modal/nojs/bulk_add_to_cart', 'cart_open_span', 'ctools-use-modal add_to_cart', 'fa fa-cart-plus', $attr) . '</li>';
+              print '<li class="navi-item">' . gofast_dropdown_link(t('Add to cart', array(), array('context' => 'gofast')), '/modal/nojs/bulk_add_to_cart', 'cart_open_span', 'ctools-use-modal add_to_cart', 'fas fa-shopping-basket', $attr) . '</li>';
+              print '<li class="navi-item">' . gofast_dropdown_link(t('Delete', array(), array('context' => 'gofast')), '', 'cart_open_span', '', 'fa fa-trash', array('onClick' => "Gofast.ITHit.deleteSelected(event);")) . '</li>';
+              print '<li class="navi-item">' . gofast_dropdown_link(t('Download', array(), array('context' => 'gofast')), '', 'cart_open_span', '', 'fa fa-cloud-download', array('onClick' => "event.preventDefault();Gofast.ITHit.downloadSelected();")) . '</li>';
               print '<li class="navi-item">' . gofast_dropdown_link(t('Manage Metadata', array(), array('context' => 'gofast')), '/modal/nojs/manage-taxonomy', 'taxonomy_open_span', 'ctools-use-modal bulk_taxonomy manage-taxonomy gofast_display_none', 'fa fa-tags') . '</li>';
               print '<li class="navi-item">' . gofast_dropdown_link(t('Share/Add locations', array(), array('context' => 'gofast')), '/modal/nojs/add-locations', 'locations_open_span', 'ctools-use-modal bulk_add_locations add-locations gofast_display_none', 'fa fa-share-alt n-color') . '</li>';
               print '<li class="navi-item">' . gofast_dropdown_link(t('Create publications', array(), array('context' => 'gofast')), '/modal/nojs/manage-publications', 'publications_open_span', 'ctools-use-modal bulk_publications manage-publications gofast_display_none', 'fa fa-arrow-up') . '</li>';
               print '<li class="navi-item">' . gofast_dropdown_link(t('Share by email', array(), array('context' => 'gofast')), '/modal/nojs/manage-mail-sharing', 'linksharing_open_span', 'ctools-use-modal bulk_mail_sharing manage-mail-sharing gofast_display_none', 'fa fa-envelope') . '</li>';
               print '<li class="navi-item">' . gofast_dropdown_link(t('Archive content'), '/modal/nojs/bulk-archive', 'taxonomy_open_span', 'ctools-use-modal bulk_archive bulk-archive gofast_display_none', 'fa fa-archive') . '</li>';
-              print '<li class="navi-item">' . gofast_dropdown_link(t('Add to cart'), '/modal/nojs/bulk_add_to_cart', 'taxonomy_open_span', 'ctools-use-modal bulk_add_to_cart gofast_display_none', 'fa fa-cart-plus') . '</li>';
+              print '<li class="navi-item">' . gofast_dropdown_link(t('Add to cart'), '/modal/nojs/bulk_add_to_cart', 'taxonomy_open_span', 'ctools-use-modal bulk_add_to_cart gofast_display_none', 'fas fa-shopping-basket') . '</li>';
+              print '<li class="navi-item">' . gofast_dropdown_link(t('Compress'), '/modal/nojs/compress-files', 'taxonomy_open_span', 'ctools-use-modal compress_files gofast_display_none', 'fa fa-file-archive-o n-color') . '</li>';
+
 
               ?>
              </div>
@@ -77,10 +81,10 @@
             <button title="<?php echo t('Paste'); ?>" id="file_browser_tooolbar_paste" type="button" class="btn btn-white btn-sm btn-icon" disabled><i class="fa fa-paste" aria-hidden="true"></i></button>
           </div>
           <div id='file_browser_tooolbar_cart' class="">
-            <button title="<?php echo t('Add to cart'); ?>" id="file_browser_tooolbar_cart_button" type="button" class="btn btn-white btn-sm btn-icon" onclick="$('bulk_add_too_cart').click()" disabled><i class="fa fa-cart-plus" aria-hidden="true"></i></button>
+            <button title="<?php echo t('Add to cart'); ?>" id="file_browser_tooolbar_cart_button" type="button" class="btn btn-white btn-sm btn-icon" onclick="$('bulk_add_too_cart').click()" disabled><i class="fas fa-shopping-basket" aria-hidden="true"></i></button>
           </div>
           <?php print gofast_dropdown_link('', '/modal/nojs/bulk_add_to_cart', 'builk_open_span', 'ctools-use-modal bulk_add_to_cart gofast_display_none', 'fa fa-share-alt n-color'); ?>
-          <?php if (gofast_mobile_is_mobile_domain()) { ?>
+          <?php if (gofast_essential_is_essential()) { ?>
             <div id="" class="btn-group">
               <button type="button" id="file_browser_tooolbar_contextual_actions" class="btn btn-white btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><i class="fa fa-bars" aria-hidden="true" disabled></i></button>
             </div>
@@ -103,18 +107,20 @@
   </div>
   <div class="d-flex flex-column">
     <div id="file_browser_tree_and_files" class="overflow-hidden">
-      <div id="file_browser_full_tree_container" class="pl-4 border border-1 bg-white min-h-150px">
-        <div id="file_browser_full_tree" class="h-100">
-          <ul id="file_browser_full_tree_element" class="ztree overflow-auto"></ul>
+      <?php if(!gofast_essential_is_essential()):?>
+        <div id="file_browser_full_tree_container" class="pl-4 border border-1 bg-white min-h-150px">
+          <div id="file_browser_full_tree" class="h-100">
+            <ul id="file_browser_full_tree_element" class="ztree overflow-auto"></ul>
+          </div>
         </div>
-      </div>
+        <?php endif;?>
       <div id="file_browser_full_files_container" class="border border-1 bg-white min-h-150px">
         <div id="file_browser_full_files" class="h-100">
           <table id="file_browser_full_files_table" class="h-100 table overflow-hidden">
             <tr id="file_browser_full_files_header" class="w-100 d-flex h-35px" >
               <!-- We need to keep the elements on the same line to prevent unwanted spaces -->
-              <th style="width:10%; display: inline-block;border-top:none;"><input id="gofastBrowserMagicCheckbox" type="checkbox"></th>
-              <th id="name_header" class="file_table_header" style="width:35%; display: inline-block;border-top:none;"><?php echo t('Name', array(), array('context' => 'gofast:ajax_file_browser')); ?><span class="order_indicator fa fa-caret-down"></span><span class="gofast_display_none order_indicator fa fa-caret-up"></span></th>
+              <th style="width:10%; display: inline-block;border-top:none;" class="pl-0" ><input id="gofastBrowserMagicCheckbox" type="checkbox"></th>
+              <th id="name_header" class="file_table_header" style="width:45%; display: inline-block;border-top:none;"><?php echo t('Name', array(), array('context' => 'gofast:ajax_file_browser')); ?><span class="order_indicator fa fa-caret-down"></span><span class="gofast_display_none order_indicator fa fa-caret-up"></span></th>
               <th id="size_header" class="file_table_header" style="width:10%; display: inline-block;border-top:none;"><?php echo t('Size', array(), array('context' => 'gofast:ajax_file_browser')); ?><span class="gofast_display_none order_indicator fa fa-caret-down"></span><span class="gofast_display_none order_indicator fa fa-caret-up"></span></th>
               <th id="type_header" class="file_table_header" style="width:10%; display: inline-block;border-top:none;"><?php echo t('Type', array(), array('context' => 'gofast:ajax_file_browser')); ?><span class="gofast_display_none order_indicator fa fa-caret-down"></span><span class="gofast_display_none order_indicator fa fa-caret-up"></span></th>
               <th id="modified_header" class="file_table_header" style="width:10%; display: inline-block;border-top:none;"><?php echo t('Modified', array(), array('context' => 'gofast:ajax_file_browser')); ?><span class="gofast_display_none order_indicator fa fa-caret-down"></span><span class="gofast_display_none order_indicator fa fa-caret-up"></span></th>
@@ -126,6 +132,9 @@
     </div>
     <div id="file_browser_full_upload_container" class="border border-1 min-h-150px h-25">
       <div id="file_browser_full_upload" class="panel-body">
+        <button id="file_browser_full_upload_button" type="button" style="height:20px;padding-left:5px;padding-right:2px;padding-top:0px;padding-bottom:22px;right:2.8%;margin-top:9px;position:absolute;z-index:2;display:none;" class="btn btn-danger" onclick="Gofast.ITHit.cancelAllUpload();">
+          <i class="fa fa-times"></i>
+        </button>
         <table id="file_browser_full_upload_table" class="table">
           <tr id="file_browser_full_upload_table_head" style="width:100%; display: inline-block;">
             <!-- We need to keep the elements on the same line to prevent unwanted spaces -->
@@ -139,14 +148,14 @@
             <td id="file_browser_full_upload_sublabel" style="width: 100%; display: inline-block; border-top: none; color: var(--gray-dark);" class="text-center py-1"><small><em><?= t("Your files will be secured in a sovereign storage ruled only by french and european laws", [], ["context" => "gofast:gofast_ajax_file_browser"]) ?></em></small></td>
           </tr>
         </table>
-        <input class="d-none" type="file" id="file_browser_full_upload_table_file_input">
+        <input class="d-none" type="file" multiple id="file_browser_full_upload_table_file_input">
       </div>
     </div>
   </div>
 </div>
 
 <?php
-if (!gofast_mobile_is_mobile_domain()) {
+if (!gofast_essential_is_essential()) {
   //Hide mobile browser
 ?>
   <style>
@@ -168,7 +177,7 @@ if ($browser) {
     jQuery(document).ready(function() {
       //Trigger the file browser navigation when we are ready and connected
       function triggerNavigation() {
-        if (typeof Gofast.ITHit === "undefined" || Gofast.ITHit.ready === false) { //Not yet ready
+        if (typeof Gofast.ITHit === "undefined" || typeof Gofast.ITHit.Uploader === "undefined" || Gofast.ITHit.ready === false) { //Not yet ready
           setTimeout(triggerNavigation, 1000);
         } else { //Ready !
           //Get params from URL
@@ -182,10 +191,14 @@ if ($browser) {
             }
           }
           Gofast.ITHit.loadTree();
-          if (typeof params.path === "undefined") { //No path provided, navigate to default path
-            Gofast.ITHit.navigate('/alfresco/webdav/Sites');
-          } else { //Path provided, navigate to path
-            Gofast.ITHit.navigate(params.path);
+          if (typeof params.path !== "undefined") { //Path provided, navigate to path
+            Gofast.ITHit.navigate(params.path, false, true, null, null, null, "backgroundNavigation");
+          } else if(!isNaN(location.pathname.split("/")[2]) && Gofast._settings.isEssential){
+            Gofast.Essential.navigateFileBrowser(location.pathname.split("/")[2])
+          } else if (typeof Gofast.get("space") == "string") {
+            Gofast.ITHit.navigate(Gofast.get("space"));
+          } else { 
+            Gofast.ITHit.navigate('/alfresco/webdav/Sites', false, true, null, null, null, "backgroundNavigation"); //No path provided, navigate to default path
           }
           //Attach events to the browser
           Gofast.ITHit.attachBrowserEvents();
@@ -221,7 +234,7 @@ if ($browser) {
   </script>
 
 <?php
-} else if (!gofast_mobile_is_mobile_domain()) {
+} else if (!gofast_essential_is_essential()) {
 ?>
   <script>
     jQuery(document).ready(function() {
@@ -281,46 +294,12 @@ if ($browser) {
     if ($is_new && $_POST['gofast_og_wrong_path']) {
       $node_path = gofast_cmis_space_get_webdav_path_node_page($node->nid);
     ?>
-      // var $areaElement = $(".GofastNodeOg__container");
-      // Gofast.addAreaBackdrop($areaElement);
-      // $areaElement.tooltip({title: Drupal.t("A new space is being created and will be shown as soon as it will be ready", {}, {
-      //   context: 'gofast:ajax_file_browser'
-      // }), trigger: "hover"});
-      Gofast.toast(Drupal.t("A new space is being created and will be shown as soon as it will be ready", {}, {
-        context: 'gofast:ajax_file_browser'
-      }), "info");
-
       // display a fake node waiting for the newly created group to be available
       var nodePath = "<?= $node_path ?>".trim();
       var nodeName = "<?= gofast_get_node_title($node->nid) ?>".trim();
       var nodeName = nodeName.startsWith("_") ? nodeName : "_" + nodeName;
-      var fakeTreeNode = false;
-      // fake tree node
-      var waitForTreeInterval = setInterval(async function() {
-        if (!jQuery("#file_browser_full_tree_element > *").length) {
-          return;
-        }
-        clearInterval(waitForTreeInterval);
-        // fake GFB node
-        fakeTreeNode = await Gofast.ITHit.addItem(nodePath, nodeName, "Folder", true, Drupal.t("A new space is being created and will be shown as soon as it will be ready", {}, {
-          context: 'gofast:ajax_file_browser'
-        }));
-      }, 250);
-
-      // check if is in Alfresco store, if is in store reload the browser to show the real group node
-      var isInStoreInterval = setInterval(() => {
-        $.get("/og/is/<?= $node->nid ?>/instore", (path) => {
-          if (path) {
-            clearInterval(isInStoreInterval);
-            // Gofast.removeAreaBackdrop($areaElement);
-            // $areaElement.tooltip("dispose");
-            if (fakeTreeNode) {
-              Gofast.ITHit.tree.removeNode(fakeTreeNode);
-            }
-            Gofast.ITHit.navigate(path);
-          }
-        });
-      }, 1000);
+      var nodeId = "<?= $node->nid ?>".trim();
+      Gofast.temporarySpaceDisplay(nodePath, nodeName, nodeId);
     <?php
     }
     ?>

@@ -12,6 +12,9 @@
  */
 ?>
 <style>
+    button#dropdown-rapid::after {
+        visibility: hidden;
+    }
     /* set caret color */
     button#dropdown-rapid span {
         position: relative;

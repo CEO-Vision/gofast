@@ -1,5 +1,5 @@
 <!--begin::Row-->
-<div class="gofast-content--full mainContent fullScreen">
+<div id="gofastContainer" class="gofast-content--full mainContent fullScreen">
     <?php echo $content ?>
 </div>
 <!--end::Row-->

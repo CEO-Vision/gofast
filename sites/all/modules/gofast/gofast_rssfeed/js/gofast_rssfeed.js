@@ -29,7 +29,7 @@
           } else {
             Gofast.toast(
               Drupal.t(
-                "The feed URL is invalid. Please enter a fully-qualified URL, such as<br /><br /><blockquote>http://fr.news.yahoo.com/?format=rss</blockquote>",
+                "The feed URL is invalid. Please enter a fully-qualified URL, such as<br /><br /><blockquote>https://fr.news.yahoo.com/?format=rss</blockquote>",
                 {},
                 { context: "gofast:gofast_rssfeed" }
               ),
@@ -68,7 +68,7 @@
           } else {
             Gofast.toast(
               Drupal.t(
-                "The feed URL is invalid. Please enter a fully-qualified URL, such as<br /><br /><blockquote>http://fr.news.yahoo.com/?format=rss</blockquote>",
+                "The feed URL is invalid. Please enter a fully-qualified URL, such as<br /><br /><blockquote>https://fr.news.yahoo.com/?format=rss</blockquote>",
                 {},
                 { context: "gofast:gofast_rssfeed" }
               ),

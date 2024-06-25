@@ -76,31 +76,10 @@
     <!-- BEGIN Filed external link  -->
     <div class="col-12 col-xxl-6 mt-4">
       <div class="font-weight-bolder my-auto"><?php print $node_infos['node_external_page_url']['title'] ?> :</div>
-      <div class="document__editable--field d-flex">
-        <div class="spinner document__editable--spinner d-none"></div>
+      <div class="document__editable--field d-flex w-100 h-100">
+        <div class="spinner document__editable--spinner d-none" style="margin: auto;"></div>
         <?php if (isset($node_infos['node_external_page_url']["node_pk"])) : ?>
-
-          <?php if (isset($node_infos['node_external_page_url']["span_value"]) && $node_infos['node_external_page_url']["span_value"] != t('None')) : ?>
-            <div class="w-100 btn btn-hover-light btn-sm pl-3 pr-0 pb-4 document__editable--label justify-content-start text-truncate" id="">
-              <ul class="p-0 m-0 list-unstyled d-flex flex-column align-items-start">
-                <?php foreach ($node_infos['node_external_page_url']['linksValues'] as $link) : ?>
-                  <li class="text-left">
-                    <a class="btn btn-link p-1 w-100 text-truncate" target="_blank" href="<?php echo $link['url'] ?>" title="<?php echo $link['label'] ?>"><i class="fas fa-external-link-square-alt mr-2 icon-nm" ></i><?php echo $link['label'] ?></a>
-                  </li>
-                <?php endforeach ?>
-              </ul>
-            </div>
-          <?php else : ?>
-            <a class="btn btn-hover-light btn-sm p-2 document__editable--label text-truncate" id=""><?php echo $node_infos['node_external_page_url']['span_value'] ?></a>
-          <?php endif ?>
-
-          <div class="document__editable--divfiel document__editable--tags w-100 document__editable--select document__editable--selectExternalLink d-none">
-            <select class="form-control form-control-sm document__editable--processe" id="external-Links" multiple="multiple" name="<?php print $node_infos['node_external_page_url']["name"] ?>" data-id="<?php print $node_infos['node_external_page_url']["node_pk"]  ?>">
-              <?php foreach ($node_infos['node_external_page_url']['value'] as $external_link) : ?>
-                <option value="<?php echo $external_link ?>" selected="selected"><?php echo $external_link ?></option>
-              <?php endforeach ?>
-            </select>
-          </div>
+          <?= theme("gofast_metadata_external_links",array("node_infos" => $node_infos)); ?>
         <?php else : ?>
           <div class="p-2 overflow-hidden d-flex" id=""><?php echo $node_infos['node_external_page_url']['span_value'] ?></div>
         <?php endif ?>
@@ -115,6 +94,7 @@
       <div class="d-flex mt-1">
         <?php if (isset($node_infos['node_language']["node_pk"])) : ?>
           <div class="d-flex w-60px">
+            <div class="spinner document__editable--spinner d-none" style="z-index: 1000;"></div>
             <div class="btn btn-sm symbol symbol-20 document__editable--label position-relative py-2">
               <img class="metadata-language-flag" alt="Pic" src="<?php print $node_infos['node_language']['flag'] ?>" />
             </div>
@@ -152,7 +132,7 @@
       </div>
     </div>
     <!-- End language type  -->
-       <div class="col-12 col-xxl-6 mt-4">
+       <div class="col-12 col-xxl-12 mt-4">
             <?php if ($node_infos['node_target_lien'] !== "" || $node_infos['node_source_lien'] !== "") : ?>
             <span class="font-weight-bolder mb-4"><?php print t('Proof of signature') ?> :</span>
              <div class="d-flex">
@@ -164,5 +144,4 @@
              </div>
             <?php endif ?>
        </div>
-    
   </div>

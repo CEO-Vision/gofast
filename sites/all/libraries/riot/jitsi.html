@@ -1,24 +1,27 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Jitsi Widget</title>
-<link rel="preload" href="/fonts/Inter/Inter-BoldItalic.2129bd0.woff2"><link rel="preload" href="/fonts/Inter/Inter-SemiBoldItalic.10a60d8.woff2"><link rel="preload" href="/fonts/Inter/Inter-Bold.fc28dff.woff2"><link rel="preload" href="/fonts/Inter/Inter-SemiBold.0802d48.woff2"><link rel="preload" href="/fonts/Inter/Inter-MediumItalic.8154ac2.woff2"><link rel="preload" href="/fonts/Inter/Inter-Medium.027d14e.woff2"><link rel="preload" href="/fonts/Inter/Inter-Italic.b791861.woff2"><link rel="preload" href="/fonts/Inter/Inter-Regular.4232a67.woff2"><link href="bundles/90922aedd85a418e1f7c/jitsi.css" rel="stylesheet"></head>
-<body>
-<div id="jitsiContainer"><!-- the js will put the conference here --></div>
-<div id="joinButtonContainer">
-    <div class="joinConferenceFloating">
-        <div class="joinConferencePrompt">
-            <span class="icon"><!-- managed by CSS --></span>
-            <!-- TODO: i18n -->
-            <h2>Jitsi Video Conference</h2>
-            <div id="widgetActionContainer">
-                <button type="button" id="joinButton">Join Conference</button>
+    <head>
+        <meta charset="UTF-8" />
+        <title>Jitsi Widget</title>
+    <script defer src="bundles/20db4b65179cfec75e05/jitsi.js"></script>
+    <!-- @patch CEO-vision: load overrides for GoFAST -->
+    <script defer src="bundles/20db4b65179cfec75e05/jitsi-gofast.js"></script>
+    <link rel="preload" href="fonts/Inter/Inter-BoldItalic.9744396.woff2"><link rel="preload" href="fonts/Inter/Inter-Bold.a808c21.woff2"><link rel="preload" href="fonts/Inter/Inter-SemiBoldItalic.c632fb9.woff2"><link rel="preload" href="fonts/Inter/Inter-SemiBold.625474d.woff2"><link rel="preload" href="fonts/Inter/Inter-MediumItalic.d29ef50.woff2"><link rel="preload" href="fonts/Inter/Inter-Medium.ba68c34.woff2"><link rel="preload" href="fonts/Inter/Inter-Italic.e2f5280.woff2"><link rel="preload" href="fonts/Inter/Inter-Regular.6cc68d6.woff2"><link href="bundles/20db4b65179cfec75e05/jitsi.css" rel="stylesheet"></head>
+    <body>
+        <div id="jitsiContainer"><!-- the js will put the conference here --></div>
+        <div id="joinButtonContainer">
+            <div class="joinConferenceFloating">
+                <div class="joinConferencePrompt">
+                    <span class="icon"><!-- managed by CSS --></span>
+                    <!-- TODO: i18n -->
+                    <h2>Jitsi Video Conference</h2>
+                    <div id="widgetActionContainer">
+                        <button type="button" id="joinButton">Join Conference</button>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-</div>
-<!-- This script is not webpacked, and the script is downloaded at build time -->
-<script src="./jitsi_external_api.min.js"></script>
-<script src="bundles/90922aedd85a418e1f7c/jitsi.js"></script></body>
+        <!-- This script is not webpacked, and the script is downloaded at build time -->
+        <script src="./jitsi_external_api.min.js"></script>
+    </body>
 </html>

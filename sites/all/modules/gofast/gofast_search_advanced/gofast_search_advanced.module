@@ -1,0 +1,259 @@
+<?php
+
+module_load_include('inc', 'gofast_search_advanced', 'gofast_search_advanced.utils');
+module_load_include('inc', 'gofast_search_advanced', 'gofast_search_advanced.callback');
+module_load_include('inc', 'gofast_search_advanced', 'gofast_search_advanced.form');
+module_load_include('inc', 'gofast_search_advanced', 'gofast_search_advanced.metadata');
+
+/**
+ *  Implements hook_init()
+ */
+function gofast_search_advanced_init() {
+  // Add librairy to the page
+  drupal_add_library('gofast_search_advanced', 'gofast_search_advanced');
+}
+/**
+ * Implements hook_librairy().
+ */
+function gofast_search_advanced_library() {
+  $libraries = array();
+
+  $libraries['gofast_search_advanced'] = array(
+    'name' => 'gofast_search_advanced',
+    'version' => '1.0',
+    'js' => array(
+      drupal_get_path('module', 'gofast_search_advanced') . '/js/gofast_search_advanced.js' => array(
+        'group' => JS_THEME + 1,
+        'every_page' => TRUE,
+        'weight' => 999
+      ),
+      drupal_get_path('module', 'gofast_search_advanced') . '/js/gofast_search_advanced_history.js' => array(
+        'group' => JS_THEME + 1,
+        'every_page' => TRUE,
+        'weight' => 999
+      ),
+      drupal_get_path('module', 'gofast_search_advanced') . '/js/gofast_search_advanced_filter_column.js' => array(
+        'group' => JS_THEME + 1,
+        'every_page' => TRUE,
+        'weight' => 999
+      ),
+    ),
+    'css' => array(
+      drupal_get_path('module', 'gofast_search_advanced') . '/css/gofast_search_advanced.css' => array(
+        'group' => JS_THEME + 1,
+        'every_page' => TRUE,
+        'weight' => 999
+      ),
+    )
+  );
+
+  return $libraries;
+}
+
+
+/**
+ * Implements hook_theme().
+ */
+function gofast_search_advanced_theme() {
+  return array(
+    'page_gofast_search_advanced_search' => array(
+      'template' => 'tpl/page-gofast-search-advanced-search',
+    ),
+    'gofast_search_advanced_form' => array(
+      'template' => 'tpl/gofast-search-advanced-form',
+    ),
+    'gofast_search_advanced_field' => array(
+      'template' => 'tpl/gofast-search-advanced-field',
+    ),
+    'gofast_search_advanced_search' => array(
+      'template' => 'tpl/gofast-search-advanced-search',
+    ),
+    'gofast_search_advanced_history' => array(
+      'template' => 'tpl/gofast-search-advanced-history',
+    ),
+    'gofast_search_form' => array(
+      'render element' => 'form',
+      'template' => 'tpl/gofast-search-form',
+    ),
+    'gofast_search_advanced_filters_columns' => array(
+      'template' => 'tpl/gofast-search-advanced-filters-columns',
+    ),
+  );
+}
+
+
+
+/**
+ * Implementation of hook_apachesolr_query_alter().
+ *
+ * @param DrupalSolrQueryInterface $query
+ * @see apachesolr.interface.inc
+ */
+function gofast_search_advanced_apachesolr_query_alter(DrupalSolrQueryInterface $query) {
+  // If $_POST ou $_GET['globalOperator'] == "OR" then we need to add a subquery
+  if ($_POST['globalOperator'] === "OR" || $_GET['globalOperator'] === "OR") {
+    
+    $fqFilters = $query->getParams()['fq'];
+    array_pop($fqFilters); // Remove node access fq (last element of the array)
+    // If only one filter, we don't need to add a subquery
+    if (count($fqFilters) > 1) {
+
+    // Create new solr subquery
+    $filtersSubQuery = new SolrFilterSubQuery('OR');
+
+    foreach ($fqFilters as $fqFilter) {
+      // Get key : value
+      [$fieldName, $fieldValue] = explode(':', $fqFilter, 2);
+      
+      // Remove the - from the field name if exist
+      if (substr($fieldName, 0, 1) === '-') {
+        $fieldName = substr($fieldName, 1);
+      }
+
+      $filtersSubQuery->addFilter($fieldName, $fieldValue, FALSE);
+      $query->removeFilter($fieldName);
+    }
+    // Add the subquery to the main query
+    $query->addFilterSubQuery($filtersSubQuery); 
+    }
+  }
+  
+  // Get the sort parameters from the url
+  if(isset($_GET['sort'])){
+    $sort_field = $_GET['sort']['field'];
+    
+    // Handling the case where the sort field is a the title
+    if($sort_field == "label"){
+      $sort_field = "sort_label";
+    }
+    
+    $sort_sort = $_GET['sort']['sort'];
+    $query->setAvailableSort($sort_field, array('title' => $sort_field, 'default' => 'asc'));
+    $query->setSolrsort($sort_field, $sort_sort);
+  }
+  // Get the pagination parameters from the url and what page we are on
+  if(isset($_GET['pagination'])){
+    $pagination = $_GET['pagination'];
+    $query->replaceParam('rows', $pagination["perpage"]);
+    $query->replaceParam('start', ($pagination["page"] - 1) * $pagination["perpage"]);
+  }
+}
+
+/**
+ * Implementation of hook_declare_metadatas().
+ */
+function gofast_search_advanced_declare_all_metadatas($only_metadata = true){
+  $all_metadatas = array();
+  // Get standard metadatas first
+  $standard_metadatas = gofast_search_advanced_declare_standard_metadatas();
+  if($only_metadata == true){
+    $all_metadatas = $standard_metadatas['metadatas'];
+  }else{
+    $all_metadatas[$standard_metadatas['name']] = $standard_metadatas['metadatas'];
+  }
+  
+  // use module_implements to get all metadatas declare in specific hook
+  $hook_name = 'declare_metadatas';
+  $modules = module_implements($hook_name);
+  foreach ($modules as $module) {
+    $function = $module . '_' . $hook_name;
+    if (function_exists($function)) {
+      $result = $function();
+      if (isset($result)) {
+        if($only_metadata == true){
+          $all_metadatas = array_merge($all_metadatas, $result['metadatas']);      
+        }else{
+          $all_metadatas[$result['name']] = $result['metadatas'];
+        }
+      }
+    }
+  }
+  return $all_metadatas;
+}
+
+/**
+ * Call custom hook to modify the result
+ */
+function gofast_search_advanced_advanced_search_result_alter($result){
+  // For each result, we need to format all the fields
+  // Here is the standard part
+  // Change the label name into node link
+  $result['label'] = l($result['label'], $result['path'], array('attributes' => array('class' => 'text-truncate')));
+
+  // Change creation date and changed date into a date format
+  $changed_date = new DateTime($result['ds_changed']);
+  $result['ds_changed'] = $changed_date->format('d/m/Y H:i:s');
+
+  $created_date = new DateTime($result['ds_created']);
+  $result['ds_created'] = $created_date->format('d/m/Y H:i:s');
+
+  if($result['ds_field_date'] != "1970-01-01T00:00:00Z"){
+    $field_date = new DateTime($result['ds_field_date']);
+    $result['ds_field_date'] = $field_date->format('d/m/Y H:i:s');
+  }else{
+    $result['ds_field_date'] = "-";
+  }
+
+  $term = taxonomy_term_load($result['im_field_format'][0]);
+  $icon = gofast_utils_transform_to_fa5_icone($term->field_icone[LANGUAGE_NONE][0]['value']);
+  $result['im_field_format'] = '<i class="fas fa-2x ' . $icon . '"></i>';
+
+  // If there is no criticity, we don't display the field
+  if(!empty($result['im_field_criticity'])){
+    $term_criticity = taxonomy_term_load($result['im_field_criticity'][0]);
+    // Load and translate all terms at once.
+    $result['im_field_criticity'] = t($term_criticity->name);
+  }
+
+  if(!empty($result['sm_vid_Category'])){
+    $result['sm_vid_Category'][0] = t($result['sm_vid_Category'][0]);
+  }
+
+  if(!empty($result['im_field_state'])){
+    // Load and translate all terms at once.
+    $term_state = taxonomy_term_load($result['im_field_state'][0]);
+    $result['im_field_state'] = t($term_state->name);
+  }
+
+  if(!empty($result['im_field_tags'])){
+    foreach($result['im_field_tags'] as $key => $value){
+      $term_tag = taxonomy_term_load($value);
+      $term_tag_name = $term_tag->name;
+      $result['im_field_tags'][$key] = $term_tag_name;
+    }
+  }
+
+  $result['sm_unr_author'] = theme('user_picture', array('account' => user_load($result['is_uid']), 'popup' => FALSE, 'dimensions' => '30'));
+  // Change language into flag
+  $result['ss_language'] = gofast_get_flag_icon($result['ss_language']);
+
+  return $result;
+}
+
+/**
+ * template_preprocess_gofast_search_advanced_history
+ */
+function template_preprocess_gofast_search_advanced_history(&$variables){
+
+  global $user;
+  $columns = [];
+
+  $columns['name'] = t('Nom', array(), array('context' => 'gofast:gofast_directory'));
+  $columns['date'] = t('Date', array(), array('context' => 'gofast:gofast_directory'));
+
+  $jsonColumns = json_encode($columns);
+
+  $variables['columns'] = $jsonColumns;
+}
+
+/**
+ * template_preprocess_gofast_search_advanced_form
+ */
+function template_preprocess_gofast_search_advanced_form(&$variables){
+
+  global $user;
+
+  $filters = gofast_search_advanced_get_search_advanced_filters();
+
+  $variables['fieldsets'] = $filters;
+}

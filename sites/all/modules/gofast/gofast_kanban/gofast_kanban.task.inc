@@ -360,6 +360,18 @@ function gofast_kanban_task_add_prepare($kanban_id,$column_id){
    
 }
 
+
+function gofast_kanban_get_task_status($task_id){
+  global $user;
+  
+  $task=node_load($task_id);
+  if (isset($task)) {
+    drupal_json_output($task->status);
+  }else{
+    drupal_json_output(NULL);
+  }
+}
+
 function gofast_kanban_get_task_details_json($task_id){
     global $user;
     
@@ -438,14 +450,14 @@ function gofast_kanban_get_task_details_json($task_id){
    
    $items=gofast_kanban_mychecklist_load($checklists_entities->cid)->getItems();
    foreach ($items as $item) {
-    $canDo = $task_details['canEdit'];
+   $canDo = $task_details['canEdit'];
 
     $responsible = NULL;
     if ($item->uid) {
       $responsible = gofast_get_properties_user_by_uid_or_u_name($item->uid, NULL, $properties_u);
       if (is_object($responsible)) {
         $responsible->picture = gofast_get_url_picture_by_id($responsible->picture);
-        if (!$cando) {
+        if (!$canDo) {
           if ($user->uid == $item->uid) {
             $canDo = TRUE;
           }
@@ -616,7 +628,7 @@ function gofast_kanban_task_update($nid){
   } elseif (isset($post_variable['members']) ) {
 
       // type format data: 2,3,2,4,5
-       if( count($post_variable['members']) > 0 && $post_variable['members'][0] != ''){
+       if(count((array) $post_variable['members']) > 0 && $post_variable['members'][0] != ''){
          $newMembers = explode(",", $post_variable['members']);
          $node_wrapper->field_members->set($newMembers);
        }else{
@@ -682,10 +694,7 @@ function gofast_kanban_task_update($nid){
 function gofast_kanban_task_delete($nid){
 
   global $user;
-
-  $timer_start = microtime(true);
-//watchdog('gofast_kanban', '%name() START : nid=[%nid] ', array('%name' => __FUNCTION__, '%nid' => $nid), WATCHDOG_DEBUG);
-
+  
   $task = node_load($nid);
   $task->status = 0;
   node_save($task);
@@ -698,10 +707,7 @@ function gofast_kanban_task_delete($nid){
   $last_event_unserialized["mod_author"] = $user->uid;
   gofast_audit_insert_line_audit($task->nid, 'card_delete', $last_event_serialized, $last_event_unserialized);
 
-  gofast_kanban_set_tasks_context("node", "kanban_tasks_updated", "TRUE");
-
-  $timer_stop = microtime(true);
-//watchdog('gofast_kanban', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_DEBUG);
+  gofast_kanban_set_context("kanban_tasks_updated", "TRUE", "gofast_kanban_task");
 }
 
 
@@ -802,7 +808,7 @@ function gofast_kanban_task_get_task_to_reorder($board_nid, $column_id, $from_ta
 
   $results = $query->execute();
 
-  if (isset($results)) {
+  if (isset($results['node'])) {
     $tasks_nids = array_keys($results['node']);
   }
 
@@ -1144,7 +1150,7 @@ function gofast_kanban_task_update_todo($ciid) {
 
   }
 
-  gofast_kanban_checklistItem_udpate($ciid, $attrs);
+  gofast_kanban_checklistItem_update($ciid, $attrs);
 
   $timer_stop = microtime(true);
 //watchdog('gofast_kanban', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_DEBUG);
@@ -1160,7 +1166,7 @@ function gofast_kanban_task_update_todo_status($ciid, $status) {
 //watchdog('gofast_kanban', '%name() START args=[%args]', array('%name' => __FUNCTION__, '%args' => implode(', ', func_get_args())), WATCHDOG_DEBUG);
 
   $attrs = array('status' => $status);
-  gofast_kanban_checklistItem_udpate($ciid, $attrs);
+  gofast_kanban_checklistItem_update($ciid, $attrs);
 
   $timer_stop = microtime(true);
 //watchdog('gofast_kanban', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_DEBUG);
@@ -1173,20 +1179,12 @@ function gofast_kanban_task_update_todo_status($ciid, $status) {
  * @param type $ciid
  */
 function gofast_kanban_task_delete_todo($ciid) {
-
-  $timer_start = microtime(true);
-//watchdog('gofast_kanban', '%name() START args=[%args]', array('%name' => __FUNCTION__, '%args' => implode(', ', func_get_args())), WATCHDOG_DEBUG);
-
   gofast_kanban_checklistItem_delete($ciid);
-
-  $timer_stop = microtime(true);
-//watchdog('gofast_kanban', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_DEBUG);
-
   exit();
 }
 
 function gofast_kanban_task_node_form_submit($form, &$form_state) {
-  gofast_kanban_set_tasks_context("node", "kanban_tasks_updated", "TRUE");
+  gofast_kanban_set_context("kanban_tasks_updated", "TRUE", "gofast_kanban_task");
 }
 
 

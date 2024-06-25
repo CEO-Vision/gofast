@@ -6,3 +6,7 @@
 .bootstrap-datetimepicker-widget .datepicker .datepicker-days table tbody tr > td:not(.old) {
     color: black;
 }
+
+.bootstrap-datetimepicker-widget .datepicker .datepicker-days table tbody tr > td.old-month-day {
+    color: #7E8299;
+}

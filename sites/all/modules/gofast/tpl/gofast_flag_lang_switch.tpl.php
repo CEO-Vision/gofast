@@ -2,7 +2,7 @@
           <a class="btn btn-icon btn-clean btn-dropdown btn-lg ">
             <span class="symbol symbol-light-info symbol-30">
               <div class="symbol-label font-size-h5">
-                <?= strtoupper($selected_language['lcode']) ?>
+                <?= strtoupper(is_array($selected_language) ? $selected_language['lcode'] : $selected_language) ?>
               </div>
             </span>
           </a>
@@ -10,7 +10,7 @@
             <ul class="menu-subnav navi">
               <?php foreach ($languages as $language) : ?>
                 <li class="navi-item">
-                    <a href="<?php print gofast_xss_clean($language['href']); ?>" class="navi-link">
+                    <a href="<?php print gofast_xss_clean($language['href']); ?>" class="navi-link" onclick="Gofast.addLoading();">
                     <span class="symbol symbol-light-dark symbol-30 mr-3">
                       <div class="symbol-label font-size-h5">
                         <?= strtoupper($language['lcode']) ?>

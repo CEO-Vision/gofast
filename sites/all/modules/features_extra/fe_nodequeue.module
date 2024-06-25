@@ -70,7 +70,7 @@ function fe_nodequeue_features_export($data, &$export, $module_name = '') {
 /**
  * Implements hook_features_export_render().
  */
-function fe_nodequeue_features_export_render($module_name = '', $data) {
+function fe_nodequeue_features_export_render($module_name, $data) {
   $code = array();
   $code[] = '  $nodequeues = array();';
   $code[] = '';

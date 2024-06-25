@@ -143,16 +143,6 @@ function gofast_features_global_user_default_permissions() {
     'module' => 'webform',
   );
 
-  // Exported permission: 'access print'.
-  $permissions['access print'] = array(
-    'name' => 'access print',
-    'roles' => array(
-      'administrator' => 'administrator',
-      'authenticated user' => 'authenticated user',
-    ),
-    'module' => 'print',
-  );
-
   // Exported permission: 'access printer-friendly version'.
   $permissions['access printer-friendly version'] = array(
     'name' => 'access printer-friendly version',
@@ -511,13 +501,6 @@ function gofast_features_global_user_default_permissions() {
     'module' => 'phpmailer',
   );
 
-  // Exported permission: 'administer print'.
-  $permissions['administer print'] = array(
-    'name' => 'administer print',
-    'roles' => array(),
-    'module' => 'print',
-  );
-
   // Exported permission: 'administer privatemsg settings'.
   $permissions['administer privatemsg settings'] = array(
     'name' => 'administer privatemsg settings',
@@ -638,6 +621,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'administer spaces configuration',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
     ),
     'module' => 'gofast',
   );
@@ -647,6 +631,15 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'administer sso configuration',
     'roles' => array(
       'administrator' => 'administrator',
+    ),
+    'module' => 'gofast',
+  );
+
+  // Exported permission: 'administer tags configuration'.
+  $permissions['administer tags configuration'] = array(
+    'name' => 'administer tags configuration',
+    'roles' => array(
+      'business administrator' => 'business administrator',
     ),
     'module' => 'gofast',
   );
@@ -691,6 +684,7 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'administer users configuration',
     'roles' => array(
       'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
     ),
     'module' => 'gofast',
   );
@@ -1886,13 +1880,6 @@ function gofast_features_global_user_default_permissions() {
     'module' => 'userpoints',
   );
 
-  // Exported permission: 'node-specific print configuration'.
-  $permissions['node-specific print configuration'] = array(
-    'name' => 'node-specific print configuration',
-    'roles' => array(),
-    'module' => 'print_ui',
-  );
-
   // Exported permission: 'perform backup'.
   $permissions['perform backup'] = array(
     'name' => 'perform backup',
@@ -2023,13 +2010,6 @@ function gofast_features_global_user_default_permissions() {
     'name' => 'send arbitrary files',
     'roles' => array(),
     'module' => 'mimemail',
-  );
-
-  // Exported permission: 'send unlimited emails'.
-  $permissions['send unlimited emails'] = array(
-    'name' => 'send unlimited emails',
-    'roles' => array(),
-    'module' => 'print_mail',
   );
 
   // Exported permission: 'skip comment approval'.
@@ -2338,6 +2318,16 @@ function gofast_features_global_user_default_permissions() {
       'authenticated user' => 'authenticated user',
     ),
     'module' => 'privatemsg',
+  );
+
+  // Exported permission: 'administer gofast webhook'.
+  $permissions['administer gofast webhook'] = array(
+    'name' => 'administer gofast webhook',
+    'roles' => array(
+      'administrator' => 'administrator',
+      'business administrator' => 'business administrator',
+    ),
+    'module' => 'gofast_webhook',
   );
 
   return $permissions;

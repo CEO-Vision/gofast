@@ -1,0 +1,29 @@
+--- LdapServerTest.class.php
++++ LdapServerTest.class.php
+@@ -138,18 +138,23 @@ public function disconnect() {
+   /**
+    * Perform an LDAP search.
+    *
++   * @param string|null $basedn
++   *   The search base. If NULL, we use $this->basedn.
+    * @param string $filter
+    *   The search filter. such as sAMAccountName=jbarclay.
+-   * @param string $basedn
+-   *   The search base. If NULL, we use $this->basedn.
+    * @param array $attributes
+    *   List of desired attributes. If omitted, we only return "dn".
++   * @param int $attrsonly
++   * @param int $sizelimit
++   * @param int $timelimit
++   * @param int $deref
++   * @param int $scope
+    *
+    * @return
+    *   An array of matching entries->attributes, or FALSE if the search is
+    *   empty.
+    */
+-  public function search($base_dn = NULL, $filter, $attributes = [], $attrsonly = 0, $sizelimit = 0, $timelimit = 0, $deref = LDAP_DEREF_NEVER, $scope = LDAP_SCOPE_SUBTREE) {
++  public function search($base_dn = NULL, $filter = '', $attributes = [], $attrsonly = 0, $sizelimit = 0, $timelimit = 0, $deref = LDAP_DEREF_NEVER, $scope = LDAP_SCOPE_SUBTREE) {
+ 
+     $lcase_attribute = [];
+     foreach ($attributes as $i => $attribute_name) {

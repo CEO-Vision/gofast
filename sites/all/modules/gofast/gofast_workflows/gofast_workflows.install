@@ -172,6 +172,10 @@ function gofast_workflows_schema(){
         'length' => 16,
         'not null' => TRUE,
       ),
+      'gids' =>  array(
+        'description' => 'Spaces related to the WF profile, separated by commas',
+        'type' => 'text',
+      ),
     ),
     'primary key' => array('id'),
   );
@@ -195,4 +199,27 @@ function gofast_workflows_update_7303(){
  */
 function gofast_workflows_update_7304(){
     gofast_workflows_synchro_all_userlists();
+}
+
+/*
+ * Set correct display name for all existing userlists
+ */
+function gofast_workflows_update_7305(){
+  $userlists = entity_load('userlist');
+  foreach($userlists as $userlist){
+    gofast_workflows_update_userlist($userlist);
+  }
+}
+
+/**
+ * Add gids columns to gofast_wf_profil table
+ */
+function gofast_workflows_update_7306() {
+  $field = array(
+    'description' => 'Spaces related to the WF profile, separated by commas',
+    'type' => 'text',
+  );
+  if(!db_field_exists('gofast_wf_profil', 'gids')){
+    db_add_field('gofast_wf_profil', 'gids', $field);
+  }
 }

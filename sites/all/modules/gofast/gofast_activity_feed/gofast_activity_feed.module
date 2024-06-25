@@ -12,14 +12,14 @@ define('GOFAST_MAX_PAGES_ON_ACTIVITY_FEED', variable_get("gofast_max_pages_on_fe
  */
 function gofast_activity_feed_menu(){
   $items['activity'] = array(
-    'page callback' => 'gofast_activity_feed_display_test',
+    'page callback' => 'gofast_activity_feed_display',
     'access arguments' => array('access content'),
     'access callback' => 'user_access',
     'type' => MENU_NORMAL_ITEM
   );
 
   $items['activity/page'] = array(
-    'page callback' => 'gofast_activity_feed_display',
+    'page callback' => 'gofast_activity_feed_display_page',
     'access arguments' => array('access content'),
     'page arguments' => array(true),
     'access callback' => 'user_access',
@@ -72,6 +72,7 @@ function gofast_activity_feed_menu(){
  * Implements hook_init()
  */
 function gofast_activity_feed_init() {
+  global $user;
   $activity_path = drupal_get_path('module', 'gofast_activity_feed');
   if(module_exists('gofast_mobile')) {
     drupal_add_js($activity_path . '/js/gofast_activity_stream_filters.js');
@@ -81,7 +82,8 @@ function gofast_activity_feed_init() {
   $params['activity_feed']['items_per_page'] = variable_get("gofast_max_items_on_feed", 16);
   drupal_add_js($params,'setting');
   
-  if(isset($_SESSION['last_activity_timestamp_must_calculated']) && current_path() == "gofast/poll"){      
+  if(isset($_SESSION['last_activity_timestamp_must_calculated']) && current_path() == "gofast/poll"){
+        global $user;
         $filters2 = gofast_activity_feed_get_filters();
         //Prepare the query
         $query2 = new EntityFieldQuery();
@@ -110,7 +112,7 @@ function gofast_activity_feed_init() {
 
         $query2->range((GOFAST_MAX_PAGES_ON_ACTIVITY_FEED * GOFAST_MAX_ITEMS_ON_FEED), 1);
 
-        $result2 = $query2->execute()['node'];
+        $result2 = (array) $query2->execute()['node'];
 
         if(count($result2) == 1){
             $nid = array_keys($result2)[0];
@@ -124,16 +126,11 @@ function gofast_activity_feed_init() {
 /*
  * Display the activity feed
  */
-function gofast_activity_feed_display($ajax = FALSE, $mobile = FALSE){
+function gofast_activity_feed_display_page($ajax = FALSE){
   $page = "";
 
   //Default behavior : At the 1st display of the page, we want to display blog activity
   if(!$ajax) {$_POST['display_blog'] = 1;}
-  if($_POST['mobile'] == 0){
-    $mobile = FALSE;
-  }else{
-    $mobile = TRUE;
-  }
   //Get the activity feed's current page content
   if($ajax == TRUE){ //Sync call disabled GOFAST-3831
     $content = json_decode(gofast_activity_feed_ajax(FALSE), TRUE);
@@ -141,15 +138,25 @@ function gofast_activity_feed_display($ajax = FALSE, $mobile = FALSE){
 
   //Retrieve the filters
   $filters = gofast_activity_feed_get_filters();
+  if (empty($content) && $ajax) {
+    $page =  theme("gofast_activity_empty");
+    if(!$ajax){
+      return $page;
+    }
+    else {
+      print $page;
+      exit;
+    }
+  }
   //Generate the rows corresponding to the content
-//  if($mobile == TRUE){
-//    $table = theme("gofast_activity_table_content_mobile", array('items' => $content, 'ajax' => $ajax));
-//  }else{
+  if(gofast_mobile_is_phone()){
+    $table = theme("gofast_activity_table_content_mobile", array('items' => $content, 'ajax' => $ajax));
+  } else {
     $table = theme("gofast_activity_table_content", array('items' => $content, 'ajax' => $ajax));
-//  }
+  }
 
   //Display it into the activity feed theme
-  $page .= theme("gofast_activity_main", array('table_content' => $table, 'page' => $filters['page'], 'ajax' => $ajax));
+  $page .= theme("gofast_activity_main", array('table_content' => $table, 'page' => $filters['page'], 'ajax' => $ajax, 'is_mobile' => gofast_mobile_is_phone()));
   if(!$ajax){
     drupal_add_js(drupal_get_path('module', 'gofast_message_ext') . '/gofast_message_ext.js');
     return $page;
@@ -158,40 +165,53 @@ function gofast_activity_feed_display($ajax = FALSE, $mobile = FALSE){
   }
 }
 
-function gofast_activity_feed_display_test(){
+function gofast_activity_feed_display(){
+
+  $ajax = "";
+  if(isset($_POST["ajax"])){
+    $ajax = $_POST["ajax"];
+  }
+
 
   $page = "";
-
+  $detect = new Mobile_Detect();
+  if(gofast_essential_is_essential()){
+    if(request_uri() == "/" && variable_get('site_frontpage') == "activity"){
+      if(gofast_mobile_is_phone()){
+        header("Location: /home_page_navigation#navBrowser");
+      } else {
+        header("Location: /activity");
+      }
+      exit();
+    }
+    if($ajax != true){
+      return "";
+    }
+  }
   //Default behavior : At the 1st display of the page, we want to display blog activity
-  if(!$ajax) {$_POST['display_blog'] = 1;}
+  $_POST['display_blog'] = 1;
   if($_POST['mobile'] == 0){
     $mobile = FALSE;
   }else{
     $mobile = TRUE;
   }
-  //Get the activity feed's current page content
-  if($ajax == TRUE){ //Sync call disabled GOFAST-3831
-    $content = json_decode(gofast_activity_feed_ajax(FALSE), TRUE);
-  }
 
   //Retrieve the filters
   $filters = gofast_activity_feed_get_filters();
   //Generate the rows corresponding to the content
-  if($mobile == TRUE){
-    $table = theme("gofast_activity_table_content_mobile", array('items' => $content, 'ajax' => $ajax));
+  if(gofast_mobile_is_phone()){
+    $table = theme("gofast_activity_table_content_mobile", array());
   }else{
-    $table = theme("gofast_activity_table_content", array('items' => $content, 'ajax' => $ajax));
+    $table = theme("gofast_activity_table_content", array());
   }
-
-  $list = theme('gofast_activity_main_list', ['items' => $content, 'ajax' => $ajax]);
 
   //Display it into the activity feed theme
-  $page .= theme("gofast_activity_main", array('table_content' => $table, 'page' => $filters['page'], 'ajax' => $ajax));
-  if(!$ajax){
-    drupal_add_js(drupal_get_path('module', 'gofast_message_ext') . '/gofast_message_ext.js');
-  } else{
-    print $page;
+  if(gofast_essential_is_essential()){
+    $page .= theme("gofast_activity_main", array('table_content' => $table, 'page' => $filters['page'], 'ajax' => true));
+  } else {
+    $page .= theme("gofast_activity_main", array('table_content' => $table, 'page' => $filters['page']));
   }
+    drupal_add_js(drupal_get_path('module', 'gofast_message_ext') . '/gofast_message_ext.js');
 
 
   $sideContent = theme('gofast_activity_stream_filter');
@@ -200,7 +220,11 @@ function gofast_activity_feed_display_test(){
 
   $pageContent = gofast_create_page_content($page, 'content-block-right', $sideContent);
 
-  return $pageContent;
+  if(gofast_essential_is_essential()){
+    print $page;
+  } else {
+    return $pageContent;
+  }
 }
 
 function gofast_create_activity_stream_filter(){
@@ -332,7 +356,7 @@ function gofast_create_activity_stream_filter(){
   $spaceFilter = [
       'label' => t('Spaces', array(), array('context' => 'gofast')),
       'title' => t('Filtering by space : ', array(), array('context' => 'gofast')),
-      'icon' => 'fas fa-share',
+      'icon' => 'fas fa-folder-open',
       'id' => 'space',
       'data_tree' => 'spaces',
   ];
@@ -378,14 +402,21 @@ function gofast_create_activity_stream_filter(){
 /*
  * Return a JSON according to filters and page params passed in POST
  */
-function gofast_activity_feed_ajax($ajax = TRUE){
+function gofast_activity_feed_ajax($ajax = TRUE, $filters = []){
   //To prepare the query, we need to retrieve the user memberships, then to take in consideration
   //The filters (Is the user able to view, selected filter(s)...) and finally to send the query
   //Retrieve the datas, format and display them.
   global $user;
 
+  $fromEssential = "";
+  if(isset($_POST["essential"])){
+    $fromEssential = $_POST["essential"];
+  }
+
   //Retrieve the filters
-  $filters = gofast_activity_feed_get_filters();
+  if (empty($filters)) {
+    $filters = gofast_activity_feed_get_filters();
+  }
 
   //Count request ?
   $count = $filters['is_count'] == TRUE ? TRUE : FALSE;
@@ -396,8 +427,8 @@ function gofast_activity_feed_ajax($ajax = TRUE){
   if(!$count){
     $items = gofast_activity_feed_fill_fields($items);
   }
-
-  if($ajax){
+  
+  if($ajax || $fromEssential){
     print json_encode($items);
   }
   else{
@@ -410,8 +441,6 @@ function gofast_activity_feed_ajax($ajax = TRUE){
  */
 function gofast_activity_feed_get_filters(){
   $filters = array();
-  //Max items returned by the query
-  $filters['itemCount'] = GOFAST_MAX_ITEMS_BY_QUERY;
 
   //Store if a filter is selected or not
   $filters['no_filters'] = !isset($_POST['spaces']) && !isset($_POST['actors']) && !isset($_POST['states']) && !isset($_POST['types']);
@@ -434,7 +463,7 @@ function gofast_activity_feed_get_filters(){
   $filters['actors'] = isset($_POST['actors']) && count(json_decode($_POST['actors'])) > 0 ? json_decode($_POST['actors'], TRUE) : array();
 
   //Display blog items if needed
-  if($_POST['display_blog'] == 1 || gofast_mobile_is_mobile_domain()){
+  if($_POST['display_blog'] == 1 || gofast_essential_is_essential()){
     $filters['spaces'][] = 0;
     $filters['types'][] = 'blog';
   }
@@ -531,11 +560,11 @@ function gofast_activity_feed_get_items($filters = array(), $count = FALSE){
 //  }
 
   //Paginate the results
-  if(isset($filters['itemCount']) && !$count){
+  if(!$count){
     $query->range($filters['range_start'], $filters['range_stop']);
   }
 
-  if(isset($_SESSION['last_activity_timestamp']) && $filters['page'] < 6 && $filters['no_filters']){
+  if(isset($_SESSION['last_activity_timestamp']) && $filters['page'] < 6){
       $query->propertyCondition("changed", $_SESSION['last_activity_timestamp'], ">");
   }
 
@@ -546,7 +575,7 @@ function gofast_activity_feed_get_items($filters = array(), $count = FALSE){
   } else {
     $result_query_sticky = $query_sticky->execute();
     $result_query = $query->execute();
-    if(count($result_query_sticky['node']) > 0){
+    if(count((array) $result_query_sticky['node']) > 0){
         //Fixing cases where there is only sticky results : $result_query['node'] would be null which would lead to an operand error
         $result_query['node'] = ($result_query['node'] == NULL) ? array() : $result_query['node'];
         $result = array_unique($result_query_sticky['node'] + $result_query['node'], SORT_REGULAR);
@@ -625,7 +654,7 @@ function gofast_activity_feed_fill_fields($items = array()){
     if($item->type !== 'blog'){
       if(in_array('title', $fields, TRUE)){
         //Get title
-        $items[$key]->title = "<a class='gofast_activity_feed_title text-dark text-hover-primary font-weight-bolder font-size-lg text-truncate mr-2' href=/node/".$item->nid.">".gofast_get_node_title($item->nid)."</a>";
+        $items[$key]->title = "<a class='gofast_activity_feed_title text-dark text-hover-primary font-weight-bolder font-size-lg text-truncate mr-2' href=/node/".$item->nid.">".$node->title."</a>";
       }
 
       //GET: nid
@@ -636,17 +665,19 @@ function gofast_activity_feed_fill_fields($items = array()){
         //Prepare request to custom view field
         $handler = new gofast_views_handler_field_node_last_event;
         $values = new stdClass();
-        $values->nid = $item->nid;
-        $values->_field_data['nid']['entity'] = node_load($values->nid);
-        $render = $handler->render($values);
+        $values->nid = $nid;
+        $values->_field_data['nid']['entity'] = $node;
+        $rendered_elements = explode("<div class='d-none event-last-modifier'>", (string)$handler->render($values));
+        $render = $rendered_elements[0];
+        $items[$key]->last_modifier = $rendered_elements[1] ?? FALSE;
         //Verify if it's linksharing
-        if ($render['event'] == 'linksharing'){
+        if (is_array($render) && $render['event'] == 'linksharing'){
             $event_linksharing = TRUE;
             $items[$key]->last_event = $render['last_event'];
             //Load the picture of the shareholder by mail
             $picture_linksharing = theme('user_picture', array( 'account' => user_load($render['user_uid']), 'popup' => TRUE, 'dimensions' => 40));
         }else{
-        $items[$key]->last_event = $render;
+          $items[$key]->last_event = $render;
         }
       }
 
@@ -710,25 +741,29 @@ function gofast_activity_feed_fill_fields($items = array()){
         $count = 1;
         $count_more = 0;
         foreach($node->og_group_content_ref[LANGUAGE_NONE] as $group){
+          $gid = $group['target_id'];
+          $space_node = node_load($gid);
+          $space_path = str_replace("/Sites", "",gofast_cmis_space_get_webdav_path($gid));
+          $space_has_parent = gofast_og_get_parent($space_node);
+          $group_node_title = gofast_get_node_title($gid);
+          if($space_has_parent){
+            $group_node_title = ".../{$group_node_title}";
+          }
+          $group_icon = gofast_taxonomy_icon_filename($space_node->field_format[LANGUAGE_NONE][0]['tid']);
+
+          $node_access = (og_get_membership('node', $gid, 'user', $user->uid) != FALSE) || gofast_userlist_og_is_user_member_of_space($gid) ||$user->uid === 1;
           if($count < 3){
-            $gid = $group['target_id'];
-            $group_icon = gofast_taxonomy_icon_filename(node_load($gid)->field_format[LANGUAGE_NONE][0]['tid']);
             //Access is bypassed for user 1/Admin
-            $node_access = (og_get_membership('node', $gid, 'user', $user->uid) != FALSE) || gofast_userlist_og_is_user_member_of_space($gid) ||$user->uid === 1;
             if($node_access){
                 $count ++;
-                $group_node_title = gofast_get_node_title($gid);
-                $spaces_list .= "<a href=/node/" . $gid . " title='" . $group_node_title . "' >" . $group_node_title . "</a><br>";
-                $spaces_list_popup .= "<li class='navi-item'><a href=/node/" . $gid . " title='" . $group_node_title . "' class='navi-link'><span class='navi-icon'><i class='fas " . $group_icon . "'></i></span><span class='navi-text'>" . $group_node_title . "</span></a></li>";
+                $spaces_list .= "<a href=/node/" . $gid . " title='" . $space_path . "' >" . $group_node_title . "</a><br>";
+                $spaces_list_popup .= "<li class='navi-item'><a href=/node/" . $gid . " title='" . $space_path . "' class='navi-link'><span class='navi-icon'><i class='fas " . $group_icon . "'></i></span><span class='navi-text'>" . $group_node_title . "</span></a></li>";
             }
           }else{
-              $gid = $group['target_id'];
             //Access is bypassed for user 1/Admin
-            $node_access = (og_get_membership('node', $gid, 'user', $user->uid) != FALSE) || gofast_userlist_og_is_user_member_of_space($gid) ||$user->uid === 1;
             if($node_access){
                 $count_more ++;
-                $group_node_title = gofast_get_node_title($gid);
-                $spaces_list_popup .= "<li class='navi-item'><a href=/node/" . $gid . " title='" . $group_node_title . "' class='navi-link'><span class='navi-icon'><i class='fas " . $group_icon . "'></i></span><span class='navi-text'>" . $group_node_title . "</span></a></li>";
+                $spaces_list_popup .= "<li class='navi-item'><a href=/node/" . $gid . " title='" . $space_path . "' class='navi-link'><span class='navi-icon'><i class='fas " . $group_icon . "'></i></span><span class='navi-text'>" . $group_node_title . "</span></a></li>";
             }
           }
         }
@@ -762,8 +797,10 @@ function gofast_activity_feed_fill_fields($items = array()){
                   $date = t("@hour hour(s) and @min min ago", array('@hour' => $hours, '@min' => $minutes));
               }
           }
-          $user_name = gofast_user_display_name(user_load($node->uid));
+          $account = user_load($node->uid);
+          $user_name = gofast_user_display_name($account);
 	  $items[$key]->last_event = t("@user posted this @date.", array('@user' => $user_name, '@date' => $date), array('context' => 'gofast'));
+    $items[$key]->last_modifier = theme('user_picture', array('account' => $account, 'dimensions' => 40));
 	}
 
 	if(in_array('sticky', $fields, TRUE)){
@@ -778,14 +815,7 @@ function gofast_activity_feed_fill_fields($items = array()){
         if ($event_linksharing){
             //Change the picture
             $items[$key]->last_modifier = $picture_linksharing;
-            $event_linksharing =FALSE;
-        }else{
-        $handler = new gofast_views_handler_field_node_last_modifier;
-        $values = new stdClass();
-        $values->nid = $item->nid;
-        //print_r($item);
-        $render = $handler->render($values);
-        $items[$key]->last_modifier = $render;
+            $event_linksharing = FALSE;
         }
     }
 
@@ -802,6 +832,9 @@ function gofast_activity_feed_fill_fields($items = array()){
  */
 function gofast_activity_feed_theme() {
   return array(
+    'gofast_activity_empty' => array(
+      'template' => 'tpl/gofast-activity-empty'
+    ),
     'gofast_activity_main' => array(
       'template' => 'tpl/gofast-activity-main'
     ),
@@ -916,11 +949,13 @@ function gofast_activity_feed_get_espaces($mainSpace){
   else if ( $espaceId >= 0 ) {
 
     $childrens = gofast_og_get_children($espaceId);
-
+    global $user;
     foreach($childrens as $child){
 
       $nodeId = intval($child);
-
+      if(!og_is_member("node", $nodeId, 'user', $user)){
+        continue;
+      }
       $haveChildrens = gofast_og_get_children($nodeId) ? TRUE : FALSE ;
 
       $node = [

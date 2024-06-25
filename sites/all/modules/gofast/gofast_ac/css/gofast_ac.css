@@ -1,3 +1,12 @@
+/*
+ * use body selector to increase specificity beyond lib default.
+ * CKEditor arrows default z index (outside modals) is 10555, thus we use 11000
+ * to be safely over the CKEditor arrows with a margin.
+ */
+body .tagify__dropdown {
+    z-index: 11000;
+}
+
 .modal-open .tagify__dropdown {
     z-index: 9999 !important;
 }
@@ -12,7 +21,7 @@
                          "avatar email";
 }
 
-.tagify__dropdownt .tagify__dropdown__item:hover .tagify__dropdown__item__avatar-wrap{
+.tagify__dropdown .tagify__dropdown__item:hover .tagify__dropdown__item__avatar-wrap{
     transform: scale(1.2);
 }
 
@@ -77,12 +86,90 @@
     vertical-align: top;
 }
 
-.tagify .tagify__tag div{
-    padding-right : 0 !important;
-    max-width: calc(100% - 1ch);
-}
-
 /** temporarily hide invalid tags, will become useless with Keen 3 update and use of beforePaste hook*/
 .tagify--notAllowed{
     display: none !important;
+}
+
+.tagify--hasMaxTags{
+    border-color: var(--success) !important;
+}
+
+.tagify__tag__removeBtn {
+    min-width: 14px !important; /** minimal sizing for tagify close button to prevent it from collapsing into the tag content */
+}
+
+/** fix sizing and alignment when an icon is inserted before the tag text */
+.tagify__tag > div {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: .25rem;
+}
+.tagify__tag > div > div {
+    order: 0 !important;
+}
+
+/** prevent glitches on small inputs */
+:where(#alfresco-item-node-form, .datatable) .tagify__tag > div > * {
+    white-space: nowrap !important;
+}
+
+/** allow tagify input to stretch if there is not enough room available */
+:where(#alfresco-item-node-form, .datatable) tags.tagify.stretchable {
+    min-width: min-content !important;
+}
+
+/** fix placeholders for tagify inputs */
+.tagify__input:only-child:empty::after {
+    content: attr(data-placeholder) !important;
+    max-width: 100%;
+}
+
+/** tagify overrides for small filtering inputs */
+:where(#alfresco-item-node-form, .datatable-header) .tagify{
+    max-height: 6ch;
+    overflow: hidden;
+    flex-wrap: unset !important;
+}
+
+:where(#alfresco-item-node-form, .datatable-header) tag + span.tagify__input{
+    min-width: 0;
+}
+
+:where(#alfresco-item-node-form, .datatable-header) .tagify--focus{
+    width: 110px !important;
+    min-width: min-content !important;
+    z-index: 10;
+}
+
+.gofast-directory-multiselect-selects-container {
+    overflow-x: scroll;
+}
+
+.gofast-directory-multiselect-selects {
+    min-width: max-content;
+}
+
+.gofast-directory-multiselect-selects select {
+    max-width: max-content;
+}
+
+.gofast-directory-multiselect-selects input[type='number'] {
+    max-width: 8ch;
+}
+
+/** Force drag input to be single-lined */
+.gofast-ac-drag-input .tagify__input {
+    min-width: max-content;
+    text-align: left;
+}
+
+.gofast-ac-drag-input .tagify {
+    min-width: 0;
+    overflow-x: scroll;
+}
+
+.gofast-ac-drag-input tag {
+    cursor: move;
 }

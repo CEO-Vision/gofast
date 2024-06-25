@@ -90,6 +90,10 @@ function gofast_userlist_form_userlist_node_form_alter(&$form, &$form_state, $fo
       '#submit' => array('gofast_userlist_custom_form_cancel')
     );
   }
+  
+  if(!isset( $form['actions']['cancel'])){
+    gofast_add_cancel_button_to_form($form);
+  }
 
   $form['fieldset_userlist']['field_userlist_admincomplete']["#value"] = json_encode($userlist_administrators_tags);
 
@@ -99,7 +103,6 @@ function gofast_userlist_form_userlist_node_form_alter(&$form, &$form_state, $fo
   
   $form['#validate'] = array('gofast_userlist_form_userlist_node_form_validate');
   $form['#submit'] = array('gofast_userlist_form_userlist_node_form_submit');
-  
 }
 
 /**
@@ -119,7 +122,9 @@ function gofast_userlist_custom_form_cancel($form, &$form_state) {
  * @param array $form_state
  */
 function gofast_userlist_form_userlist_node_form_validate($form, &$form_state) {
-
+  if (isset($form['#node']->nid)) { // edition mode
+    $form_state['values']['status'] = 1; // in case the value has been set to 0 in an admin form_alter hook
+  }
   $members = array();
 
   //Fill field_userlist_members with the hidden input when editing members of userlist
@@ -132,7 +137,7 @@ function gofast_userlist_form_userlist_node_form_validate($form, &$form_state) {
   $admins = array();
   //Fill field_userlist_admin with the hidden input when editing admin of userlist
   $admins_value =  json_decode($form_state['input']['ac-list-tags-userlist-admin']);
-  if(count($admins_value) == "0"){
+  if(count((array) $admins_value) == "0"){
     form_set_error('ac-list-tags-userlist-admin', t('You must select at least one administrator.'));
   }
   foreach ($admins_value as $admin_value) {
@@ -154,12 +159,17 @@ function gofast_userlist_form_userlist_node_form_validate($form, &$form_state) {
 
 /**
  * Send notification to concerned user (who was added to userlist)
- * @param type $id_new_member : uid
- * @param type $id_userlist : nid
- * @param type $message : Null for member , not empty for administrator
- * @param type $role_member ADM : administrator users list, MEM : member users list
+ *
+ * @param Integer $id_new_member : uid
+ * @param Integer $id_userlist : nid
+ * @param String|NULL $message : Null for member , not empty for administrator
+ * @param String $role_member ADM : administrator users list, MEM : member users
+ * list
+ *
+ * @throws \Exception
  */
-function gofast_mail_add_user_to_userlist( $id_new_member, $id_userlist, $message, $role_member ){
+function gofast_mail_add_user_to_userlist(int $id_new_member, int 
+$id_userlist, string|null $message, string $role_member ): void {
 
   $node = node_load( $id_userlist );
   $new_member = user_load( $id_new_member );
@@ -184,11 +194,12 @@ function gofast_mail_add_user_to_userlist( $id_new_member, $id_userlist, $messag
     $mess = $message;
   }
 
-  $ulid = $node->field_userlist_ulid[LANGUAGE_NONE][0][value];
+  $ulid = $node->field_userlist_ulid[LANGUAGE_NONE][0]['value'];
   $groups_userlist = gofast_userlist_og_get_groups_by_userlist( $ulid );
   
 
-  if(count($groups_userlist)){
+  if(isset($groups_userlist) && count($groups_userlist)){
+    $grps = "";
     $grps .= "<ul>";
     foreach ($groups_userlist['node'] as $group_id) {
       $group = node_load($group_id);
@@ -244,9 +255,10 @@ function gofast_mail_remove_user_from_userlist( $id_removed_member, $id_userlist
     $mess = $message;
   }
 
-  $ulid = $node->field_userlist_ulid[LANGUAGE_NONE][0][value];
+  $ulid = $node->field_userlist_ulid[LANGUAGE_NONE][0]['value'];
   $groups_userlist = gofast_userlist_og_get_groups_by_userlist( $ulid );
 
+    $grps = "";
     $grps .= "<ul>";
        foreach ($groups_userlist['node'] as $group_id) {
         $group = node_load($group_id);

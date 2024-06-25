@@ -78,7 +78,7 @@
             </label>
             <div class="text-dark-75 text-hover-dark font-weight-bolder font-size-lg text-truncate mr-2" style="font-style: normal;"><?php print $title; ?></div>
             <?php if($entity_type == "node" && $bundle != 'task' ): ?>
-              <div class="fast-actions">
+              <div class="fast-actions" id="gofastFastActions">
                 <?php //print $fast_actions; ?>
                 <div class="gofast-node-actions dropdown dropdown-inline">
                   <a class="btn btn-light btn-xs btn-icon mr-2 dropdown-placeholder" type="button" id="dropdown-placeholder-<?php echo $entity_id ?>" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -91,8 +91,20 @@
               </div>
             <?php endif; ?>
             <?php if($entity_type == "node" && $bundle == "alfresco_item"): ?>
-                <a class="btn btn-sm btn-hover-light p-0 ctools-use-modal" id="Preview" title="<?php echo $tooltip_preview ?>" href="/modal/nojs/preview/show/<?= $entity_id ?>">
-                  <i class="fa fa-eye p-0"></i>
+                <?php
+                  // load node status
+                  $query = db_select('node', 'n');
+                  $query->fields('n', ['status'])->condition('n.nid', $entity_id);
+                  $node_status = $query->execute()->fetchField();
+                  $is_trashed = $node_status == 0;
+                ?>
+                <a
+                  class="btn btn-sm btn-hover-light p-0 ctools-use-modal<?= $is_trashed ? " disabled" : "" ?>"
+                  id="Preview"
+                  title="<?php echo $tooltip_preview ?>"
+                  href="/modal/nojs/preview/show/<?= $entity_id ?>"
+                >
+                  <i class="fa <?= $is_trashed ? 'fa-eye-slash' : 'fa-eye' ?> p-0"></i>
                 </a>
             <?php endif; ?>
         </div>

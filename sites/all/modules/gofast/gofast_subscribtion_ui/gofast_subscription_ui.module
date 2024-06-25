@@ -20,7 +20,8 @@ function gofast_subscription_ui_menu() {
     'page arguments' => array(1),
     'options' => array(
       'attributes' => array(
-        'class' => 'ctools-use-modal'
+        'class' => 'ctools-use-modal',
+        'href' => '#',
       ),
     ),
     'access arguments' => array('access content'),
@@ -88,7 +89,7 @@ function gofast_subscription_ui_async_display_ui(){
   $pageSize = gofast_xss_clean($_GET['pagination']['perpage']);
   $offset = ($currentPage - 1) * $pageSize;
 
-  $sort = gofast_xss_clean($_GET['sort']);
+  $sort = gofast_xss_clean($_GET['sort']) ?: ["field" => "name", "sort" => "asc"];
 
   $items = gofast_subscription_ui_get_user_subscriptions($user->uid, $pageSize, $offset, $sort['field'], $sort['sort']);
   $rows = [];
@@ -268,3 +269,16 @@ function gofast_subscription_ui_og_membership_delete($og_membership){
   }
 
 }
+
+/**
+ * Implements hook_node_delete().
+ * If a node has favorites, delete the favorites when it's deleted.
+ */
+function gofast_subscription_ui_node_delete($node) {
+  _flag_entity_delete("node", $node->nid);
+  db_delete("recently_read")
+    ->condition("type", "node")
+    ->condition("entity_id", $node->nid)
+    ->execute();
+}
+

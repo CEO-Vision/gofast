@@ -15,7 +15,7 @@ function gofast_ajaxification_menu() {
 
 function gofast_ajaxification_preprocess_page(&$variables) {
   global $user;
-  // if (!gofast_mobile_is_mobile_domain() && $user->uid != 1) {
+  // if (!gofast_essential_is_essential() && $user->uid != 1) {
     $path = drupal_get_path('module', 'gofast_ajaxification');
     drupal_add_js($path . '/gofast_ajaxification.js', array(
       'scope' => 'footer',
@@ -193,7 +193,7 @@ function gofast_ajaxification_callback($js = FALSE) {
   $temps_t_debut = microtime(true);
   $detect = new Mobile_Detect;
 
-  if (!$detect->isMobile() && !$detect->isTablet()) {
+  if (!$detect->isMobile()) {
     if($no_sidebar == false){
       $blocks_sidebar_second = preg_replace("/section id=\"([^\"]*)--[0-9]\"/", "section id=\"$1\"", render(block_get_blocks_by_region("sidebar_second")));
     }else{
@@ -234,7 +234,7 @@ function gofast_ajaxification_callback($js = FALSE) {
     $setting['title'] = !empty($node) ? $node->title : '';
     $setting['selectedFolder'] = str_replace('/Sites', '', gofast_ajax_file_browser_get_alfresco_item_accessible_location($node));
     $commands[] = ajax_command_settings($setting);
-    if(!gofast_mobile_is_mobile_domain()){
+    if(!gofast_essential_is_essential() && !gofast_mobile_is_phone()){
       if($blocks_sidebar_second == ""){
            $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
             if(jQuery('#gofast_over_content').hasClass('col-lg-8')){
@@ -250,10 +250,12 @@ function gofast_ajaxification_callback($js = FALSE) {
 
            </script>");
       }
-    }else{
+    }else if(gofast_mobile_is_phone()){
       if(in_array($node->type, array('group', 'organisation', 'extranet', 'public', 'private_space'))){
-        $path = gofast_cmis_space_get_webdav_path($node->nid);
-        $commands[] = gofast_command_processAjax('/home_page_navigation?&path=' . rawurlencode($path) . "#navBrowser");
+        if(!isset($_GET["card_id"]) && !isset($_GET['calendar'])){
+          $path = gofast_cmis_space_get_webdav_path($node->nid);
+          $commands[] = gofast_command_processAjax("/home_page_navigation?&path=" . rawurlencode($path) . "#navBrowser");
+        }
       }
     }
 
@@ -286,6 +288,20 @@ function gofast_ajaxification_ajax_render_alter(&$commands) {
    }
    if(isset($commands[0]["settings"]["gofast"]["user"]->data)){
         $commands[0]["settings"]["gofast"]["user"]->data = "";
+   }
+  //  // if needed to detect if we are opening a modal
+  //  $is_modal = (bool) array_filter($commands, function($command){
+  //       return isset($command["command"]) && $command["command"] == "modal_display";
+  //  });
+   $item = menu_get_item();
+   // get title only if we went by a menu item on this request and a title is set on this menu item
+   if (!empty($item["title"])) {
+     foreach ($commands as $command) {
+        if (is_array($command) && isset($command["settings"])) {
+          // get the formatted title instead of the raw one
+          $command["settings"]["title"] = drupal_get_title();
+        }
+      }
    }
    
    if(!gofast_request_is_ajax()){

@@ -19,10 +19,10 @@
         Drupal.t("Public") +
         '</option></select>',
         '',
-        '',
-        '',
-        '',
-        '<div class="GofastDirectoryFilterButtons d-flex ml-auto flex-column align-items-center" style="gap: .5rem; transform: translateY(-1rem);"><button type="submit" class="btn btn-xs btn-primary btn-icon m-0">' +
+        '<div class="d-flex"><input type="text" name="ac-list-tags-total-members" class="form-control form-control-tags js-tagify filter-field-directory-spaces" data-user placeholder="' + Drupal.t("Filter by member name") + '" /></div>',
+        '<div class="d-flex"><input type="text" name="ac-list-tags-total-administrators" class="form-control form-control-tags js-tagify filter-field-directory-spaces" data-user placeholder="' + Drupal.t("Filter by administrator name") + '" /></div>',
+        '<div class="d-flex"><input type="text" name="ac-list-tags-total-pending-members" class="form-control form-control-tags js-tagify filter-field-directory-spaces" data-user placeholder="' + Drupal.t("Filter by member name") + '" /></div>',
+        '<div class="GofastDirectoryFilterButtons d-flex ml-auto mt-auto align-items-center" style="gap: .5rem; transform: translate(.5rem, -.5rem);"><button type="submit" class="btn btn-xs btn-primary btn-icon m-0">' +
         '<i class="fas fa-search" style="font-size: 12px !important;"></i>' +
         '</button><button type="reset" class="btn btn-xs btn-light btn-icon m-0">' +
         '<i class="fas fa-undo" style="font-size: 12px !important;"></i>' +
@@ -157,6 +157,9 @@
                 },
 
                 rows: {
+                    beforeTemplate: function (row, data, index) {
+                        row.attr("data-type", data.type);
+                    },
                     afterTemplate: function (row, data, index) {
                         Drupal.attachBehaviors(row);
                         var adminPopover = $('.admin_popover');
@@ -211,7 +214,7 @@
                                 symbol = name.slice(0,2).toUpperCase()
                             }
 
-                            var output = "<div class=\"d-flex align-items-center\"><div class=\"symbol symbol-35 flex-shrink-0\"> <span class=\"symbol-label\">" + symbol + "</span></div></div>";
+                            var output = "<div class=\"d-flex align-items-center p-5\"> <div class=\"symbol symbol-35 flex-shrink-0 mr-4\"> <img alt=\"Pic\" src=\"" + data.picture + "\"> </div> <a href=\"/user/" + data.nid + "\" class=\"font-size-lg\"></a> </div> ";
 
                             return output;
                         },
@@ -222,7 +225,7 @@
                         autoHide: false,
                         width: 200,
                         template: function(data) {
-                            return ('<a data-toggle="popover" data-trigger="hover" data-html="true" data-content="<div class=\'py-2 px-4\'>' + data.breadcrumb.replaceAll("\n", "").replaceAll("\"", "'") + '</div>" class="gofast__popover btn-link text-nowrap" href="/node/'+data.nid+'">'+data.name+'</a>')
+                            return ('<a data-toggle="popover" data-trigger="hover" data-html="true" data-content="<div class=\'py-2 px-4\'>' + data.breadcrumb.replaceAll("\n", "").replaceAll("\"", "&quot;") + (data.description == null ? "" : '<b> Description : '+data.description.replaceAll("\"", "&quot;") + '</b>')+'</div>" class="gofast__popover btn-link text-nowrap" href="/node/'+data.nid+'">'+data.name+'</a>')
                         },
                     },
                     {
@@ -296,11 +299,11 @@
                     {
                         field: 'actions',
                         title: "",
-                        width: 0,
+                        width: 40,
                         autoHide: false,
                         sortable: false,
                         template: function(data) {
-                            return data.actions;
+                            return "<div class=\"d-none\">" + data.actions + "</div>";
                         },
                     },
                     {           
@@ -316,24 +319,45 @@
                 ],
             });
             
-            
-            
             $("#gofastDirectorySpacesTable").on("datatable-on-check", function(event,args){
                 var selected_records = _table.getSelectedRecords();
                 _selection = "";
-                selected_records.each(function( index ) {
+                let has_public = false;
+                selected_records.each(function( index, element ) {
+                   if (element.dataset.type == "public") {
+                      has_public = true;
+                   }
                    var gid = $(this).find(".gid_span").html();                
                    _selection += gid+"-";  
                });
-               
                 $("#container-selected-items .navi-item .ctools-use-modal").each(function(index){
-                      var href = $(this).attr("href");
-                      var array_href = href.split("/");
-                      array_href[array_href.length - 1] = _selection;
-                      var new_href = array_href.join("/");
-                      $(this).attr("href", new_href);
-                      $(this).removeClass("ctools-use-modal-processed");
-                      $(this).off( "click");
+                      let naviItem = $(this).closest(".navi-item");
+                      if (has_public) {
+                        naviItem.addClass("disabled");
+                        naviItem.attr("title", Drupal.t("Public spaces members are the members of the Public userlist", {}, {context: 'gofast:gofast_userlist'}));
+                        naviItem.attr("data-trigger", "hover");
+                        naviItem.attr("data-placement", "bottom");
+                        naviItem.attr("data-toggle", "tooltip");
+                      } else {
+                        naviItem.removeClass("disabled");
+                        naviItem.removeAttr("title");
+                        naviItem.removeAttr("data-toggle");
+                      }
+                      var href = $(this).attr('href');
+                      var array_href = href.split('/');
+                      if (array_href.includes('contact') && array_href.includes('admins')) {
+                        array_href[array_href.length - 3] = _selection;
+                      } else if ($(this).attr('id') === 'bookmark-link' ||
+                        $(this).attr('id') === 'unbookmark-link' ||
+                        $(this).attr('id') === 'archive-link') {
+                          array_href[array_href.length - 2] = _selection;
+                      } else {
+                        array_href[array_href.length - 1] = _selection;
+                      }
+                      var new_href = array_href.join('/');
+                      $(this).attr('href', new_href);
+                      $(this).removeClass('ctools-use-modal-processed');
+                      $(this).off('click');
                 });
 
                 GofastTriggerKDataTableMegaDropdown(selected_records,"gofastDirectorySpacesTable");
@@ -342,15 +366,34 @@
             $("#gofastDirectorySpacesTable").on("datatable-on-uncheck", function(event,args){
                 var selected_records = _table.getSelectedRecords();
                 _selection = "";
-                selected_records.each(function( index ) {
+                let has_public = false;
+                selected_records.each(function( index, element ) {
+                    if (element.dataset.type == "public") {
+                      has_public = true;
+                    }
                     var gid = $(this).find(".gid_span").html();
                     _selection += gid+"-";
                 });
-               
                 $("#container-selected-items .navi-item .ctools-use-modal").each(function(index){
+                      let naviItem = $(this).closest(".navi-item");
+                      if (has_public) {
+                        naviItem.addClass("disabled");
+                        naviItem.attr("title", Drupal.t("Public spaces members are the members of the Public userlist", {}, {context: 'gofast:gofast_userlist'}));
+                        naviItem.attr("data-placement", "bottom");
+                        naviItem.attr("data-toggle", "tooltip");
+                        naviItem.attr("data-toggle", "tooltip");
+                      } else {
+                        naviItem.removeClass("disabled");
+                        naviItem.removeAttr("title");
+                        naviItem.removeAttr("data-toggle");
+                      }
                       var href = $(this).attr("href");
                       var array_href = href.split("/");
-                      array_href[array_href.length - 1] = _selection;
+                      if($(this).attr('id') === 'archive-link') {
+                        array_href[array_href.length - 2] = _selection;
+                      }else{
+                        array_href[array_href.length - 1] = _selection;
+                      }
                       var new_href = array_href.join("/");
                       $(this).attr("href", new_href);
                       $(this).removeClass("ctools-use-modal-processed"); 
@@ -380,14 +423,55 @@
                 }
              });
             }
+            //wait for the 3 user filters being loaded
+            const tagifyInterval = setInterval(function(){
+                var inputElms = $('input[name^="ac-list-tags"]');
+                if (inputElms.length < 3) {
+                    return;
+                }
+                if(window.tagify == undefined){
+                    return;
+                }
+                clearInterval(tagifyInterval);
+                jQuery.each(inputElms,function(i,el){
+                    //add blur event on each tagify instance to keep focus when tag outside the original input are clicked
+                    window.tagify[el.name].on("blur",(e)=>{
+                        if(e.detail.relatedTarget !== null){
+                            if(e.detail.relatedTarget.tagName == 'TAG'){
+                                //set focus on the input
+                                window.tagify[el.name].toggleFocusClass(1);
+                                $(window.tagify[el.name].DOM.scope).click();
+
+                                
+                            }else{
+                                
+                                window.tagify[el.name].toggleFocusClass(0);
+                            }
+                            
+                        }
+                        window.tagify[el.name].DOM.scope.scrollLeft = 0;
+                    });
+                    //set number limit of tag in input
+                    window.tagify[el.name].on('add',(e)=>{
+                        let maxTagNb = 4;
+                        if(e.detail.index > maxTagNb-1){
+                            window.tagify[el.name].removeTags();
+                            Gofast.toast(Drupal.t("You can't have more than @count tags in this input", {"@count": 4}, {"context": "gofast:gofast_directory"}));
+                        }
+                    });
+                });
+
+            },200);
 
             // the form being rendered ad hoc, we have to wait for it to be rendered before we can attach events to it
             const formInterval = setInterval(function() {
                 if (!$('#DirectorySpacesFilterForm').length) {
                     return;
                 }
+            
                 $('#DirectorySpacesFilterForm').on('submit', function(e){
                     e.preventDefault()
+                    _table.spinnerCallback(true)
                     let filterArr = $(this).serializeArray()
                     let filter = Object.create({})
 
@@ -398,21 +482,27 @@
                         }
                     })
 
-                    $(".datatable-pager-link[data-page='1']:not('.database-pager-link-inactive')")[0].click();
+                    if($(".datatable-pager-link[data-page='1']:not('.database-pager-link-inactive')").length){
+                        $(".datatable-pager-link[data-page='1']:not('.database-pager-link-inactive')")[0].click();
+                    }
 
                     _table.setDataSourceParam("query", filter)
                     _table.load()
                 })
 
                 $('#DirectorySpacesFilterForm').on('reset', function(e){
+                    var inputElms = $('input[name^="ac-list-tags"]');
+                    jQuery.each(inputElms,function(i,el){
+                        window.tagify[el.name].removeAllTags();
+                    })
                     $(e.currentTarget['status']).val('').selectpicker("refresh")
                     _table.setDataSourceParam("query", {})
                     _table.load()
                 })
                 clearInterval(formInterval);
+                Drupal.attachBehaviors();
             }, 100);
 
-            Drupal.attachBehaviors();
         }
 
         var initPopover = function(el) {

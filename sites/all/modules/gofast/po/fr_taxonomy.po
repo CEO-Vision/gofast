@@ -4,8 +4,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
-"POT-Creation-Date: 2022-05-16 07:32+0100\n"
-"PO-Revision-Date: 2022-05-16 07:32+0100\n"
+"POT-Creation-Date: 2023-02-02 17:51+0000\n"
+"PO-Revision-Date: 2023-02-02 17:51+0000\n"
 "Last-Translator: NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
 "MIME-Version: 1.0\n"
@@ -81,6 +81,22 @@ msgstr ""
 #: taxonomy:term:dbff1f6b-e46e-47cd-b0e9-98c89e0c1dfd:name
 msgctxt "term:dbff1f6b-e46e-47cd-b0e9-98c89e0c1dfd:name"
 msgid "economie"
+msgstr ""
+
+#: taxonomy:term:6c4054f5-4aef-4994-98d9-2b4b4bc75e8f:name
+msgid "Wiki article"
+msgstr "Article wiki"
+
+#: taxonomy:term;6c4054f5-4aef-4994-98d9-2b4b4bc75e8f:description
+msgid "A Wiki page"
+msgstr "Une page wiki"
+
+#: taxonomy:term:542898d5-22e2-4b1e-b74a-2cb3ba161cfc:name
+msgid "coucou"
+msgstr "BANJOUR"
+
+#: taxonomy:term;542898d5-22e2-4b1e-b74a-2cb3ba161cfc:description
+msgid ""
 msgstr ""
 
 #: taxonomy:term:0206d3a9-f180-4da2-b30f-e4c4a80abb3b:name
@@ -973,3 +989,77 @@ msgctxt "vocabulary:9:name"
 msgid "State"
 msgstr "Étiquettes "
 
+#: taxonomy:term:e9102eb4-e891-408e-992e-827933b92345
+msgctxt "term:e9102eb4-e891-408e-992e-827933b92345:name"
+msgid "C1 – Internal"
+msgstr "C1 – Interne"
+
+#: taxonomy:term:10ddee46-e89e-4e2a-be13-4228db73b993
+msgctxt "term:10ddee46-e89e-4e2a-be13-4228db73b993:name"
+msgid "Secret Defence"
+msgstr "Secret-défense"
+
+#: taxonomy:term:123e4567-e89b-12d3-a456-426614174000
+msgctxt "term:123e4567-e89b-12d3-a456-426614174000:name"
+msgid "Restricted Diffusion"
+msgstr "Diffusion Restreinte"
+
+#: taxonomy:term:dee88d73-89a3-4809-864e-3b3000a16b94
+msgctxt "term:dee88d73-89a3-4809-864e-3b3000a16b94:name"
+msgid "NC – Unclassified / Public"
+msgstr "NC – Non Classifié / Public"
+
+#: taxonomy:term:d350abef-e0af-4c02-8dad-b0afa45fa041
+msgctxt "term:d350abef-e0af-4c02-8dad-b0afa45fa041:name"
+msgid "C2 – Confidential / Sensitive"
+msgstr "C2 – Confidentiel / Sensible"
+
+#: taxonomy:term:04ea8dab-b2d6-41ef-99bb-700182ac3e26
+msgctxt "term:04ea8dab-b2d6-41ef-99bb-700182ac3e26:name"
+msgid "C3 – Restricted / Secret / Sensitive sovereign"
+msgstr "C3 – Restreint / Secret / Sensible souverain"
+
+#: taxonomy:term:8c948f9c-2c6f-40fc-8646-363e3421f96e
+msgctxt "term:8c948f9c-2c6f-40fc-8646-363e3421f96e:name"
+msgid "Top Secret Defence"
+msgstr "Très Secret-Défense"
+
+#: taxonomy:term:10ddee46-e89e-4e2a-be13-4228db73b993
+msgctxt "term:10ddee46-e89e-4e2a-be13-4228db73b993:name"
+msgid "Secret Defence"
+msgstr "Secret-défense"
+
+#: taxonomy:term:18910c4b-182e-43c5-9b45-ab890c19793f
+msgctxt "term:18910c4b-182e-43c5-9b45-ab890c19793f:name"
+msgid "French Military"
+msgstr "Militaire France"
+
+#: taxonomy:term:a95660f3-492d-410f-b464-a0fa6597989f
+msgctxt "term:a95660f3-492d-410f-b464-a0fa6597989f:name"
+msgid "Civil Organization"
+msgstr "Organisation Civile"
+
+#: taxonomy:term:6e1c579f-7f4b-4c94-ba0f-a7824352024a
+msgctxt "term:6e1c579f-7f4b-4c94-ba0f-a7824352024a:name"
+msgid "EUCI"
+msgstr "ICUE"
+
+#: taxonomy:term:332108c8-22ce-44ab-8403-f2104af6593a
+msgctxt "term:332108c8-22ce-44ab-8403-f2104af6593a:name"
+msgid "EU Restricted"
+msgstr "Restreint UE"
+
+#: taxonomy:term:90227f22-fa70-4c8b-b154-8c001dbbee5f
+msgctxt "term:90227f22-fa70-4c8b-b154-8c001dbbee5f:name"
+msgid "EU Confidential"
+msgstr "Confidentiel UE"
+
+#: taxonomy:term:09502a91-093e-469e-a054-f9d8826e4b9c
+msgctxt "term:09502a91-093e-469e-a054-f9d8826e4b9c:name"
+msgid "EU Secret"
+msgstr "Secret UE"
+
+#: taxonomy:term:bd3fdb50-6389-4842-b7dd-ce3cef6baa33
+msgctxt "term:bd3fdb50-6389-4842-b7dd-ce3cef6baa33:name"
+msgid "EU Top Secret"
+msgstr "Très Secret UE"

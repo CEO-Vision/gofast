@@ -28,7 +28,7 @@ function gofast_riot_api_create_room($room_name, $invite_users = array()){
   return json_decode($result,TRUE);
 }
 
-function gofast_riot_api_send_message($user = NULL, $target_id, $message = NULL){
+function gofast_riot_api_send_message($user = NULL, $target_id = NULL, $message = NULL){
 
   global $conf;
 

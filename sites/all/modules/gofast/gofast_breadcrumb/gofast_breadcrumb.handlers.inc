@@ -9,21 +9,24 @@
  * options => Array of options
  * 
  */
-function gofast_breadcrumb_handle_alfresco_item($node, $options = []){
+function gofast_breadcrumb_handle_alfresco_item($node, &$options = []){
   
   //Check if $node is locked
   $node_reference = gofast_cmis_node_get_item_id($node);
-  
+
   //Retrieve locations of the document
-  $main_location = array($node->{GOFAST_CMIS_MAIN_LOCATION_FIELD}[LANGUAGE_NONE][0]['value']);
-  $other_locations = gofast_cmis_webservice_get_node_parents($node_reference);
-  $locations = array_unique(array_merge($main_location, $other_locations));
-  $lock_state = gofast_cmis_webservice_execute_request("getlocked", $node_reference);
-  if($lock_state != 'nolocked'){
-    //Force not editable option
-    $options['editable'] = FALSE;
+  if($node->status != 0){
+    $locations = gofast_cmis_webservice_get_node_parents($node_reference);
+  } else {
+    $main_location = array($node->{GOFAST_CMIS_MAIN_LOCATION_FIELD}[LANGUAGE_NONE][0]['value']);
+    $all_locations = $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE];
+    $other_locations = [];
+    foreach($all_locations as $other_location){
+      $other_locations[] = $other_location['value'];
+    }
+    $locations = array_unique(array_merge($main_location, $other_locations));
   }
-  
+  $options["editable"] = gofast_contextual_menu_get_action_access("rename", $node);
   if($options['remove_extension']){
     $node->title = pathinfo($node->title)['filename'];
   }
@@ -53,7 +56,7 @@ function gofast_breadcrumb_handle_alfresco_item($node, $options = []){
  * options => Array of options
  * 
  */
-function gofast_breadcrumb_handle_article($node, $options = []){
+function gofast_breadcrumb_handle_article($node, &$options = []){
   return gofast_breadcrumb_handle_alfresco_item($node, $options);
 }
 
@@ -66,7 +69,7 @@ function gofast_breadcrumb_handle_article($node, $options = []){
  * options => Array of options
  * 
  */
-function gofast_breadcrumb_handle_forum($node, $options = []){
+function gofast_breadcrumb_handle_forum($node, &$options = []){
   $spaces = $node->og_group_content_ref[LANGUAGE_NONE];
   $crumbs = [];
   
@@ -113,7 +116,7 @@ function gofast_breadcrumb_handle_forum($node, $options = []){
  * options => Array of options
  * 
  */
-function gofast_breadcrumb_handle_webform($node, $options = []){
+function gofast_breadcrumb_handle_webform($node, &$options = []){
   return gofast_breadcrumb_handle_forum($node, $options);
 }
 
@@ -126,7 +129,7 @@ function gofast_breadcrumb_handle_webform($node, $options = []){
  * options => Array of options
  * 
  */
-function gofast_breadcrumb_handle_spaces($node, $options = []){
+function gofast_breadcrumb_handle_spaces($node, &$options = []){
   //Retrieve locations of the space
   $locations = [gofast_cmis_space_get_webdav_path($node->nid)];
   
@@ -159,7 +162,7 @@ function gofast_breadcrumb_handle_spaces($node, $options = []){
  * options => Array of options
  * 
  */
-function gofast_breadcrumb_handle_group($node, $options = []){
+function gofast_breadcrumb_handle_group($node, &$options = []){
   $crumbs = gofast_breadcrumb_handle_spaces($node, $options);
   
   return $crumbs;
@@ -174,7 +177,7 @@ function gofast_breadcrumb_handle_group($node, $options = []){
  * options => Array of options
  * 
  */
-function gofast_breadcrumb_handle_organisation($node, $options = []){
+function gofast_breadcrumb_handle_organisation($node, &$options = []){
   $crumbs = gofast_breadcrumb_handle_spaces($node, $options);
   
   return $crumbs;
@@ -189,7 +192,7 @@ function gofast_breadcrumb_handle_organisation($node, $options = []){
  * options => Array of options
  * 
  */
-function gofast_breadcrumb_handle_extranet($node, $options = []){
+function gofast_breadcrumb_handle_extranet($node, &$options = []){
   $crumbs = gofast_breadcrumb_handle_spaces($node, $options);
   
   return $crumbs;
@@ -204,7 +207,7 @@ function gofast_breadcrumb_handle_extranet($node, $options = []){
  * options => Array of options
  * 
  */
-function gofast_breadcrumb_handle_public($node, $options = []){
+function gofast_breadcrumb_handle_public($node, &$options = []){
   $crumbs = gofast_breadcrumb_handle_spaces($node, $options);
   
   return $crumbs;
@@ -219,7 +222,7 @@ function gofast_breadcrumb_handle_public($node, $options = []){
  * options => Array of options
  * 
  */
-function gofast_breadcrumb_handle_private_space($node, $options = []){
+function gofast_breadcrumb_handle_private_space($node, &$options = []){
   $crumbs = gofast_breadcrumb_handle_spaces($node, $options);
   
   return $crumbs;

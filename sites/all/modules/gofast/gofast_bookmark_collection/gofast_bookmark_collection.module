@@ -1,0 +1,972 @@
+<?php
+require_once 'include/gofast.bookmark_collection.entity.inc';
+/**
+ * @file
+ * gofast_bookmark_collection.module
+ */
+
+/**
+ * Implements hook_entity_info().
+ */
+function gofast_bookmark_collection_entity_info(){
+  $info = array();
+
+  $info['bookmark_collection'] = array(
+    'label' => t('Bookmark Collection'),
+    'base table' => 'gofast_bookmark_collections',
+    'entity keys' => array(
+      'id' => 'bcid',
+      'label' => 'name',
+    ),
+    'module' => 'gofast_bookmark_collection',
+    'entity class' => 'BookmarkCollectionEntity',
+    'controller class' => 'BookmarkCollectionEntityController',
+    'access callback' => 'gofast_bookmark_collection_access_callback',
+    'uri callback' => 'entity_class_uri',
+    'fieldable' => TRUE,
+    'views controller class' => 'EntityDefaultViewsController',
+  );
+
+  return $info;
+}
+
+/**
+ * Implements hook_library
+ */
+function gofast_bookmark_collection_library() {
+  $libraries = array();
+  $path = drupal_get_path('module', 'gofast_bookmark_collection');
+  $libraries['gofast_bookmark_collection'] = array(
+    'title' => 'Gofast Bookmark Collection Libs',
+    'version' => '1.0',
+    'js' => array(
+      $path . '/js/gofast_bookmark_collection.js' => array(
+        'group' => JS_LIBRARY, // JS_DEFAULT
+        'every_page' => TRUE,
+        'weight' => 10
+      )
+    ),
+    'css' => array(
+      $path . '/css/gofast_bookmark_collection.css' => array(
+        'group' => CSS_THEME,
+        'every_page' => TRUE,
+        'weight' => 10
+      )
+    )
+  );
+  return $libraries;
+}
+
+/**
+ * Implements hook_init().
+ */
+function gofast_bookmark_collection_init() {
+  drupal_add_library('gofast_bookmark_collection', 'gofast_bookmark_collection', TRUE);
+}
+
+/**
+ * Implements hook_menu().
+ */
+function gofast_bookmark_collection_menu() {
+  $items = array();
+
+  $items['bookmark_collection/flag_content/%'] = array(
+    'title' => t('Add / Remove bookmark item', array(), array('context' => 'gofast:bookmark_collection')),
+    'description' => t('Add / Remove bookmark item', array(), array('context' => 'gofast:bookmark_collection')),
+    'page callback' => 'gofast_bookmark_collection_flag_content',
+    'type' => MENU_NORMAL_ITEM,
+    'page arguments' => array(2),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+  $items['bookmark_collection/add/%'] = array(
+    'title' => t('Add new bookmark collection', array(), array('context' => 'gofast:bookmark_collection')),
+    'description' => t('Add new bookmark collection', array(), array('context' => 'gofast:bookmark_collection')),
+    'page callback' => 'gofast_bookmark_collection_create_bookmark_collection',
+    'page arguments' => array(2),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+  );
+  $items['bookmark_collection/remove/%'] = array(
+    'title' => t('Remove bookmark collection', array(), array('context' => 'gofast:bookmark_collection')),
+    'description' => t('Remove bookmark collection', array(), array('context' => 'gofast:bookmark_collection')),
+    'page callback' => 'gofast_bookmark_collection_remove_bookmark_collection',
+    'page arguments' => array(2),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+  );
+  $items['bookmark_collection/rename/%'] = array(
+    'title' => t('Rename bookmark collection', array(), array('context' => 'gofast:bookmark_collection')),
+    'description' => t('Rename bookmark collection', array(), array('context' => 'gofast:bookmark_collection')),
+    'page callback' => 'gofast_bookmark_collection_rename_bookmark_collection',
+    'page arguments' => array(2),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+  );
+  $items["bookmark_collection/append"] = array(
+    'title' => t('Append item to bookmark collection', array(), array('context' => 'gofast:bookmark_collection')),
+    'description' => t('Append item to bookmark collection', array(), array('context' => 'gofast:bookmark_collection')),
+    'page callback' => 'gofast_bookmark_collection_add_to_bookmark_collection',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+  );
+  $items["bookmark_collection/get"] = array(
+    'title' => t('Get user bookmark tree data', array(), array('context' => 'gofast:bookmark_collection')),
+    'description' => t('Get user bookmark tree data', array(), array('context' => 'gofast:bookmark_collection')),
+    'page callback' => 'gofast_bookmark_collection_get_full_content_bookmark_collection_tree',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+  );
+  $items["bookmark_collection/contextual_action"] = array(
+    "title" => t("Get bookmarks contextual actions", array(), array("context" => "gofast:bookmark_collection")),
+    "description" => t("Get bookmarks contextual actions", array(), array("context" => "gofast:bookmark_collection")),
+    "page callback" => "gofast_bookmark_collection_get_bookmark_contextual_actions",
+    "type" => MENU_CALLBACK,
+    "access arguments" => array("access content"),
+  );
+
+  return $items;
+}
+
+/**
+ * Hook theme
+ * @return type
+ */
+function gofast_bookmark_collection_theme() {
+  return array(
+      'gofast_bookmark_collection_tree' => array(
+          'template' => 'tpl/gofast-bookmark-collection-tree',
+      ),
+  );
+}
+
+/**
+ * Add / Remove bookmark content
+ */
+function gofast_bookmark_collection_flag_content($nid) {
+  global $user;
+  $flag = flag_get_flag("bookmarks");
+  $node = node_load($nid);
+  // isAjax is used to know if this function is called from an ajax context
+  if(isset($_POST["isAjax"])){
+    $is_ajax = gofast_xss_clean($_POST["isAjax"]);
+    $is_ajax = filter_var($is_ajax, FILTER_VALIDATE_BOOLEAN);
+  }
+
+  // User has no permission to use this flag.
+  if (!$flag->access($nid) && (!$flag->is_flagged($nid) || !$flag->access($nid, 'flag'))) {
+    return;
+  }
+  $action = null;
+  if($flag->is_flagged($nid)){
+    $flag->flag('unflag', $nid, $user, TRUE);
+    $action = "unflag";
+  } else {
+    $flag->flag('flag', $nid, $user, TRUE);
+    
+    $flagging_id = gofast_bookmark_collection_get_item_flagging_id($flag, $nid);
+    db_insert("gofast_bookmark_collections__flagging")
+      ->fields(array(
+        'bcid' => null,
+        'flagging_id' => $flagging_id,
+      ))
+      ->execute();
+      $action = "flag";
+  }
+  if($is_ajax){
+    drupal_json_output($action);
+    exit;
+  } else {
+    return $action;
+  }
+}
+/**
+ * Create a new bookmark collection for the given parent
+ */
+function gofast_bookmark_collection_create_bookmark_collection($parent_bcid){
+  global $user;
+  $name = null;
+  $tree_id = null;
+  if(isset($_POST["name"])){
+    $name = gofast_xss_clean($_POST["name"]);
+  }
+  if(isset($_POST["treeId"])){
+    $tree_id = gofast_xss_clean($_POST["treeId"]);
+  }
+  // Cancel if one of the two variables has not been set correctly
+  if($name == null || $tree_id == null){
+    return false;
+    exit;
+  }
+  // If the bcid is null, make it not a string for the db insertion
+  if($parent_bcid == "null"){
+    $parent_bcid = null;
+  }
+  // Check if the bookmark collection already exist before creating it
+  $exists = gofast_bookmark_collection_check_already_exist_name($name, $tree_id);
+
+  if(!$exists){
+    $bcid = db_insert('gofast_bookmark_collections')
+        ->fields(array(
+          'name' => $name,
+          'parent_bcid' => $parent_bcid,
+          'uid' => $user->uid,
+          'tree_id' => $tree_id
+        ))
+        ->execute();
+    print($bcid);
+    exit;
+  } else {
+    print("false");
+    exit;
+  }
+}
+
+/**
+ * Link content to bookmark collection in the parent $bcid (if $bcid = null it's the root bookmark collection)
+ * If depth is null, it will fetch ALL children
+ */
+function gofast_bookmark_collection_get_full_content_bookmark_collection_tree($bcid = null, $depth = 0, $is_ajax = false, $only_bookmark_collections = false, $tree_id = "bookmark_content_tree", $item_type = "content"){
+  global $user;
+  $icons = gofast_taxonomy_get_map_extensions_icons();
+  $bookmark_collection_icon = "fas ztreeFa fa-star n-color bookmarkCollectionIcon ";
+  
+  // isAjax is used to know if this function is called from an ajax context
+  if(isset($_POST["isAjax"])){
+    $is_ajax = gofast_xss_clean($_POST["isAjax"]);
+    $is_ajax = filter_var($is_ajax, FILTER_VALIDATE_BOOLEAN);
+    // Prevent to use isAjax in recursive call
+    unset($_POST["isAjax"]);
+  }
+  if(isset($_POST["bcid"])){
+    $bcid = gofast_xss_clean($_POST["bcid"]);
+    unset($_POST["bcid"]);
+  }
+  // Get the desired depth to limit loading on big tree
+  if(isset($_POST["depth"])){
+    $depth = gofast_xss_clean($_POST["depth"]);
+    if($depth == ""){
+      $depth = null;
+    } else {
+      $depth = intval($depth);
+    }
+    // Prevent to re-use ajax given depth in recursive call
+    unset($_POST["depth"]);
+  }
+  if(isset($_POST["onlyBookmarkCollections"])){
+    $only_bookmark_collections = gofast_xss_clean($_POST["onlyBookmarkCollections"]);
+    $only_bookmark_collections = filter_var($only_bookmark_collections, FILTER_VALIDATE_BOOLEAN);
+    
+    unset($_POST["onlyBookmarkCollections"]);
+  }
+  if(isset($_POST["treeId"])){
+    $tree_id = gofast_xss_clean($_POST["treeId"]);
+    
+    unset($_POST["treeId"]);
+  }
+  if(isset($_POST["itemType"])){
+    $item_type = gofast_xss_clean($_POST["itemType"]);
+    
+    unset($_POST["itemType"]);
+  }
+  // Load the actual bookmark collection if it is not the root item
+  if($bcid != null){
+    $entity = entity_load_single("bookmark_collection", $bcid);
+    // returns an empty array if the bookmark collection does not belong to the user
+    if($entity->uid != $user->uid){
+      return [];
+    }
+  }
+  // Load the current bookmark collection entity with the given bcid
+  if($bcid == null){ // If bcid is null, then create a "fake" entity instance
+    $bookmark_collection = new stdClass();
+    $bookmark_collection->name = "root";
+    $bookmark_collection->bcid = null;
+  } else {
+    $bookmark_collection = entity_load_single("bookmark_collection", $bcid);
+  }
+
+  // Get the path of the bookmark collection and use it to make the item path
+  $bookmark_collection_path = gofast_bookmark_collection_get_path_from_bcid($bookmark_collection->parent_bcid);
+  $item_path = $bookmark_collection_path . $bookmark_collection->name . "/";
+
+  // Get the generic item type
+  $is_content = ($item_type == "content" || $item_type == "document" || $item_type == "space");
+  // Get all contents of current bookmark collection loaded
+  if(!$only_bookmark_collections && $is_content){
+    $contents = gofast_bookmark_collection_get_bookmark_collection_contents($tree_id, $bcid, $item_type);
+    // Append new tree node object to the bookmark collection children
+    foreach($contents as $nid => $content){
+      $extension = pathinfo($content->title, PATHINFO_EXTENSION);
+      $extension = strtolower($extension);
+      if($content->type == "alfresco_item"){
+        if(isset($icons[$extension])){
+          $icon = gofast_utils_transform_to_fa5_icone($icons[$extension]);
+        } else {
+          $icon = "far fa-file";
+        }
+      } else {
+        $icon = gofast_node_get_icon($content);
+      }
+      // Don't append content if it's the last iteration
+      if($depth != 0 || is_null($depth)){
+        $content_children = array(
+          "name" => $content->title,
+          "nid" => $nid,
+          "type" => "content",
+          "iconSkin" => $icon." bookmark_collection ztreeFa ",
+          "nocheck" => true,
+          "dropInner" => false,
+          "itemPath" => $item_path,
+        );
+        $bookmark_collection_tree["children"][] = $content_children;
+      }
+    }
+  }
+  // Get all folders of current bookmark collection loaded
+  if(!$only_bookmark_collections && $item_type == "folder") {
+    $folders = gofast_bookmark_collection_get_bookmark_collection_folders($tree_id, $bcid);
+    // Append new tree node object to the bookmark collection children
+    foreach($folders as $fbid => $folder){
+      $icon = "fa fa-folder";
+      $folder_item = gofast_cmis_item_get($folder->folder_reference);
+      $folder_name = $folder_item->properties['cmis:name'];
+      $folder_path = $folder_item->properties['cmis:path'];
+      if($depth != 0 || is_null($depth)){
+        $folder_children = array(
+          "name" => $folder_name,
+          "path" => $folder_path,
+          "reference" => $folder->folder_reference,
+          "fbid" => $fbid,
+          "type" => "folder",
+          "iconSkin" => $icon." bookmark_collection",
+          "nocheck" => true,
+          "dropInner" => false,
+          "itemPath" => $item_path,
+        );
+        $bookmark_collection_tree["children"][] = $folder_children;
+      }
+    }
+  }
+  
+  // Make ztree node with current bookmark collection data
+  $bookmark_collection_tree["name"] = $bookmark_collection->name;
+  $bookmark_collection_tree["bcid"] = $bookmark_collection->bcid;
+  $bookmark_collection_tree["itemPath"] = $bookmark_collection_path;
+  $bookmark_collection_tree["open"] = false;
+  $bookmark_collection_tree["iconSkin"] = $bookmark_collection_icon;
+  $bookmark_collection_tree["type"] = "bookmark_collection";
+  $bookmark_collection_tree["isParent"] = true;
+
+  $query = db_select("gofast_bookmark_collections", "gbc");
+  $query->fields("gbc", array("bcid", "name", "parent_bcid"));
+  $query->condition("gbc.uid", $user->uid, "=");
+  $query->condition("gbc.tree_id", $tree_id, "=");
+  if($bookmark_collection->bcid == null){
+    $query->isNull("gbc.parent_bcid");
+  } else {
+    $query->condition("gbc.parent_bcid", $bookmark_collection->bcid, "=");
+  }
+  $results = $query->execute()
+                    ->fetchAllAssoc("bcid");
+
+  foreach($results as $result){
+    if($depth != 0){
+      $bookmark_collection_tree["children"][] = gofast_bookmark_collection_get_full_content_bookmark_collection_tree(bcid: $result->bcid, depth: $depth-1, only_bookmark_collections: $only_bookmark_collections, tree_id: $tree_id, item_type: $item_type);
+    } else if(is_null($depth)){ // If the depth is null, make sure to continue until the end
+      $bookmark_collection_tree["children"][] = gofast_bookmark_collection_get_full_content_bookmark_collection_tree(bcid: $result->bcid, depth: null, only_bookmark_collections: $only_bookmark_collections, tree_id: $tree_id, item_type: $item_type);
+    }
+  }
+  if($is_ajax){
+    drupal_json_output($bookmark_collection_tree);
+    exit;
+  } else {
+    return $bookmark_collection_tree;
+  }
+}
+
+function gofast_bookmark_collection_remove_bookmark_collection($bcid){
+  $is_ajax = false;
+  $tree_id = null;
+  if(isset($_POST["isAjax"])){
+    $is_ajax = gofast_xss_clean($_POST["isAjax"]);
+    $is_ajax = filter_var($is_ajax, FILTER_VALIDATE_BOOLEAN);
+    unset($_POST["isAjax"]);
+  }
+  if(isset($_POST["treeId"])){
+    $tree_id = gofast_xss_clean($_POST["treeId"]);
+    unset($_POST["treeId"]);
+  }
+  $entity = entity_load_single("bookmark_collection", $bcid);
+  if($entity){
+    $tree = gofast_bookmark_collection_get_full_content_bookmark_collection_tree(bcid: $bcid, depth: null, tree_id: $tree_id);
+    $array_tree = gofast_bookmark_collection_get_array_from_tree($tree);
+    
+    $entity->delete();
+    
+    // Check if deletion work by checking if it still exist
+    $is_deleted = !((bool)entity_load_single('bookmark_collection', $bcid));
+    if($is_deleted){
+      // If the bookmark collection has been deleted, unflag all content children
+      foreach($array_tree as $tree_item){
+        if($tree_item["type"] == "content"){
+          gofast_bookmark_collection_flag_content($tree_item["nid"]);
+        } else if ($tree_item["type"] == "folder"){
+          gofast_ajax_file_browser_unbookmark_folder($tree_item["reference"]);
+        }
+      }
+    }
+    if($is_ajax){
+      print($is_deleted);
+      exit;
+    } else {
+      return $is_deleted;
+    }
+  }
+}
+
+function gofast_bookmark_collection_add_to_bookmark_collection(){
+
+  // item_id can be a bcid or a nid
+  if(isset($_POST["item_id"])){
+    $id = gofast_xss_clean($_POST["item_id"]);
+  }
+  // item_type is used to know if the moved item is a content or a bookmark collection
+  if(isset($_POST["item_type"])){
+    $type = gofast_xss_clean($_POST["item_type"]);
+  }
+  // container_id is the bookmark collection to which the user wants to add items
+  if(isset($_POST["container_id"])){
+    $bookmark_collection_container_id = gofast_xss_clean($_POST["container_id"]);
+    // If container id is an empty string, the container is the root bookmark collection
+    if($bookmark_collection_container_id == ""){
+      $bookmark_collection_container_id = null;
+    }
+  }
+  $flag = flag_get_flag("bookmarks");
+  $response = [];
+
+  if($type == "bookmark_collection"){ // Change parent bcid of the bookmark collection to become its child
+    db_update("gofast_bookmark_collections")
+      ->fields(array("parent_bcid" => $bookmark_collection_container_id))
+      ->condition('bcid', $id, "=")
+      ->execute();
+  } else if($type == "content"){ // Change the linked bcid to become its child
+    $flagging_id = gofast_bookmark_collection_get_item_flagging_id($flag, $id);
+    db_update("gofast_bookmark_collections__flagging")
+      ->fields(array(
+          "bcid" => $bookmark_collection_container_id,
+          "flagging_id" => $flagging_id[0],
+      ))
+      ->condition("flagging_id", $flagging_id, "=")
+      ->execute();
+    $node = node_load($id);
+    $extension = pathinfo($node->title, PATHINFO_EXTENSION);
+    $icons = gofast_taxonomy_get_map_extensions_icons();
+    if($node->type == "alfresco_item"){
+      if(isset($icons[$extension])){
+        $icon = gofast_utils_transform_to_fa5_icone($icons[$extension]);
+      } else {
+        $icon = "fa fa-file-o file-other";
+      }
+    } else {
+      $icon = gofast_node_get_icon($node);
+    }
+    $response["treeNode"] = array(
+      "name" => $node->title,
+      "nid" => $id,
+      "type" => "content",
+      "iconSkin" => $icon." bookmark_collection ztreeFa ",
+      "nocheck" => true,
+      "dropInner" => false,
+      "itemPath" => null,
+    );
+    // Return the specific node type for dashboard display
+    $response["treeNodeType"] = gofast_og_is_space($node) ? "space" : "document";
+  } else if($type == "folder"){
+    $fbid = gofast_ajax_file_browser_get_fbid_from_reference($id);
+    db_update("gofast_bookmark_collections__bookmark_folder")
+      ->fields(array(
+        "bcid" => $bookmark_collection_container_id,
+        "fbid" => $fbid,
+      ))
+      ->condition("fbid", $fbid, "=")
+      ->execute();
+    $icon = "fa fa-folder";
+    $folder_item = gofast_cmis_item_get($id);
+    $folder_name = $folder_item->properties['cmis:name'];
+    $folder_path = $folder_item->properties['cmis:path'];
+    $response["treeNode"] = array(
+      "name" => $folder_name,
+      "path" => $folder_path,
+      "reference" => $id,
+      "fbid" => $fbid,
+      "type" => "folder",
+      "iconSkin" => $icon." bookmark_collection",
+      "nocheck" => true,
+      "dropInner" => false,
+      "itemPath" => null,
+    );
+  }
+  drupal_json_output($response);
+  exit;
+}
+
+function gofast_bookmark_collection_get_item_flagging_id($flag, $entity_id){
+  global $user;
+  $flagging_id = db_select("flagging", "f")
+                  ->fields("f", array("flagging_id"))
+                  ->condition("entity_id", $entity_id, "=")
+                  ->condition("fid", $flag->fid, "=")
+                  ->condition("uid", $user->uid, "=")
+                  ->execute()
+                  ->fetchCol();
+
+  return $flagging_id;
+}
+
+function gofast_bookmark_collection_get_bookmark_contextual_actions(){
+  // Get the item_id of the right clicked item
+  $item_id = null;
+  $tree_id = null;
+  $item_type = null;
+  if(isset($_POST["itemId"])){
+    $item_id = gofast_xss_clean($_POST["itemId"]);
+  }
+  if(isset($_POST["treeId"])){
+    $tree_id = gofast_xss_clean($_POST["treeId"]);
+  }
+  if(isset($_POST["itemType"])){
+    $item_type = $_POST["itemType"];
+  }
+  if(isset($_POST["targetTreeId"])){
+    $target_tree_id = gofast_xss_clean($_POST["targetTreeId"]);
+  }
+  
+  if($item_type == "content"){
+
+    $bookmark_flag = flag_get_flag("bookmarks");
+    $bookmark_is_flagged = $bookmark_flag->is_flagged($item_id);
+    $node_actions[]['themed'] =  theme('gofast_link_generic', array(
+      'text' => t('Open in a new tab', array(), array('context' => 'gofast')),
+      'link_id' => "open_new_tab" ,
+      'href' => '',
+      'icon_class' => 'fa fa-arrow-right',
+      'onClick' => 'window.open(\'/node/' . $item_id . '\', \'_blank\')',
+      'title' => t('Open in a new tab of your browser'),
+      'page' => array('gofast_contextual_menu_is_from_browser', 'gofast_contextual_menu_node_is_not_delete'),
+      'type' => array('alfresco_item', 'article', 'group', 'organisation', 'extranet', 'public'),
+      'access_function' => ''
+    ));
+    $node_actions[]['themed'] =  theme('gofast_link_generic', array(
+      'text' => t('Open in the current tab', array(), array('context' => 'gofast')),
+      'link_id' => "open_current_tab",
+      'href' => '/node/' . $item_id,
+      'icon_class' => 'fa fa-arrow-right',
+      'target' => '',
+      'onClick' => '',
+      'title' => t('Open in a new tab of your browser'),
+      'page' => array('gofast_contextual_menu_is_from_browser', 'gofast_contextual_menu_node_is_not_delete'),
+      'type' => array('alfresco_item', 'article', 'group', 'organisation', 'extranet', 'public'),
+      'access_function' => ''
+    ));
+    $node_actions[]['themed'] =  theme('gofast_link_generic', array(
+      'text' => $bookmark_is_flagged ? t('Remove this from bookmark', array(), array("context" => "gofast:gofast_contextual_menu")) : t('Bookmark this', array(), array("context" => "gofast:gofast_contextual_menu")),
+      'link_id' => "bookmarks",
+      'link_class' => 'bookmarks '.($bookmark_is_flagged ? "" : "ctools-use-modal"),
+      'icon_class' => "fas fa-star",
+      'page' => array('gofast_contextual_menu_all_pages', 'gofast_contextual_menu_node_is_not_delete'),
+      'type' => array('alfresco_item', 'article', 'webform', 'forum'),
+      'href' => $bookmark_is_flagged ? "" : "/modal/nojs/bookmark_collection/flag/{$item_id}/bookmark_flag_tree",
+      'access_function' => '',
+      'divider' => FALSE,
+      'hide_from_mobile' => TRUE,
+      "hide_from_tablet" => TRUE,
+      'hide_from_essential' => FALSE,
+      'onClick' => $bookmark_is_flagged ? "Gofast.Bookmark_Collection.bookmarkItem(event, {$item_id}, null, 'bookmark_content_tree', 'content');" : "",
+    ));
+  } else if($item_type == "folder"){
+    $bookmark_folder_is_flagged = gofast_ajax_file_browser_folder_is_bookmark($item_id);
+    $item = gofast_cmis_item_get($item_id);
+    $folder_path = gofast_cmis_get_mirrored_path_by_alf_ref($item->properties["alfcmis:nodeRef"], $item->properties["cmis:name"]);
+    $parent_item = gofast_cmis_item_get_parent($item_id);
+    $space_nid = $parent_item->objectList[0]->properties["gofast:nid"];
+
+    $node_actions[]['themed'] =  theme('gofast_link_generic', array(
+      'text' => t('Open in a new tab', array(), array('context' => 'gofast')),
+      'link_id' => "open_new_tab" ,
+      'href' => '',
+      'icon_class' => 'fa fa-arrow-right',
+      'onClick' => "window.open('/node/$space_nid?path=$folder_path, '_blank')",
+      'title' => t('Open in a new tab of your browser'),
+      'page' => array('gofast_contextual_menu_is_from_browser', 'gofast_contextual_menu_node_is_not_delete'),
+      'type' => array('alfresco_item', 'article', 'group', 'organisation', 'extranet', 'public'),
+      'access_function' => ''
+    ));
+    $node_actions[]['themed'] =  theme('gofast_link_generic', array(
+      'text' => t('Open in the current tab', array(), array('context' => 'gofast')),
+      'link_id' => "open_current_tab",
+      'href' => "/node/$space_nid?path=$folder_path",
+      'icon_class' => 'fa fa-arrow-right',
+      'target' => '',
+      'onClick' => '',
+      'title' => t('Open in a new tab of your browser'),
+      'page' => array('gofast_contextual_menu_is_from_browser', 'gofast_contextual_menu_node_is_not_delete'),
+      'type' => array('alfresco_item', 'article', 'group', 'organisation', 'extranet', 'public'),
+      'access_function' => ''
+    ));
+    $node_actions[]['themed'] =  theme('gofast_link_generic', array(
+      'text' => $bookmark_folder_is_flagged ? t('Remove this from bookmark', array(), array("context" => "gofast:gofast_contextual_menu")) : t('Bookmark this', array(), array("context" => "gofast:gofast_contextual_menu")),
+      'link_id' => $bookmark_folder_is_flagged ?  "unbookmark_folder" : 'bookmark_folder',
+      'link_class' => 'ctools-use-modal',
+      'onClick' => $bookmark_folder_is_flagged ? "Gofast.Bookmark_Collection.bookmarkItem(event, '{$item_id}', null, 'bookmark_folder_tree', 'folder');" : "",
+      'icon_class' => "fa fa-bookmark",
+      'title' => $bookmark_folder_is_flagged ? t('Remove this folder from your bookmarks') : t('Add this folder to your bookmarks'),
+      'page' => array('gofast_contextual_menu_is_from_browser'),
+      'type' => array('folder'),
+      'access_function' => '',
+      'href' => $bookmark_folder_is_flagged ? "" : "/modal/nojs/bookmark_collection/flag/0/bookmark_folder_flag_tree?folder_reference={$item_id}",
+    ));
+  } else if($item_type == "bookmark_collection") {
+    if($item_id != null){
+      $node_actions[]['themed'] =  theme('gofast_link_generic', array(
+        'text' => t('Rename this bookmark collection', array(), array('context' => 'gofast:gofast_bookmark_collection')),
+        'link_id' => "rename-bookmark-collection",
+        'icon_class' => "fa fa-edit",
+        'onClick' => "Gofast.Bookmark_Collection.renameBookmarkCollection('{$tree_id}', '{$item_id}')",
+        'link_class' => 'renameBookmarkCollectionBtn',
+        'access_function' => '',
+        'href' => '',
+        'divider' => FALSE,
+        'hide_from_mobile' => TRUE,
+        "hide_from_tablet" => TRUE,
+        'hide_from_essential' => FALSE,
+      ));
+    }
+    if(!str_contains($tree_id, "flag")){
+      $node_actions[]['themed'] =  theme('gofast_link_generic', array(
+        'text' => t('Remove this bookmark collection', array(), array('context' => 'gofast:gofast_bookmark_collection')),
+        'link_id' => "remove-bookmark-collection",
+        'icon_class' => "fa fa-trash",
+        'link_class' => 'removeBookmarkCollectionBtn ctools-use-modal',
+        'onClick' => "",
+        'href' => "/modal/nojs/bookmark_collection/remove/{$item_id}/{$target_tree_id}",
+        'access_function' => '',
+        'divider' => FALSE,
+        'hide_from_mobile' => TRUE,
+        "hide_from_tablet" => TRUE,
+        'hide_from_essential' => FALSE,
+      ));
+    }
+  }
+  // If we have right clicked on a bookmark collection or on a free space
+  if(!isset($item_type) ||$item_type == "bookmark_collection"){
+    $node_actions[]['themed'] =  theme('gofast_link_generic', array(
+      'text' => t('Add bookmark collection here', array(), array('context' => 'gofast:gofast_bookmark_collection')),
+      'link_id' => "add-bookmark-collection",
+      'icon_class' => "fa fa-plus",
+      'onClick' => "Gofast.Bookmark_Collection.createBookmarkCollection('{$tree_id}', '{$item_id}')",
+      'link_class' => 'addBookmarkCollectionBtn',
+      'access_function' => '',
+      'href' => '',
+      'divider' => FALSE,
+      'hide_from_mobile' => TRUE,
+      "hide_from_tablet" => TRUE,
+      'hide_from_essential' => FALSE,
+    ));
+  }
+
+  $node_contextual_actions[] = array(
+    'id' => 'node-dropdown',
+    'title' => 'Contextual actions',
+    'button-text' => '',
+    'icon-class' => 'fa fa-bars',
+    'children' => $node_actions
+  );
+  print theme('contextual_links', array('btn_group_id' => 'breadcrumb-alt-actions', 'buttons' => $node_contextual_actions, 'fromBrowser' => isset($_POST["fromBrowser"])));
+
+  exit;
+}
+
+function gofast_bookmark_collection_get_array_from_tree($tree, $fullArray = array()) {
+  $item = array();
+  if($tree["type"] == "bookmark_collection"){
+    $item = array(
+      "bcid" => $tree["bcid"],
+      "name" => $tree["name"],
+      "type" => $tree["type"],
+      "iconSkin" => $tree["iconSkin"],
+      "itemPath" => $tree["itemPath"],
+    );
+  } else if($tree["type"] == "content") {
+    $item = array(
+      "nid" => $tree["nid"],
+      "name" => $tree["name"],
+      "type" => $tree["type"],
+      "itemPath" => $tree["itemPath"],
+      "iconSkin" => $tree["iconSkin"],
+    );
+  } else if($tree["type"] == "folder") {
+    $item = array(
+      "fbid" => $tree["fbid"],
+      "reference" => $tree["reference"],
+      "path" => $tree["path"],
+      "name" => $tree["name"],
+      "type" => $tree["type"],
+      "iconSkin" => $tree["iconSkin"],
+      "itemPath" => $tree["itemPath"],
+    );
+  }
+  $fullArray[] = $item;
+  if(isset($tree["children"])){
+    foreach($tree["children"] as $children){
+      $fullArray = gofast_bookmark_collection_get_array_from_tree($children, $fullArray);
+    }
+  }
+  return $fullArray;
+}
+
+function gofast_bookmark_collection_rename_bookmark_collection($bcid) {
+  global $user;
+  $newName = null;
+  $tree_id = null;
+  // Get updated name
+  if(isset($_POST["newName"])){
+    $newName = gofast_xss_clean($_POST["newName"]);
+  }
+  // Get tree identifier
+  if(isset($_POST["treeId"])){
+    $tree_id = gofast_xss_clean($_POST["treeId"]);
+  }
+  // Cancel if one of the two variables has not been set correctly
+  if($newName == null || $tree_id == null) {
+    print "false";
+    exit;
+  }
+
+  $exists = gofast_bookmark_collection_check_already_exist_name($newName, $tree_id);
+  // Update only if no bookmark collection with the same name already exists.
+  if(!$exists){
+    db_update("gofast_bookmark_collections")
+      ->fields(array("name" => $newName))
+      ->condition("bcid", $bcid, "=")
+      ->condition("uid", $user->uid, "=")
+      ->condition("tree_id", $tree_id, "=")
+      ->execute();
+    echo "false";
+  } else {
+    echo "true";
+  }
+  exit;
+}
+
+function gofast_modal_remove_bookmark_collection($js, $bcid, $tree_id) {
+  
+  $item_type = "content";
+  if($tree_id == "bookmark_folder_tree"){
+    $item_type = "folder";
+  }
+  $tree = gofast_bookmark_collection_get_full_content_bookmark_collection_tree(bcid: $bcid, depth: null, tree_id: $tree_id, item_type: $item_type);
+  $array_tree = gofast_bookmark_collection_get_array_from_tree($tree);
+  ctools_include('ajax');
+  ctools_include('modal');
+  $command[] = array(
+    "command" => "modal_display",
+    "title" => t("Remove bookmark collection", array(), array("context" => "gofast:gofast_bookmark_collection")),
+    "output" => theme("gofast_modal_bookmark_collection_remove", array("tree" => $array_tree, "treeId" => $tree_id)),
+  );
+  print ajax_render($command);
+  drupal_exit();
+}
+
+function gofast_modal_flag_bookmark_collection($js, $nid, $tree_id) {
+
+  global $user;
+  $item_ids = [];
+  $is_single_node = (!is_array($nid) && !str_contains($nid, "-"));
+  
+  if($nid == 0 && isset($_GET["folder_reference"])){
+    $item_type = "folder";
+    
+    if(is_array($_GET["folder_reference"])){
+      $is_single_node = false;
+    }
+  } else {
+    $item_type = "content";
+  }
+  if($item_type == "content"){
+    if(!$is_single_node){
+      if(is_array($nid)){
+        $nids = $nid;
+      } else {
+        $nids = explode("-", $nid);
+      }
+      $item_ids = array_filter($nids);
+      $flag = flag_get_flag("bookmarks");
+      // Filter array to get only non-flagged items
+      $item_ids = array_filter($item_ids, function($nid) use ($flag) {
+        return !$flag->is_flagged($nid);
+      });
+      $item_ids = array_values($item_ids);
+    } else {
+      $item_ids = [$nid];
+    }
+  } else if($item_type == "folder"){
+    if(!$is_single_node){
+      $item_ids = $_GET["folder_reference"];
+      // Filter array to get only non-flagged items
+      $item_ids = array_filter($item_ids, function($reference) use ($user) {
+        $exists = count(db_query("SELECT folder_reference FROM gofast_bookmark_folder WHERE folder_reference='" . $reference . "' AND uid='" . $user->uid . "'")->fetchAll()) > 0;
+        return !$exists;
+      });
+
+    } else {
+      $item_ids = [$_GET["folder_reference"]];
+    }
+  }
+  $target_tree_id = null;
+  if($item_type == "content") {
+    $target_tree_id = "bookmark_content_tree";
+  } else if($item_type == "folder") {
+    $target_tree_id = "bookmark_folder_tree";
+  }
+  
+  // Check if the root item has children
+  $hasChildren = gofast_bookmark_collection_has_children(null, $target_tree_id);
+  if(empty($item_ids)){
+    $command[] = gofast_command_toast_message(t("Item(s) is (are) already bookmarked", array(), array("context" => "gofast:gofast_bookmark_collection")));
+  } else {
+    ctools_include('ajax');
+    ctools_include('modal');
+    $command[] = array(
+      "command" => "modal_display",
+      "title" => t("Add to bookmarks", array(), array("context" => "gofast:gofast_bookmark_collection")),
+      "output" => theme("gofast_modal_bookmark_collection_flag", array("itemIds" => $item_ids, "treeId" => $tree_id, "itemType" => $item_type, "hasChildren" => $hasChildren)),
+    );
+  }
+  print ajax_render($command);
+  drupal_exit();
+}
+
+function gofast_modal_unflag_bookmark_collection($js, $nid, $tree_id){
+  
+  $item_ids = [$nid];
+  $is_single_node = !str_contains($nid, "-");
+  if(!$is_single_node){
+    $nids = explode("-", $nid);
+    $item_ids = array_filter($nids);
+    $flag = flag_get_flag("bookmarks");
+    
+    $item_ids = array_filter($item_ids, function($nid) use ($flag) {
+      return $flag->is_flagged($nid);
+    });
+    $item_ids = array_values($item_ids);
+  }
+
+  if(empty($item_ids)){
+    $command[] = gofast_command_toast_message(t("Item(s) is (are) not bookmarked", array(), array("context" => "gofast:gofast_bookmark_collection")));
+  } else {
+    ctools_include('ajax');
+    ctools_include('modal');
+    $command[] = array(
+      "command" => "modal_display",
+      "title" => t("Remove bookmarked item(s)", array(), array("gofast:gofast_bookmark_collection")),
+      "output" => theme("gofast_modal_bookmark_collection_unflag", array("itemIds" => $item_ids, "treeId" => $tree_id, "itemType" => "content")),
+    );
+  }
+  print ajax_render($command);
+  drupal_exit();
+    
+}
+
+function gofast_bookmark_collection_get_bookmark_collection_contents($tree_id, $bcid = null, $item_type = "content"){
+
+  global $user;
+  $flag = flag_get_flag("bookmarks");
+
+  $query = db_select("flagging", "f");
+  $query->innerJoin("gofast_bookmark_collections__flagging", "gbcf", "gbcf.flagging_id = f.flagging_id");
+  $query->leftJoin("node", "n", "n.nid = f.entity_id");
+  $query->leftJoin("gofast_bookmark_collections", "gbc", "gbc.bcid = gbcf.bcid");
+  $query->fields("f", array("entity_id"));
+  $query->fields("n", array("title", "type"));
+  if($bcid == null){
+    $query->isNull("gbcf.bcid");
+  } else {
+    $query->condition("gbcf.bcid", $bcid, "=");
+    $query->condition("gbc.tree_id", $tree_id, "=");
+  }
+  if($item_type == "space"){
+    $query->condition("n.type", array_keys(gofast_og_node_types()), "IN");
+  } else if($item_type == "document"){
+    $query->condition("n.type", array_keys(gofast_og_node_types()), "NOT IN");
+  }
+  
+  $contents = $query->condition("f.uid", $user->uid, "=")
+                        ->condition("f.fid", $flag->fid)
+                        ->execute()
+                        ->fetchAllAssoc("entity_id");
+  return $contents;
+}
+
+function gofast_bookmark_collection_get_bookmark_collection_folders($tree_id, $bcid = null) {
+  global $user;
+  
+  $query = db_select("gofast_bookmark_folder", "gbf");
+  $query->innerJoin("gofast_bookmark_collections__bookmark_folder", "gbcbf", "gbcbf.fbid = gbf.fbid");
+  $query->leftJoin("gofast_bookmark_collections", "gbc", "gbc.bcid = gbcbf.bcid");
+  $query->fields("gbf", array("fbid", "folder_reference"));
+  if($bcid == null){
+    $query->isNull("gbcbf.bcid");
+  } else {
+    $query->condition("gbcbf.bcid", $bcid, "=");
+    $query->condition("gbc.tree_id", $tree_id, "=");
+  }
+  $folders = $query->condition("gbf.uid", $user->uid, "=")
+                    ->execute()
+                    ->fetchAllAssoc("fbid");
+  return $folders;
+}
+
+function gofast_bookmark_collection_check_already_exist_name($name, $tree_id) {
+  global $user;
+  $query = db_select("gofast_bookmark_collections", "gbc")
+            ->fields("gbc", array("name"))
+            ->condition("name", $name, "=")
+            ->condition("uid", $user->uid, "=")
+            ->condition("tree_id", $tree_id, "=")
+            ->execute()
+            ->fetchAll();
+  $exist = count($query) > 0;
+  return $exist;
+}
+
+function gofast_bookmark_collection_has_children($bcid, $tree_id) {
+  global $user;
+  $query = db_select("gofast_bookmark_collections", "gbc");
+  $query->fields("gbc", array("bcid"));
+  $query->condition("gbc.uid", $user->uid, "=");
+  $query->condition("tree_id", $tree_id, "=");
+  if($bcid == null){
+    $query->isNull("parent_bcid");
+  } else {
+    $query->condition("parent_bcid", $bcid, "=");
+  }
+  $results = $query->execute()->rowCount();
+  return boolval($results);
+}
+
+function gofast_bookmark_collection_get_path_from_bcid($bcid, $path = "") {
+  if($bcid == null){
+    return "/";
+  }
+  $parent_bookmark_collection = db_select("gofast_bookmark_collections", "gbc")
+            ->fields("gbc", array("parent_bcid", "name"))
+            ->condition("gbc.bcid", $bcid, "=")
+            ->execute()->fetchAll()[0];
+  $path = $parent_bookmark_collection->name."/".$path;
+  if($parent_bookmark_collection->parent_bcid == null){
+    return "/".$path;
+  }
+  return gofast_bookmark_collection_get_path_from_bcid($parent_bookmark_collection->parent_bcid, $path);
+}

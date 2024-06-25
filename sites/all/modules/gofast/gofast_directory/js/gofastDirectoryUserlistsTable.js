@@ -24,7 +24,7 @@
         '</div>' +
         '<input type="text" class="form-control" name="endModified" style="font-size: 12px; padding: 3px;" />' +
         '</div>',
-        '<div class="GofastDirectoryFilterButtons d-flex ml-auto flex-column align-items-center" style="gap: .5rem; transform: translateY(-1rem);"><button type="submit" class="btn btn-xs btn-primary btn-icon m-0">' +
+        '<div class="GofastDirectoryFilterButtons d-flex ml-auto mt-auto align-items-center" style="gap: .5rem; transform: translate(.5rem, -.5rem);"><button type="submit" class="btn btn-xs btn-primary btn-icon m-0">' +
         '<i class="fas fa-search"></i>' +
         '</button><button type="reset" class="btn btn-xs btn-light btn-icon m-0">' +
         '<i class="fas fa-undo"></i>' +
@@ -108,7 +108,7 @@
 
                     },
                     pageSize: 20,
-                    serverPaging: false,
+                    serverPaging: true,
                     serverFiltering: true,
                     serverSorting: true,
                     autoColumns: false,
@@ -198,7 +198,16 @@
                         autoHide: false,
                         sortable: false,
                         template: function(data) {
-                            return '<div id="contextual-actions-loading-' + data.nid + '" class="loader-breadcrumb not-processed"></div><div id="userlist-node-actions-' + data.nid + '">';
+                            return `
+                                <div class="gofast-node-actions dropdown dropdown-inline">
+                                    <a class="btn btn-light btn-xs btn-icon mr-2 dropdown-placeholder not-processed" type="button" id="dropdown-placeholder-${data.nid}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        <i class="fa fa-bars"></i>
+                                        <ul class="dropdown-menu gofast-dropdown-menu" role="menu" id="dropdownactive-placeholder-${data.nid}">
+                                        <li><div class="loader-activity-menu-active"></div></li>
+                                        </ul>
+                                    </a>
+                                </div>
+                                `;
                         },
                     },
                     {
@@ -304,7 +313,7 @@
                         title: "",
                         overflow: 'visible',
                         autoHide: false,
-                        width: 100,
+                        width: 40,
                         textAlign: 'left',
                         sortable: false,
                     },
@@ -319,6 +328,7 @@
                 }
                 $('#DirectoryUserlistFilterForm').on('submit', function(e){
                     e.preventDefault()
+                    _table.spinnerCallback(true)
                     let filterArr = $(this).serializeArray()
                     let filter = Object.create({})
 

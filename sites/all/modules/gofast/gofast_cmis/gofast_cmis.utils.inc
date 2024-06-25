@@ -114,6 +114,20 @@ function gofast_cmis_get_repository() {
 }
 
 /**
+ * Intended to be used before generating a new document preview.
+ * Check if an old cache version exists (in order to delete it).
+ * @param $node_reference an alfresco item id
+ */
+function gofast_delete_oo_previews($node_reference) {
+  $list = glob('/var/www/d7/sites/default/files/oo_previews/'.gofast_cmis_get_raw_item_id($node_reference) . '_*');
+  if (count($list) > 0){
+    foreach($list as $filepath){
+      unlink($filepath);
+    }
+  }
+}
+
+/**
  * @package gofast_cmis
  * Returns a list of all the children of a specified folder (based on path).
  * Can return all the folders of a path or user accessible folder if the user is
@@ -198,7 +212,7 @@ function gofast_cmis_item_get_main_location($item_id) {
  * @return type
  */
 function gofast_cmis_item_get_parents_item_ids($item_id) {
-  return array_keys(gofast_cmis_item_get_parent($item_id)->objectsById);
+  return array_keys(ast_cmis_item_get_parent($item_id)->objectsById);
 }
 
 /**
@@ -253,7 +267,7 @@ function gofast_cmis_node_edit_item_rename($node, $asAdmin = TRUE) {
  *
  * @param type $node the node to insert
  * @param boolean $asAdmin execute as admin? Defaults to TRUE.
- * @return string the created item id
+ * @return object the created item
  */
 function gofast_cmis_node_edit_item_folder_insert($node, $asAdmin = TRUE) {
   $title = gofast_cmis_node_get_normalized_node_title($node);
@@ -620,9 +634,9 @@ function gofast_cmis_item_content_insert($parent_item_id, $title, $content, $mim
  *
  * @param string $item_id the item id to get
  * @param boolean $asAdmin execute as admin? Defaults to TRUE.
- * @return type
+ * @return mixed
  */
-function gofast_cmis_item_get($item_id, $asAdmin = FALSE) {
+function gofast_cmis_item_get($item_id, $asAdmin = FALSE, $useCache = TRUE) {
   $repository_id = gofast_cmis_get_repository();
 //var_dump($repository_id);exit;
   if (!$repository_id) {
@@ -630,7 +644,7 @@ function gofast_cmis_item_get($item_id, $asAdmin = FALSE) {
   }
 
   $cached_item = &gofast_cmis_static_cache($item_id);
-  if (isset($cached_item)) {
+  if ($useCache && isset($cached_item->properties['alfcmis:nodeRef'])) {
     return $cached_item;
   }
 
@@ -651,7 +665,7 @@ function gofast_cmis_item_get($item_id, $asAdmin = FALSE) {
  * @package gofast_cmis
  * This method get an item from remote store using its path.
  *
- * @param type $path the path to use
+ * @param string $path the path to use
  * @param boolean $asAdmin execute as admin? Defaults to TRUE.
  * @return Object the item object from alfresco
  */
@@ -662,7 +676,7 @@ function gofast_cmis_item_get_by_path($path, $asAdmin = TRUE) {
     return FALSE;
   }
 
-  $cache = gofast_cmis_static_cache(null);
+  $cache = gofast_cmis_static_cache(null) ?? [];
   $cached_item = array_filter($cache, function($item) use ($path) {
     return isset($item->properties['cmis:path']) && $item->properties['cmis:path'] === $path;
   });
@@ -824,7 +838,7 @@ function gofast_cmis_item_get_children($item_id, $asAdmin = TRUE, $filter_docume
  *
  * @param string $item_id the remote store item identifier
  * @param boolean $asAdmin execute as admin? Defaults to TRUE.
- * @return type
+ * @return mixed
  */
 function gofast_cmis_item_get_content($item_id, $asAdmin = TRUE) {
   $repository_id = gofast_cmis_get_repository();
@@ -886,6 +900,7 @@ function gofast_cmis_item_set_content($item_id, $content = NULL, $contentType = 
            $ticket = gofast_cmis_retrieve_and_store_ticket($user);
         }
 
+    set_time_limit(0);
     $url = "http://localhost:8080/alfresco/api/-default-/public/alfresco/versions/1/nodes/".gofast_cmis_get_raw_item_id($item_id)."/content?alf_ticket=".$ticket."";
     $curl = curl_init();
     curl_setopt($curl, CURLOPT_POST, 1);
@@ -894,6 +909,8 @@ function gofast_cmis_item_set_content($item_id, $content = NULL, $contentType = 
     curl_setopt($curl, CURLOPT_URL, $url );
     curl_setopt($curl, CURLOPT_POSTFIELDS, $postfields);
     curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, 0);
+    curl_setopt($curl, CURLOPT_TIMEOUT, 0);
     $return = curl_exec($curl);
     $decoded_return = json_decode($return);
 
@@ -902,7 +919,7 @@ function gofast_cmis_item_set_content($item_id, $content = NULL, $contentType = 
     $item = gofast_cmis_item_get($item_id);
     $version = $item->properties['cmis:versionLabel'];
 
-    if($version != $decoded_return->entry->properties->{'cm:versionLabel'}){
+    if($version != $decoded_return->entry->properties->{'cm:versionLabel'} && $return != false){
         //upload has not be done, use another way to upload content
          watchdog("DEBUG CEO-Vision" , "problem uploading file using REST API, use CMIS instead");
          $decoded_return = cmisapi_setContentStream($repository_id, gofast_cmis_get_raw_item_id($item_id), $content, $contentType, $options);
@@ -1056,40 +1073,107 @@ function gofast_cmis_node_get_reference_by_path($node) {
   return !isset($item->id) ? $item->properties['alfcmis:nodeRef'] : FALSE;
 }
 
+function gofast_cmis_node_get_reference_by_nid_without_cmis($nid, $is_folder = FALSE) {
+  $target_table = "field_data_field_reference";
+  $target_field = "field_reference_value";
+  if ($is_folder) {
+      $target_table = "field_data_field_folder_reference";
+      $target_field = "field_folder_reference_value";
+  }
+  return db_select($target_table, "ref")->fields("ref", array($target_field))->condition("ref.entity_id", $nid)->execute()->fetchCol()[0];
+}
+
+/**
+ * Get the node ID by the provided reference value without CMIS.
+ *
+ * @param string $node_ref
+ *   The node reference value, with or without the CMIS prefix.
+ *
+ * @return int|false
+ *   The node ID if found, or false if not found or on error.
+ */
+function gofast_cmis_node_get_nid_by_reference_without_cmis(string $node_ref): int|bool {
+  
+  // Define the target table and field for the query.
+  $target_table = "field_data_field_reference";
+  $target_field = "entity_id";
+
+  // Execute the database query and fetch the first result as an associative array.
+  $result = db_select($target_table, "ref")
+    ->fields("ref", array($target_field))
+    ->condition("ref.field_reference_value", $node_ref)
+    ->execute()
+    ->fetchAssoc();
+
+  // Check if the query returned a result.
+  if (!empty($result)) {
+    // Return the node ID.
+    return (int) $result['entity_id'];
+  } else {
+    // Return false when no record found.
+    return FALSE;
+  }
+}
+
 /**
  * Retreive an alfresco_reference based on node nid
  * @param int $nid
+ * @param bool $is_folder, if TRUE will look for folders instead of documents
+ * @param bool $log_multifiled, if is a string and if the document is multifiled, will log it in a same-named file and return FALSE
  * @return alf_reference if found, FALSE if no or too much maching item found
  */
-function gofast_cmis_node_get_reference_by_nid($nid){
+function gofast_cmis_node_get_reference_by_nid($nid, $is_folder = FALSE, $log_multifiled = FALSE, $as_admin = FALSE){
 
-   usurp(1);
+  if ($as_admin) {
+    usurp(1);
+  }
 
   $start = 0;
   $count = 1000000;
   $alf_ref = FALSE;
 
-  $query = "SELECT * "
+  if ($is_folder) {
+    $query = "SELECT * "
+    . "FROM cmis:folder AS f "
+    . "JOIN gofast:nodeproperties AS gfp ON f.cmis:objectId = gfp.cmis:objectId "
+    . "WHERE gfp.gofast:nid = '$nid' ";
+  } else {
+    $query = "SELECT * "
     . "FROM cmis:document AS f "
     . "JOIN gofast:nodeproperties AS gfp ON f.cmis:objectId = gfp.cmis:objectId "
     . "WHERE gfp.gofast:nid = '$nid' ";
 
-  $results = gofast_integrity_alfresco_cmis_query($query, $start, $count);
-  if (count($results) == 1) {
-   $alf_ref = $results[0]->properties['alfcmis:nodeRef'];
-  }else{
-    foreach($results as $key => $result){ 
-      if( strpos($result->properties['cmis:name'], ".html.html" ) > -1 ) {
-        // uwanted wiki duplicate => to be deleted
-        gofast_cmis_item_remove_item($result->properties['alfcmis:nodeRef'], TRUE );
-      }else{
-        $alf_ref = $result->properties['alfcmis:nodeRef'];
-        
+  }
+
+  $results = (array) gofast_integrity_alfresco_cmis_query($query, $start, $count);
+  
+  if(is_countable($results)){
+    if (count($results) == 1) {
+    $alf_ref = $results[0]->properties['alfcmis:nodeRef'];
+    }else{
+      foreach($results as $key => $result){ 
+        if(strpos($result->properties['cmis:name'], ".html.html" ) > -1 ) {
+          // unwanted wiki duplicate => to be deleted
+          gofast_cmis_item_remove_item($result->properties['alfcmis:nodeRef'], TRUE );
+        }elseif ($log_multifiled){
+          $fileName = "$log_multifiled.log";
+          $filePath = DRUPAL_ROOT . "/sites/default/files/logs/$fileName";
+          $logFile = fopen($filePath, 'a');
+          $currentDate = (new DateTime())->format("Y-m-d H:i:s");
+          $caller_function = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 1)[0]["function"];
+          $stringData = $currentDate . " - An attempt to get reference of node n°$nid has been made by $caller_function but it has multiple emplacements including $result->properties['cmis:path']";
+          fwrite($logFile, $stringData . "\n");
+          fclose($logFile);
+        }else{
+          $alf_ref = $result->properties['alfcmis:nodeRef'];
+        }
       }
     }
   }
 
-   usurp(FALSE);
+  if ($as_admin) {
+    usurp(FALSE);
+  }
 
   return $alf_ref;
 }
@@ -1136,7 +1220,7 @@ function gofast_cmis_space_get_drupal_path_multiple_nodes($space_nids = array())
   foreach ($groups as $group) {
 
     $path = '';
-    if (!gofast_og_is_space) {
+    if (!gofast_og_is_space($group)) {
       $path = null;
     } else {
 
@@ -1173,7 +1257,7 @@ function gofast_cmis_space_get_drupal_path_on_browser($space_nid) {
     return;
   }
   $item_id = gofast_cmis_node_get_item_id(node_load($space_nid));
-  $cmis_object = gofast_cmis_item_get($item_id);
+  $cmis_object = gofast_cmis_item_get($item_id, FALSE, FALSE);
   if ($cmis_object->properties["cmis:path"] == null){
       $_POST['gofast_og_wrong_path'] = TRUE;
       return gofast_cmis_space_get_drupal_path_on_browser(gofast_og_get_parent(node_load($space_nid)));
@@ -1221,7 +1305,7 @@ function gofast_cmis_space_get_webdav_path_node_page($space_nid) {
  * @package gofast_cmis
  * This function generates a drupal path from webdav path.
  * @param type $array_paths
- * @return type
+ * @return array
  */
 function gofast_ztree_get_drupal_path_from_webdav_path($array_paths = array()) {
   $drupal_paths = array();
@@ -1291,21 +1375,17 @@ function gofast_cmis_aspect_get_drupal_origin_reset_property() {
         $file_id = $dropped_file["file_name"];
 
         $read_file = fopen($dropped_file["file_path"], "r");
-        $content = fread($read_file, filesize($dropped_file["file_path"]));
+        $content = "";
+        if ($read_file) {
+          $content = fread($read_file, filesize($dropped_file["file_path"]));
+        }
 
         $file_path = $dropped_file["file_path"];
     }else{
-
-
         $file_id = $detect_language_by_file->filename;
-        $read_file = fopen($detect_language_by_file->uri, "r");
-        $content = fread($read_file, $detect_language_by_file->filesize);
-
-        $file_path = DRUPAL_ROOT . '/' . variable_get('file_public_path', conf_path() . '/files') . '/file_tmp_detect_language.txt' ;
-        $written_file = fopen($file_path, 'x+');
-        fwrite($written_file, $content);
-        fclose($written_file);
-
+        $source_path = $detect_language_by_file->uri;
+        $file_path = DRUPAL_ROOT . '/' . variable_get('file_public_path', conf_path() . '/files') . '/' . $file_id;
+        copy($source_path, $file_path);
     }
   }
 
@@ -1613,7 +1693,43 @@ function gofast_cmis_set_emplacements_cache($uid, $liste){
     fclose($file);
 }
 
+// get all non-empty templates documents available for given user id
+// if no user is passed, get everything
+function gofast_cmis_get_all_templates($uid = FALSE) {
+  $tids_template =  taxonomy_get_term_by_name("Template", "tags");
+  $nids = array();
+  if(count($tids_template) > 0){
+    foreach($tids_template as $tid => $term){
+      $nids = array_merge($nids, taxonomy_select_nodes($tid, FALSE));
+    }
+  }
+  if(empty($nids)) {
+    return array();
+  }
+  $query = db_select('field_data_' . GOFAST_CMIS_LOCATIONS_FIELD, 'f');
+  $query->distinct();
+  $query->join('node', 'n', 'n.nid = f.entity_id');
+  $query->join('field_data_' . GOFAST_CMIS_REFERENCE_FIELD, 'r', 'r.entity_id = f.entity_id');
+  $query->join('field_data_field_filename', 'fn', 'fn.entity_id = f.entity_id');
+  $query->join('field_data_field_format', 'ft', 'ft.entity_id = f.entity_id');
+  $query->fields('f', array('entity_id', GOFAST_CMIS_LOCATIONS_FIELD . '_value'))
+      ->fields('r', array(GOFAST_CMIS_REFERENCE_FIELD . '_value'))
+      ->fields('n', array('title', 'language', 'type'))
+      ->fields('fn', array('field_filename_value'))
+      ->fields('ft', array('field_format_tid'));
+  $query->groupBy('n.nid');
+  // node_access is automatically made by 'tag' mecanism on taxonomy_select_nodes
+ 
+  $templates_infos = $query->condition('f.entity_type', "node")
+      ->condition('f.entity_id', array_keys(array_flip($nids)), 'IN')
+      ->execute()
+      ->fetchAll();
+  return $templates_infos;
+}
 
+/**
+ * @deprecated
+ */
 function gofast_cmis_get_templates_option() {
    //$tids_template = gofast_xeditable_terms_get_from_array(GOFAST_VID_TAGS, array('Template', 'template'));
     $tids_template =  taxonomy_get_term_by_name("Template", "tags");
@@ -1666,7 +1782,7 @@ function gofast_cmis_get_templates_option() {
         if ($can_access != NODE_ACCESS_DENY && $can_access != NULL && !$is_other_private_space) {
 
           // Check if current user have access to this space (otherwise dont show it)
-          if (strpos(gofast_access_spaces(gofast_og_get_group_id_from_title_2($node_values->field_emplacement_value, TRUE, TRUE)), 'unlocked') !== FALSE){
+          if (strpos(gofast_access_spaces(gofast_og_get_group_id_from_title_2($node_values->field_emplacement_value, TRUE, TRUE), TRUE), 'unlocked') !== FALSE){
             // Show all spaces user have access to if TEMPLATE is multifile
             if (isset($template_array[$node_values->field_reference_value])){
                 $template_array[$node_values->field_reference_value]->path[] = $node_values->field_emplacement_value . "/" . $node_values->field_filename_value;
@@ -1680,7 +1796,6 @@ function gofast_cmis_get_templates_option() {
                 $template_array[$node_values->field_reference_value] = $node_object;
               }
           }
-
         }
       }
     }
@@ -1806,7 +1921,13 @@ function gofast_cmis_convert_old_office_format_to_new($node){
         $updated = gofast_cmis_item_update_properties($item_id, $properties, FALSE, TRUE);
 
     }
-    return $updated;
+    
+    if(isset($_POST["fromAjax"])){
+      print "OK";
+      exit;
+    } else {
+      return $updated;
+    }
 }
 
 function gofast_cmis_get_all_multifilled_documents_from_gid($gid){
@@ -1887,32 +2008,24 @@ function gofast_cmis_restore_document_alfresco_into_private_space($node){
     $before_point_publication = $before_point_publication[0];
 
     global $user;
-    $username = $user->name;
     $ticket = gofast_cmis_get_user_ticket();
     if($ticket == FALSE){
       $ticket = gofast_cmis_retrieve_and_store_ticket($user);
     }
 
     if($before_point_source == $before_point_publication){
-        //we tag the publication in major version
-       // exec("curl --user $username:".$password." 'http://localhost:8080/alfresco/service/set/version/major/?comment=".rawurlencode($comment)."&reference=".$existing_publication_node->reference."'");
-
-        //we tag the origin document as many time as needed for having the same than source node
-       // exec("curl --user $username:".$password." 'http://localhost:8080/alfresco/service/set/version/major/?comment=".rawurlencode($comment)."&reference=".$source_node->reference."'");
-
     }else{
-
-        //we tag the origin document as many time as needed for having the same than source node
-        //exec("curl --user $username:".$password." 'http://localhost:8080/alfresco/service/set/version/major/?comment=".rawurlencode($comment)."&reference=".$source_node->reference."'");
-        //$before_point_source++;
-
         //then we tag the publication as many time is needed
         $number_iteration =  $before_point_source - $before_point_publication;
         for($i=0; $i < $number_iteration;$i++){
-                //we tag the publication in major version
-                 //print_r("tag une fois, i devient ".$new_i."<br />");
-                exec("curl 'http://localhost:8080/alfresco/service/set/version/major/?comment=".rawurlencode($comment)."&reference=".$existing_publication_node->reference."&alf_ticket=" . $ticket . "'");
-
+          //we tag the publication in major version
+          $url = "http://localhost:8080/alfresco/service/set/version/major/?comment=".rawurlencode($comment)."&reference=".$existing_publication_node->reference."&alf_ticket=" . $ticket;
+          $ch = curl_init();
+          curl_setopt($ch, CURLOPT_HEADER, 0);
+          curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+          curl_setopt($ch, CURLOPT_USERPWD, "admin:" . gofast_get_admin_pwd());
+          curl_setopt($ch, CURLOPT_URL, $url);
+          curl_exec($ch);        
         }
     }
   }
@@ -1995,4 +2108,144 @@ function gofast_cmis_get_replication_count(){
   $query = db_select("alfresco_replication", "r");
   $count = $query->countQuery()->execute()->fetchField();
   return $count;
+}
+
+function gofast_get_node_description_by_nid($nid){
+  
+  $query = db_select('field_data_field_description', 'n');
+  $query->fields('n',array('field_description_value'));
+  $query->condition('n.entity_type','node','=');
+  $query->condition('n.entity_id',$nid,'=');
+  $result = $query->execute();
+  $result = $result->fetchCol()[0];
+  print($result);
+  
+}
+
+/**
+ * Get TID - Term ID from a node id
+ * @param int $nid
+ */
+function gofast_cmis_get_tid_from_nid($nid){
+  return db_select('field_data_field_criticity', 'fdfc')
+  ->fields('fdfc', array('field_criticity_tid'))
+  ->condition('fdfc.entity_id', $nid)->execute()->fetchCol()[0];
+}
+
+/**
+ * Check if a node is confidential
+ * @param int $node Can be node object or node id
+ *
+ * @return bool
+ */
+function gofast_cmis_is_node_confidential(int $nid) {
+  // Load the term by tid and check for name of Confidential data
+  $tid = gofast_cmis_get_tid_from_nid($nid);
+  return (isset($tid) && taxonomy_term_load($tid)->name == "Confidential Data"); 
+}
+
+/**
+ * Checks if a node is internal using its node id
+ * @param int $nid - Node ID 
+ *
+ * @return bool
+ */ 
+function gofast_cmis_is_node_internal(int $nid): bool {
+  $tid = gofast_cmis_get_tid_from_nid($nid);
+  return (isset($tid) && taxonomy_term_load($tid)->name == "Internal Distribution"); 
+  
+}
+
+/**
+ * Get any field in the node table using node id
+ * @param string $field - Field in the node table eg (title, type, status)
+ * @param int $nid - Node id
+ * 
+ */
+ function gofast_cmis_get_node_field_from_nid(string $field, int $nid){
+  return db_select('node', 'n')
+    ->fields('n', array($field))
+    ->condition('n.nid', $nid)
+    ->execute()
+    ->fetchCol()[0];
+ }
+
+ /**
+  * Check if the alfresco item is deleted from alfresco
+  * @param string $reference - Alfresco item id
+  * 
+  * @return array|null returns element if not deleted otherwise returns null
+  */
+  function gofast_cmis_is_deleted_from_alfresco($reference) {
+
+    $url = "http://localhost:8080/alfresco/service/get/version/?reference=" . str_replace('workspace', 'archive', $reference);
+    $username = "admin";
+    $password = gofast_get_admin_pwd();
+  
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_USERPWD, $username . ":" . $password);
+    curl_setopt($ch, CURLOPT_URL, $url);
+
+    $buffer = curl_exec($ch);
+    $buf = strip_tags($buffer);
+    $result = trim($buf);
+    $item = json_decode($result);
+    
+    return $item;
+   }
+
+/**
+ * Get a CMIS item's parent spaces, taking mirroring into account
+ * @param string $item_id The CMIS item id to get the space parents of
+ * @return Generator<int, array{path: string, cmis_item: object, segments_to_parent: string[]}>
+ *  A generator of arrays of space path, space CMIS item, and remaining path segments to parents.
+ */
+function gofast_cmis_item_get_mirrored_parent_spaces($item_id) {
+  $node_parents = gofast_cmis_webservice_get_node_parents($item_id);
+
+  foreach ($node_parents as $parent_path) {
+    $segments = explode("/", $parent_path);
+    $removed_segments = [];
+
+    // remove path segments until there is one starting with an underscore (a
+    // space name) or until there are none left
+    while (
+      ($last_segment = end($segments)) !== false
+      && !str_starts_with($last_segment, "_")
+    ) {
+      array_unshift($removed_segments, array_pop($segments));
+    }
+
+    // no segment left, means there was no space, should not happen unless
+    // $parent_path is not a valid GoFAST path
+    if (empty($segments)) {
+      continue;
+    }
+
+    $space_path = implode("/", $segments);
+    $space_item = gofast_cmis_item_get_by_path($space_path);
+    // no space at the found path, may be an anomaly
+    if ($space_item === false) {
+      continue;
+    }
+
+    yield [
+      'path' => $space_path,
+      'cmis_item' => $space_item,
+      'segments_to_parent' => $removed_segments,
+    ];
+  }
+}
+
+/**
+ * Get a node's parent spaces, taking mirroring into account
+ * @param mixed $node The loaded node object to get the parent spaces of.
+ * @return Generator<int, array{path: string, cmis_item: object, segments_to_parent: string[]}>
+ *  A generator of arrays of space path, space CMIS item, and remaining path segments to parents.
+ */
+function gofast_cmis_node_get_mirrored_parent_spaces($node) {
+  $node_item_id = gofast_cmis_node_get_item_id($node);
+  yield from gofast_cmis_item_get_mirrored_parent_spaces($node_item_id);
 }

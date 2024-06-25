@@ -1,0 +1,1 @@
+<a tabindex="<?= $tid ?>" data-toggle="popover" data-trigger="focus" data-placement="left" data-html="true" data-content='<?= theme("gofast_directory_docs_popover_content", array("docs" => $docs)) ?>'><?= $docs_count ?><i class="cursor-pointer fa fa-caret-down ml-2" style="color: #3699FF"></i></a>

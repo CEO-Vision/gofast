@@ -1,4 +1,4 @@
-<li class="menu-item menu-item-submenu menu-item-rel <?php echo $link['class'] ?>" data-menu-toggle="hover" aria-haspopup="true">
+<li class="menu-item menu-item-submenu menu-item-rel <?php echo $link['class'] ?>" id="gf-profile-menu" data-menu-toggle="hover" aria-haspopup="true">
     <a href="/user" class="h-40px w-40px p-0 symbol symbol-40 menu-profile">
         <img src="<?= $user->picture ? file_create_url(file_load($user->picture)->uri) : "/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png" ?>" class="h-100 align-self-end" alt="" />
     </a>

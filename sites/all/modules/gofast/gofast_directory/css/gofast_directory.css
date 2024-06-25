@@ -57,3 +57,16 @@
 .datatable-head .datatable-cell-sort .btn.btn-icon i{
   font-size: 1.3rem !important;
 }
+
+#gofastDirectoryContactListingTable .checkbox-all > span:nth-child(2)::after {
+  margin-left: 5px;
+  margin-top: 1px;
+}
+
+#gofastDirectoryContactListingTable .datatable-subheader > th:nth-child(1) > span:nth-child(1){
+  margin:0;
+}
+
+.contacts-directory-delete-action .navi-text{
+  flex-grow: 0 !important;
+}

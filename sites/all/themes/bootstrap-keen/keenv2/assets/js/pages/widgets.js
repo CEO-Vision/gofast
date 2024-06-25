@@ -1702,8 +1702,9 @@ module.exports = jQuery;
 /******/ 	// The require function
 /******/ 	function __webpack_require__(moduleId) {
 /******/ 		// Check if module is in cache
-/******/ 		if(__webpack_module_cache__[moduleId]) {
-/******/ 			return __webpack_module_cache__[moduleId].exports;
+/******/ 		var cachedModule = __webpack_module_cache__[moduleId];
+/******/ 		if (cachedModule !== undefined) {
+/******/ 			return cachedModule.exports;
 /******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
 /******/ 		var module = __webpack_module_cache__[moduleId] = {
@@ -1720,10 +1721,12 @@ module.exports = jQuery;
 /******/ 	}
 /******/ 	
 /************************************************************************/
+/******/ 	
 /******/ 	// startup
-/******/ 	// Load entry module
+/******/ 	// Load entry module and return exports
 /******/ 	// This entry module is referenced by other modules so it can't be inlined
-/******/ 	__webpack_require__("../demo1/src/js/pages/widgets.js");
+/******/ 	var __webpack_exports__ = __webpack_require__("../demo1/src/js/pages/widgets.js");
+/******/ 	
 /******/ })()
 ;
 //# sourceMappingURL=widgets.js.map

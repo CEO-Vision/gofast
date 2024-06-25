@@ -7,8 +7,8 @@ $first_level_spaces = array();
 
 if ($spaces_defaults['create_sub_space']) {
   $first_level_spaces = array_merge(
-    gofast_og_get_children(4, FALSE, FALSE, TRUE),
-    gofast_og_get_children(6, FALSE, FALSE, TRUE)
+    gofast_og_get_children(GOFAST_CMIS_LOCATIONS_FIELD_GROUPS_GID, FALSE, FALSE, TRUE),
+    gofast_og_get_children(GOFAST_CMIS_LOCATIONS_FIELD_EXTRANET_GID, FALSE, FALSE, TRUE)
   );
 }
 

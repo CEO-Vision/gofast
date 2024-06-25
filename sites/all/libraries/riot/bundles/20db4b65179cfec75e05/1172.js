@@ -1,0 +1,1 @@
+(self.webpackChunkelement_web=self.webpackChunkelement_web||[]).push([[1172],{"../matrix-react-sdk/src/effects/ICanvasEffect.ts":()=>{}}]);

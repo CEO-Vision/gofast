@@ -1,9 +1,72 @@
 <?php
+
+define('GOFAST_BOOK_HOMEPAGE_FIELD', 'homepage');
+
+function gofast_book_get_legacy_article_weight($nid) {
+    $article = db_select("book", "b")
+        ->fields("b", array("nid", "mlid"))
+        ->condition("b.nid", $nid)
+        ->execute()->fetchAll()[0];
+    $weight = db_select("menu_links", "ml")
+        ->fields("ml", array("weight"))
+        ->condition("ml.mlid", $article->mlid)
+        ->execute()->fetchCol()[0];
+    return $weight;
+}
+
+/** @warning intended only for update purpose, use legacy weight mechanism, not supposed to be used on normal platform run */
+function gofast_book_get_normalized_weights_from_alfresco_descendants($descendants) {
+    $good_weights = [];
+    $bad_weights = [];
+    foreach ($descendants as $descendant) {
+      $nid = $descendant->properties->{"gofast:nid"};
+      if (!isset($nid) || gofast_book_is_article_homepage($nid)) {
+        continue;
+      }
+      $weight = gofast_book_get_legacy_article_weight($nid);
+      if (is_numeric($weight)) {
+        $good_weights[] = ["nid" => $nid, "weight" => $weight];
+      } else {
+        $bad_weights[] = $nid;
+      }
+    }
+    // sort ascending order by weights
+    usort($good_weights, function($a, $b) {
+      return $a["weight"] <=> $b["weight"];
+    });
+    $normalized_weights = [];
+    $current_weight = 1;
+    foreach ($good_weights as $weight_entity) {
+      $normalized_weights[$weight_entity["nid"]] = $current_weight;
+      $current_weight++;
+    }
+    // append invalid weight values at the end
+    foreach ($bad_weights as $nid) {
+      $normalized_weights[$nid] = $current_weight;
+      $current_weight++;
+    }
+    return $normalized_weights;
+}
+
+/** @warning intended only for update purpose, use legacy weight mechanism, not supposed to be used on normal platform run */
+function gofast_book_set_normalized_weights_from_alfresco_descendants($descendants) {
+    $weights = gofast_book_get_normalized_weights_from_alfresco_descendants($descendants);
+    foreach ($descendants as $descendant) {
+        $nid = $descendant->properties->{"gofast:nid"};
+        if (isset($nid) && !gofast_book_is_article_homepage($nid)) {
+            gofast_book_set_weight($nid, $weights[$nid]);
+        }
+        if ($descendant->isFolder && !empty($descendant->children)) {
+            gofast_book_set_normalized_weights_from_alfresco_descendants($descendant->children);
+        }
+    }
+}
+
 function gofast_book_update_4005() {
     // create books for spaces that don't have one but have contents inside their /Wikis folder
-    gofast_bookify_spaces();
+    //gofast_bookify_spaces();
     // move non-multifiled articles outside a /Wikis folder to a /Wikis folder and add them to their matching space book
-    gofast_book_handle_orphans();
+    //gofast_book_handle_orphans();
 }
 
 // update taxonomy name
@@ -17,7 +80,7 @@ function gofast_book_update_4006() {
 
 function gofast_book_update_7000() {
     // move articles outside their space books to their space books
-    gofast_book_sync_spaces_to_books();
+    //gofast_book_sync_spaces_to_books();
     // log every multifiled articles
     gofast_book_log_multifiled_articles();
 }
@@ -25,10 +88,59 @@ function gofast_book_update_7000() {
 
 function gofast_book_update_7001() {
     // following "/Wikis" orphans and "outsider book" orphans handling, recreate books for spaces that don't have one but have contents inside their /Wikis folder
-    gofast_bookify_spaces();
+    //gofast_bookify_spaces();
 }
 
 // ensure translation for "Wiki article" taxo even if the uuid difers
 function gofast_book_update_7002() {
     gofast_taxonomy_add_translation_by_term_name("Wiki article", "fr", "Article wiki", "Une page wiki");
+}
+
+// move all subwikis into matching subfolders, using the "book" table as reference to track down the hierarchy
+function gofast_book_update_7003() {
+    $books_query = db_query("SELECT book.nid,book.bid FROM book INNER JOIN node ON node.nid=book.bid WHERE book.nid!=book.bid and node.type='article'")->fetchAll();
+    foreach($books_query as $nested_article){
+      gofast_book_subwiki_handle_move($nested_article->nid, $nested_article->bid);
+    }
+}
+
+// fill homepage field for all existing spaces
+function gofast_book_update_7005() {
+    // Get all spaces
+    $space_query = db_query("SELECT nid FROM node WHERE (type = 'organisation' OR type = 'group' OR type = 'extranet' OR type = 'public' OR type = 'private_space') AND status = 1 AND nid NOT IN(" . GOFAST_CMIS_LOCATIONS_FIELD_GROUPS_GID . "," . GOFAST_CMIS_LOCATIONS_FIELD_ORGANISATIONS_GID . "," . GOFAST_CMIS_LOCATIONS_FIELD_EXTRANET_GID . "," . GOFAST_CMIS_LOCATIONS_FIELD_PUBLIC_GID . ")")->fetchAll();
+
+    foreach ($space_query as $space) {
+        $gid = $space->nid;
+        $homepages = db_query("select nid from og_membership INNER JOIN node ON nid=etid INNER JOIN field_data_field_is_homepage ON etid=entity_id WHERE gid= :gid and node.type='article' and node.status=1 AND og_membership.entity_type='node';", array(":gid" => $gid))->fetchAll();
+        if (count($homepages) == 0) {
+            gofast_book_log_multifiled_articles("Executing gofast_book_update_7005: NO HOMEPAGE DETECTED");
+            print 'Executing gofast_book_update_7005: NO HOMEPAGE DETECTED FOR SPACE N°' . $gid . "\n";
+            continue;
+        }else if (count($homepages) != 1) {
+            gofast_book_log_multifiled_articles("Executing gofast_book_update_7005: MULTIPLE HOMEPAGES DETECTED");
+            print 'Executing gofast_book_update_7005: MULTIPLE HOMEPAGES DETECTED FOR SPACE N°' . $gid . "\n";
+            //continue; //Process anyway, we won't go back now
+        }
+        $group = node_load($gid);
+        $group->{GOFAST_BOOK_HOMEPAGE_FIELD}[LANGUAGE_NONE][0]['value'] = $homepages[0]->nid;
+        field_attach_update("node", $group);
+    }
+}
+
+// migrate existing wikis articles positions outside of the book module and renormalize those positions
+function gofast_book_update_7006() {
+    // get all spaces
+    $space_query = db_query("SELECT nid FROM node WHERE (type = 'organisation' OR type = 'group' OR type = 'extranet' OR type = 'public' OR type = 'private_space') AND status = 1 AND nid NOT IN(" . GOFAST_CMIS_LOCATIONS_FIELD_GROUPS_GID . "," . GOFAST_CMIS_LOCATIONS_FIELD_ORGANISATIONS_GID . "," . GOFAST_CMIS_LOCATIONS_FIELD_EXTRANET_GID . "," . GOFAST_CMIS_LOCATIONS_FIELD_PUBLIC_GID . ")")->fetchAll();
+    foreach ($space_query as $row) {
+        $gid = $row->nid;
+        // get wiki item related to space
+        $wikis_folder_path = gofast_cmis_space_get_webdav_path($gid) . "/Wikis";
+        $wikis_folder_item = gofast_cmis_item_get_by_path($wikis_folder_path, FALSE);
+        if (!$wikis_folder_item || empty((array) $wikis_folder_item)) {
+            continue;
+        }
+        // get all items inside book including nested ones
+        $descendants = gofast_cmis_alfresco_api_get_descendants($wikis_folder_item->id, "all", TRUE, TRUE);
+        gofast_book_set_normalized_weights_from_alfresco_descendants($descendants);
+    }
 }

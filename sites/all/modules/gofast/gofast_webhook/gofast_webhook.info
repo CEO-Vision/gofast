@@ -1,0 +1,8 @@
+name        = Gofast Webhook
+description = "Gofast Webhook notifies external services when certain events happen in Gofast. "
+core        = 7.x
+package     = Gofast
+version = "7.x-4.2.0"
+permission = administer gofast webhook
+
+dependencies[] = gofast

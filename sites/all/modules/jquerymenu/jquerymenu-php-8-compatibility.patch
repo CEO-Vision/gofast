@@ -1,0 +1,12 @@
+diff -ruN a/jquerymenu.module b/jquerymenu.module
+--- a/jquerymenu.module	2022-10-20 18:41:00.915460000 +0200
++++ b/jquerymenu.module	2022-10-26 15:43:30.343756079 +0200
+@@ -172,7 +172,7 @@
+   return $url_array;
+ }
+ 
+-function recursive_link_creator($items = array(), $trail, $parentid = '') {
++function recursive_link_creator($items, $trail, $parentid = '') {
+   static $menucount = 0;
+ 
+   $count = 0;

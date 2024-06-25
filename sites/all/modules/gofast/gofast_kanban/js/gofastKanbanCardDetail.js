@@ -89,31 +89,67 @@
         var description;
         var documents;
         var comments;
+        
+        var _getCardStatus = function(cardId){
+            
+           let url = window.origin + "/kanban/task/" + cardId + "/get_status";
+           var status = 0;
+            
+            $.ajax({
+                url: url,
+                type: 'POST',
+                dataType: 'json',
+                async: false,
+                success: function (content) {
+                    status = content;
+                }
+            });
+            
+            return status;
+        };
 
+        const _displayCardDeletedMsg = function(){
+            if(mainContainer.querySelector('#card_error_message') == null){
+                var elCardDeleteMsg = document.createElement("div");
+                elCardDeleteMsg.innerHTML =  '<div id="card_error_message" class="alert alert-custom alert-notice alert-light-danger fade show" role="alert"> '
+                                    +'<div class="alert-icon"><i class="flaticon-warning"></i></div>' 
+                                    +'<div class="alert-text">'+window.parent.Drupal.t("This card has been deleted, your modifications would not be saved.", {},{ context: "gofast_kanban" }) +'</div></div>';
+                mainContainer.prepend(elCardDeleteMsg);
+                
+                Gofast.toast(Drupal.t('Your modification could not be saved: the card had been deleted.', {}, { 'context': 'gofast' }), 'error');
+            }
+        }
+        
         const _handleSaveData = async function (field, value){
 
             let formData = new FormData()
             formData.append(field, value)
-
-            let url = window.origin + "/kanban/task/" + _task.nid + "/update";
-
-            const res = await fetch(url, {
-                method: 'POST',
-                body: formData
-            })
             
-            window.ktKanbanItem.reload();
-            let field_t = Drupal.t(field, {}, { 'context': 'gofast_kanban' });     
-            Gofast.toast(Drupal.t('Your modification on @field has been saved', {'@field': field_t}, { 'context': 'gofast' }), 'info');
-            
-            let timeline = mainContainer.querySelector('.GofastKanbanTimeLine');
-            let auditContainer = timeline.querySelector('#card__audit');
-            _getCardAudit(auditContainer, _task.nid);
+            //check if card node has not been deleted
+            const card_status = _getCardStatus(_task.nid);
+            if( card_status == 0){
+                window.ktKanbanItem.reload();
+                _displayCardDeletedMsg();
 
-            return await res
-            // await res ? _callback() : ''
-            // console.log(await res)
+            }else{
+                let url = window.origin + "/kanban/task/" + _task.nid + "/update";
 
+                const res = await fetch(url, {
+                    method: 'POST',
+                    body: formData
+                })
+                
+                window.ktKanbanItem.reload();
+                let field_t = Drupal.t(field, {}, { 'context': 'gofast_kanban' });
+                Gofast.toast(Drupal.t('Your modification on @field has been saved', {'@field': field_t}, { 'context': 'gofast' }), 'info');
+                
+                let timeline = mainContainer.querySelector('.GofastKanbanTimeLine');
+                let auditContainer = timeline.querySelector('#card__audit');
+                _getCardAudit(auditContainer, _task.nid);
+
+                return await res
+                // await res ? _callback() : ''
+            }
         }
         
         const _handleAddComment = async function(field, value){
@@ -121,19 +157,28 @@
              let formData = new FormData()
             formData.append(field, value);
             
-            let url = window.origin + "/kanban/task/" + _task.nid + "/add/comment";
-
-            const res = await fetch(url, {
-                method: 'POST',
-                body: formData
-            })
-                        
-            //reload Comments
-            _commentsReload(); 
-            window.ktKanbanItem.reload();
-            Gofast.toast(Drupal.t('New comment added', {}, { 'context': 'gofast' }), 'info');
+             //check if card node has not been deleted
+             const card_status = _getCardStatus(_task.nid);
+             if( card_status == 0){
+                 window.ktKanbanItem.reload();
+                 _displayCardDeletedMsg();
+ 
+             }else{
             
-            return await res
+                let url = window.origin + "/kanban/task/" + _task.nid + "/add/comment";
+
+                const res = await fetch(url, {
+                    method: 'POST',
+                    body: formData
+                })
+                            
+                //reload Comments
+                _commentsReload(); 
+                window.ktKanbanItem.reload();
+                Gofast.toast(Drupal.t('New comment added', {}, { 'context': 'gofast' }), 'info');
+                
+                return await res
+            }
         }
         
          const _handleEditComment = async function(field, value, commentId){
@@ -141,17 +186,26 @@
              let formData = new FormData()
             formData.append(field, value);
             
-            let url = window.origin + "/kanban/task/update/comment/" + commentId;
+            //check if card node has not been deleted
+            const card_status = _getCardStatus(_task.nid);
+            if( card_status == 0){
+                window.ktKanbanItem.reload();
+                _displayCardDeletedMsg();
 
-            const res = await fetch(url, {
-                method: 'POST',
-                body: formData
-            })
+            }else{
             
-            //reload Comments
-            _commentsReload(); 
-            
-            return await res
+                let url = window.origin + "/kanban/task/update/comment/" + commentId;
+
+                const res = await fetch(url, {
+                    method: 'POST',
+                    body: formData
+                })
+                
+                //reload Comments
+                _commentsReload(); 
+                
+                return await res
+            }
         }
         
                
@@ -162,22 +216,31 @@
             const res = await fetch(url, {
                 method: 'POST'
             })
-
+            window.ktKanbanItem.reload();
             return await res
         }
         
         var _handleDeleteComment = async function(commentId){
             
-            let url = window.origin + "/kanban/task/delete/comment/" +commentId;
-            const res = await fetch(url, {
-                method: 'POST'
-            })
-            
-            _commentsReload(); 
-            window.ktKanbanItem.reload();
-            Gofast.toast(Drupal.t('The comment has been deleted', {}, { 'context': 'gofast' }), 'info');
+            //check if card node has not been deleted
+            const card_status = _getCardStatus(_task.nid);
+            if( card_status == 0){
+                window.ktKanbanItem.reload();
+                _displayCardDeletedMsg();
 
-            return await res
+            }else{
+            
+                let url = window.origin + "/kanban/task/delete/comment/" +commentId;
+                const res = await fetch(url, {
+                    method: 'POST'
+                })
+                
+                _commentsReload(); 
+                window.ktKanbanItem.reload();
+                Gofast.toast(Drupal.t('The comment has been deleted', {}, { 'context': 'gofast' }), 'info');
+
+                return await res
+            }
         }
 
         var _init = function(el, initialData, callback){
@@ -345,8 +408,7 @@
                 templateSelection: responsable.templates.suggestionItemTemplate,
                 language: GofastLocale,
             });
-  
-
+            
             if(_task.members && _task.members.length > 0) {
                 _task.members.map(user => {
                     user.value = user.uid
@@ -417,7 +479,7 @@
             timeline.innerHTML = _getCardTimeLine();
 
             let newCommentEl = timeline.querySelector('.GofastAddComment');
-            newComment = GofastEditableInput(newCommentEl, '', 'ckeditor-classic', {
+            let newComment = GofastEditableInput(newCommentEl, '', 'ckeditor-comment', {
                 isEditable: _task.canComment,
                 templates: {
                     value: function (data) {
@@ -439,33 +501,9 @@
                 },
                 initCustomInput : async function(){
                     try {
-                        let ckeditor = await ClassicEditor.create(this.DOM.input,{
-                        //    removePlugins: ['CKFinderUploadAdapter', 'CKFinder', 'EasyImage', 'Image', 'ImageCaption', 'ImageStyle', 'ImageToolbar', 'ImageUpload', 'MediaEmbed'],
-                            language: GofastLocale,
-                            toolbar: {
-                                items: [
-                                        'heading',
-                                        '|',
-                                        'bold',
-                                        'italic',
-                                        'underline',
-                                        'strikethrough',
-                                        '|',
-                                        'alignment',
-                                        '|',
-                                        'numberedList',
-                                        'bulletedList',
-                                        '|',
-                                        'link',
-                                        'blockquote',
-                                        '|',
-                                        'undo',
-                                        'redo'
-                                ]
-                            }
-                        });
-
-                        this.DOM.customInput = ckeditor
+                        let ckeditor = await ClassicEditor.create(this.DOM.input, Gofast.parseCKEditorProfile(Drupal.settings.ckeditor.profiles["ckeditor-comment"]));
+                        console.log(ckeditor)
+                        this.DOM.customInput = ckeditor;
                     } catch (error) {
                         console.log(error)
                     }
@@ -734,6 +772,9 @@
             },
             delete(el, callback){
                 _delete(el, callback)
+            },
+            getCardStatus(cardId){
+                _getCardStatus(cardId);
             }
         }
 
@@ -742,5 +783,4 @@
     window.GofastKanbanCardDetail = function(){
         return GofastKanbanCardDetail()
     }
-
 })(jQuery, Drupal, Gofast);

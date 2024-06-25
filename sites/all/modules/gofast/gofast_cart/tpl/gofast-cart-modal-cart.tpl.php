@@ -16,7 +16,9 @@
             </tbody>
         </table>
         <nav class="text-center mt-4">
-            <ul class="pagination pagination-sm justify-content-center" id="gofast-cart-pager"></ul>
+            <ul class="pagination pagination-sm justify-content-center" id="gofast-cart-pager">
+                <?= theme('pager') ?>
+            </ul>
         </nav>
         <div class="GofastCart__emptyPlaceholder">
         <?php if($table_content === ""): ?>
@@ -27,9 +29,3 @@
         </div>
     </div>
 </div>
-
-<script type="text/javascript">
-    jQuery(document).ready(function() {
-        jQuery('#gofast-cart-table > tbody').pager({pagerSelector : '#gofast-cart-pager', perPage: 10, numPageToDisplay : 5});
-    })
-</script>

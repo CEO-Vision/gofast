@@ -21,7 +21,7 @@
                                 <span class="card-title">{{row.title}}</span>
                             </div>
                             <div style="float:left;color:#777;font-weight: bold;width:60%;white-space: nowrap;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;" title='{{row.displayDescription | gfTranslate}}'>
-                                <i class="fa fa-flag-o"></i>
+                                <i class="fas fa-flag-o"></i>
                                 <span class="card-subtitle mb-2 text-muted">{{row.displayDescription | gfTranslate}}</span>
                             </div>
                             
@@ -31,10 +31,10 @@
                         <div class="row">
                             <div>
                                 <div class="deadline_box_in_rapide_todoliste" style="float:left;width:30%;max-height:22px;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;">
-                                   <i class="fa fa-calendar"></i> <span title='{{"label.process_start_date" | gfTranslate}}'>{{row.start_date|date:"dd/MM/yyyy"}}</span>
+                                   <i ng-if="row.has_process_end_date" class="fas fa-calendar"></i> <span ng-if="row.has_process_end_date" style="font-weight: bold;" title='{{"label.process_end_date" | gfTranslate}}'>{{row.process_end_date|date:"dd/MM/yyyy"}}</span>
                                 </div>
                                 <div class="deadline_box_in_rapide_todoliste" style="font-weight:bold;float:left;width:30%;max-height:22px;overflow:hidden;text-overflow:ellipsis;-o-text-overflow:ellipsis;display: inline-block;">
-                                   <i ng-if="row.has_deadline" class="fa fa-clock-o" style="color:#337ab7;"></i> <span style="color:{{row.deadline_color}};" title='{{"label.process_deadline" | gfTranslate}}'>{{row.deadline|date:"dd/MM/yyyy"}}</span>
+                                   <i ng-if="row.has_deadline" class="fas fa-clock-o" style="color:#337ab7;"></i> <span ng-if="row.has_deadline" style="color:{{row.deadline_color}};" title='{{"label.process_deadline" | gfTranslate}}'>{{row.deadline|date:"dd/MM/yyyy"}}</span>
                                 </div>
                                 
                                 <div class="deadline_box_in_rapide_todoliste" style="float:left;max-width:38%;max-height:22px;margin-left:0px;overflow:hidden;word-break:break-all;">
@@ -43,17 +43,22 @@
                                 <div id="wf-buttons" style="float: right;margin-top: 5px;">
                                     <span ng-if="row.is_eligible" class="gofast_workflows_title_task_doit" style="cursor:pointer;" ng-click='ctrl.selectRow(row);ceo_vision_js_task_doit($event);' title='{{"label.process_doit" | gfTranslate}}'>
                                         <button type="button" class="btn btn-default wf-button wf-button-green" style="padding:1px 6px;width:22px;color: #2ecc71;">
-                                            <span class="fa fa-play gofast_wf_link"></span>
+                                            <span class="fas fa-play gofast_wf_link"></span>
+                                        </button>
+                                    </span>
+                                    <span ng-if="row.can_delegate_task" class="gofast_workflows_title_task_doit" style="cursor:pointer;" ng-click='ctrl.selectRow(row);ceo_vision_js_task_delegate();' title='{{"label.process_delegate" | gfTranslate}}'>
+                                        <button type="button" class="btn btn-default wf-button wf-button-orange" style="padding:1px 6px;color: #ffa800;">
+                                            <span class="fas fa-users-cog gofast_wf_link"></span>
                                         </button>
                                     </span>
                                     <span style="cursor:pointer;" ng-click='ctrl.selectRow(row);ceo_vision_js_process_pageflow();'>
                                         <button type="button" class="btn btn-default wf-button wf-button-blue" style="padding:1px 6px;width:22px;color: #337ab7;">
-                                            <span class="fa fa-info gofast_wf_link"></span>
+                                            <span class="fas fa-info gofast_wf_link"></span>
                                         </button> 
                                     </span>
                                     <span ng-if="row.can_delete" class="gofast_workflows_title_task_doit" style="cursor:pointer;" ng-click='ctrl.selectRow(row);ceo_vision_js_task_delete();' title='{{"label.process_delete" | gfTranslate}}'>
                                         <button type="button" class="btn btn-default wf-button wf-button-red" style="padding:1px 4px;width:22px;color: red;">
-                                            <span class="fa fa-trash gofast_wf_link"></span>
+                                            <span class="fas fa-trash gofast_wf_link"></span>
                                         </button>
                                     </span>
                         </div>

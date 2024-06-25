@@ -410,8 +410,7 @@
    * Store results for add to cart
    */
   Gofast.search.storeResultsForAddToCart = function (elmnt) {
-    if (typeof Gofast.search.nbs_nids_save == "undefined") Gofast.search.nbs_nids_save = 0;
-    if (typeof Gofast.search.string_nids == "undefined") Gofast.search.string_nids = "";
+    Gofast.search.checkedEntities = Gofast.search.checkedEntities ?? {}
     // the addToCart link is not displayed or hidden for the sake of it being displayed
     // but some events are triggered according to the value of the display property
     if ($("#addToCart").css("display") === "none") {
@@ -430,25 +429,29 @@
         $("#addToCart").css("display", "none");
       }
     }
-    var parent = elmnt.parentElement.parentElement;
-    var children = parent.children[1];
-    var element = children.children;
-    var href = element[0].href;
-    var nid = href.slice(href.lastIndexOf("/") + 1);
-    if (nid.length == 0) return;
-    if (elmnt.checked && Gofast.search.string_nids.indexOf(nid) === -1 && Gofast.search.nbs_nids_save < 50) {
-      Gofast.search.nbs_nids_save++;
-      if (Gofast.search.nbs_nids_save === 1) {
-        Gofast.search.string_nids = nid + ",";
-      } else {
-        Gofast.search.string_nids += nid + ",";
-      }
+
+    Gofast.search.checkedEntities.getItemsCount = () => {
+      var checkedEntitiesCount = 0;
+      Object.values(Gofast.search.checkedEntities.data).forEach((entity_ids) => {
+        checkedEntitiesCount += entity_ids.length
+      })
+      return checkedEntitiesCount;
     }
-    if (!elmnt.checked && Gofast.search.string_nids.indexOf(nid) !== -1) {
-      nid = nid + ",";
-      Gofast.search.string_nids = Gofast.search.string_nids.replace(nid, "");
-      Gofast.search.nbs_nids_save--;
-    }
+
+    // Reset stored data so that object contains only checked items
+    Gofast.search.checkedEntities.data = {};
+
+    // Loop over all checked elements to fill the object
+    const checkedItems = $("input[class='selected_for_basket']:checked");
+    checkedItems.each((i, el) => {
+      const href = $(el).parent().parent().find(".gofast-title").attr("href");
+      const hrefArray = href.split("/");
+      const entity_id = hrefArray[hrefArray.length-1];
+      const entity_type = hrefArray[hrefArray.length-2];
+
+      Gofast.search.checkedEntities.data[entity_type] = Gofast.search.checkedEntities.data[entity_type] ?? []
+      Gofast.search.checkedEntities.data[entity_type].push(entity_id);
+    })
   };
 
   /*
@@ -456,37 +459,18 @@
    */
   Gofast.search.toggleCheckedAllItemForAddToCart = function () {
     var all_selected = $(".all_selected_for_basket");
+    var selected_for_basket = $("input[class='selected_for_basket']");
+    selected_for_basket.each(function () {
+      if ($(this).is(":checked") == all_selected.is(":checked")) {
+        // Make elements have the same state as the select all checkbox
+        $(this).prop("checked", all_selected.is(":checked"));
+        Gofast.search.storeResultsForAddToCart($(this));
+      }
+    });
     if (all_selected.is(":checked")) {
-      var selected_for_basket = $("input[class='selected_for_basket']");
-      selected_for_basket.each(function () {
-        if (!$(this).is(":checked")) {
-          $(this).prop("checked", true);
-          var parent = $(this).parent().parent();
-          var children = parent.children();
-          var element = children[1].getElementsByClassName("gofast-title");
-          var href = element[0].href;
-          var nid = href.slice(href.lastIndexOf("/") + 1);
-          if (Gofast.search.nbs_nids_save < 50) {
-            Gofast.search.nbs_nids_save++;
-            if (Gofast.search.nbs_nids_save === 1) {
-              Gofast.search.string_nids = nid + ",";
-            } else {
-              Gofast.search.string_nids += nid + ",";
-            }
-          }
-        }
-      });
       $("#addToCart").css("display", "");
     } else {
-      var selected_for_basket = $("input[class='selected_for_basket']");
-      selected_for_basket.each(function () {
-        if ($(this).is(":checked")) {
-          $(this).prop("checked", false);
-        }
-      });
       $("#addToCart").css("display", "none");
-      Gofast.search.nbs_nids_save = 0;
-      Gofast.search.string_nids = "";
     }
   };
 
@@ -501,7 +485,7 @@
    * Get documents selected for add to cart
    */
   Gofast.search.getAlfrescoItemForAddToCart = function () {
-    if (typeof Gofast.search.string_nids == "undefined" || Gofast.search.string_nids.length == 0) {
+    if (typeof Gofast.search.checkedEntities == "undefined" || Gofast.search.checkedEntities.getItemsCount() == 0) {
       Gofast.toast(
         "",
         "warning",
@@ -512,10 +496,10 @@
         )
       );
     } else {
-      var nids = Gofast.search.string_nids;
+      var entities = Gofast.search.checkedEntities.data;
       jQuery
         .post("/modal/nojs/gofast_search/add_search_results_to_cart", {
-          nids: nids,
+          entities: entities,
         })
         .done(function (commands) {
           var jsonCommands = JSON.parse(commands);
@@ -534,9 +518,8 @@
    * submit add search results to cart
    */
   Gofast.search.submitAddSearchResultsToCart = function () {
-    var nids = Gofast.search.string_nids;
     jQuery
-      .post("/gofast_search/add_search_results_to_cart_submit", { nids: nids })
+      .post("/gofast_search/add_search_results_to_cart_submit", { entities: Gofast.search.itemsToAdd })
       .done(function () {
         Drupal.CTools.Modal.dismiss();
         Gofast.toast(
@@ -561,7 +544,11 @@
   ) {
     Gofast.setCookie("search_params", search_params, 31536000);
     Gofast.setCookie("strict_search", strict_search, 31536000);
-    Gofast.processAjax(decodeURIComponent(url));
+    if(Gofast._settings.isEssential && !Gofast.isMobile()){
+      Gofast.Essential.processEssentialAjax(decodeURIComponent(url));
+    } else {
+      Gofast.processAjax(decodeURIComponent(url));
+    }
   };
 
   /*
@@ -658,7 +645,7 @@
         const newSpellingSuggestionsBlock = spellingSuggestionsBlock.cloneNode(true);
         spellingSuggestionsBlock.remove();
         const simpleFiltersCard = document.querySelector(".gofast-content--right.sideContent > .card:first-child");
-        if (simplefiltersCard) {
+        if (simpleFiltersCard) {
           simpleFiltersCard.insertBefore(newSpellingSuggestionsBlock, simpleFiltersCard.children[0]);
         }
         // at last, we make the clone visible

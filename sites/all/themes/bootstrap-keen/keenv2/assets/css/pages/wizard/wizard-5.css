@@ -1,34 +1,39 @@
 .wizard.wizard-5 {
-  display: flex; }
-  .wizard.wizard-5 .wizard-steps {
-    display: flex;
-    align-items: center;
-    justify-content: center; }
-    .wizard.wizard-5 .wizard-steps .wizard-step {
-      display: flex;
-      padding: 1rem 0.5rem; }
-      .wizard.wizard-5 .wizard-steps .wizard-step .wizard-label {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-        height: 40px;
-        width: 40px;
-        flex-shrink: 0;
-        margin-right: 1.5rem;
-        border-radius: 100%;
-        background-color: #E4E6EF;
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #ffffff; }
-      .wizard.wizard-5 .wizard-steps .wizard-step[data-wizard-state="current"] .wizard-label {
-        background-color: #3699FF;
-        transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-        color: #FFFFFF; }
-      .wizard.wizard-5 .wizard-steps .wizard-step[data-wizard-state="current"]:last-child .wizard-label, .wizard.wizard-5 .wizard-steps .wizard-step[data-wizard-state="done"] .wizard-label {
-        background-color: #1BC5BD;
-        transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-        color: #ffffff; }
-
+  display: flex;
+}
+.wizard.wizard-5 .wizard-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wizard.wizard-5 .wizard-steps .wizard-step {
+  display: flex;
+  padding: 1rem 0.5rem;
+}
+.wizard.wizard-5 .wizard-steps .wizard-step .wizard-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  height: 40px;
+  width: 40px;
+  flex-shrink: 0;
+  margin-right: 1.5rem;
+  border-radius: 100%;
+  background-color: #E4E6EF;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+.wizard.wizard-5 .wizard-steps .wizard-step[data-wizard-state=current] .wizard-label {
+  background-color: #3699FF;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  color: #FFFFFF;
+}
+.wizard.wizard-5 .wizard-steps .wizard-step[data-wizard-state=current]:last-child .wizard-label, .wizard.wizard-5 .wizard-steps .wizard-step[data-wizard-state=done] .wizard-label {
+  background-color: #1BC5BD;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  color: #ffffff;
+}
 
 /*# sourceMappingURL=wizard-5.css.map*/

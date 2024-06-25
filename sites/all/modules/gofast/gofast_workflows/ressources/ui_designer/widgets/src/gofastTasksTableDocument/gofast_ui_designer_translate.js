@@ -30,14 +30,14 @@
 					"label.process_soon_outdated": "This process will soon reach it deadline",
 					"label.process_outdated" : "This process has outdated it deadline",
 					"label.process_title" : "Title",
-					"label.process_start_date" : "Start date",
-					"label.process_deadline" : "Deadline",
+					"label.process_end_date" : "Process end date",
+					"label.process_deadline" : "Task deadline",
 					"label.process_doit" : "Execute the task",
 					"label.process_delete" : "Delete the process",
 					"label.process_history" : "Display history",
 					"label.completed_at" : "Completed at",
-					"label.responsible" : "Responsible"
-					
+					"label.responsible" : "Responsible",
+					"label.process_delegate" : "Delegate the task",
 				},
 				"fr" : {
 					"label.process_finished" : "Ce processus est terminé",
@@ -46,8 +46,8 @@
 					"label.process_soon_outdated": "Ce processus va bientôt atteindre sa date limite",
 					"label.process_outdated" : "Ce processus a dépassé sa date limite",
 					"label.process_title" : "Titre",
-					"label.process_start_date" : "Date de démarrage",
-					"label.process_deadline" : "Date d'échéance",
+					"label.process_end_date" : "Date d'échéance du processus",
+					"label.process_deadline" : "Date d'échéance de la tâche",
 					"label.process_doit" : "Executer la tâche",
 					"label.process_delete" : "Supprimer le processus",
 					"label.process_history" : "Afficher l'historique",
@@ -57,7 +57,8 @@
 					"For Signature" : "Pour signature",
 					"For Information" : "Pour information",
 					"label.completed_at" : "Complété à",
-					"label.responsible" : "Responsable"
+					"label.responsible" : "Responsable",
+					"label.process_delegate" : "Déléguer la tâche",
 				},
 				"nl" : {
 					"label.process_finished" : "Dit proces is voltooid",
@@ -66,8 +67,8 @@
 					"label.process_soon_outdated": "Dit proces bereikt binnenkort de deadline",
 					"label.process_outdated" : "Dit proces is verouderd",
 					"label.process_title" : "Titel",
-					"label.process_start_date" : "Begin datum",
-					"label.process_deadline" : "Deadline",
+					"label.process_end_date" : "Einddatum proces",
+					"label.process_deadline" : "Taak deadline",
 					"label.process_doit" : "Voer de taak uit",
 					"label.process_delete" : "Verwijder het proces",
 					"label.process_history" : "Geschiedenis weergeven",
@@ -77,7 +78,8 @@
 					"For Signature" : "Voor handtekening",
 					"For Information" : "Ter informatie",
 					"label.completed_at" : "Voltooid om",
-					"label.responsible" : "Verantwoordelijk"
+					"label.responsible" : "Verantwoordelijk",
+					"label.process_delegate" : "De taak delegeren",
 				},
 			};
 			

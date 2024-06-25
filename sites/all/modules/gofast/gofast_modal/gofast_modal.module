@@ -157,6 +157,16 @@ function gofast_modal_menu() {
     'type' => MENU_CALLBACK,
   );
 
+//Preadd Member to userlist modal
+$items['modal/%ctools_js/og/%node/userlist/preadd/members'] = array(
+  'title' => 'Pre-add member',
+  'page callback' => 'gofast_modal_og_preadd_userlist_members',
+  'page arguments' => array(1, 3),
+  'access callback' => 'user_access',
+  'access arguments' => array('pre add members'),
+  'type' => MENU_CALLBACK,
+);
+
   // Send by Email
   $items['modal/%ctools_js/printmail/%'] = array(
     'title' => variable_get('print_mail_text_title', 'Send page by email'),
@@ -580,8 +590,91 @@ function gofast_modal_menu() {
     'type' => MENU_CALLBACK,
     'page arguments' => array(1, 4),
   );
+  
+  
 
+
+  $items['modal/%ctools_js/share_folder_by_email'] = [
+    'page callback' => 'gofast_modal_share_folder_by_email_modal',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'page arguments' => array(1, TRUE),
+  ];
+  $items['custom/modal/%'] = array(
+    'title' => 'Image modal ',
+    'page callback' => 'gofast_display_image_modal',
+    'page arguments' => array(2),
+    'access arguments' => array('administer general configuration'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['modal/%ctools_js/bookmark_collection/remove/%/%'] = array(
+    'page callback' => 'gofast_modal_remove_bookmark_collection',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'page arguments' => array(1, 4, 5),
+  );
+  $items['modal/%ctools_js/bookmark_collection/flag/%/%'] = array(
+    'page callback' => 'gofast_modal_flag_bookmark_collection',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'page arguments' => array(1, 4, 5),
+  );
+  $items['modal/%ctools_js/bookmark_collection/unflag/%/%'] = array(
+    'page callback' => 'gofast_modal_unflag_bookmark_collection',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'page arguments' => array(1, 4, 5),
+  );
+
+  $items['modal/%ctools_js/calendar/add_calendar'] = array(
+    'page callback' => 'gofast_bluemind_add_calendar_modal',
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'type' => MENU_CALLBACK,
+  );
+  $items['modal/%ctools_js/stats/select_fields'] = array(
+    'page callback' => 'gofast_modal_select_document_export_fields',
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(1),
+  );
   return $items;
+}
+
+function gofast_modal_set_form_buttons(&$form, $is_delete = FALSE) {
+  if ($is_delete) {
+    $form['actions']['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Delete'),
+      '#attributes' => array(
+        'class' => array('btn', 'btn-danger'),
+        'id' => 'edit-submit',
+      ),
+    );
+  } else {
+    $form['actions']['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Submit'),
+      '#attributes' => array(
+        'class' => array('btn', 'btn-success'),
+      ),
+    );
+  }
+
+  $form['actions']['cancel'] = array(
+    '#value' => t("Cancel"),
+    "#type" => "button",
+    '#attributes' => array(
+      'class' => array('btn', 'btn-secondary'),
+      'id' => 'edit-cancel',
+    ),
+    '#weight' => '20',
+  );
 }
 
 function gofast_modal_ajax_get_modal_content($content){
@@ -774,6 +867,70 @@ function gofast_modal_article_position_form($js, $node) {
   if ($form_state['executed']) {
     $commands[] = ctools_modal_command_dismiss();
     $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+    $commands[] = ajax_command_html("#ctools-add-js", "<script>
+      Drupal.settings.gofast_selected_book = " . $node->nid . ";
+      Gofast.refreshWikiPanel();
+    </script>");
+  }
+  if (empty($commands)) {
+    // Dismiss the popup when
+    $commands[] = ctools_modal_command_dismiss();
+  }
+  print ajax_render($commands);
+}
+
+function gofast_modal_article_location_form($js, $node) {
+  drupal_set_title(check_plain($node->title));
+
+  $form_id = 'gofast_book_location_form';
+  $form_state = array();
+  if (!$js) {
+    return drupal_goto('node/' . $node->nid . '/edit');
+  }
+
+  if (node_access('update', $node)) {
+    ctools_include('modal');
+    ctools_include('ajax');
+
+    $form_state = array(
+      'build_info' => array(
+        'args' => array(
+          (object) $node,
+        ),
+      ),
+      'modal' => TRUE,
+      'ajax' => TRUE,
+      're_render' => FALSE,
+      'no_redirect' => TRUE,
+    );
+  }
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  // Handle if submit with errors
+  if (isset($commands[0])) {
+    $commands[0]['output'] = gofast_normalize_string_from_ajaxifying($commands[0]['output']);
+  }
+
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+    $commands[] = ajax_command_html('#ctools-add-js',"<script type='text/javascript'>
+      $.get(window.origin + '/gofast/book/explorer').done(function(data){
+        $('.book-explorer-main').replaceWith(data);
+        $(\".breadcrumb-gofast:not('.breadcrumb-gofast-full')\").removeClass('processed');
+        Gofast.selectCurrentWikiArticle();
+        Gofast.gofast_main_block_breadcrumb(true);
+        Gofast.gofast_right_block_breadcrumb(false);
+      });
+   </script>");
+  } else {
+    $commands[] = ajax_command_html('#ctools-add-js',"<script type='text/javascript'>
+      Gofast.book.treeWidgetItemCallback({
+        preventDefault: () => {},
+        currentTarget: $('#modal-content').find('.wiki-tree-widget-item[data-nid=\"' + $('#modal-content').find('#wiki_tree_location_input').val() + '\"]')
+      });
+     </script>");
   }
   if (empty($commands)) {
     // Dismiss the popup when
@@ -825,6 +982,34 @@ function gofast_modal_theme() {
         'gofast_modal_about_page_item' => array(
           'template'  => 'tpl/gofast-modal-about-page-item',
         ),
+        'gofast_modal_node_delete' => array(
+          'template' => 'tpl/gofast-modal-node-delete',
+        ),
+        'gofast_modal_node_unzip' => array(
+          'template' => 'tpl/gofast-modal-node-unzip',
+        ),
+        'gofast_modal_node_compress' => array(
+          'template' => 'tpl/gofast-modal-node-compress',
+        ),
+        'i18n_node_select_translation_form' => array(
+          'render element' => 'form',
+          'path' => drupal_get_path('theme', 'bootstrap_keen') . '/templates',
+          'template' => 'tpl/i18n_node_select_translation_form',
+        ),
+        'gofast_modal_bookmark_collection_remove' => array(
+          'template' => 'tpl/gofast-modal-bookmark-collection-remove',
+        ),
+        'gofast_modal_bookmark_collection_flag' => array(
+          'template' => 'tpl/gofast-modal-bookmark-collection-flag',
+        ),
+        'gofast_modal_bookmark_collection_unflag' => array(
+          'template' => 'tpl/gofast-modal-bookmark-collection-unflag',
+        ),
+        'comment_form__node_alfresco_item' => array(
+          'render element' => 'form',
+          'path' => drupal_get_path('theme', 'bootstrap_keen') . '/templates',
+          'template' => 'comment-form',
+        ),
     );
 }
 
@@ -858,6 +1043,17 @@ function gofast_modal_display_radioactivity_graphic($js, $node){
  * Menu page callback - Manage group membership
  */
 function gofast_modal_og_add_members($js, $og) {
+  global $user;
+
+  $is_administrator = in_array('administrator member', gofast_og_get_user_final_roles_for_space('node', $og->nid, $user->uid), true);
+  if (!$is_administrator) {
+    drupal_set_message(t("You have selected only spaces on which you are not administrator", array(), array("context" => "gofast")), "error");
+
+    $commands = array();
+    $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+    print ajax_render($commands);
+    exit;
+  }
   $form_id = 'og_ui_add_users';
   if (!$js) {
     drupal_goto("group/node/$og->nid/admin/people/add-user");
@@ -1011,7 +1207,11 @@ function gofast_modal_save_search($js) {
     $content = gofast_search_get_block_fastaccess_saved_searches();
     $content = str_replace("display: none;", "", $content);
     $commands[] = ajax_command_replace("#dropdown-menu-page-search", $content);
-    $commands[] = gofast_command_processAjax($url);
+    if(gofast_essential_is_essential() && !gofast_mobile_is_phone()){
+      $commands[] = gofast_command_processEssentialAjax($url);
+    } else {
+      $commands[] = gofast_command_processAjax($url);
+    }
   }
 
   print ajax_render($commands);
@@ -1052,7 +1252,11 @@ function gofast_modal_delete_search($js) {
     $commands[] = gofast_command_toast_message(t('The search has been deleted', array(), array('context' => 'gofast:gofast_search')), 'warning');
     global $base_url;
     $url = str_replace($base_url , "", $_SERVER["HTTP_REFERER"]);
-    $commands[] = gofast_command_processAjax($url);
+    if(gofast_essential_is_essential() && !gofast_mobile_is_phone()){
+      $commands[] = gofast_command_processEssentialAjax($url);
+    } else {
+      $commands[] = gofast_command_processAjax($url);
+    }
     $content = gofast_search_get_block_fastaccess_saved_searches();
     $content = str_replace("display: none;", "", $content);
     $commands[] = ajax_command_replace("#dropdown-menu-page-search", $content);
@@ -1078,6 +1282,7 @@ function gofast_modal_add_folder_template($js) {
       'args' => array(
       ),
     ),
+    'reset_html_ids' => TRUE,
     'title' => t('Add folder template', array(), array('context' => 'gofast:gofast_ajax_file_browser')),
     'ajax' => TRUE,
   );
@@ -1112,16 +1317,45 @@ function gofast_modal_add_folder_template($js) {
  * Add new document, called in ITHit
  */
 function gofast_modal_new_document() {
-  $form_id = 'gofast_ajax_file_browser_form';
+  $form_id = 'alfresco_item_node_form';
+  if(isset($_GET["path"])){
+    $path = gofast_xss_clean($_GET["path"]);
+    $nid = gofast_cmis_get_spaceid_by_webdav_folder($path, null);
+    if (og_user_access('node', $nid, 'create alfresco_item content') == 1){
+      //Check if the group is not archived
+      if (!gofast_group_is_archive(node_load($nid))){
+        }else{
+          $commands[] = gofast_command_toast_message(t('You can\'t write to this group because it is archived'), "warning");
+        }
+      }else{
+        $commands[] = gofast_command_toast_message(t('You don\'t have write permission in this group'), "warning");
+    }
+    if(isset($commands)){
+      print ajax_render($commands);
+      exit;
+    }
+  }
   ctools_include('modal');
   ctools_include('ajax');
   $form_state = array(
-    'ajax' => TRUE,
-    'title' => t('Upload files', array(), array('context' => 'gofast:ajax_file_browser')),
+    'reset_html_ids' => TRUE,
+    'title' => t('Add new document', array(), array('context' => 'gofast:gofast_ajax_file_browser')),
   );
+  $form_state += array(
+    're_render' => FALSE,
+    'no_redirect' => FALSE,
+  );
+  if(isset($_GET["path"])){
+    $form_state['values'][GOFAST_CMIS_MAIN_LOCATION_FIELD][LANGUAGE_NONE][0]['value'] = gofast_xss_clean($_GET["path"]);
+  }
 
-  $commands = ctools_modal_form_wrapper($form_id, $form_state);
-
+  unset($_POST['ajax_html_ids']);
+  $node = new stdClass();
+  $node->type = "alfresco_item";
+  
+  $_POST['from_modal'] = TRUE;
+  $output = drupal_get_form($form_id, $node);
+  $commands = ctools_modal_form_render($form_state, $output);
   print ajax_render($commands);
 }
 
@@ -1157,48 +1391,59 @@ function gofast_modal_form_og_ui_add_users_alter(&$form, &$form_state, $form_id)
  * Form validate for og_add_members
  */
 function gofast_modal_og_ui_add_users_userlist_validate($form, &$form_state){
-
+  global $user;
   $validate_role = false;
 
   $json_user_userlist =   json_decode($form_state['input']['ac-list-tags-field-user-userlist']);
 
-    if (empty($json_user_userlist)) {
-        form_set_error('roles', t('Please select a user/userlist', array(), array('context' => 'gofast')));
-    }
+  if (empty($json_user_userlist)) {
+      form_set_error('roles', t('Please select a user/userlist', array(), array('context' => 'gofast')));
+      return;
+  }
 
   foreach($form_state['values']['roles'] as $key=>$role){
-       if(is_string($role)){
+    if(is_string($role)){
       $validate_role = true;
-       }
-   }
+    }
+  }
 
   if($validate_role == false){
     form_set_error('roles', t('Please select a role', array(), array('context' => 'gofast')));
   }else{
-      //check if it's a user and if he is already member
-     if($form_state['values']['member_entity_type'] == "user"){
-        $account = user_load_by_name($form_state['values']["name"]);
-        $roles = og_get_user_roles("node", $form_state['values']["gid"], $account->uid);
-        $already_member = true;
-       if(count($roles) > 0){
-           foreach($roles as $role){
-                if($role == "non-member"){
-                    $already_member = false;
-                }
-           }
-       }
-       if($already_member == true){
-            form_set_error('name', t('This user is already a member', array(), array('context' => 'gofast')));
-            return;
-       }
-     }
-    # this function is execute twice, prevent double audit insert line
-    if (variable_get('add_member_is_audit',FALSE) == TRUE){
-      //Insert into audit
-        variable_set('add_member_is_audit',FALSE);
-    }else{
-        variable_set('add_member_is_audit',TRUE);
+    $is_administrator = in_array('administrator member', gofast_og_get_user_final_roles_for_space('node', $form_state['values']["gid"], $user->uid), true);
+    if (!$is_administrator) {
+      form_set_error('name', t('You must be administrator of this space to add members to it', array(), array('context' => 'gofast')));
+      return;
     }
+    
+    //check if we're adding an already existing member
+    foreach ($json_user_userlist as $user_or_userlist) {
+      if ($user_or_userlist->type != "user") {
+        continue;
+      }
+      $account = user_load($user_or_userlist->value);
+      $roles = og_get_user_roles("node", $form_state['values']["gid"], $account->uid);
+      if(count($roles) > 0){
+        $already_member = true;
+        foreach($roles as $role){
+          if($role == "non-member"){
+            $already_member = false;
+          }
+        }
+        if($already_member == true){
+          $full_username = gofast_user_get_display_name_sql($account->uid);
+          form_set_error('name', t('The user @username is already a member', array("@username" => $full_username), array('context' => 'gofast')));
+          return;
+        }
+      }
+    }
+  }
+  // this function is executed twice, prevent double audit insert line
+  if (variable_get('add_member_is_audit',FALSE) == TRUE){
+    //Insert into audit
+      variable_set('add_member_is_audit',FALSE);
+  }else{
+      variable_set('add_member_is_audit',TRUE);
   }
 }
 
@@ -1296,13 +1541,11 @@ function gofast_preadd_users_form_validate($form, &$form_state) {
   }
 }
 
-function gofast_preadd_users_form_submit($form,&$form_state){
+function gofast_preadd_users_form_submit($form,&$form_state, $type = "space"){
 
    if(isset($_SESSION["gids_bulk_actions"])){
-       watchdog("debug bulk gids2", json_encode($_SESSION["gids_bulk_actions"]));
-       $gids =$_SESSION["gids_bulk_actions"];
+       $gids = $_SESSION["gids_bulk_actions"];
    }else{
-       watchdog("debug bulk gids3", json_encode($space_id));
        $gid = isset($form_state['build_info']['args'][1]) ? $form_state['build_info']['args'][1] : false;
        $gids = array($gid);
    }
@@ -1314,7 +1557,14 @@ function gofast_preadd_users_form_submit($form,&$form_state){
   $html .= $progress_bar;
   foreach($gids as $gid){
         $title = gofast_get_node_title($gid);
-        $html .= theme('gofast_og_preadd_validation', array('nid' => $gid, 'title' => $title, 'user_preadd_list' => $final_json_list_user_preadd, "message" => $form_state["values"]["message"], "rid" => $form_state["values"]["default_role"]));
+        $html .= theme('gofast_og_preadd_validation', array(
+          'nid' => $gid,
+          'title' => $title,
+          'user_preadd_list' => $final_json_list_user_preadd,
+          "message" => $form_state["values"]["message"],
+          "type" => $type,
+          "rid" => $form_state["values"]["default_role"])
+        );
   }
 
   $commands = array();
@@ -1336,11 +1586,6 @@ function gofast_modal_node_manage($js, $node, $group) {
   ctools_include('modal');
   ctools_include('ajax');
 
-//  $form_state = array(
-//    'ajax' => TRUE,
-//    'args' => array($node),
-//    'title' => null
-//  );
   $form_state = array(
     'build_info' => array(
       'args' => array(
@@ -1363,6 +1608,7 @@ function gofast_modal_node_manage($js, $node, $group) {
     }
     else {
       // No error, display message to user and handle redirection if needed.
+      $commands = array_merge($commands, gofast_messages_to_commands(TRUE));
       $commands[] = ctools_modal_command_dismiss();
       $commands[] = gofast_command_processAjax('/activity');
     }
@@ -1370,6 +1616,226 @@ function gofast_modal_node_manage($js, $node, $group) {
   print ajax_render($commands);
 }
 
+/**
+ * if a node is not given, then an array of paths is expected to be found in $_POST
+ * @param bool|object $node
+ * @param bool $ajax
+ * @return string
+ */
+function gofast_node_delete_modal_template($node = FALSE, $ajax = FALSE) {
+  $items = [];
+  if (!$node) {
+    $paths = $_POST["items"];
+    foreach ($paths as $path) {
+      $path = gofast_xss_clean($path);
+      $path = str_replace("/alfresco/webdav", "", $path);
+      $items[] = gofast_cmis_item_get_by_path($path);
+    }
+  } elseif (isset($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]["value"])) { // the item should exist in alfresco
+    $ref = $node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]["value"];
+    $items[] = gofast_cmis_item_get($ref);
+  } else { // if we have a $node and no alfresco ref, then this means it's the Drupal node which was passed
+    $items[] = $node;
+  }
+  $nodes_description = [];
+  foreach ($items as $item) {
+    $node_description = new stdClass();
+    $node_description->children = [];
+    // it's a folder so we also get its content
+    if (!isset($item->properties["gofast:nid"])) {
+      $children = gofast_cmis_webservice_item_get_descendants($item->id);
+      foreach($children as $child) {
+        $child_object = new stdClass();
+        if (is_numeric($child)) {
+          $child_node = node_load($child);
+          $child_object->icon = gofast_node_get_icon($child_node);
+          $child_object->title = $child_node->title;
+        } else {
+          $child_object->title = array_pop(explode("/", $child));
+          $child_object->icon = "fa fa-folder";
+        }
+        $node_description->children[] = $child_object;
+      }
+    }
+    $node_description->title = $item->properties["cmis:name"] ?? $item->title;
+    $node_description->locations = [];
+    if (isset($item->properties["gofast:nid"])) { // the item exists in alfresco
+      $item_node = node_load($item->properties["gofast:nid"]);
+    } elseif (isset($item->nid)) { // the item doesn't exist in alfresco but we already have the node
+      $item_node = $item;
+    }
+    if (isset($item_node)) {
+      $node_description->icon = gofast_node_get_icon($item_node);
+      $node_description->locations = gofast_get_node_locations($item_node)["all_paths"];
+      $node_description->linked_contents = gofast_get_node_linked_nodes($item_node);
+      $node_description->node_type = $node->type;
+    } else {
+      $node_description->icon = "fa fa-folder";
+    }
+    $nodes_description[] = $node_description;
+  }
+
+  if ($ajax) {
+    echo theme("gofast_modal_node_delete", array("nodes_description" => $nodes_description));
+    exit();
+  }
+
+  return theme("gofast_modal_node_delete", array("nodes_description" => $nodes_description));
+}
+
+
+/**
+ * if a node is not given, then an array of paths is expected to be found in
+ * $_POST
+ *
+ * @param bool|object $node
+ * @param bool $ajax
+ *
+ * @return string
+ * @throws \Exception
+ */
+function gofast_node_unzip_modal_template($node = FALSE, bool $ajax = FALSE): string {
+
+  $items = [];
+  if ($node === "get_unzip_modal_content") {
+    $paths = $_POST["items"];
+    foreach ($paths as $path) {
+      $path = gofast_xss_clean($path);
+      $path = str_replace("/alfresco/webdav", "", $path);
+      $items[] = gofast_cmis_item_get_by_path($path);
+    }
+  }
+  elseif (isset($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]["value"])) { // the item should exist in alfresco
+    $ref = $node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]["value"];
+    $items[] = gofast_cmis_item_get($ref);
+  }
+  else { // if we have a $node and no alfresco ref, then this means it's the Drupal node which was passed
+    $items[] = $node;
+  }
+
+  $nodes_description = [];
+
+  foreach ($items as $item) {
+    $node_description = new stdClass();
+    $node_description->children = [];
+    // it's a folder so we also get its content
+    if (!isset($item->properties["gofast:nid"])) {
+      $children = gofast_cmis_webservice_item_get_descendants($item->id);
+      foreach ($children as $child) {
+        $child_object = new stdClass();
+        if (is_numeric($child)) {
+          $child_node = node_load($child);
+          $child_object->icon = gofast_node_get_icon($child_node);
+          $child_object->title = $child_node->title;
+        }
+        else {
+          $array = explode("/", $child);
+          $child_object->title = array_pop($array);
+          $child_object->icon = "fa fa-file-archive-o n-color";
+        }
+        $node_description->children[] = $child_object;
+      }
+    }
+
+    $node_description->title = $item->properties["cmis:name"] ?? $item->title;
+    $node_description->locations = [];
+    if (isset($item->properties["gofast:nid"])) { // the item exists in alfresco
+      $item_node = node_load($item->properties["gofast:nid"]);
+    }
+    elseif (isset($item->nid)) { // the item doesn't exist in alfresco, but we already have the node
+      $item_node = $item;
+    }
+    if (isset($item_node)) {
+      $node_description->icon = gofast_node_get_icon($item_node);
+      $node_description->locations = gofast_get_node_locations($item_node)["all_paths"];
+    }
+    else {
+      $node_description->icon = "fa fa-file-archive-o n-color";
+    }
+    $nodes_description[] = $node_description;
+  }
+
+  if ($ajax) {
+    echo theme("gofast_modal_node_unzip", ["nodes_description" => $nodes_description]);
+    exit();
+  }
+
+  return theme("gofast_modal_node_unzip", ["nodes_description" => $nodes_description]);
+}
+
+function gofast_node_compress_modal_template($node = FALSE, bool 
+$ajax = FALSE): string {
+  
+  $paths = json_decode($_POST["items"]);
+  
+  if ($node === "get_compress_modal_content") {
+    foreach ($paths as $path) {
+      $path = urldecode($path->url);
+      $path = str_replace("/alfresco/webdav", "", $path);
+      $items[] = gofast_cmis_item_get_by_path($path);
+    }
+  }
+  elseif (isset($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]["value"])) { // the item should exist in alfresco
+    $ref = $node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]["value"];
+    $items[] = gofast_cmis_item_get($ref);
+  }
+  else { // if we have a $node and no alfresco ref, then this means it's the Drupal node which was passed
+    $items[] = $node;
+  }
+
+  $nodes_description = [];
+
+  //first check if items is defined and not empty
+  if (isset($items) && !empty($items)) {
+    foreach ($items as $item) {
+      $node_description = new stdClass();
+      $node_description->children = [];
+      // it's a folder so we also get its content
+      if (!isset($item->properties["gofast:nid"])) {
+        $node_description->icon = "fa fa-folder";
+        $children = gofast_cmis_webservice_item_get_descendants($item->id);
+        foreach ($children as $child) {
+          $child_object = new stdClass();
+          if (is_numeric($child)) {
+            $child_node = node_load($child);
+            $child_object->icon = gofast_node_get_icon($child_node);
+            $child_object->title = $child_node->title;
+          }
+          else {
+            $array = explode("/", $child);
+            $child_object->title = array_pop($array);
+            $child_object->icon = "fa fa-file";
+          }
+          $node_description->children[] = $child_object;
+        }
+      }
+
+      $node_description->title = $item->properties["cmis:name"] ?? $item->title;
+      $node_description->locations = [];
+      if (isset($item->properties["gofast:nid"])) { // the item exists in alfresco
+        $item_node = node_load($item->properties["gofast:nid"]);
+      }
+      elseif (isset($item->nid)) { // the item doesn't exist in alfresco, but we already have the node
+        $item_node = $item;
+      }
+      if (isset($item_node)) {
+        $node_description->icon = gofast_node_get_icon($item_node);
+        $node_description->locations = gofast_get_node_locations($item_node)["all_paths"];
+      }
+     
+      $nodes_description[] = $node_description;
+    }
+  }
+  
+  if ($ajax) {
+    echo theme("gofast_modal_node_compress", ["nodes_description" => 
+    $nodes_description]);
+    exit();
+  }
+
+  return theme("gofast_modal_node_compress", ["nodes_description" => 
+  $nodes_description]);
+}
 /**
  * Ask for confirmation of node deletion (unpublish)
  */
@@ -1388,6 +1854,7 @@ function gofast_node_delete_confirm($form, $form_state) {
     "conference" => "gofast_conference_ajax_node_delete" ,
     "userlist" => "gofast_userlist_ajax_delete_userlist",
     "webform" => "gofast_webform_ajax_node_delete",
+    "contact" => "gofast_contacts_ajax_delete_contact",
   ];
   $callback = "gofast_ajax_node_unpublish";
   if (isset($node_type_to_callback[$node->type])) $callback = $node_type_to_callback[$node->type];
@@ -1402,103 +1869,97 @@ function gofast_node_delete_confirm($form, $form_state) {
                         t('Delete', array(), array('context' => 'gofast')),
                         t('Cancel', array(), array('context' => 'gofast'))
                   );
-
   }else{
     $confirm_form = confirm_form( $form,
                         t('Delete', array(), array('context' => 'gofast')) . ' ' . $node->title,
                         isset($_GET['destination']) ? $_GET['destination'] : 'node/' . $node->nid,
-                        t('Are you sure you want to delete %title?', array('%title' => $node->title), array('context' => 'gofast')),
+                        gofast_node_delete_modal_template($node),
                         t('Delete', array(), array('context' => 'gofast')),
                         t('Cancel', array(), array('context' => 'gofast'))
                   );
   }
 
-//hide useless 'Cancel' button
-unset($confirm_form['actions']['cancel']);
+  //hide useless 'Cancel' button
+  unset($confirm_form['actions']['cancel']);
 
   return $confirm_form;
 }
 
-//fonction qui publie ou dépublie un noeud (on doit remplacer tous les boutons "delete" par des boutons qui pointent vers cette fonction)
-//pour que les noeuds soient juste dépubliés lorsque les users les suppriment
-function gofast_ajax_node_unpublish($form = null, $form_state = null, $ajax = TRUE, $forceDelete = FALSE) {
+//function which publishes or unpublishes a node (all "delete" buttons should point to this function)
+//so that nodes are just unpublished when users delete them
+function gofast_ajax_node_unpublish($form = null, $form_state = null, $ajax = TRUE, $forceDelete = FALSE, $isFolderDeletion = FALSE) {
   ctools_include('modal');
   ctools_include('ajax');
   $node = isset($form_state['build_info']['args'][0]->nid) ? $form_state['build_info']['args'][0] : node_load($_GET["nid"]);
-
-  if (node_access('delete', $node) === TRUE || $node->type == 'blog') {
+  if ($node->type == 'blog' || node_access('delete', $node) === TRUE) {
     if ($node->status != 0 || $forceDelete) {
 
-    $retention_node = false;
-    if( gofast_retention_get_retention_date($node) !== NULL){
-      $retention_node = true;
-    }
-
-    if($retention_node == true){
-        return;
-    }
-      if ($node->type == 'contact') {
-        node_delete($node->nid);
+      $retention_node = false;
+      if (gofast_retention_get_retention_date($node) !== NULL) {
+        $retention_node = true;
       }
+
+      if ($retention_node == true) {
+        return;
+      }
+      gofast_subscription_ui_node_delete($node);
       node_unpublish_action($node, array());
       node_save($node);
       if ($node->type == "alfresco_item" || $node->type === "article") {
-        if (count($node->field_lien) > 0) {
+        if (count((array) $node->field_lien) > 0) {
           foreach ($node->field_lien[LANGUAGE_NONE] as $mylien) {
-            //node_delete($mylien["nid"]);
-            watchdog("debug unpublish nid", $mylien["target_id"]);
             $node_attach = node_load($mylien["target_id"]);
             node_unpublish_action($node_attach, array());
             node_save($node_attach);
           }
-          exec("curl --user admin:" . gofast_get_admin_pwd() . " 'http://localhost:8080/alfresco/service/del/attachments/?folderName=" . $node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value'] . "&attach=true'");
-        }else{
-          if( gofast_cmis_get_publication_source($node) !== FALSE){ //delete publication and link if needed
-            $node_parent=gofast_cmis_get_publication_source($node); //Get the link
-            gofast_cmis_publication_delete($node);
+        } else {
+          $publication_source = gofast_cmis_get_publication_source($node);
+          if ($publication_source !== FALSE) { //The node is a publication
+            $node_parent = $publication_source; //Get the link of original node for redirection
+            gofast_cmis_publication_delete($node);//And delete the publication
           }
-          try {
-            gofast_cmis_node_delete($node);
+          if (!$isFolderDeletion) {
+            //This is a folder or a space deletion: the cmis item will be removed along with its parent, no need for individual removal requests
+            //Moreover, the actual items will be preserved if something goes wrong during the space deletion
+            try {
+              gofast_cmis_node_delete($node);
+            } catch (CMISException $e) {
+            }
           }
-          catch (CMISException $e) { }
         }
-      }else if ($node->type == "blog") {
-	$blog_deleted = db_delete('node')
-	  ->condition('nid', $node->nid)
-	  ->condition('type', 'blog')
-	  ->execute();
+      } else if ($node->type == "blog") {
+        db_delete('node')
+          ->condition('nid', $node->nid)
+          ->condition('type', 'blog')
+          ->execute();
       }
       // Get the previous URL before the modal
       $previous_url = $_SERVER['HTTP_REFERER'];
       // Verify if we delete the publication on browser or on the node
-      $in_browser = strpos($previous_url,'browser');
+      $in_browser = strpos($previous_url, 'browser');
       $in_space_page = strpos($previous_url, 'path=');
-      if($ajax){
-	if($node->type == 'blog'){
-	    $commands[] = gofast_command_toast_message(t('Your blog message was deleted', array(), array('context' => 'gofast')), 'info');
-	} else if ($node->type == 'contact') {
-            $commands[] = gofast_command_toast_message(t('Your contact was deleted', array(), array('context' => 'gofast')), 'info');
-        }else{
-	    $commands[] = gofast_command_toast_message(t('Your document was deleted', array(), array('context' => 'gofast')), 'info');
-	}
+      if ($ajax) {
+        if ($node->type == 'blog') {
+          $commands[] = gofast_command_toast_message(t('Your blog message was deleted', array(), array('context' => 'gofast')), 'info');
+        } else {
+          $commands[] = gofast_command_toast_message(t('Your document was deleted', array(), array('context' => 'gofast')), 'info');
+        }
 
-       if(gofast_mobile_is_mobile_domain() == TRUE){
-        $commands[] = ctools_ajax_command_redirect("/");
-	}else if( $node->type == 'blog' || $node->type == 'contact'){
-              $commands[] = gofast_command_processAjax('/activity');
-	}else if($in_browser === false && $in_space_page === false ){ // If we are on a node we redirect to the parent node after the deleting
-          if ($node_parent != NULL){
-               $commands[] = gofast_command_processAjax('/node/'. $node_parent);
-          }else if($node->type === "contact") {
-              $commands[] = gofast_command_processAjax('/directory/contacts-listing');
-          }else {
-              $commands[] = gofast_command_processAjax('/activity');
+        if (gofast_essential_is_essential() == TRUE) {
+          $commands[] = ctools_ajax_command_redirect("/");
+        } else if ($node->type == 'blog') {
+          $commands[] = gofast_command_processAjax('/activity');
+        } else if ($in_browser === false && $in_space_page === false) { // If we are on a node we redirect to the parent node after the deleting
+          if ($node_parent != NULL) {
+            $commands[] = gofast_command_processAjax('/node/' . $node_parent);
+          } else {
+            $commands[] = gofast_command_processAjax('/activity');
           }
-      }else{
+        } else {
           $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
               Gofast.ITHit.reload();
          </script>");
-      }
+        }
 
 
         $commands[] = ctools_modal_command_dismiss();
@@ -1507,11 +1968,8 @@ function gofast_ajax_node_unpublish($form = null, $form_state = null, $ajax = TR
     else {
       //si c'est un document, on restaure ce document sur Alfresco
       if ($node->type == "alfresco_item"  || $node->type === "article") {
-        $ret = gofast_cmis_restore_document_alfresco($node);
-        $response = json_decode(implode('', $ret));
-
-
-        if (!$response || !isset($response->data) || $response->data->restoredNode->status !== 'SUCCESS') { //An error happend
+        $response = gofast_cmis_restore_document_alfresco($node);
+        if (!isset($response->data) || $response->data->restoredNode->status !== 'SUCCESS') { //An error happend
           if(isset($response->status)){ //We check the response status
             if($response->status->code === 404){ //File is missing
               if($ajax){
@@ -1582,6 +2040,12 @@ function gofast_ajax_node_unpublish($form = null, $form_state = null, $ajax = TR
       }
     }
   }
+  if ($node->type == "article") {
+    // renormalize weights of parent wiki
+    $parent_wiki_nid = gofast_book_get_parent_nid($node->nid);
+    $book_content = gofast_book_get_minimal_book_by_gid($parent_wiki_nid);
+    gofast_book_reset_weights($book_content, FALSE);
+  }
   if($ajax){
     print ajax_render($commands);
     exit; //Bypass plateform ajaxification, to improve
@@ -1607,7 +2071,7 @@ function gofast_node_publish_confirm($form, $form_state) {
             isset($_GET['destination']) ? $_GET['destination'] : 'node/' . $node->nid,
             t('Are you sure you want to restore %title?', array('%title' => $node->title), array('context' => 'gofast')),
             t('Restore', array(), array('context' => 'gofast')),
-            t('Cancel', array(), array('context' => 'gofast'))
+
   );
 }
 
@@ -1616,23 +2080,6 @@ function gofast_modal_node_view($node, $view_mode, $langcode) {
 
     case 'alfresco_item':
     case 'article':
-      // case 'forum':
-//         if ($view_mode == 'full'){
-//        $links['debug_private_msg_new'] = array(
-//        'href' => "gofast/nojs/messages/new/97",
-//        'title' => t("new private message"),
-//        'attributes' => array("class" => "ctools-use-modal"),
-//        'html' => TRUE,
-      //'query' =>array('id' => $node->reference),
-//      );
-//        $links['gofast_modal_comment_reply'] = array(
-//        'href' => "gofast/nojs/comment/reply/" . $node->nid,
-//        'title' => t("Add Comment"),
-//        'attributes' => array("class" => "ctools-use-modal"),
-//        'html' => TRUE,
-//        //'query' =>array('id' => $node->reference),
-//      );
-
       $links['gofast_modal_upload_file'] = array(
         'href' => "modal/nojs/get/alfresco/file/form/" . $node->nid,
         'title' => t("Upload new file", array(), array('context' => 'gofast')),
@@ -1648,10 +2095,6 @@ function gofast_modal_node_view($node, $view_mode, $langcode) {
         '#attributes' => array('class' => array('links', 'inline')),
       );
       $node->content['links']['gofast_modal'] = $link_content;
-      //unset($node->content['links']["comment"]);
-//      print_r("<pre>");
-//      print_r($node->content['links']);
-//      print_r("</pre>");
       break;
 
 
@@ -1722,7 +2165,7 @@ function gofast_modal_preprocess_node(&$variables) {
   // Print Mail (Send by email).
   if ($print_mail = &$variables['content']['links']['print_mail']['#links']['print_mail']) {
     $print_mail['attributes']['class'][] = 'ctools-use-modal';
-    $print_mail['href'] = 'gofast/nojs/' . PRINTMAIL_PATH . "/{$node->nid}";
+    $print_mail['href'] = "gofast/nojs/{$node->nid}";
   }
 }
 
@@ -1732,9 +2175,27 @@ function gofast_modal_preprocess_node(&$variables) {
 function gofast_modal_form_comment_form_alter(&$form, &$form_state, $form_id) {
   $comment = $form_state['comment'];
 
+  $is_private = FALSE;
+  // if we're replying to an existing comment and the comment is private, we want the reply to be private too
+  if (isset($form_state["build_info"]["args"][0]->pid)) {
+    $comment_id = $form_state["build_info"]["args"][0]->pid;
+    $query = db_select("field_data_field_comment_is_private", "fd");
+    $query->fields('fd', array("field_comment_is_private_value"));
+    $query->condition("entity_id", $comment_id);
+    $is_private = $query->execute()->fetchCol()[0];
+  }
+  if($is_private) {
+    $form['field_comment_is_private'][LANGUAGE_NONE]['#default_value'] = 1;
+    $form['field_comment_is_private'][LANGUAGE_NONE]['#disabled'] = TRUE;
+  }
   //translation
   $label = $form['comment_body'][LANGUAGE_NONE][0]['#title'];
   $form['comment_body'][LANGUAGE_NONE][0]['#title'] = t($label, array(), array('context' => 'gofast:gofast_modal'));
+  // we use #after_build to unset ckeditor module pre_render callback because it has not been set yet at this time (because of ckeditor module weight)
+  $form['comment_body'][LANGUAGE_NONE][0]['#after_build'] = ["gofast_cmis_remove_ckeditor"];
+  // we'll handle ckeditor init ourselves, so we have to fill in the ckeditor profile we want to trigger
+  $form['comment_body'][LANGUAGE_NONE][0]['#attributes']['data-ckeditor'] = "ckeditor-full";
+  $form['comment_body'][LANGUAGE_NONE][0]["#resizable"] = FALSE;
 
   $label = $form['field_comment_is_private'][LANGUAGE_NONE]['#title'];
 
@@ -1744,15 +2205,6 @@ function gofast_modal_form_comment_form_alter(&$form, &$form_state, $form_id) {
 
   //hide author
   $form['author']['#type'] = 'hidden';
-
-  $form['actions']['cancel'] = array(
-    '#value' => t("Cancel"),
-    '#type' => 'submit',
-    '#attributes' => array(
-      'id'> 'edit-cancel',
-      'class' => array('btn', 'btn-secondary')),
-    '#weight' => 22,
-  );
 
   // If not replying to a comment, use our dedicated page callback for new
   // comments on nodes.
@@ -1784,9 +2236,18 @@ function gofast_modal_comment_form_validate($form, &$form_state){
 }
 
 /**
+ * Implements hook_form_FORM-ID_alter
+ * where FORM-ID = comment_node_alfresco_item_form
+ */
+function gofast_modal_form_comment_node_alfresco_item_form_alter(&$form, &$form_state, $form_id) {
+  // add whether current node has a location in an extranet to form to pass to view
+  $form["#node_has_extranet_location"] = gofast_node_has_extranet_location($form["#node"]);
+}
+
+/**
  * A modal comment callback.
  */
-function gofast_modal_comment_reply($js = NULL, $node, $pid = NULL) {
+function gofast_modal_comment_reply($js = NULL, $node = NULL, $pid = NULL) {
   drupal_get_messages();
   $commands = array();
   $comment = array(
@@ -1812,29 +2273,25 @@ function gofast_modal_comment_reply($js = NULL, $node, $pid = NULL) {
         (object) $comment,
       ),
     ),
-    // 'title' => t('Comment'),
     'ajax' => TRUE,
     're_render' => FALSE,
     'no_redirect' => TRUE,
+    'reset_html_ids' => TRUE, // prevent ajax ids incrementation if we use ctools_modal_form_wrapper for form rendering
   );
 
   // Should we show the reply box?
   if ($node->comment != COMMENT_NODE_OPEN) {
     drupal_set_message(t('This discussion is closed: you can\'t post new comments.', array(), array('context' => 'gofast')), 'error');
-    drupal_goto('node/' . $node->nid);
+    $commands[] = ctools_ajax_command_redirect('node/' . $node->nid);
+    print ajax_render($commands);
+    exit();
   }
   else {
-    $commands = drupal_build_form('comment_node_' . $node->type . '_form', $form_state);
-    // Remove output bellow the comment.
+    $commands = ctools_modal_form_wrapper('comment_node_' . $node->type . '_form', $form_state);
+    // Remove output below the comment.
     unset($commands['comment_output_below']);
   }
-
   if (!$form_state['executed'] || $form_state['rebuild']) {
-    $commands = ctools_modal_form_render($form_state, $commands);
-    // Handle if submit with errors
-    if (isset($commands[0])) {
-      $commands[0]['output'] = gofast_normalize_string_from_ajaxifying($commands[0]['output']);
-    }
   }
   else {
     // We'll just overwrite the form output if it was successful.
@@ -1867,16 +2324,6 @@ function gofast_modal_comment_reply($js = NULL, $node, $pid = NULL) {
 
       $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
       
-      # GOFAST-8264 prevent wrong comment fill
-      $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
-             var ta_id = 'edit-comment-body-und-0-value';
-             var instance = CKEDITOR.instances[ta_id];
-             if(instance){
-               CKEDITOR.remove(instance);
-             }
-           </script>"
-       );
-      
       if($node->type == "forum"){
         //Reload left panel with new comments
         $commands[] = gofast_command_callback("Gofast.reloadForums");
@@ -1887,11 +2334,38 @@ function gofast_modal_comment_reply($js = NULL, $node, $pid = NULL) {
   print ajax_render($commands);
 }
 
+/***
+ * A modal image callback.
+ */
+function gofast_display_image_modal($image_path) {
+  drupal_get_messages();
+  global $user;
+  // Decode the path of the image
+  $image_path = base64_decode($image_path);
+
+  // If the user isn't use french, we display the english version of the image
+  if ($user->language != "fr") {
+    $path_parts = pathinfo($image_path);
+    $image_path = $path_parts['dirname'] . '/' . $path_parts['filename'] . '_english.' . $path_parts['extension'];
+  }
+  // Include the modal and ajax libraries
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  // Create an empty array to store the output
+  $output = array();
+
+  //Outputting the formed popup in the browser
+  $output[] = ctools_modal_command_display(t('Information logo position', array(), array('context' => 'gofast')), "<img class='w-100 h-100' src=".$image_path.">");
+
+  ob_clean();
+  print ajax_render($output);
+}
 
 /**
  * A modal comment callback.
  */
-function gofast_modal_workflow_dashboard($js = NULL, $node, $pid = NULL) {
+function gofast_modal_workflow_dashboard($js = NULL, $node = NULL, $pid = NULL) {
   $commands = array();
   if (!$js) {
      return gofast_workflows_dashboard_rapide($node);
@@ -1917,9 +2391,7 @@ function gofast_modal_comment_edit($js, $comment) {
   if (!$js) {
     return drupal_goto('comment/' . $comment->cid . '/edit');
   }
-//  $comment = db_fetch_object(db_query('SELECT c.*, u.uid, u.name AS registered_name, u.data FROM {comments} c INNER JOIN {users} u ON c.uid = u.uid WHERE c.cid = %d', $cid));
-//  $comment = drupal_unpack($comment);
-//  $comment->name = $comment->uid ? $comment->registered_name : $comment->name;
+
   $path = drupal_get_path('module', 'gofast');
   drupal_add_js($path . '/js/gofast_ckeditor_ac.js');
   if (comment_access('edit', $comment)) {
@@ -1933,7 +2405,6 @@ function gofast_modal_comment_edit($js, $comment) {
           (object) $comment,
         ),
       ),
-      // 'title' => t('Comment'),
       'ajax' => TRUE,
       're_render' => FALSE,
       'no_redirect' => TRUE,
@@ -1942,7 +2413,9 @@ function gofast_modal_comment_edit($js, $comment) {
     // Should we show the reply box?
     if ($node->comment != COMMENT_NODE_OPEN) {
       drupal_set_message(t('This discussion is closed: you can\'t post new comments.', array(), array('context' => 'gofast')), 'error');
-      drupal_goto('node/' . $node->nid);
+      $commands[] = ctools_ajax_command_redirect('node/' . $node->nid);
+      print ajax_render($commands);
+      exit();
     }
     else {
       $commands = drupal_build_form('comment_node_' . $node->type . '_form', $form_state);
@@ -2010,7 +2483,7 @@ function gofast_modal_count_replies_from_comment($comment) {
  * @param $cid
  *   The comment do be deleted.
  */
-function gofast_modal_callback_comment_delete($js = NULL, $node, $cid = NULL) {
+function gofast_modal_callback_comment_delete($js = NULL, $node = NULL, $cid = NULL) {
   drupal_get_messages();
   ctools_include('modal');
   ctools_include('ajax');
@@ -2047,7 +2520,7 @@ function gofast_modal_callback_comment_delete($js = NULL, $node, $cid = NULL) {
       $commands = drupal_build_form('comment_confirm_delete', $form_state);
 
       //show Cancel button in popup
-      $commands['actions']['cancel']['#attributes'] = array('class' => array('btn', 'btn-secondary'));
+      gofast_modal_set_form_buttons($commands, TRUE);
 
       if (!$form_state['executed'] || $form_state['rebuild']) {
         $commands = ctools_modal_form_render($form_state, $commands);
@@ -2059,7 +2532,7 @@ function gofast_modal_callback_comment_delete($js = NULL, $node, $cid = NULL) {
         $comments_container_id = '#comments-container';
         $wrapper_class = 'comment-wrapper';
         $wrapper_id = $node->type === 'forum' ? 'forum-comments-wrapper' : 'forum-comments';
-        $node_view = node_view($node);
+        $node_view = [];
         variable_set('comment_default_per_page_' . $node->type, 9999999);
         $node_view['comments'] = gofast_render_allCommentsByNode_async($node, true);
         variable_set('comment_default_per_page_' . $node->type, 1);
@@ -2078,7 +2551,7 @@ function gofast_modal_callback_comment_delete($js = NULL, $node, $cid = NULL) {
 
         $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
       }
-      print ajax_render($commands);
+      print gofast_normalize_string_from_ajaxifying(ajax_render($commands));
     }
     else {
       drupal_set_message(t('The comment no longer exists.', array(), array('context' => 'gofast')));
@@ -2369,7 +2842,7 @@ function gofast_modal_print_mail_form($js, $nid = null) {
 
   if (!$js) {
     $arg = $nid ? '/' . $nid : '';
-    return drupal_goto(PRINTMAIL_PATH . $arg);
+    return drupal_goto($arg);
   }
 
   ctools_include('modal');
@@ -2385,7 +2858,7 @@ function gofast_modal_print_mail_form($js, $nid = null) {
     'title' => null
   );
   // print_mail_form doesn't use function args but url args...
-  $_GET['q'] = PRINTMAIL_PATH . '/' . $nid;
+  $_GET['q'] = $nid;
   $commands = ctools_modal_form_wrapper('print_mail_form', $form_state);
 
   if (!isset($commands[0])) {
@@ -2877,7 +3350,7 @@ function gofast_modal_user_space_autocomplete($str) {
 }
 /**
  *
- * @param type $str
+ * @param string $str
  * @param type $role
  */
 function gofast_modal_user_by_role_autocomplete($str, $roles_filter = array()){
@@ -2953,7 +3426,7 @@ function gofast_modal_user_userlist_space_autocomplete($str) {
 
 /**
  *
- * @param type $str
+ * @param string $str
  * @param type $roles_filter
  */
 function gofast_modal_user_userlist_autocomplete($str, $roles_filter = array()) {
@@ -2992,7 +3465,7 @@ function gofast_modal_user_userlist_autocomplete($str, $roles_filter = array()) 
 
 /**
  *
- * @param type $str
+ * @param string $str
  * @param type $filters
  */
 function gofast_modal_node_content_autocomplete($str, $filters = array()){
@@ -3096,10 +3569,12 @@ function gofast_modal_update_alfresco_file($js, $node) {
     }
     if ($form_state['executed']) {
       $commands[] = ctools_modal_command_dismiss();
-      $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
-          Gofast.processAjax(window.location.pathname);
-        </script>"
-      );
+      if(!gofast_essential_is_essential()){
+        $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+            Gofast.processAjax(window.location.pathname);
+          </script>"
+        );
+      }
       $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
       Drupal.gofast_cmis.reloadPreview();
 	  </script>");
@@ -3136,9 +3611,10 @@ function gofast_modal_form_i18n_node_select_translation_alter(&$form, &$form_sta
   $node = $form_state['build_info']['args'][0];
   $translations = $form_state['build_info']['args'][1];
   $node_type = str_replace('_', '-', $node->type);
+  $form["#theme"] = ["i18n_node_select_translation_form"];
 
   foreach (i18n_node_language_list($node) as $langcode => $language_name) {
-    if ($langcode == $node->language || $langcode == LANGUAGE_NONE) {
+    if ($langcode == $node->language || $langcode == LANGUAGE_NONE || $langcode == "gfen") {
       continue;
     }
     $attributes_name = [
@@ -3177,6 +3653,11 @@ function gofast_modal_form_i18n_node_select_translation_alter(&$form, &$form_sta
 
   if (isset($form['translations']['language'])) {
     foreach ($form['translations']['language'] as $langkey => $language) {
+     if($langkey == "gfen"){
+        unset($form['translations']['language'][$langkey]);
+        unset($form['translations']['nid']["gfen"]);
+        continue;
+      }
       //if (!isset($translations[$langkey])) {
       $lang_icon = gofast_get_flag_icon_by_langcode($langkey);
       $button_title = t('Add translation : ', array(), array('context' => 'gofast')) . t($language['#value']);
@@ -3193,21 +3674,10 @@ function gofast_modal_form_i18n_node_select_translation_alter(&$form, &$form_sta
         )
       );
       $form['translations']['action_add'][$langkey]['markup'] = array(
-        '#markup' => '<a href="' . $link_href . '" class="btn btn-default" data-dismiss="modal" data-language="' . $language['#value'] . '" title="' . $button_title . '">' . $link_text . '</a>',
+        '#markup' => '<a href="' . $link_href . '" class="btn btn-default no-footer" data-dismiss="modal" data-language="' . $language['#value'] . '" title="' . $button_title . '">' . $link_text . '</a>',
       );
       //}
     }
-
-    //Moving the "create translation" buttons into the table
-    drupal_add_js('jQuery( document ).ready(function( $ ) {
-                    $("#edit-translations").find("tr").append("<td></td>");
-                    $(".translation-action-add").each(function(e) {
-                      var that = $(this);
-                      var cur_language = that.children("a").data("language");
-                      var language_td = that.siblings("table").find("td:contains("+cur_language+")");
-                      language_td.siblings(":last").html(that);
-                    });
-                  });', array('type' => 'inline', 'scope' => 'footer'));
   }
 
    unset($form['actions']['update']['#markup']);
@@ -3292,7 +3762,8 @@ function gofast_modal_node_manage_translations_form($js, $node) {
     'build_info' => array(
       'args' => array($node, $translations),
     ),
-    'title' => null
+    'title' => null,
+    'reset_html_ids' => TRUE,
   );
 
   $commands = ctools_modal_form_wrapper($form_id, $form_state);
@@ -3437,6 +3908,10 @@ function gofast_modal_manage_folder_locations_form($js){
  * @return type
  */
 function gofast_modal_manage_locations_form($js,$node) {
+  if ($node->type == "article") {
+    gofast_modal_article_location_form($js, $node);
+    return;
+  }
   $form_id = 'gofast_taxonomy_manage_locations_form';
 
   if (!$js) {
@@ -3496,6 +3971,13 @@ function gofast_modal_show_locations_members($js,$node) {
             $map_id_locations[gofast_cmis_space_get_webdav_path($node_location_path)] = $node_location_path;
         }
     }
+
+    // take mirroring in consideration
+    $node_parent_spaces = gofast_cmis_node_get_mirrored_parent_spaces($node);
+    foreach ($node_parent_spaces as ['path' => $space_path, 'cmis_item' => $space_item]) {
+      $map_id_locations[$space_path] = $space_item->properties['gofast:nid'];
+    }
+
     $selected_paths = array_flip($map_id_locations);
     $all_members=array();
     $all_members_names=array();
@@ -3812,7 +4294,7 @@ function gofast_modal_form_confirm_pin_content_submit($form, &$form_state) {
 		->fields(array('timestamp' => time()))
 		->condition('nid', $node_id)
 		->execute();
-	    cache_clear_all("field:node:$blog_id", 'cache_field');
+	    cache_clear_all("field:node:$node_id", 'cache_field');
 	}else{
 	    $node->sticky = 0;
       $node = gofast_prepare_node_save_technically($node);
@@ -3843,7 +4325,7 @@ function gofast_modal_form_confirm_pin_content_submit($form, &$form_state) {
 		->fields(array('timestamp' => time()))
 		->condition('nid', $node_id)
 		->execute();
-	    cache_clear_all("field:node:$blog_id", 'cache_field');
+	    cache_clear_all("field:node:$node_id", 'cache_field');
 	}else{
 	    $node->sticky = 1;
 	    $node = gofast_prepare_node_save_technically($node);
@@ -4024,6 +4506,15 @@ function gofast_modal_node_publication($js, $node) {
   else {
     $form_id = 'gofast_cmis_node_republish_form';
     $form_title = t("Publish this document again", array(), array('context' => 'gofast'));
+    
+    $publication_nid = $node->{GOFAST_CMIS_PUBLICATION_FIELD}[LANGUAGE_NONE][0]['target_id'];
+    $publication_node = node_load($publication_nid);
+    // Prevent user to republish if the publication is locked
+    if(gofast_cmis_node_is_locked($publication_node) != FALSE || gofast_onlyoffice_document_get_soft_lock($publication_node)){
+      $commands[] = gofast_command_toast_message(t("The publication is currently locked, so you can't publish it again now.", array(), array("context" => "gofast:gofast_modal")), "warning");
+      print ajax_render($commands);
+      exit;
+    }
   }
 
   if (!$js) {
@@ -4044,57 +4535,6 @@ function gofast_modal_node_publication($js, $node) {
   
   if (isset($commands[0])) {
     $commands[0]['output'] = gofast_normalize_string_from_ajaxifying($commands[0]['output']);
-  }
- 
-  if ($form_state['executed']) {
-    
-    if($form_state['redirect'][0] != null){
-      $commands[] = ctools_modal_command_dismiss();
-      $commands[] = ctools_ajax_command_redirect($form_state['redirect'][0]);
-    }else{
-      //something went wrong with publishing the document : notify the user
-      $options = array(
-          "tapToDismiss" => false,
-          "toastClass" => 'toast',
-          "containerId" => 'toast-container',
-          "debug" => false,
-          "showMethod" => 'fadeIn', // fadeIn, slideDown, and show are built into jQuery
-          "showDuration" => 500,
-          "showEasing" => 'swing', // swing and linear are built into jQuery
-          "onShown" => "undefined",
-          "hideMethod" => 'fadeOut',
-          "hideDuration" => 500,
-          "hideEasing" => 'swing',
-          "onHidden" => "",
-          "extendedTimeOut" => 0,
-          "iconClasses" => array(
-            "error" => 'toast-error',
-            "info" => 'toast-info',
-            "success" => 'toast-success',
-            "warning" => 'toast-warning'
-          ),
-          "iconClass" => 'toast-info',
-          "positionClass" => 'toast-top-right',
-          "timeOut" => 0, // Set timeOut and extendedTimeOut to 0 to make it sticky
-          "titleClass" => 'toast-title',
-          "messageClass" => 'toast-message',
-          "target" => 'body',
-          "closeHtml" => '<button type="button">&times;</button>',
-          "newestOnTop" => true,
-          "preventDuplicates" => true,
-          "progressBar" => false
-        );
-      
-      $commands[] = gofast_command_toast_message(
-           t('An error occurs while trying to publish the document. Please !btn_start Refresh !icon !btn_close the page and try again.', 
-              array("!btn_start" => '<button onclick="document.location.reload();" class="btn font-weight-bold btn-link-dark">', 
-                    "!btn_close" => "</button>" ,
-                    "!icon" => ' <i class="fa fa-refresh icon-nm" style="vertical-align:initial"></i>'), 
-              array('context' => 'gofast:gofast_modal')),
-           'error', null, json_encode($options) );
-           
-      $commands[] = ctools_modal_command_dismiss();     
-    } 
   }
 
   print ajax_render($commands);
@@ -4125,7 +4565,7 @@ function gofast_modal_node_publication_delete($js, $node) {
     $commands[] = ctools_ajax_command_redirect($form_state['redirect'][0]);
   }
 
-  print ajax_render($commands);
+  print gofast_normalize_string_from_ajaxifying(ajax_render($commands));
 }
 
 function gofast_modal_ac_format_space_key($entity_type, $entity, $key, $value, $options) {
@@ -4506,14 +4946,31 @@ function gofast_modal_form_confirm_multi_archive($form, &$form_state) {
           $node = node_load($select->url);
           $paths = $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE];
           foreach($paths as $path){
-        array_push($nid_cart, $path['value'] . '/' . $node->title);
-        array_push($title_cart,$node->title);
+            array_push($nid_cart, $path['value'] . '/' . $node->title);
+            array_push($title_cart,$node->title);
           }
       }
       foreach($nid_cart as $key=>$path_cart){
         $selected_items_json[$key]->url = '/alfresco/webdav' . $path_cart;
-          }
+      }
       variable_del("ithit_bulk_cart_".$user->uid);
+    }
+
+    // If we selected only one group, we check the permission and dismiss if the user is not authorized to do the action
+    if (count($selected_items_json) == 1 && $selected_items_json[0]->type == "Folder") {
+      $is_group = str_starts_with(end(explode("/", $selected_items_json[0]->url)), "_");
+      if ($is_group) {
+        $group_nid = gofast_ajax_file_browser_get_nid_from_href($selected_items_json[0]->url, TRUE);
+        $group_node = node_load($group_nid);
+        $can_archive = gofast_contextual_menu_user_is_administrator($group_node, NULL, NULL, NULL);
+        if (!$can_archive) {
+          $commands[] = ctools_modal_command_dismiss();
+          $commands[] = gofast_command_toast_message(t('You do not have the permission to archive the space(s) you selected.',
+          [], ['context' => 'gofast_og:space_archive']), 'warning');
+          print ajax_render($commands);
+          exit;
+        }
+      }
     }
 
     // Sorting the items received in parameter (Folders first, then Resource)
@@ -4584,7 +5041,7 @@ function gofast_modal_form_confirm_multi_archive_submit(&$form, &$form_state) {
   $nodes_id = json_decode($form_state['input']['selected_nids']);
 
   //Insert a general progress bar for mass archiving
-  $html = '<div class="progress mb-4" id="archives-panels-progress"><div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0 / ' . count($nodes) . '</div></div>';
+  $html = '<div class="progress mb-4" id="archives-panels-progress"><div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0 / ' . count($nodes_id) . '</div></div>';
   foreach($nodes_id as $nid) {
       $title = gofast_get_node_title($nid);
       //Create publish modal theme
@@ -4652,32 +5109,71 @@ function gofast_modal_form_confirm_unarchive_submit($form, &$form_state) {
 
 
 /*
- * function call to archive a space
+ * Callback to archive a space
  * This function first check the permission, then if the user is able to archive the space receive in param, archive each document,
  * then put the field field_archive to 1 on the node
  */
-function gofast_modal_archive_group_modal($js,$node){
-    if(!og_user_access("node", $node->nid, 'archive space', NULL , FALSE , TRUE)){
-      return;
-  }
+function gofast_modal_archive_group_modal($js,$node_ids){
+	
+  $is_single_node  = !str_contains($node_ids, "-");
+	$spaces = [];
+	
+	$selection_checks = [
+		'selection_has_unauthorized_spaces' => FALSE,
+		'selection_has_already_archived_spaces' => FALSE,
+		'selection_has_spaces_with_children' => FALSE,
+	];
+
   $form_id = 'gofast_modal_archive_form';
 
-  if (!$js) {
-    return drupal_get_form($form_id, $node);
+  if($is_single_node) {
+    $spaces_nids = [$node_ids];
+  } else {
+    $spaces_nids = gofast_og_get_bulk_nids_in_string($node_ids, "-");
   }
 
-  ctools_include('modal');
+  foreach ($spaces_nids as $space) {
+    $node = node_load($space);
+  
+    $access_checks = [
+      og_user_access("node", $node->nid, 'archive space', NULL, FALSE, TRUE),
+      node_access('delete', $node),
+    ];
+
+    if (in_array(FALSE, $access_checks)) {
+      $selection_checks['selection_has_unauthorized_spaces'] = TRUE;
+      drupal_set_message(t('You do not have the permission to archive this space @space.', ['@space' => $node->title], ['context' => 'gofast_og:space_archive']), 'warning');
+    }
+    else if(!empty(gofast_og_get_children($node->nid))){
+      $selection_checks['selection_has_spaces_with_children'] = TRUE;
+      drupal_set_message(t('The space @space cannot be archived because it contains sub-spaces.', ['@space' => $node->title], ['context' => 'gofast_og:space_archive']), 'warning');
+    }
+    else if($node->field_archive[LANGUAGE_NONE][0]['value'] == 1){
+      $selection_checks['selection_has_already_archived_spaces'] = TRUE;
+      drupal_set_message(t('@space is already archived', ['@space' => $node->title],['context' => 'gofast_og:space_archive']), 'warning');
+    }
+    else{
+      $spaces[] = $node;
+    }
+  }
+
+	if(!$js) {
+		return drupal_get_form($form_id, $spaces);
+	}
+	
+	ctools_include('modal');
   ctools_include('ajax');
 
-  $form_state = array(
+  $form_state = [
     'ajax' => TRUE,
-    'build_info' => array(
-      'args' => array($node)
-    ),
-    'title' => t('Archive the space', array(), array('context' => 'gofast'))
-  );
+    'build_info' => [
+      'args' => ['nodes' => $spaces,]
+    ],
+    'title' => t('Archive the space(s)', [], ['context' => 'gofast_og:space_archive'])
+  ];
 
   $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  $commands[] = gofast_modal_get_archive_validation_commands(spaces: $spaces, commands: $commands, selection_checks: $selection_checks);
 
   if ($form_state['executed']) {
     //If the form is validated, the real commands are sent from the form submit
@@ -4688,61 +5184,175 @@ function gofast_modal_archive_group_modal($js,$node){
 }
 
 /**
+ * Returns the commands to display a toast message if the user has not the permission
+ * to archive the space(s) or if the space(s) is/are already archived
+ *
+ * @param array $spaces
+ * @param $commands
+ * @param array $selection_checks
+ *
+ * @return array
+ */
+function gofast_modal_get_archive_validation_commands(array $spaces, &$commands, array $selection_checks ): array {
+
+	extract($selection_checks);
+
+	if (!empty($spaces) && $selection_has_unauthorized_spaces && $selection_has_already_archived_spaces && $selection_has_spaces_with_children) {
+		$commands[] = gofast_command_toast_message(t('You do not have the permission to archive some of the spaces you have selected, some are already archived and some have subspaces. These spaces will not be archived.',
+			[], ['context' => 'gofast_og:space_archive']), 'warning');
+		return $commands;
+	}
+	
+	if (empty($spaces)) {
+		if ($selection_has_unauthorized_spaces && $selection_has_already_archived_spaces && $selection_has_spaces_with_children) {
+			$commands[] = ctools_modal_command_dismiss();
+			$commands[] = gofast_command_toast_message(t('The selected spaces could not be archived because you 
+			either do not have the permissions to archive some spaces, some are already archived or have subspaces',
+				[], ['context' => 'gofast_og:space_archive']), 'warning');
+			return $commands;
+		}
+
+		if ($selection_has_already_archived_spaces && !$selection_has_unauthorized_spaces) {
+			$commands[] = ctools_modal_command_dismiss();
+			$commands[] = gofast_command_toast_message(t('All the spaces you have selected are already archived.',
+				[], ['context' => 'gofast_og:space_archive']), 'warning');
+		}
+		else if($selection_has_unauthorized_spaces && !$selection_has_already_archived_spaces){
+			$commands[] = ctools_modal_command_dismiss();
+			$commands[] = gofast_command_toast_message(t('You do not have the permission to archive the space(s) you selected.',
+				[], ['context' => 'gofast_og:space_archive']), 'warning');
+		}
+		else if($selection_has_spaces_with_children){
+			$commands[] = ctools_modal_command_dismiss();
+			$commands[] = gofast_command_toast_message(t('Some spaces you have selected have children. These spaces will not be archived.',
+				[], ['context' => 'gofast_og:space_archive']), 'warning');
+		}
+		else{
+			$commands[] = ctools_modal_command_dismiss();
+			$commands[] = gofast_command_toast_message(t('This space cannot be archived.',
+				[], ['context' => 'gofast_og:space_archive']), 'warning');
+		}
+		return $commands;
+	}
+	
+	if ($selection_has_already_archived_spaces) {
+		$commands[] = gofast_command_toast_message(t('Some spaces you have selected are already archived and will not be re-archived.',
+			[], ['context' => 'gofast_og:space_archive']), 'warning');
+		return $commands;
+	}
+
+	if ($selection_has_unauthorized_spaces) {
+		$commands[] = gofast_command_toast_message(t('You do not have the permission to archive some spaces. These spaces will not be archived.',
+			[], ['context' => 'gofast_og:space_archive']), 'warning');
+		return $commands;
+	}
+
+	return $commands;
+}
+
+/**
  * This is the form that allow to archive a space
- * @param type $form
- * @param array $form_state
+ *
+ * @param  $form
+ * @param  $form_state
+ * @param array $nodes the nodes to archive
+ *
  * @return array the form
  */
-function gofast_modal_archive_form($form, &$form_state) {
-  $node = isset($form_state['build_info']['args'][0]->nid) ? $form_state['build_info']['args'][0] : FALSE;
-
-  // These two submit handlers unpublish then remove link between node and publication
+function gofast_modal_archive_form($form, &$form_state, array $nodes): array {
+  // These two submit handlers unpublished then remove link between node and publication
   $form['#submit'] = array(
     'gofast_modal_archive_form_submit'
   );
+	
+	if (count($nodes) > 1){
+    $form['nodes'] = array(
+      '#type' => 'hidden',
+      '#value' => json_encode($nodes),
+    );
 
-  $confirm_form = confirm_form(
-          $form,
-          t('Archive', array(), array('context' => 'gofast:ajax_file_browser')) . ' '. $node->title,
-          isset($_GET['destination']) ? $_GET['destination'] : 'node/' . $node->nid,
-          t('Are you sure you want to archive the space %title?', array('%title' => $node->title), array('context' => 'gofast')),
-          t('Archive content', array(), array('context' => 'gofast'))
-  );
+    $message_markup = '<ul>';
+    foreach ($nodes as $node) {
+      $message_markup .= '<li class="">' . $node->title . '</li>';
+    }
+    $message_markup .= '</ul><br>';
+
+    $confirm_form = confirm_form(
+      $form,
+      t('Archive', array(), array('context' => 'gofast:ajax_file_browser')),
+      $_GET['destination'] ?? '/activity',
+      '<h1>'.t('Are you sure you want to archive these spaces?', array(), array('context' => 'gofast')).'</h1>'.
+      ' <br>' . $message_markup,
+      t('Archive content', array(), array('context' => 'gofast'))
+    );
+
+  }else{
+    $confirm_form = confirm_form(
+      $form,
+      t('Archive', array(), array('context' => 'gofast:ajax_file_browser')) . ' '. $nodes[0]->title,
+      $_GET['destination'] ?? 'node/' . $nodes[0]->nid,
+      t('Are you sure you want to archive the space %title?', array('%title' => $nodes[0]->title), array('context' => 'gofast')),
+      t('Archive content', array(), array('context' => 'gofast'))
+    );
+  }
+
   $confirm_form['actions']['submit']['#attributes'] = array('class' => array('btn-success'));
   unset($confirm_form['actions']['cancel']);
 
   return  $confirm_form;
 }
 
-function gofast_modal_archive_form_submit($form, &$form_state) {
-  $node = $form_state['build_info']['args'][0];
-  if (isset($node->nid)) {
-        //Launch async archiving process (GOFAST-5256)
-        $operation_state = array(
-            'space_node' => $node,
-            'step' => "1_1"
-        );
-        variable_set("archiving_space_" . $node->nid, $operation_state);
+/**
+ * Submit handler for the archive form
+ * @param $form
+ * @param $form_state
+ * @return void
+ * @throws \Exception
+ */
+function gofast_modal_archive_form_submit($form, &$form_state): void {
+	
+	drupal_get_messages(); // Clear messages from the previous form
+  $nodes = json_decode($form_state['values']['nodes'], true) ?? $form_state['build_info']['args']['nodes'];
+	$is_bulk = FALSE;
+  // Initialize an array to store AJAX commands for all nodes.
+  $commands = [];
+  $theme_data = "";
+  if(count($nodes) > 1){
+    $is_bulk = TRUE;
+  }
+  foreach ($nodes as $node) {
+    $nid = is_object($node) ? $node->nid : $node['nid'];
+    if (isset($nid)) {
+      //Launch async archiving process (GOFAST-5256)
+      $operation_state = [
+        'space_node' => $node,
+        'nid' => $nid,
+        'step' => "1_1",
+        'is_bulk' => $is_bulk,
+        'is_last' => $node === end($nodes),
+      ];
+      variable_set("archiving_space_" . $nid, $operation_state);
+      $theme_data .= theme("gofast_og_archiving_space", $operation_state);
 
-        //Prepare the commands to send to the browser
-        $commands = array();
-        $commands[] = ctools_modal_command_display(t("Archiving your space", array(), array('context' => 'gofast:gofast_og')), theme("gofast_og_archiving_space", $operation_state));
+    }
+  }
 
-        print ajax_render($commands);
+  //Prepare the commands to send to the browser
+  $commands[] = ctools_modal_command_display(t("Archiving your space(s)", [], ['context' => 'gofast:gofast_og']), $theme_data);
+  // Print AJAX commands and finish the request after the loop.
+  print ajax_render($commands);
 
-        //Kill the apache session and release the loading page to the user
-        fastcgi_finish_request();
+  fastcgi_finish_request();
 
-        //Process the operation
-        set_time_limit(0);
-        gofast_archive_space($node);
+  // Process the operations for each node outside the loop.
+  set_time_limit(0);
+  foreach ($nodes as $node) {
+    gofast_archive_space($node);
   }
 }
 
-
-
 /*
- * function call to archive a space
+ * Callback to un-archive a space
  * This function first check the permission, then if the user is able to archive the space receive in param, archive each document,
  * then put the field field_archive to 1 on the node
  */
@@ -4888,22 +5498,21 @@ function gofast_modal_display_versions ($js = NULL) {
   $popup_content = file_get_contents('/var/www/d7/scripts/versions-script_output.txt');
   $versRiot = file_get_contents('/var/www/d7/sites/all/libraries/riot/version');
   $versRiot = str_replace("\n", "", $versRiot);
-
   //Retrieving gofast-comm data
   global $conf;
   $domain = $conf['gofast-comm_domain'];
   if (!module_exists('gofast_community')) {
       $ch = curl_init();
-      curl_setopt($ch, CURLOPT_URL, 'https://' . $domain . '/versions/');
-      curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+      curl_setopt($ch, CURLOPT_URL, 'https://internal-' . trim($domain) . '/versions/');
+      curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
       curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
       curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
       curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
       $buffer = curl_exec($ch);
-      if ($buffer != ''){
-          $buffer .= 'Element/Riot:             ' . $versRiot . '  	  Free licence Apache License 2.0';
-          $buffer = t("\nThe following components are installed in the communication server:\n", array(), array('context' => 'gofast')).$buffer;
-        }
+      if ($buffer != '') {
+        $element_version = 'Element/Riot: ' . $versRiot . ' Free licence Apache License 2.0';
+        $buffer = t("The following components are installed in the communication server:", array(), array('context' => 'gofast')). PHP_EOL . $buffer . $element_version;
+      }
   }
 
   $popup_items = array_filter(explode(PHP_EOL, $popup_content), fn($item) => strlen($item) > 0);
@@ -4915,7 +5524,7 @@ function gofast_modal_display_versions ($js = NULL) {
   $last_main_item_index = 0;
   foreach($items as $index => &$item) {
     // remove eventual initial whitespace
-    $item[1] = trim($item[1]);
+    $item = trim($item);
     // if we're iterating over a subitem, we order it as such and continue over the next item
     if(substr($item[0], 0 , 1) === "(") {
       $items[$last_main_item_index]["subitem"][] = preg_split('/\s{3,}/', $item);
@@ -4967,9 +5576,6 @@ function gofast_modal_edit_forum($js, $node) {
   if (!$js) {
     return drupal_goto('node/' . $node->nid . '/edit');
   }
-//  $comment = db_fetch_object(db_query('SELECT c.*, u.uid, u.name AS registered_name, u.data FROM {comments} c INNER JOIN {users} u ON c.uid = u.uid WHERE c.cid = %d', $cid));
-//  $comment = drupal_unpack($comment);
-//  $comment->name = $comment->uid ? $comment->registered_name : $comment->name;
 
   if (node_access('update', $node)) {
     ctools_include('modal');
@@ -4981,7 +5587,6 @@ function gofast_modal_edit_forum($js, $node) {
           (object) $node,
         ),
       ),
-      // 'title' => t('Comment'),
       'modal' => TRUE,
       'ajax' => TRUE,
       're_render' => FALSE,
@@ -4989,32 +5594,27 @@ function gofast_modal_edit_forum($js, $node) {
     );
 
     // Should we show the reply box?
-      $commands = drupal_build_form('forum_node_form', $form_state);
+    $commands = drupal_build_form('forum_node_form', $form_state);
 
-      // Remove output bellow the comment.
-      //unset($commands['comment_output_below']);
-      if (!$form_state['executed'] || $form_state['rebuild']) {
-        //$commands = ctools_modal_form_render($form_state, $commands);
-        $commands = ctools_modal_form_wrapper('forum_node_form', $form_state);
-    }
-    else {
-        $comments_container_id = '#comments-container';
-        $wrapper_class = 'comment-wrapper';
-        $wrapper_id = $node->type == 'forum' ? 'forum-comments-wrapper' : 'forum-comments';
-        ctools_include('comment.admin', 'comment', '');
-        $node_view = node_view($node);
-        variable_set('comment_default_per_page_' . $node->type, 9999999);
-        $node_view['comments'] = gofast_render_allCommentsByNode_async($node, true);
-        variable_set('comment_default_per_page_' . $node->type, 1);
-        $commands[] = ajax_command_html($comments_container_id, $node_view['comments']);
+    // Remove output below the comment.
+    if (!$form_state['executed'] || $form_state['rebuild']) {
+      $commands = ctools_modal_form_wrapper('forum_node_form', $form_state);
+    } else {
+      $comments_container_id = '#comments-container';
+      ctools_include('comment.admin', 'comment', '');
+      $node_view = node_view($node);
+      variable_set('comment_default_per_page_' . $node->type, 9999999);
+      $node_view['comments'] = gofast_render_allCommentsByNode_async($node, true);
+      variable_set('comment_default_per_page_' . $node->type, 1);
+      $commands[] = ajax_command_html($comments_container_id, $node_view['comments']);
 
-        $commands[] = ajax_command_html('#block-gofast-gofast-node-comments-tree', gofast_comments_tab($node));
+      $commands[] = ajax_command_html('#block-gofast-gofast-node-comments-tree', gofast_comments_tab($node));
 
-        $commands[] = gofast_command_toast_message(t('Your document was modified', array(), array('context' => 'gofast')), 'info');
-        $commands[] = gofast_command_processAjax('/activity');
-        $commands[] = ctools_modal_command_dismiss();
+      $commands[] = gofast_command_toast_message(t('Your document was modified', array(), array('context' => 'gofast')), 'info');
+      $commands[] = gofast_command_processAjax('/activity');
+      $commands[] = ctools_modal_command_dismiss();
 
-        $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+      $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
     }
 
     print ajax_render($commands);
@@ -5106,6 +5706,9 @@ function gofast_modal_move_space($js, $space){
   $_POST['allow_display_locations'] = true;
 
   $commands = ctools_modal_form_wrapper($form_id, $form_state);
+  if (isset($commands[0])) {
+    $commands[0]['output'] = gofast_normalize_string_from_ajaxifying($commands[0]['output']);
+  }
   if ($form_state['executed']) {
     //If the form is validated, the real commands are sent from the form submit
     $commands[] = ctools_modal_command_dismiss();
@@ -5253,4 +5856,124 @@ function gofast_modal_contact_add($js = NULL) {
   }
   print ajax_render($commands);
 
+}
+
+function gofast_modal_share_folder_by_email_modal() {
+  global $user;
+  $folder = str_replace('modal/0/share_folder_by_email', '', $_GET['q']);
+
+  /** @noinspection PhpParamsInspection */
+  $item = gofast_cmis_item_get_by_path(str_replace('/alfresco/webdav', '', $folder));
+  
+  $data = array(
+    'folder' => $folder,
+    'cmis_item' => $item,
+  );
+
+  ctools_include('ajax');
+  ctools_include('modal');
+  $form_state = array(
+    'ajax' => TRUE,
+    'title' => t('Share Folder By Email'),
+    'data' => json_encode($data)
+  );
+
+  $output = ctools_modal_form_wrapper('gofast_link_sharing_folder_form', $form_state);
+  print ajax_render($output);
+  drupal_exit();
+}
+
+/**
+ * This function creates the form to allow administrators to pre-add members on
+ * the userlist entity.
+ *
+ * @param bool $js
+ * @param object $og
+ *
+ * @return void
+ */
+function gofast_modal_og_preadd_userlist_members(bool $js, object $og): void {
+  $form_id = 'gofast_userlist_preadd_users_form';
+
+  ctools_include('modal');
+  ctools_include('ajax');
+
+    $form_state = array(
+    'reset_html_ids' => TRUE,
+    'build_info' => array(
+      'args' => array(
+        "node",
+        $og->nid,
+      )
+    ),
+    'title' => t('Pre Add Member', array(), array('context' => 'gofast')),
+    'ajax' => TRUE,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if (isset($commands["group_type"])) {
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_processAjax("/og/list_grid");
+  }
+
+  $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
+
+  print ajax_render($commands);
+}
+
+/**
+ * Userlist preadd member form
+ *
+ * @param mixed $form
+ * @param mixed $form_state
+ *
+ * @return array
+ */
+function gofast_userlist_preadd_users_form(mixed $form, mixed &$form_state): array {
+
+  $form['user_userlist_member']['#title'] = $form_state['label'] ??
+    t('Pre Add a member to this userlist',  array(), 
+      array('context' => 'gofast:gofast_userlist:preadd:modal:title'));
+
+  $form['user_userlist_member']['member_entity_type'] = array(
+    '#type' => 'hidden'
+  );
+
+  $attributes_name = [
+    'class' => [' form-control-tags js-tagify'],
+    //'data-enforce' => '', //  Comment : Do not allow putting data that dose not exist | Decomment : allow putting data that dose not exist
+    'data-user' => '', // show ac users
+  ];
+
+  $form['user_userlist_member']['name']=[
+    '#title' => t('User ', array(), array('context' => 'gofast_og_userlist')),
+    '#type' => 'textfield',
+    '#attributes' => $attributes_name,
+    '#name' => 'ac-list-tags-field-user-userlist'
+  ];
+
+  $form['message'] = array(
+    '#title' => t('Message for space administrators', array(), array('context' => 'gofast:gofast_userlist:preadd:modal:field')),
+    '#type' => 'textarea',
+    '#size' => 62,
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Pre-add new member(s)', array(), array('context' => 'gofast:gofast_userlist:preadd:modal:submit_button')),
+    '#validate' => array('gofast_preadd_users_form_validate'),
+    '#attributes' => array('class' => array('btn', 'btn-success', 'btn-sm')),
+  );
+
+  return $form;
+}
+
+/**
+ *  Userlist preadd member form submit
+ * @param  $form
+ * @param  &$form_state
+ */
+function gofast_userlist_preadd_users_form_submit($form, &$form_state): void {
+  gofast_preadd_users_form_submit($form, $form_state, "userlist");
 }

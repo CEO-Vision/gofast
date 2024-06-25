@@ -59,6 +59,20 @@
                             </div>
                         </div>
                     </div>
+                    <div class="row">
+                        <div class="conference__password mx-auto mt-5">
+                            <?php if (isset($conferenceDetails['password'])) : ?>
+                                <span class="navi-icon"><i class="fa fa-lock text-danger mr-2"></i></span>
+                                <span>
+                                    <?php echo t("Conference password : ") ?>
+                                    <strong><?php echo $conferenceDetails['password']; ?></strong>
+                                </span>
+                            <?php else: ?>
+                                <span class="navi-icon"><i class="fa fa-unlock text-success mr-2"></i></span>
+                                <span><?php echo t("This conference is not locked with a password") ?></span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                     <div class="separator separator-solid my-5"></div>
                     <div class="row">
                         <div class="col">
@@ -80,7 +94,7 @@
                                     <div class="d-flex flex-column my-4">
                                         <?php foreach ($conferenceDetails["listsFolders"] as $folder) : ?>
                                             <div class="d-flex folderList__item mb-1 ">
-                                                <a href="#"><?php echo $folder["value"] ?></a>
+                                                <a href="/node/<?= $folder["gid"] ?>/?path=<?= $folder["value"] ?>"><?php echo $folder["value"] ?></a>
                                             </div>
                                         <?php endforeach; ?>
                                     </div>
@@ -91,6 +105,15 @@
                         <div class="col">
                             <div class="h2 font-weight-bolder text-center"><?= t("Extra Information", [], ["context" => "gofast:gofast_conference"]) ?></div>
                             <div class="p-4">
+                                <ul class="navi">
+                                    <li id="hasLobbyRoom" class="navi-item d-flex align-items-center mb-1">
+                                        <div class="w-30px">
+                                            <span class="navi-icon"><i class="<?= $conferenceDetails['hasLobbyRoom']['preIcon'] ?>"></i></span>
+                                        </div>
+                                        <span class="navi-text mr-1"><?= $conferenceDetails['hasLobbyRoom']['label'] ?></span>
+                                        <span class="navi-icon"><i class="<?= $conferenceDetails['hasLobbyRoom']['postIcon'] ?>"></i></span>
+                                    </li>
+                                </ul>
                                 <?php echo theme("gofast_conference_report") ?>
                             </div>
                         </div>
@@ -113,7 +136,7 @@
                             </div>
                         </div>
                     </div>
-                    <?php if(count($conferenceDetails["spaces_participants"]) > 0): ?>
+                    <?php if(count((array) $conferenceDetails["spaces_participants"]) > 0): ?>
                     <div class="conference__gofastPartisipantsSpaces my-10">
                         <div class="conference_lable h6 font-weight-bolder"><?=  t("Spaces", array(), array("context" => "gofast:gofast_conference")) ?></div>
                         <div class="my-4">
@@ -135,7 +158,7 @@
                     </div>
                     <?php  endif; ?>
                     <?php
-                       $count_all_participants = count($conferenceDetails["participants"]);
+                       $count_all_participants = count((array) $conferenceDetails["participants"]);
                        if(is_array($conferenceDetails["othersParticipants"])){
                            $count_all_participants = $count_all_participants + count($conferenceDetails["othersParticipants"]);
                        }

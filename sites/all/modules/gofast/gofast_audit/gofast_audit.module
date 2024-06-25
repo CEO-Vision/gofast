@@ -1,101 +1,707 @@
 <?php
 define ('GOFAST_AUDIT_TABLE_NAME', 'ceo_vision_audit');
+module_load_include('inc', 'gofast_audit', 'gofast_audit.log');
 
-require_once(drupal_get_path('module', 'gofast_audit') .'/gofast_audit_views_default.inc');
-
-/* fonction qui renvoit la liste des évènements existants pour l'audit*/
+/* fonction qui renvoie la liste des événements existants pour l'audit*/
 function gofast_audit_get_list_event_types(){
-    $availables_values =  array(
-          'login' => t('Logins'),
-          'view_node' => t('Document views'),
-          'update_node' => t("Node updates"),
-          'update_location' => t("Location updates"),
-          'delete_space' => t("Space deletions"),
-          'archive_space' => t("Space archived"),
-          'unarchive_space'=> t("Space unarchived"),
-          'new_node' => t("Node creations"),
-          'linksharing' => t('Mail sharing') ,
-          'sharing_dl' => t('Linksharing downloaded') ,
-          'add_member' => t('Add member') ,
-          'delete_member' => t('Remove member'),
-          'create_user' => t('User create') ,
-          'delete_user' => t('User delete'),
-          'delete_folder' => t('Folder delete'),
-          'delete_node' => t('Node delete') ,
-          'user_unleave' => t('User re-enabled') ,
-          'user_leave' => t('User disabled') ,
-          'user_blocked' => t('User blocked'),
-          'download_file' => t('File downloaded'),
-          'publication_created' => t('Publication created'),
-          'workflow_add' => t('Workflow created'),
-          'workflow_delete' => t('Workflow deleted'),
-          'card_add' => t('Card created'),
-          'card_delete' => t('Card deleted'),
-          'new_userlist' => t('Userlist created'),
-          'delete_userlist' => t('Userlist deleted'),
-          'update_userlist'=> t('Userlist edited'),
-          'create_room' => t('room created'),
-          'delete_room' => t('room deleted')
-        );
+    $availables_values = array(
+      t("Creation") => array(
+        "new_node",
+        "create_user",
+        "workflow_add",
+        "card_add",
+        "new_userlist",
+        "create_room",
+        "comment_published"
+      ),
+      t("Deletion") => array(
+        "delete_space",
+        "delete_member",
+        "delete_user",
+        "delete_folder",
+        "delete_node",
+        "workflow_delete",
+        "card_delete",
+        "delete_userlist",
+        "delete_room",
+      ),
+      t("Modification") => array(
+        "update_node",
+        "update_userlist",
+        "comment_update"
+      ),
+      t("Download", array(), array("context" => "gofast:gofast_audit")) => array(
+        "download_file",
+        "download_folder"
+      ),
+      t('Login', array(), array("context" => "gofast:gofast_audit")) => array("Login"),
+      t('View', array(), array("context" => "gofast:gofast_audit")) => array("view_node"),
+      t("Location modification") => array("update_location"),
+      t("Archiving") => array("archive_space"),
+      t("Un-archiving") => array("unarchive_space"),
+      t('Email Sharing') => array("linksharing"),
+      t('Shared content download') => array("sharing_dl"),
+      t('Member addition') => array("add_member"),
+      t('Disabling', array(), array("context" => "gofast:gofast_audit")) => array("user_leave"),
+      t('Re-activation') => array("user_unleave"),
+      t('Blocking', array(), array("context" => "gofast:gofast_audit")) => array("user_blocked"),
+      t('Unblocking', array(), array("context" => "gofast:gofast_audit")) => array("user_unblocked"),
+      t('Publication creation', array(), array("context" => "gofast:gofast_audit")) => array("publication_created"),
+      t('Activate', array(), array("context" => "gofast:gofast_audit")) => array("user_unstandby"),
+      t('Pre-addition', array(), array("context" => "gofast:gofast_audit")) => array("preadd_member"),
+      t('Membership refusal', array(), array("context" => "gofast:gofast_audit")) => array("deny_membership"),
+      t('Comment creation', array(), array("context" => "gofast:gofast_audit")) => array("comment_published"),
+      t('Comment modification', array(), array("context" => "gofast:gofast_audit")) => array("comment_updated"),
+      t('Comment deletion', array(), array("context" => "gofast:gofast_audit")) => array("comment_deleted"),
+      t('Role modification', array(), array("context" => "gofast:gofast_audit")) => array("update_role"),
+    );
     return $availables_values;
 }
 
-/* fonction qui renvoit la nom de l'audit traduit*/
+/* fonction qui renvoie le nom de l'audit traduit */
 function gofast_audit_get_event_name_by_event_type($event_type = null)
 {
   $event_array = gofast_audit_get_list_event_types();
-  if (isset($event_array[$event_type])) {
-    return $event_array[$event_type];
+  // Get the key that have $event_type in its values
+  $event_array = array_filter($event_array, function($values) use ($event_type){
+    return in_array($event_type, $values);
+  });
+  if (!empty($event_array)) {
+    $event_name = array_keys($event_array)[0];
+    return $event_name;
   } else{
-    return $event_type = t("Undefined");
+    return t("Undefined");
   }
 }
 
-
-function gofast_audit_views_query_alter(&$view, &$query){
-    if($view->name == "gofast_audit"){
-        set_time_limit(0);
-
-    }
+function gofast_audit_get_list_role_names() {
+  $available_values = [
+    "administrator member" => t("Administrator member"),
+    "group contributor" => t("Contributor member"),
+    "readonly member" => t("Read-only member"),
+  ];
+  return $available_values;
 }
 
-/*
- * Alter title field for deleted spaces
- */
-function gofast_audit_views_pre_render(&$view) {
-    if($view->name == "gofast_audit"){
-        foreach($view->result as &$result){
-            if($result->ceo_vision_audit_event_type == "delete_space"){
-                $details = unserialize(rawurldecode($result->ceo_vision_audit_details));
-                $result->node_ceo_vision_audit_title = $details['mod_title'];
-            }
-        }
-    }
+function gofast_audit_get_role_name_by_technical_role($role_name = null)
+{
+  $event_array = gofast_audit_get_list_role_names();
+  if (isset($event_array[$role_name])) {
+    return $event_array[$role_name];
+  } else{
+    return t("No role");
+  }
+}
+
+function gofast_audit_access($audit_type, $entity_id = 0) {
+  $access = FALSE;
+  switch ($audit_type) {
+    case "site":
+      $access = user_access("access audit");
+      break;
+    case "space":
+      $access = in_array('administrator member', gofast_og_get_user_final_roles_for_space('node', $entity_id), true);
+      break;
+    case "node":
+      global $user;
+      $access = node_access("delete", node_load($entity_id)) || gofast_user_is_business_admin($user);
+      break;      
+  }
+  return $access;
 }
 
 function gofast_audit_menu(){
-    $items['gofast/audit/delete/folder'] = array(
-        'page callback' => 'gofast_audit_delete_folder',
-        'access arguments' => array('access content'),
-        'access callback' => 'user_access',
-        'type' => MENU_CALLBACK,
-    );
-    $items['gofast/audit/download'] = array(
-        'page callback' => 'gofast_audit_download_files',
-        'access arguments' => array('access content'),
-        'access callback' => 'user_access',
-        'type' => MENU_CALLBACK,
-    );
+  $items['gofast/audit/get/%/%'] = array(
+    "page callback" => "gofast_audit_get_audit",
+    "page arguments" => array(3, 4),
+    'access arguments' => array(3, 4),
+    'access callback' => 'gofast_audit_access',
+    'type' => MENU_CALLBACK,
+  );
+  $items['gofast/audit/delete/folder'] = array(
+      'page callback' => 'gofast_audit_delete_folder',
+      'access arguments' => array('access content'),
+      'access callback' => 'user_access',
+      'type' => MENU_CALLBACK,
+  );
+  $items['gofast/audit/download'] = array(
+      'page callback' => 'gofast_audit_download_files',
+      'access arguments' => array('access content'),
+      'access callback' => 'user_access',
+      'type' => MENU_CALLBACK,
+  );
   $items['gofast/audit/downloadSelected'] = array( // downloadSelected for audit
     'page callback' => 'gofast_audit_download_selected_files',
     'access arguments' => array('access content'),
     'access callback' => 'user_access',
     'type' => MENU_CALLBACK,
   );
+  
+  $items['gofast_audit_export_xlsx'] = array(
+    'page callback' => 'gofast_audit_generate_file',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array('gofast_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+    'access callback' => 'user_access',
+  );
 
-    return $items;
+  $items['gofast_audit_export_xlsx/download/%'] = array(
+    'page callback' => 'gofast_audit_retrieve_file',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(2),
+    'access arguments' => array('administer site configuration'),
+    'access callback' => 'user_access',
+  );
+
+  $items['gofast_audit/space_audit/%'] = array(
+    'page callback' => 'gofast_directory_display_audit_page',
+    'page arguments' => array("space", 2),
+    'access arguments' => array("space", 2),
+    'access callback' => 'gofast_audit_access',
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
 }
 
+/**
+ * Must be called from gofast_audit_get_audit().
+ * Given sortable or filterable columns, alter target subquery to have all needed joins.
+ */
+function gofast_audit_optimize_query_set_joins($columns, &$query, &$target_alias, &$target_id) {
+  $is_user = !empty(array_intersect(["login", "displayname"], $columns));
+  $is_node = !empty(array_intersect(["title", "type"], $columns));
+  $is_audit = !empty(array_intersect(["timestamp", "startDate", "endDate", "event_type", "eventtype"], $columns));
+  $user_props = [
+    "alias" => "u",
+    "id" => "uid",
+    "table" => "users",
+    "fields" => ["uid", "name"],
+  ];
+  $node_props = [
+    "alias" => "n",
+    "id" => "nid",
+    "table" => "node",
+    "fields" => ["nid", "title", "type"],
+  ];
+  $audit_props = [
+    "alias" => "a",
+    "id" => "id",
+    "table" => GOFAST_AUDIT_TABLE_NAME,
+    "fields" => ["id", "timestamp", "event_type"],
+  ];
+  $props = $is_user ? $user_props : $node_props;
+  $target_alias = $props["alias"];
+  $target_id = $props["id"];
+  $has_both = $is_user && $is_node;
+
+  $query = db_select($props["table"], $props["alias"])->fields($props["alias"], $props["fields"]);
+  if ($is_audit || $has_both) {
+    $query->innerJoin($audit_props["table"], $audit_props["alias"], "{$audit_props['alias']}.{$props['id']} ={$props['alias']}.{$props['id']}");
+    $query->fields($audit_props['alias'], $audit_props['fields']);  
+  }
+
+  if ($has_both) {
+    $join_props = $is_user ? $node_props : $user_props;
+    $query->fields($audit_props["alias"], $audit_props["fields"]);
+    $query->leftJoin($join_props["table"], $join_props["alias"], "{$audit_props['alias']}.{$join_props['id']} = {$join_props['alias']}.{$join_props['id']}");
+  }
+}
+
+/**
+ * Must be called from gofast_audit_get_audit().
+ * Given a sortable column, alter target subquery to have all needed joins.
+ * Alter original query accordingly.
+ */
+function gofast_audit_optimize_query_sort(&$subquery, $sort, &$target_alias, &$relations_by_field, $translated_event_type_expression, $translated_type_nocase_expression) {
+  // add joins and expressions needed for specific sorts
+  $aliases = $subquery->getTables();
+  $expressions = $subquery->getExpressions();
+  
+  if (!$aliases["ln"] && $sort['field'] == "displayname") {
+    $subquery->addField('ln', 'ldap_user_sn_value');
+    $subquery->leftJoin('field_data_ldap_user_sn', 'ln', 'ln.entity_id = u.uid');
+  }
+  if (!$expressions["translated_event_type"] && $sort['field'] == "eventtype") {
+    $subquery->addExpression($translated_event_type_expression, "translated_event_type");
+  }
+  if (!$expressions["translated_type_nocase"] && $sort['field'] == "type") {
+    $subquery->addExpression($translated_type_nocase_expression, "translated_type_nocase");
+  }
+
+  // don't join the target table to itself
+  unset($relations_by_field[$target_alias]);
+}
+
+/**
+ * Must be called from gofast_audit_get_audit().
+ * Given filterable columns, alter target subquery to have all needed joins.
+ * Alter original query accordingly.
+ */
+function gofast_audit_optimize_query_filters(&$subquery, $filters, &$target_alias, &$relations_by_field, $type, $entity_id) {
+  // pre-filter the subquery: we have to do the escaping ourselves since the subquery will be converted into a string and injected into the main query
+  if (!empty($filters['displayname'])) {
+    $subquery->addField('ln', 'ldap_user_sn_value');
+    $subquery->leftJoin('field_data_ldap_user_sn', 'ln', 'ln.entity_id = u.uid');
+    $subquery->addField('fin', 'ldap_user_givenname_value');
+    $subquery->leftJoin('field_data_ldap_user_givenname', 'fin', 'fin.entity_id = u.uid');
+  }
+}
+
+/**
+ * Must be called from gofast_audit_get_audit().
+ * Create a target subquery to optimize sorting and filtering on very huge audit tables.
+ * Alter original query accordingly.
+ */
+function gofast_audit_optimize_query(&$subquery, $filters, $sort, &$target_alias, &$relations_by_field, $filtering_data) {
+  [$translated_event_type_expression, $translated_type_nocase_expression, $type, $entity_id] = $filtering_data;
+  $all_fields = [$sort["field"] ?? "timestamp", ...array_keys($filters)];
+  $joinable_columns = ["login", "displayname", "title", "type", "event_type", "eventtype"];
+  if (empty(array_intersect($joinable_columns, $all_fields))) {
+    return;
+  }
+  $target_id = "";
+  gofast_audit_optimize_query_set_joins($all_fields, $subquery, $target_alias, $target_id);
+  if (!empty(array_intersect($joinable_columns, array_keys($filters)))) {
+    gofast_audit_optimize_query_filters($subquery, $filters, $target_alias, $relations_by_field, $type, $entity_id);
+  }
+  if (in_array($sort["field"], $joinable_columns)) {
+    gofast_audit_optimize_query_sort($subquery, $sort, $target_alias, $relations_by_field, $translated_event_type_expression, $translated_type_nocase_expression);
+  }
+  // don't join the target table to itself
+  unset($relations_by_field[$target_alias]);
+  // pre-filter the subquery
+  gofast_audit_filter_query($subquery, $filters, $type, $entity_id);
+  // pre-sort the subquery
+  gofast_audit_sort_query($subquery, $sort, TRUE);
+  // since we don't target the audit table anymore, we join it back by adding it as the first relation
+  $aliases = $subquery->getTables();
+  $append = $aliases["a"] ? " AND a.id = $target_alias.id" : "";
+  $relations_by_field["a"] = [[GOFAST_AUDIT_TABLE_NAME, 'a', "a.$target_id = $target_alias.$target_id" . $append]];
+}
+
+/**
+ * Must be called from gofast_audit_get_audit().
+ * Alter original query to apply sorting.
+ */
+function gofast_audit_sort_query(&$query, $sort, $subquery = FALSE) {
+  $is_expression = FALSE;
+  if ($sort) {
+    $direction = strtoupper($sort['sort']);
+    switch ($sort['field']) {
+      case 'date':
+        $arguments = ["timestamp", $direction];
+        break;
+      case 'login':
+        $arguments = ["u.name", $direction];
+        break;
+      case 'displayname':
+        $arguments = ["ldap_user_sn_value", $direction];
+        break;
+      case 'title':
+        $arguments = ["title", $direction];
+        break;
+      case 'eventtype':
+        $is_expression = TRUE;
+        $arguments = ["translated_event_type", $direction];
+        break;
+      case 'type':
+        $is_expression = TRUE;
+        $arguments = ["translated_type_nocase", $direction];
+        break;
+      default:
+          break;
+    }
+  } else {
+    $arguments = ["timestamp", "DESC"];
+  }
+
+  // we're not targeting audit as the main table so we're handling the subquery
+  // we need to make sure the subquery sorting is also returned to the outer query
+  if ($subquery) {
+    // at sort time, the expression column is not computed yet, so we have to put the entire expression in the sort clause
+    if ($is_expression) {
+      $expressions =& $query->getExpressions();
+      $expression_key = $arguments[0];
+      $arguments[0] = $expressions[$expression_key]["expression"];
+      // and cleanup the now userless expression column
+      unset($expressions[$expression_key]);
+    }
+    $query->addExpression("row_number() OVER (ORDER BY $arguments[0] $arguments[1])", "rn");
+  } else {
+    $query->orderBy(...$arguments);
+  }
+}
+
+/**
+ * Must be called from gofast_audit_get_audit().
+ * Alter original query to apply filtering.
+ */
+function gofast_audit_filter_query(&$query, $filters, $type, $entity_id) {
+  $conn = Database::getConnection();
+  // logic for filtering
+    if (!empty($filters['login'])) {
+    $query->where("u.name LIKE " . $conn->quote("%" . db_like($filters["login"]) . "%"));
+  }
+  if (!empty($filters['displayname'])) {
+    $or = db_or();
+    $or->where("ldap_user_givenname_value LIKE " . $conn->quote("%" . db_like($filters["displayname"]) . "%"));
+    $or->where("ldap_user_sn_value LIKE" . $conn->quote("%" . db_like($filters["displayname"]) . "%"));
+    $query->condition($or);
+  }
+  if (!empty($filters['title'])) {
+    $query->where("n.title LIKE " . db_like("%" .  $conn->quote($filters["title"]) . "%"));
+  }
+  if (!empty($filters['type'])) {
+    $query->where("n.type = " .  $conn->quote($filters['type']) );
+  }
+  if(!empty($filters['startDate']) && !empty($filters['endDate'])){
+    if ($filters['startDate'] == $filters['endDate']) {
+        (int) $filters['endDate'] += 86400;
+    }
+    $query->where("a.timestamp BETWEEN " . $conn->quote($filters['startDate']) . " AND " . $conn->quote($filters['endDate']));
+  }
+  if (!empty($filters['event_type'])) {
+    $event_type_filter = explode(";", $filters['event_type']);
+    $event_type_filter = array_map(fn($et) => $conn->quote($et), $event_type_filter);
+    $event_type_filter_string = implode(", ", $event_type_filter);
+    $query->where("a.event_type IN (" .  $event_type_filter_string . ")");
+  }
+  // filtering by audit type and audit entity_id
+  if ($type == "node") {
+    $query->where("a.nid = " . $conn->quote($entity_id));
+  }
+  if ($type == "space") {
+    $children = db_select("og_membership", "ogm")->fields("ogm", ["etid"])->condition("ogm.gid", $entity_id)->condition("ogm.entity_type", "node")->execute()->fetchCol();
+    $children = array_map(fn($ch) => $conn->quote($ch), $children);
+    $children_string = implode(", ", $children);
+
+    $or = db_or();
+    $or->where("a.nid = " . $conn->quote($entity_id));
+    $or->where("a.nid IN (" . $children_string . ")");
+    $query->condition($or);
+  }
+}
+
+function gofast_audit_get_audit($type = "site", $entity_id = 0) {
+  $pagination = $_GET['pagination'] ? gofast_xss_clean($_GET['pagination']) : [];
+  $sort = $_GET['sort']? gofast_xss_clean($_GET['sort']) : [];
+  $filters = $_GET['query'] ? gofast_xss_clean($_GET['query']) : [];
+  $current_page = $_GET['currentPage'] ? gofast_xss_clean($_GET['currentPage']) : [];
+
+  $event_types_options = [];
+  $type_options = [];
+  $translated_event_type_expression = "";
+  $translated_type_nocase_expression = "";
+
+  // if no front information about pagination, use placeholder
+  if (empty($pagination["page"])) {
+      $pagination["page"] = 1;
+  }
+  if (empty($pagination["perpage"])) {
+      $pagination["perpage"] = 20;
+  }
+  $offset = max(($pagination["page"] - 1) * $pagination["perpage"], 0);
+
+  // fields for audit query
+  $fields_by_audit_type = [
+    "site" => [
+      "a" => ["nid", "timestamp", "uid", "event_type", "details"],
+      "u" => ["name"],
+      "n" => ["title", "type"],
+      "fin" => ["ldap_user_givenname_value"],
+      "ln" => ["ldap_user_sn_value"],
+    ],
+    "node" => [
+      "a" => ["nid", "timestamp", "uid", "event_type"],
+      "u" => ["name"],
+      "n" => ["title", "type"],
+      "fin" => ["ldap_user_givenname_value"],
+      "ln" => ["ldap_user_sn_value"],
+    ],
+  ];
+  // for now these types have the same fields, but it may change in the future
+  $fields_by_audit_type["space"] = $fields_by_audit_type["site"];
+
+  $target_fields = $fields_by_audit_type[$type];
+  // set input options and expressions only if matching field exists in current audit type
+  if (isset($target_fields["a"])) {
+    // get options for event types selector
+    $event_types_options = gofast_audit_get_list_event_types();
+    asort($event_types_options);
+    // cases to make possible sorting by translated event types
+    $translated_event_type_expression = "CASE";
+    foreach ($event_types_options as $event_type => $translated_event_type) {
+      $event_type = htmlspecialchars($event_type, ENT_QUOTES);
+      // Parse array to work in sql query
+      $sql_array = "('" . implode("','", array_values($translated_event_type)) . "')";
+      $translated_event_type_expression .= " WHEN a.event_type IN $sql_array THEN '$event_type'";
+    }
+    $translated_event_type_expression .= " ELSE '" . t("Event") . "' END";
+  }
+  if (isset($target_fields["n"])) {
+    // get options for type selector
+    $type_options = gofast_get_all_node_types();
+    asort($type_options);
+    // cases to make possible sorting by translated type
+    // the lowercase is used to be able to do the actual sorting (SQL sorting being case-sensitive and a category name can begin by a lowercase letter)
+    $translated_type_nocase_expression = "CASE";
+    foreach ($type_options as $machine_name => $readable_value) {
+      $translated_type_nocase_expression .= " WHEN n.type = '" . $machine_name . "' THEN '" . strtolower(htmlspecialchars($readable_value, ENT_QUOTES)) . "'";
+    }
+    $translated_type_nocase_expression .= " ELSE '-' END";
+  }
+
+  // relations for audit query fields
+  $relations_by_field = [
+    "u" => [["users", "u", "a.uid = u.uid"]],
+    "n" => [["node", "n", "a.nid = n.nid"]],
+    "fin" => [['field_data_ldap_user_givenname', 'fin', 'fin.entity_id = u.uid']],
+    "ln" => [['field_data_ldap_user_sn', 'ln', 'ln.entity_id = u.uid']],
+  ];
+  // expressions for audit query fields
+  $expressions_by_field = [
+    "a" => [["translated_event_type" => $translated_event_type_expression]],
+    "n" => [["translated_type_nocase" => $translated_type_nocase_expression]],
+  ];
+
+  $subquery = FALSE;
+  $target_alias = "a";
+  // if sorting or filtering involves a user or node table join, we have to optimize the query
+  // by (filtering case) pre-targeting a subcollection of users or nodes instead of the whole audit table
+  // or at least (sorting case) use a smaller collection as the main table
+  // otherwise the query may timeout on very huge (n-million rows) audit tables
+  gofast_audit_optimize_query($subquery, $filters, $sort, $target_alias, $relations_by_field, [$translated_event_type_expression, $translated_type_nocase_expression, $type, $entity_id]);
+
+  // audit query
+  if ($subquery) {
+    $target_table = $subquery;
+  } else {
+    $target_table = GOFAST_AUDIT_TABLE_NAME;
+  }
+  $query = db_select($target_table, $target_alias);
+  foreach($target_fields as $alias => $columns) {
+    $query->fields($alias, $columns);
+  }
+
+  // the count query will be a lot quicker without joins
+  $audit_count = 0;
+  if (!$subquery && empty($filters) && $type == "site") { // only site audit doesn't have prefiltering
+    $audit_count = $query->countQuery()->execute()->fetchField();
+  }
+
+  // joins and filtering
+  foreach($target_fields as $alias => $columns) {
+    if (isset($relations_by_field[$alias])) {
+      foreach($relations_by_field[$alias] as $join_arguments) {
+        $query->leftJoin(...$join_arguments);
+      }
+    }
+  }
+
+  $aliases = [];
+  if (!$subquery) {
+    // no subquery to prefilter so we do the filtering in the main query
+    gofast_audit_filter_query($query, $filters, $type, $entity_id);
+  } else {
+    $aliases = $subquery->getTables();
+  }
+
+  // if we apply a range on the query, we don't want to apply it on the count query, so we clone the query first
+  $count_query = clone $query;
+
+  // we apply the range on the subquery: it's faster than on the outer query
+  // and the inner join on audit id will make sure the range is enforced in the outer query
+  if ($subquery && $aliases["a"]) {
+    $subquery->range($offset, $pagination["perpage"]);
+  } else {
+    // remove additional joins from outer query to make the count faster
+    $fields =& $count_query->getFields();
+    foreach ($fields as $key => $field) {
+      if ($key == "a") {
+        continue;
+      }
+      unset($fields[$key]);
+    }
+  }
+
+  // count to display the right number of available pages
+  if (!$audit_count) {
+    $audit_count = $count_query->countQuery()->execute()->fetchField();
+  }
+
+  // expressions will slow down the count query so we add them after
+  foreach($target_fields as $alias => $columns) {
+    if (isset($expressions_by_field[$alias])) {
+      foreach($expressions_by_field[$alias] as $expressions) {
+        foreach($expressions as $expression_name => $expression) {
+          $query->addExpression($expression, $expression_name);
+        }
+      }
+    }
+  }
+  // logic for sorting
+  if ($subquery && $subquery->getExpressions()["rn"]) {
+    // if sorting is handled by the subquery, make sure the outer query follows the subquery ordering
+    $query->orderBy("rn");
+  } else {
+    gofast_audit_sort_query($query, $sort);
+  }
+
+  // go back to last available page if we're pointing to a page which no longer exists after filter application
+  $page_count = ceil($audit_count / $pagination["perpage"]);
+  if ($pagination["page"] > $page_count) {
+      $pagination["page"] = $page_count;
+      $offset = max(($page_count - 1) * $pagination["perpage"], 0);
+  }
+
+  // use of target ids to avoid large offsets slowing down the query dramatically
+  $target_ids = [];
+  if (!$subquery && $offset > 0) {
+    $target_ids_query = db_select(GOFAST_AUDIT_TABLE_NAME, "a")->fields("a", ["id"]);
+    gofast_audit_filter_query($target_ids_query, $filters, $type, $entity_id);
+    gofast_audit_sort_query($target_ids_query, $sort);
+    $target_ids_query->range($offset, $pagination["perpage"]);
+    $target_ids = $target_ids_query->execute()->fetchCol();
+  }
+
+  // apply server-side pagination only if we're not exporting
+  if (isset($_GET["export"])) {
+    $query->range(0, 50000);
+  } elseif (!$subquery || !$aliases["a"]) { // subquery having audit rows, it already enforces the right range
+    if (empty($target_ids)) {
+      $query->range($offset, $pagination["perpage"]);
+    } else {
+      $target_ids_string = trim(str_replace("\"", "'", json_encode($target_ids)), "[]");
+      $query->where("a.id in ($target_ids_string)");
+    }
+  }
+
+  $results = $query->execute()->fetchAll();
+
+  $audit_rows = [];
+
+  // display-only logic
+  foreach ($results as $result) {
+      $result->date = format_date($result->timestamp, "short");
+      $result->displayname = ($result->ldap_user_givenname_value ?? "") . " " . ($result->ldap_user_sn_value ?? "");
+      if ($result->type == "private_space") {
+        $result->title = t('My Personal Space', array(), array('context' => 'gofast'));
+      }
+      if($result->type == "kanban"){
+        $node = node_load($result->nid);
+        $parent_space = reset(gofast_og_get_parent($node, true));
+        $result->title = $parent_space->title;
+        $result->href = "$parent_space->nid#ogkanban";
+      }
+      $result->type = gofast_get_human_readable_node_type($result->type);
+      if($result->type != null){
+        $result->translated_type = t($result->type);
+      }
+      if (isset($result->details)) {
+        $details_data = [];
+        $details_data['events_log'][0] = unserialize(rawurldecode($result->details));
+        $details_data['events_log'][0]['nid'] = $result->nid;
+        $details_data['events_log'][0]['type'] = $result->type;
+        $details_data['update-index'] = 0;
+        $details_render = gofast_audit_view_node_update_events_log($details_data);
+        $result->details = $details_render["details"];
+      }
+      $audit_rows[] = $result;
+  }
+
+  $meta = [
+      "page" => $pagination["page"],
+      "pages" => $page_count,
+      "perpage" => $pagination["perpage"],
+      "total" => $audit_count,
+      "sort" => $sort ? $sort['sort'] : "",
+      "field" => $sort ? $sort['field'] : "",
+  ];
+
+  $inputs = [
+    ["name" => "event_type", "type" => "select", "data" => $event_types_options],
+    ["name" => "type", "type" => "select", "data" => $type_options],
+  ];
+
+  // in case of export, we want to actually return the data (no ajax)
+  if (isset($_GET["export"])) {
+    return $audit_rows;
+  }
+  echo json_encode(["data" => $audit_rows, "meta" => $meta, "filters" => $filters, "inputs" => $inputs]);
+}
+
+function gofast_audit_generate_file(){
+  set_time_limit(0);
+  /** PHPSpreadSheet */
+  require_once libraries_get_path('phpspreadsheet').'/vendor/autoload.php';
+  $fid = rand(0, getrandmax());
+
+  //Release Apache session
+  print $fid;
+  fastcgi_finish_request();
+  $filename = "export_audit_".$fid.".xlsx";
+
+  // Create new PHPExcel object
+  $objPHPExcel = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+  $objPHPExcel->getActiveSheet()->setTitle(t("Audit", array(), array('context' => 'gofast_stats')));
+  
+  // Get audit data for current query
+  $_GET["export"] = TRUE;
+  $results = gofast_audit_get_audit();
+
+  if(count($results) > 0){
+    //Users tab
+    $objPHPExcel->setActiveSheetIndex(0);
+    $objPHPExcel->getActiveSheet()->SetCellValue('A1', t("Date", array(), array('context' => 'gofast_stats')));
+    $objPHPExcel->getActiveSheet()->SetCellValue('B1', t("Login", array(), array('context' => 'gofast_stats')));
+    $objPHPExcel->getActiveSheet()->SetCellValue('C1', t("Firstname", array(), array('context' => 'gofast_stats')));
+    $objPHPExcel->getActiveSheet()->SetCellValue('D1', t("Lastname", array(), array('context' => 'gofast_stats')));
+    $objPHPExcel->getActiveSheet()->SetCellValue('E1', t("Title", array(), array('context' => 'gofast_stats')));
+    $objPHPExcel->getActiveSheet()->SetCellValue('F1', t("Nid", array(), array('context' => 'gofast_stats')));
+    $objPHPExcel->getActiveSheet()->SetCellValue('G1', t("Event type", array(), array('context' => 'gofast_stats')));
+    $objPHPExcel->getActiveSheet()->SetCellValue('H1', t("Type", array(), array('context' => 'gofast_stats')));
+    $i = 2;
+    foreach($results as $result){
+      $objPHPExcel->setActiveSheetIndex(0);
+      $objPHPExcel->getActiveSheet()->SetCellValue('A'.$i, $result->date);
+      $objPHPExcel->getActiveSheet()->SetCellValue('B'.$i, $result->name);
+      $objPHPExcel->getActiveSheet()->SetCellValue('C'.$i, $result->ldap_user_givenname_value);
+      $objPHPExcel->getActiveSheet()->SetCellValue('D'.$i, $result->ldap_user_sn_value);
+      $objPHPExcel->getActiveSheet()->SetCellValue('E'.$i, $result->node_ceo_vision_audit_nid);
+      $objPHPExcel->getActiveSheet()->SetCellValue('F'.$i, $result->nid);
+      $objPHPExcel->getActiveSheet()->SetCellValue('G'.$i, $result->translated_event_type);
+      $objPHPExcel->getActiveSheet()->SetCellValue('H'.$i, $result->translated_type);
+      $i++;
+    }
+  }
+  // Save Excel 2007 file
+  $objWriter = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($objPHPExcel);
+  $objWriter->save("/var/www/d7/sites/default/files/".$filename);
+}
+
+function gofast_audit_retrieve_file($fid){
+  $filename = "export_audit_".$fid.".xlsx";
+  $file = '/var/www/d7/sites/default/files/'.$filename;
+
+  if (file_exists($file)) {
+    header('Content-Description: File Transfer');
+    header('Content-Type: application/octet-stream');
+    header('Content-Disposition: attachment; filename='.basename($file));
+    header('Content-Transfer-Encoding: binary');
+    header('Expires: 0');
+    header('Cache-Control: must-revalidate');
+    header('Pragma: public');
+    header('Content-Length: ' . filesize($file));
+    ob_clean();
+    flush();
+    readfile($file);
+    exit;
+  }else{
+      print "Waiting";
+      exit;
+  }
+}
 
 function gofast_audit_init(){
     drupal_add_js(drupal_get_path('module', 'gofast_audit') . '/js/gofast_audit.js');
@@ -103,11 +709,9 @@ function gofast_audit_init(){
 
 function gofast_audit_delete_folder(){
   global $user;
-  $folder = empty($folder) ? $_POST["folder"] : $folder;
-  $folder = empty($folder) ? $_GET["folder"] : $folder;
-
-  $item = gofast_cmis_item_get_by_path(str_replace('/alfresco/webdav', "", urldecode($folder)));
-  if($item->properties['cmis:objectTypeId'] == "cmis:folder"){
+  $folders = empty($folders) ? gofast_xss_clean($_POST["folders"]) : $folders;
+  $folders = empty($folders) ? gofast_xss_clean($_GET["folders"]) : $folders;
+  foreach ($folders as $folder) {
     $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => 'delete_folder','path' => $folder);
     $event = serialize($event);
     $last_event_serialized = rawurlencode($event);
@@ -131,6 +735,24 @@ function gofast_audit_user_login(&$edit, $account){
         }
     }
 }
+
+
+function gofast_audit_unzip_file(){
+  global $user;
+
+  $item = empty($item) ? $_POST["item"] : $item;
+
+  $item = gofast_cmis_item_get_by_path(str_replace('/alfresco/webdav', "", urldecode($item)));
+  if($item->properties['cmis:objectTypeId'] == "cmis:file"){
+    $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => 'unzip_file','path' => $item);
+    $event = serialize($event);
+    $last_event_serialized = rawurlencode($event);
+    $last_event_unserialized["mod_timestamp"] = time();
+    $last_event_unserialized["mod_author"] = $user->uid;
+    gofast_audit_insert_line_audit(0, 'unzip_file', $last_event_serialized, $last_event_unserialized);
+  }
+}
+
 
 function gofast_audit_node_view($node){
     if (isset($node->from_comments_render)) {
@@ -156,7 +778,7 @@ function gofast_audit_node_view($node){
     gofast_audit_insert_line_audit($node->nid,$event_type, $last_event_serialized, $last_event_unserialized);
 }
 
-function gofast_audit_linksharing($node,$values){
+function gofast_audit_linksharing($node, $values){
 
     //node not correct
     if(!isset($node->nid)){
@@ -199,13 +821,13 @@ function gofast_audit_linksharing($node,$values){
 
             }
         }else{
-            if (strpos($value,";") == TRUE){
+            if (gettype($value) == "string" && strpos($value,";") == TRUE){
                 $array_input_addresses = str_replace(' ', '', explode(';',$value));
             }
-            if(strpos($value,",") == TRUE){
+            if(gettype($value) == "string" && strpos($value,",") == TRUE){
                 $array_input_addresses = str_replace(' ', '',explode(',',$value));
             }
-            if(empty($array_input_addresses) && strpos($value," ") == TRUE ){
+            if(empty($array_input_addresses) && gettype($value) == "string" && strpos($value," ") == TRUE ){
                 $array_input_addresses = str_replace(' ','',explode(' ',$value));
             }
             if (!empty($array_input_addresses)){
@@ -216,18 +838,28 @@ function gofast_audit_linksharing($node,$values){
             }
         }
     }
-    $id_list_sharing = implode(";", array_unique($id_list_sharing));
+    $id_list_sharing = json_encode($id_list_sharing);
     $last_event_unserialized["mod_dest"] = $id_list_sharing;
     $last_event_unserialized["mod_version"] = $node->field_current_version['und']['0']['value'];
     $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), "event" => $event_type, 'mod_dest' => $id_list_sharing, 'mod_version' => $node->field_current_version['und']['0']['value'] );
     $event = serialize($event);
     $last_event_serialized = rawurlencode($event);
-    gofast_audit_insert_line_audit($node->nid,$event_type,$last_event_serialized, $last_event_unserialized );
+    gofast_audit_insert_line_audit($node->nid, $event_type, $last_event_serialized, $last_event_unserialized);
 }
 
-function gofast_audit_add_members($node, $membership_data)
+/**
+ * Add members to a group and create an audit event.
+ *
+ * @param object $node The group node object.
+ * @param array $membership_data An array containing membership data.
+ * @param string $source The source of the membership action eg UI Admin creation
+ *
+ * @return void
+ */
+function gofast_audit_add_members($node, $membership_data, $source = "manual_gui")
 {
   global $user;
+    
   if ($membership_data['membership_action'] == 'NMEM') { //NMEM new member
 
     $event_type = 'add_member';
@@ -243,12 +875,13 @@ function gofast_audit_add_members($node, $membership_data)
     $group_node['new_member_name']['value'] = $membership_data['membership_name']; // name or title
     // $message = $group_node['event']['value'].'|'.json_encode($group_node);
 
+    $members_added = array();
     if ('user' == $group_node['new_member_type']['value']) {
-      $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => $event_type, 'user_name' => $group_node['new_member_name']['value'], 'dest_id' => $group_node['new_member_id']['value'], 'user_role' => $user_role);
+      $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => $event_type, 'user_name' => $group_node['new_member_name']['value'], 'dest_id' => $group_node['new_member_id']['value']);
     } elseif ('userlist' == $group_node['new_member_type']['value']) {
       $entity_ulid = $group_node['new_member_id']['value'];
       $members_added = array_keys(gofast_userlist_get_members($entity_ulid));
-      $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => $event_type, 'userlist_name' => $group_node['new_member_name']['value'], 'userlist_id' => $entity_ulid, 'dest_list' => $members_added, 'userlist_role' => $user_role);
+      $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => $event_type, 'userlist_name' => $group_node['new_member_name']['value'], 'userlist_id' => $entity_ulid, 'dest_list' => $members_added);
     }
     $event = serialize($event);
     $last_event_serialized = rawurlencode($event);
@@ -277,23 +910,21 @@ function gofast_audit_delete_members($node,$membership_data){
     // $message = $group_node['event']['value'].'|'.json_encode($group_node);
 
     if ('user' == $group_node['new_member_type']['value']) {
-      $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => $event_type, 'user_name' => $group_node['new_member_name']['value'], 'dest_id' => $group_node['new_member_id']['value'], 'user_role' => $user_role);
+      $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => $event_type, 'user_name' => $group_node['new_member_name']['value'], 'dest_id' => $group_node['new_member_id']['value']);
     } elseif ('userlist' == $group_node['new_member_type']['value']) {
       $entity_ulid = $group_node['new_member_id']['value'];
       $members_added = array_keys(gofast_userlist_get_members($entity_ulid));
-      $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => $event_type, 'userlist_name' => $group_node['new_member_name']['value'], 'userlist_id' => $entity_ulid, 'dest_list' => $members_added, 'userlist_role' => $user_role);
+      $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => $event_type, 'userlist_name' => $group_node['new_member_name']['value'], 'userlist_id' => $entity_ulid, 'dest_list' => $members_added);
     }
     $event = serialize($event);
     $last_event_serialized = rawurlencode($event);
     $last_event_unserialized["mod_timestamp"] = time();
     $last_event_unserialized["mod_author"] = $user->uid;
-    $last_event_unserialized["mod_members"] = implode(';', $members_added);
+    $last_event_unserialized["mod_members"] = implode(';', (array) $members_added);
   }
 
   gofast_audit_insert_line_audit($node->nid, $event_type, $last_event_serialized, $last_event_unserialized);
 }
-
-
 
 function gofast_audit_message_formated($message){
     //we get only modified values
@@ -366,240 +997,110 @@ function gofast_audit_message_formated($message){
 
 }
 
-
-function gofast_audit_insert_line_audit($nid, $event_type, $last_event_serialized, $last_event_unserialized){
-    $table_name = GOFAST_AUDIT_TABLE_NAME;
-
-    //on insert cet evenement dans la table d'audit
-    db_query("INSERT INTO {".$table_name."} (nid,timestamp,uid,details,event_type) VALUES ('".$nid."', '".$last_event_unserialized["mod_timestamp"]."'"
-            . ", '".$last_event_unserialized["mod_author"]."', '".$last_event_serialized."', '".$event_type."')");
-
-
-}
-
-function gofast_audit_views_data() {
-    $data = array();
-
-  // The 'group' index will be used as a prefix in the UI for any of this
-  // table's fields, sort criteria, etc.
-  $data['ceo_vision_audit']['table']['group'] = t('CEO-Vision Audit');
-  // Define this as a base table.
-  $data['ceo_vision_audit']['table']['base'] = array(
-    'field' => 'id',
-    'title' => t('ceo_vision_audit table'),
-    'help' => t("CEO-Vision Audit"),
-    'weight' => -10,
-  );
-  // This table creates an 'implicit' relationship to the node table, so that when 'Node'
-  // is the base table, the fields are automatically available
-  $data['ceo_vision_audit']['table']['join'] = array(
-    'node' => array(
-      'left_field' => 'nid',
-      'field' => 'nid',
-     ),
-  );
-  $data['ceo_vision_audit']['table']['join'] = array(
-    'users' => array(
-      'left_field' => 'uid',
-      'field' => 'uid',
-     ),
-  );
-  // Now, explain all the fields in this table. For
-  // each field, you can define what field, sort, argument, and/or filter
-  // handlers it supports. This will determine where in the Views interface you
-  // may use the field.
-  // Node ID field.
-  $data['ceo_vision_audit']['nid'] = array(
-    'title' => t('Node content'),
-    'relationship' => array(
-      'base' => 'node',
-      'field' => 'nid',
-      'handler' => 'views_handler_relationship',
-      'label' => t('Node id in this table that references a node.'),
-    ),
-  );
-
-  //uid field
-  $data['ceo_vision_audit']['uid'] = array(
-    'title' => t('User content'),
-    'relationship' => array(
-      'base' => 'users',
-      'field' => 'uid',
-      'handler' => 'views_handler_relationship',
-      'label' => t('User id in this table that references a node.'),
-    ),
-  );
-
-
-  // Timestamp field
-  $data['ceo_vision_audit']['timestamp'] = array(
-    'title' => t('Timestamp'),
-    'help' => t('Timestamp'),
-    'field' => array(
-      'handler' => 'gofast_audit_handler_field_date_audit',
-      'click sortable' => TRUE,
-    ),
-    'filter' => array(
-      'handler' => 'gofast_views_handler_filter_date',
-    ),
-    'sort' => array(
-      'handler' => 'views_handler_sort',
-    ),
-  );
-
-  //details field
-  $data['ceo_vision_audit']['details'] = array(
-    'title' => t('Details'),
-    'help' => t('Details of modification'),
-    'field' => array(
-      'handler' => 'gofast_audit_handler_field_detail_audit',
-      'click sortable' => TRUE,
-    ),
-    'filter' => array(
-      'handler' => 'views_handler_field_serialized',
-    ),
-    'sort' => array(
-      'handler' => 'views_handler_sort',
-    ),
-  );
-
-    //event type field
-  $data['ceo_vision_audit']['event_type'] = array(
-    'title' => t('Event type'),
-    'help' => t('Type of event'),
-    'field' => array(
-      'handler' => 'views_handler_field',
-      'click sortable' => TRUE,
-    ),
-    'filter' => array(
-      'handler' => 'gofast_audit_handler_filter_custom_in_operator',
-    ),
-    'sort' => array(
-      'handler' => 'views_handler_sort',
-    ),
-  );
-
-  return $data;
-}
-
-
-
-/**
- * Implementation of hook_views_handlers().
- * Register all of the basic handlers views uses.
- */
-function gofast_audit_views_handlers() {
-  return array(
-    'info' => array(
-      'path' => drupal_get_path('module', 'ceo_vision_audit'),
-    ),
-    'handlers' => array(
-      'gofast_audit_handler_field_detail_audit' => array(
-        'parent' => 'views_handler_field',
-      ),
-      'gofast_audit_handler_field_date_audit' => array(
-        'parent' => 'views_handler_field',
-      ),
-      'gofast_audit_handler_filter_custom_in_operator' => array(
-        'parent' => 'views_handler_filter_in_operator',
-      ),
-    ),
-  );
-}
-
-/**
- * Implements hook_views_api().
- */
-function gofast_audit_views_api() {
-  return array(
-    'api' => 3,
-    'path' => drupal_get_path('module', 'gofast_audit'),
-  );
-}
-
 function gofast_audit_view_node_update_events_log($data){
     $events = $data['events_log'];
     $event = (object) $events[$data['update-index']];
 
     $event_unformatted = $data["events_log"][0];
     $event_type = $event_unformatted["event"];
-
-    if($event_type == "ECON" || $event_type == "NREV" || $event_type == "ETDL"){
-        $event_message = array();
+    $event_message = array();
+    switch($event_type){
+      case 'ECON':
+      case 'NREV':
+      case 'ETDL':
         $count = 0;
         foreach($event_unformatted as $key=>$props){
-            if(isset($props["current"]) && $key != "changed"){
-                $event_message[$count]["from"] = $props["removed"];
-                $event_message[$count]["to"] = $props["current"];
-                $event_message[$count]["field"] = $key;
-                $count++;
+          if(isset($props["current"]) && $key != "changed"){
+            if($count == 0){
+              $event_message[0]["from"] = $props["removed"];
+              $event_message[0]["to"] = $props["current"];
+              $event_message[0]["field"] = $key;
+              $count++;
+            }else{
+              $event_child[0]["from"] = $props["removed"];
+              $event_child[0]["to"] = $props["current"];
+              $event_child[0]["field"] = $key;
+              $event_message[0]["child"] = $event_child;
             }
-        $event_message["event"] = $event_type;
+          }
+          $event_message["event"] = $event_type;
         }
         $event_message["message"] = "";
-        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>".gofast_message_ext_api_render_event($event_message)."</span></div>";
+        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>".gofast_message_ext_api_render_event($event_message)."</span></div>";;
+        break;
+      case 'linksharing':
+        $recipients_infos = json_decode($event_unformatted["mod_dest"]);
 
-    }elseif($event_type == "linksharing"){
-        $event_message = array();
-        foreach($event_unformatted as $key=>$props){
-            if($key == "mod_dest"){
-                $event_message[0]["to"] = $props;
-                $event_message[0]["field"] = $key;
-            }
-            if($key == 'mod_version'){
-                $event_message['version'] = $props;
-            }
-        $event_message["event"] = $event_type;
+        if (isset($recipients_infos) && !empty($recipients_infos) && is_array($recipients_infos)) {
+          if (array_search(null, $recipients_infos) !== false) {
+            $event_message[0]["to"] = null;
+        } else {
+          $event_message[0]["to"] = $event_unformatted["mod_dest"];
         }
+        }
+        if (isset($event_unformatted['mod_version'])) {
+          $event_message[0]['version'] = $event_unformatted['mod_version'];
+        }
+        $event_message["event"] = $event_type;
         $event_message["message"] = "";
         $details = "<div style='max-width:400px;'><span style='font-size:12px;'>".gofast_message_ext_api_render_event($event_message)."</span></div>";
-
-    }elseif($event_type == "sharing_dl"){
-        $event_message = array();
-        foreach($event_unformatted as $key=>$props2){
-            if($key == "mod_ip"){
-                $event_message[0]["addr_ip"] = $props2;
-            }
-            if($key == 'mod_version'){
-                $event_message['version'] = $props2;
-            }
-        $event_message["event"] = $event_type;
+        break;
+      case 'sharing_dl':
+        if(isset($event_unformatted["mod_ip"])){
+          $event_message[0]["addr_ip"] = $event_unformatted["mod_ip"];
         }
+        if(isset($event_unformatted['mod_version'])){
+            $event_message[0]['version'] = $event_unformatted['mod_version'];
+        }
+        if(isset($event_unformatted['mod_folder_details'])){
+            $event_message[0]['mod_folder_details'] = $event_unformatted['mod_folder_details'];
+        }
+        $event_message["event"] = $event_type;
         $event_message["message"] = "";
         $details = "<div style='max-width:400px;'><span style='font-size:12px;'>".gofast_message_ext_api_render_event($event_message)."</span></div>";
-    }elseif($event_type == "user_blocked" || $event_type == "user_unblocked" || $event_type == "user_leave" || $event_type == "user_unleave"){
-        $event_message = array();
+        break;
+      case 'user_blocked':
+      case 'user_leave':
+      case 'user_unblocked':
+      case 'user_unleave':
         $event_message["event"] = $event_type;
         $event_message[0]['uid_to_block'] = $event_unformatted["uid_to_block"];
         $event_message["message"] = "";
         $details = "<div style='max-width:400px;'><span style='font-size:12px;'>".gofast_message_ext_api_render_event($event_message)."</span></div>";
-    }elseif($event_type == "delete_node"){
+        break;
+      case 'user_unstandby' :
+        $event_message["event"] = $event_type;
+        $event_message[0]['uid_to_unstandby'] = $event_unformatted["uid_to_unstandby"];
+        $event_message["message"] = "";
+        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>".gofast_message_ext_api_render_event($event_message)."</span></div>";
+        break;       
+      case 'delete_folder':
+        $event_message["event"] = $event_type;
+        $event_message[0]['path'] = $event_unformatted["path"];
+        $event_message["message"] = "";
+        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>" . gofast_message_ext_api_render_event($event_message) . "</span></div>";
+        break;
+      case 'delete_node':
         $path = explode(",", $event_unformatted["node_path"]); // can the path be null ??
-        $event_message = array();
         $event_message["event"] = $event_type;
         $event_message[0]['node_path'] = $path;
         $event_message["message"] = "";
         $details = "<div style='max-width:400px;'><span style='font-size:12px;'>".gofast_message_ext_api_render_event($event_message)."</span></div>";
-    } elseif ($event_type == "delete_folder") {
-      $event_message = array();
-      $event_message["event"] = $event_type;
-      $event_message[0]['path'] = $event_unformatted["path"];
-      $event_message["message"] = "";
-      $details = "<div style='max-width:400px;'><span style='font-size:12px;'>" . gofast_message_ext_api_render_event($event_message) . "</span></div>";
-    }  elseif($event_type == "create_user"){
-        $event_message = array();
+        break;
+      case 'create_user':
         $event_message["event"] = $event_type;
         $event_message[0]['user_create'] = $event_unformatted["user_create"];
         $event_message["message"] = "";
         $details = "<div style='max-width:400px;'><span style='font-size:12px;'>".gofast_message_ext_api_render_event($event_message)."</span></div>";
-      } elseif ($event_type == "delete_user") {
-        $event_message = array();
+        break;
+      case 'delete_user':
         $event_message["event"] = $event_type;
         $event_message[0]['user_delete_name'] = $event_unformatted["user_delete_name"];
         $event_message["message"] = "";
         $details = "<div style='max-width:400px;'><span style='font-size:12px;'>" . gofast_message_ext_api_render_event($event_message) . "</span></div>";
-      } elseif ($event_type == 'add_member' || $event_type == 'delete_member'){
-        $event_message = array();
+        break;
+      case 'add_member':
+      case 'delete_member':
         $event_message["event"] = $event_type;
         if (isset($event_unformatted['user_name'])){
             $event_message[0]['user_name'] = $event_unformatted["dest_id"];
@@ -614,133 +1115,145 @@ function gofast_audit_view_node_update_events_log($data){
         }else{
             $event_message[0]['userlist_role'] = $event_unformatted["userlist_role"];
         }
+        if(isset($event_unformatted['nid'])){
+          $event_message[0]['nid'] = $event_unformatted["nid"];
+        }
+        if(isset($event_unformatted['userlist_id'])){
+          $event_message[0]['userlist_id'] = $event_unformatted["userlist_id"];
+        }
         $event_message["message"] = "";
         $details = "<div style='max-width:400px;'><span style='font-size:12px;'>".gofast_message_ext_api_render_event($event_message)."</span></div>";
-    } elseif ($event_type == 'workflow_add' || $event_type == 'workflow_delete' ) {
-      $event_message = array();
-      $event_message["event"] = $event_type;
-      $event_message[0]['worklow_name'] = $event_unformatted["worklow_name"];
-      $event_message["message"] = "";
-      $details = "<div style='max-width:400px;'><span style='font-size:12px;'>" . gofast_message_ext_api_render_event($event_message) . "</span></div>";
-    } elseif ($event_type == 'card_add' || $event_type == 'card_delete') {
-      $event_message = array();
-      $event_message["event"] = $event_type;
-      $event_message[0]['card_name'] = $event_unformatted["card_name"];
-      $event_message["message"] = "";
-      $details = "<div style='max-width:400px;'><span style='font-size:12px;'>" . gofast_message_ext_api_render_event($event_message) . "</span></div>";
-    } elseif($event_type == 'update_userlist'){
+        break;
+      case 'workflow_add':
+      case 'workflow_delete':
+        $event_message["event"] = $event_type;
+        $event_message[0]['worklow_name'] = $event_unformatted["worklow_name"];
+        $event_message["message"] = "";
+        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>" . gofast_message_ext_api_render_event($event_message) . "</span></div>";
+        break;
+      case 'card_add':
+      case 'card_delete':
+        $event_message["event"] = $event_type;
+        $event_message[0]['card_name'] = $event_unformatted["card_name"];
+        $event_message["message"] = "";
+        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>" . gofast_message_ext_api_render_event($event_message) . "</span></div>";
+        break;
+      case 'update_userlist':
+        $count = 0;
+        if(isset($event_unformatted["title"]["current"])){
+          $event_message[0]['userlist_name'] = $event_unformatted["title"]["current"];
+        }
+        if(isset($event_unformatted["userlist members"])){
+          $event_message[0]['userlist_members'] = $event_unformatted["userlist members"];
+        }
+        if(isset($event_unformatted['nid'])){
+          $event_message[0]['nid'] = $event_unformatted["nid"];
+        }
 
-      $event_message = array();
-      $count = 0;
-      foreach ($event_unformatted as $key => $props) {
-
-        if (isset($props["current"]) && $key != "changed") {
-          $event_message[$count]["from"] = $props["removed"];
-          $event_message[$count]["to"] = $props["current"];
-          $event_message[$count]["field"] = $key;
-          $count++;
+        $event_message["event"] = $event_type;
+        $event_message["message"] = "";
+        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>" . gofast_message_ext_api_render_event($event_message) . "</span></div>";
+        break;
+      case 'create_room':
+      case 'delete_room':
+        $event_message["event"] = $event_type;
+        $event_message[0]['room_name'] = $event_unformatted["room_name"];
+        $event_message["message"] = "";
+        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>" . gofast_message_ext_api_render_event($event_message) . "</span></div>";
+        break;
+      case 'deny_membership':
+        if(isset($event_unformatted['nid'])){
+          $event_message[0]['nid'] = $event_unformatted["nid"];
         }
         $event_message["event"] = $event_type;
+        $event_message[0]['user_id'] = $event_unformatted["user_id"];
+        $event_message["message"] = "";
+        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>" . gofast_message_ext_api_render_event($event_message) . "</span></div>";
+        break;
+      case 'update_role':
+        $event_message["event"] = $event_type;
+        $event_message[0]["entity_id"] = $event_unformatted["entity_id"];
+        $event_message[0]["entity_type"] = $event_unformatted["entity_type"];
+        $event_message[0]["old_role"] = $event_unformatted["old_role"];
+        $event_message[0]["new_role"] = $event_unformatted["new_role"];
+        $event_message["message"] = "";
+        $details = "<div style='max-width:400px;'><span style='font-size:12px;'>" . gofast_message_ext_api_render_event($event_message) . "</span></div>";
+        break;
+      default:
+        $details = "";
+        break;  
       }
-      $event_message["message"] = "";
-      $details = "<div style='max-width:400px;'><span style='font-size:12px;'>" . gofast_userlist_api_render_event($event_message) . "</span></div>";
-
-    } elseif ($event_type == 'create_room' || $event_type == 'delete_room' ) {
-      $event_message = array();
-      $event_message["event"] = $event_type;
-      $event_message[0]['room_name'] = $event_unformatted["room_name"];
-      $event_message["message"] = "";
-      $details = "<div style='max-width:400px;'><span style='font-size:12px;'>" . gofast_message_ext_api_render_event($event_message) . "</span></div>";
-    }else{
-        $details =  "";
-    }
-
   return array('details' => $details, 'mod_author' => $event->mod_author, 'mod_timestamp' => $event->mod_timestamp);
-}
-
-function gofast_audit_block_view_alter(&$data ,$block) {
-  global $user;
-  if (gofast_user_has_role('administrator',$user) == 1){
-	// The $delta parameter tells us which block is being requested.
-	switch ($block->delta) {
-	    case 'gofast_audit_node-block_audit':
-	    // Create your block content here
-//	    if($user->uid == '158'){
-//		print '<pre>'; print_r($data); exit;
-//	    }
-	    $data['subject'] = t('Audit');
-
-	    if ($node = menu_get_object()) {
-		// Get the nid
-		$nid = $node->nid;
-	    }
-	    $data['content'] = views_embed_view('gofast_audit_node', 'gofast_audit_node',$nid);
-	    $data['content'] .= '<a href=/gofast_audit/' . $nid . '><button class="btn btn-default btn-sm">' . t('Go to audit page' , array(), array('context' => 'gofast_audit'))    . '</button></a>';
-	    break;
-    }
-    return $block;
-  }
-
 }
 
 function gofast_audit_download_files(){
     global $user;
     $nid = $_POST['node_id'];
 
-    $last_event_unserialized["mod_timestamp"] = time();
-    $last_event_unserialized["mod_author"] = $user->uid;
-    $event_type = "download_file";
-    $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => $event_type);
-    $event = serialize($event);
-    $last_event_serialized = rawurlencode($event);
-
-    gofast_audit_insert_line_audit($nid,$event_type,$last_event_serialized, $last_event_unserialized );
-}
-
-function gofast_audit_download_selected_files(){
-
-  global $user;
-  $file_path = $_POST['file_path'];
-  $nid = gofast_ajax_file_browser_get_nid_from_href('/Sites/'.$file_path);
-  $last_event_unserialized["mod_timestamp"] = time();
-  $last_event_unserialized["mod_author"] = $user->uid;
-  $event_type = "download_file";
-  $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => $event_type);
-  $event = serialize($event);
-  $last_event_serialized = rawurlencode($event);
-
-  gofast_audit_insert_line_audit($nid, $event_type, $last_event_serialized, $last_event_unserialized);
-
+  [$event_type, $last_event_serialized, $last_event_deserialized] = gofast_audit_create_file_download_audit_event();
+  gofast_audit_insert_line_audit($nid,$event_type,$last_event_serialized, $last_event_deserialized );
 }
 
 
 /**
- * Hook theme
+ *  Log an audit event for each file download.
  */
-function gofast_audit_theme()
-{
-  return array(
-    'gofast_audit_filter' => array(
-      'template' => 'tpl/gofast-audit-filter'
-  ));
+function gofast_audit_download_selected_files(): void {
+  // Make sure the $user variable is available.
+  global $user;
+
+  // Get the list of selected files from the POST data.
+  $files = $_POST['files'];
+  
+  // Loop through each selected file and log an audit event.
+  foreach ($files as $reference) {
+    $reference = (object) $reference;
+    // Get the node ID corresponding to the provided reference.
+    $nid = gofast_cmis_node_get_nid_by_reference_without_cmis($reference->nodeRef);
+    if(!is_numeric($nid)){
+      $nid = 0;
+      $event_type = "download_folder";
+    }else{
+      $event_type = "download_file";
+    }
+    
+    [$event_type, $last_event_serialized, $last_event_deserialized] = gofast_audit_create_file_download_audit_event($event_type);
+  
+    // Log the audit event in the database for the corresponding node (file).
+    gofast_audit_insert_line_audit($nid, $event_type, $last_event_serialized, $last_event_deserialized);
+  
+  }
 }
 
+/**
+ * Create an audit event for a file download and return the event type,
+ * the serialized event and the deserialized event.
+ *
+ * @param int $nid
+ * @param string $event_type
+ *
+ * @return array
+ */
+function gofast_audit_create_file_download_audit_event(string $event_type = "download_file"): array {
+  global $user;
+  // Create an array to store the deserialized (decoded) audit event data.
+  $last_event_deserialized["mod_timestamp"] = time();
+  $last_event_deserialized["mod_author"] = $user->uid;
+  
+  // Create an associative array representing the audit event.
+  $event = array(
+    'mod_author' => $user->uid,
+    'mod_timestamp' => time(),
+    'event' => $event_type,
+  );
 
-function gofast_audit_form_alter(&$form, &$form_state, $form_id)
-{
+  // Serialize the audit event array to store it in the database.
+  $event = serialize($event);
 
-  // Alter view page with system name "views-exposed-form-gofast-audit-page" to add a class
-  if ($form['#id'] == "views-exposed-form-gofast-audit-page") {
-    if (isset($form['filter-timestamp'])) {
-      $form['filter-timestamp']['#attributes'] = array('class' => array('gofastDatepicker'));
-    }
-    if (isset($form['timestamp']['min'])) {
-      $form['timestamp']['min']['#attributes'] = array('class' => array('gofastDatepicker'));
-    }
-    if (isset($form['timestamp']['max'])) {
-      $form['timestamp']['max']['#attributes'] = array('class' => array('gofastDatepicker'));
-    }
-  }
+  // URL-encode the serialized audit event for safe storage in the database.
+  $last_event_serialized = rawurlencode($event);
+  
+  return [$event_type, $last_event_serialized, $last_event_deserialized];
 }
 
 /**
@@ -755,4 +1268,39 @@ function gofast_audit_permission() {
       'restrict access' => TRUE
     )
     );
+}
+
+/**
+ * Create an audit event for user creation and insert the event into the database.
+ *
+ * @param int $uid_create The user ID of the user being created.
+ * @param string $creation_method The method used to create the user. (Default: "form_gui")
+ *
+ * @return void
+ */
+function gofast_audit_create_user(int $uid_create, string $creation_method = 'manual_gui'): void {
+  
+  global $user;
+  
+  $event = array(
+    'mod_author'      => $user->uid,
+    'mod_timestamp'   => time(),
+    'event'           => 'create_user',
+    'user_create'     => $uid_create,
+    'mod_creation_method' =>  $creation_method,
+  );
+
+  if($creation_method == 'manual_gui')
+    $creation_method = t('Manually from the user creation form', ['context' => 'gofast:gofast_user']);
+
+
+  $event = serialize($event);
+  $last_event_serialized = rawurlencode($event);
+  $new_private_space_nid = gofast_og_get_user_private_space(user_load($uid_create), false);
+  $last_event_unserialized["mod_timestamp"]       = time();
+  $last_event_unserialized["mod_author"]          = $user->uid;
+  $last_event_unserialized["mod_creation_method"] = $creation_method;
+  
+  gofast_audit_insert_line_audit($new_private_space_nid, 'create_user', $last_event_serialized, $last_event_unserialized);
+
 }

@@ -38,16 +38,13 @@ function gofast_message_ext_entity_presave($entity, $type){
     
     if(stripos($content, "linksharing") !== FALSE ){
         return; 
-    }    
+    }
         
     $isNode = (strcmp($content, "NCON|") == 0 || strcmp($content, "ECON|") == 0);
-    $isComment = (strcmp($content, "NCOM|") == 0 || strcmp($content, "ECOM|") == 0);
     $isMembership = (strpos($content, "NMEM|") === 0 || strpos($content, "DMEM|") === 0);
     $isUserList = (strpos($content, "NUSL|") === 0 || strpos($content, "EUSL|") === 0 || strpos($content, "DUSL|") === 0);
     $isNew = (strcmp($content, "NCON|") == 0 || strcmp($content, "NCOM|") == 0 || strpos($content, "NMEM|")=== 0); 
-    //Disable Kanban notifications
     $isTaskTodolist = (strpos($content, "ETDL|") === 0 || strpos($content, "NTDL|") === 0);
-    //$isTaskTodolist = false;
     if($isNode || $isTaskTodolist){
       if($isTaskTodolist){ 
           $task_todolists_before = json_decode(substr($content, 5));
@@ -56,6 +53,7 @@ function gofast_message_ext_entity_presave($entity, $type){
           $task_todolists_after = gofast_kanban_get_task_checklists($node->nid);
           $node_refresh = node_load($target_entity, NULL, TRUE); //Node after edition
           $node_refresh->todolist = $task_todolists_after;
+          unset($node_compare["changed"]);         
       }else{ 
         $node = node_load($target_entity, NULL, FALSE); //Node before edition
         $node_refresh = node_load($target_entity, NULL, TRUE); //Node after edition
@@ -78,8 +76,13 @@ function gofast_message_ext_entity_presave($entity, $type){
         unset($node_prevent_void['ruid']);
         unset($node_prevent_void['uid']);
         unset($node_prevent_void['changed']);
+
+        if ($node->type == "article") {
+          unset($node_prevent_void['body']);
+        }
+
         foreach($node_prevent_void as $field_prevent){
-          if(!array_key_exists('value', $field_prevent)){
+          if(!array_key_exists('value', (array) $field_prevent)){
             $valid_message = TRUE;
           }
         }    
@@ -92,6 +95,9 @@ function gofast_message_ext_entity_presave($entity, $type){
         if(isset($_POST['override_creation_timestamp']) && isset($node_compare['created']['value']) && isset($node_compare['changed']['value'])){
           $node_compare['created']['value'] = $_POST['override_creation_timestamp'];
           $node_compare['changed']['value'] = $_POST['override_creation_timestamp'];
+        }
+        if($node->type == "task" && !$isTaskTodolist){
+          return;
         }
       }
       
@@ -151,7 +157,7 @@ function gofast_message_ext_entity_presave($entity, $type){
         unset($node_prevent_void['uid']);
         unset($node_prevent_void['changed']);
         foreach($node_prevent_void as $field_prevent){
-          if(!array_key_exists('value', $field_prevent)){
+          if(!array_key_exists('value', (array) $field_prevent)){
             $valid_message = TRUE;
           }
         }
@@ -167,11 +173,44 @@ function gofast_message_ext_entity_presave($entity, $type){
       $entity->field_message_log['und']['0']['value'] = $message;
       $entity->field_node_id['und']['0']['value'] = $comment_compare['nid']['value'];
     }
-    
     foreach(module_implements('message_formated') as $module){
       $function = $module . '_message_formated';
       call_user_func($function, array($message));
     } 
+  }
+}
+
+/** Implements hook_taxonomy_term_presave */
+function gofast_message_ext_taxonomy_term_presave(&$term){
+  global $user;
+  if($term->vid == GOFAST_VID_COLUMNS){
+    // Add an event only if it's an update of the name property
+    if($term->name == $term->original->name || !isset($term->original)){
+      return;
+    }
+    // Fetch the field entity_id related to the tid
+    $query = db_select("field_data_field_board_columns", "fdfbc")
+              ->fields("fdfbc", array("entity_id"))
+              ->condition("fdfbc.field_board_columns_tid", $term->tid, "=");
+    $nid = $query->execute()->fetchCol()[0];
+    // Get the parent space of the kanban board for the title
+    $parent_space = node_load($nid);
+    // Make a simple compare array to prevent using all gofast_message_ext_entity_presave complexe logic
+    $node_compare = array(
+      "nid" => array("value" => $nid),
+      "ruid" => array("value" => $user->uid),
+      "type" => array("value" => "kanban"),
+      "status" => array("value" => 1),
+      "title" => array("value" => $parent_space->title),
+      "event" => array("value" => "ECON"),
+      "node_type" => "kanban_prevent_notify",
+      "board_columns" => array("from" => $term->original->name, "to" => $term->name),
+    );
+    $message = json_encode($node_compare);
+    foreach(module_implements('message_formated') as $module){
+      $function = $module . '_message_formated';
+      call_user_func($function, array($message));
+    }    
   }
 }
 
@@ -287,7 +326,9 @@ function gofast_message_ext_create_og_membership_entity($node, $values){
     $group_node['new_member_type']['value'] = $values['membership_type']; // user or userlist
     $group_node['new_member_id']['value'] = $values['membership_id']; // uid or ulid
     $group_node['new_member_name']['value'] = $values['membership_name']; // name or title
-
+    if (isset($values['ignore_mail_queue'])) {
+      $group_node['ignore_mail_queue']['value'] = TRUE;
+    }
 
 
     $message = $group_node['event']['value'].'|'.json_encode($group_node);

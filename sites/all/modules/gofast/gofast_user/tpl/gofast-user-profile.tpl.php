@@ -241,6 +241,7 @@
         "profile_score" => $profile_score,
         "profile_primary_phone" => $profile_primary_phone,
         "profile_birthdate" => $profile_birthdate,
+        "profile_expiration_date" => $profile_expiration_date,
         "manager_default" => $manager_default,
         "taxonomy" => $taxonomy,
         "profile_account_settings" => $profile_account_settings,

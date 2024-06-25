@@ -1,0 +1,14 @@
+diff -ruN a/ldap_servers/ldap_servers.module b/ldap_servers/ldap_servers.module
+--- a/ldap_servers/ldap_servers.module
++++ b/ldap_servers/ldap_servers.module
+@@ -846,6 +846,10 @@
+ }
+ 
+ function ldap_servers_php_supports_pagination() {
++  // @patch CEO-Vision
++  if (version_compare(PHP_VERSION, '8.0.0') >= 0) {
++    return TRUE;
++  }
+   return (boolean)(function_exists('ldap_control_paged_result_response') && function_exists('ldap_control_paged_result'));
+ }
+ 

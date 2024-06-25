@@ -1,7 +1,7 @@
 <?php
     $detect = new Mobile_Detect();
-    $is_mobile_device = ($detect->isMobile() || $detect->isTablet() || $detect->is('iPad'));
-    if(gofast_mobile_is_mobile_domain()){
+    $is_mobile_device = $detect->isMobile() && !$detect->isTablet();
+    if(gofast_essential_is_essential()){
         $right = "26px";
         $position = "absolute";
     }else{
@@ -19,7 +19,7 @@
 <?php global $user; ?>
 
 
-<div <?php if(!gofast_mobile_is_mobile_domain()){?>style='min-width:600px;'<?php } ?> class="GofastWorkflows mainContent <?php if(gofast_mobile_is_mobile_domain()){?>well well-sm<?php } ?>">
+<div <?php if(!gofast_mobile_is_phone()){?>style='min-width:600px;'<?php } ?> class="GofastWorkflows mainContent <?php if(gofast_mobile_is_phone()){?>well well-sm<?php } ?>">
   <button id="refresh-lightdashboard" type="button" class="btn btn-sm btn-default d-none" ><i class="fa fa-refresh"></i></button>
   <button id="refresh-pagedashboard" type="button" class="btn btn-default d-none"><i class="fa fa-arrow-left"></i></button>
            
@@ -72,7 +72,7 @@
         </div>
     <!--<div id="bonita_light_dashboard_placeholder" class="loader-bonita-dashboard"></div>-->
     <script type="text/javascript">
-        jQuery(document).ready(setTimeout(function(){
+        jQuery(document).ready(() => setTimeout(function(){
             var is_full_page = "<?php if($full_page == true){echo 'true';}else{echo 'false';} ?>";
             if(is_full_page == "true"){
                 jQuery("#navWorkflow #lightDashboardMyTab").click();
@@ -89,6 +89,10 @@
                     jQuery("#bonita_light_dashboardOther_placeholder").replaceWith('<iframe src="/bonita/portal/resource/app/GoFAST/lightDashboardOther/content/?app=GoFAST&locale='+ Gofast.get("user").language +'" id="bonita_form_process_other" style="width:100%;height:auto;min-height:430px;border:none;"></iframe>');
                     jQuery("[id^=bonita_form_process]").each(function() {
                         jQuery(this).on("load", function() {
+                            const iframeDocument = this.contentDocument;
+                            const style = iframeDocument.createElement('style');
+                            style.textContent = 'table { table-layout: fixed; }';
+                            iframeDocument.head.appendChild(style);
                             this.contentDocument.documentElement.style.overflowX = "hidden";
                         });
                     });

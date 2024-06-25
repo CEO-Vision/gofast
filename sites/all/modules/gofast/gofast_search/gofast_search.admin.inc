@@ -152,7 +152,14 @@ function gofast_search_start_full_reindex() {
   }
   
   drupal_set_message($message);
-  drupal_goto('/admin/config/gofast/global');
+  ctools_include('ajax');
+  $commands = gofast_ajaxification_get_toast_messages();
+  $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+    Gofast.loadSettingsTab('edit-indexing');
+    history.pushState({},'','/admin/config/gofast/global#search-index');
+  </script>");
+  print ajax_render($commands);
+  exit;
 }
 
 /**
@@ -186,10 +193,16 @@ function gofast_search_cancel_full_reindex() {
   if (drupal_is_cli()) {
     // return message for drush. 
     return $message;
-  }  
-  
-  drupal_set_message($message); 
-  drupal_goto('/admin/config/gofast/global');
+  }
+  drupal_set_message($message);
+  ctools_include('ajax');
+  $commands = gofast_ajaxification_get_toast_messages();
+  $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+    Gofast.loadSettingsTab('edit-indexing');
+    history.pushState({},'','/admin/config/gofast/global#search-index');
+  </script>");
+  print ajax_render($commands);
+  exit;
 }
 
 /**

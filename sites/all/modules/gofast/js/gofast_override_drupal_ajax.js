@@ -128,6 +128,18 @@
 
     };
 
+    // run ajax commands returned in json response, for example on ajax success or on ajax form
+    Drupal.ajax.prototype.handleAjaxCommands = function(response, status) {
+      for (var i in response) {        
+        if (response.hasOwnProperty(i) && response[i] != null && response[i]['command'] && Drupal.ajax.prototype.commands[response[i]['command']]) {
+          Drupal.ajax.prototype.commands[response[i]['command']](this, response[i], status);
+          if (Gofast._settings.isEssential && response[i]['command'] == "settings" && typeof response[i]['settings']['title'] != undefined) {
+            document.title = Drupal.settings.site_name || "GoFAST";
+          }
+        }
+      }
+    }
+
     /**
      * Handler for the form redirection completion.
      */
@@ -139,8 +151,14 @@
 
       var disableAjaxLoadingBackground = true;
       $.each(response, function(key, command_js){
-        if( typeof(command_js) == "Object" && command_js.command === "triggerEvent" && command_js.eventType === "pollEnd"){ // do not remove Loading throbber after a poll request
-          disableAjaxLoadingBackground = false;
+
+        if(command_js !== null && typeof command_js === "object" && command_js.command === "triggerEvent" && command_js.eventType === "pollEnd"){ 
+          $('select').each(function() { // force-close selects before html replace commands execution to prevent select2 bug
+            if ($(this).data('select2')) {
+              $(this).select2('close');
+            }
+          });
+          disableAjaxLoadingBackground = false; // do not remove loading throbber after a poll request
         }
       }); 
       if (disableAjaxLoadingBackground === true) {
@@ -166,11 +184,7 @@
         }
       }
 
-      for (var i in response) {        
-        if (response.hasOwnProperty(i) && response[i] != null && response[i]['command'] && this.commands[response[i]['command']]) {
-          this.commands[response[i]['command']](this, response[i], status);
-        }
-      }
+      this.handleAjaxCommands(response, status);
       
       // Reattach behaviors, if they were detached in beforeSerialize(). The
       // attachBehaviors() called on the new content from processing the response

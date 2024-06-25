@@ -24,6 +24,16 @@ function radioactivity_field_info() {
 }
 
 /**
+ * Implements hook_field_access().
+ */
+function radioactivity_field_access($op, $field, $entity_type, $entity, $account) {
+  if ($field['type'] == 'radioactivity' && $op == 'edit') {
+    return user_access("edit radioactivity");
+  }
+  return TRUE;
+}
+
+/**
  * Implements hook_field_instance_settings_form()
  */
 function radioactivity_field_instance_settings_form($field, $instance) {
@@ -122,6 +132,15 @@ function _radioactivity_register_emitter($storage = NULL, $entity_type = NULL, $
     'entity_id'   => $entity_id,
   );
 
+  // Casting booleans to strings will avoid a scenario when
+  // boolean values in incident data are converted to strings
+  // involuntarily upon storing in javascript.
+  foreach ($incident AS &$incident_value) {
+    if (is_bool($incident_value)) {
+      $incident_value = (string)$incident_value;
+    }
+  }
+
   // Remove trash which may be injected by another module.
 
   $keep = array('accuracy', 'bundle', 'energy', 'entity_id', 'entity_type', 'field_name', 'language', 'storage', 'type');
@@ -131,7 +150,8 @@ function _radioactivity_register_emitter($storage = NULL, $entity_type = NULL, $
     }
   }
 
-  @$cache['emitDefault'][] = _radioactivity_prepare_incident($incident);
+  $prepared_incident = _radioactivity_prepare_incident($incident);
+  @$cache['emitDefault'][$prepared_incident['checksum']] = $prepared_incident;
 }
 
 /**
@@ -421,19 +441,12 @@ function radioactivity_field_insert($entity_type, $entity, $field, $instance, $l
 }
 
 /**
- * Implement hook_field_widget().
+ * Implement hook_field_widget_form().
  *
- * This widget displayed three text fields\, one each for red, green,
- * and blue. However, the field type defines a single text column,
- * rgb, which needs an HTML color spec. Define an element validate
- * handler that converts our r, g, and b fields into a simulaed single
- * 'rgb' form element.
+ * This widget displays the radioactive energy field.
  */
-function radioactivity_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta = 0, $element) {
-
-  if (!user_access("edit radioactivity")) {
-    return $element;
-  }
+function radioactivity_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  $delta = $delta ?: 0;
 
   if (isset($items[$delta][RADIOACTIVITY_FIELD_TIMESTAMP]) && $items[$delta][RADIOACTIVITY_FIELD_TIMESTAMP] > 0) {
     $seconds = time() - $items[$delta][RADIOACTIVITY_FIELD_TIMESTAMP];

@@ -187,3 +187,11 @@
   #nprogress .bar {
     z-index: 10 !important;
   }
+
+  #fullscreenNavigationButtons.normal-screen{
+    position: absolute !important;
+    right: 1% !important;
+    top: 15% !important;
+    display: none;
+    left: unset !important;
+  }

@@ -18,3 +18,8 @@
         <?php endif ?>
     </div>
 </div>
+<script>
+jQuery(document).ready(function() {
+    Drupal.behaviors.ZZCToolsModal.attach(this);
+});
+</script>

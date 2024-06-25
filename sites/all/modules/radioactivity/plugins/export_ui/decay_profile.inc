@@ -152,7 +152,7 @@ function radioactivity_admin_edit_profile_form(&$form, &$form_state) {
     '#title' => t('Energy cut off'),
     '#default_value' => $profile->cut_off,
     '#required' => TRUE,
-    '#description' => t('Defines the energy lever under which the energy is assumed nonexistent.'),
+    '#description' => t('Defines the energy level under which the energy is assumed nonexistent.'),
   );
 
   $form['mode_simple'] = array(

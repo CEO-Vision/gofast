@@ -142,6 +142,19 @@ var Gofast = (function($) {
     Commands: {
 
       /**
+       * Override the settings Drupal ajax commands to be able to react on settings update.
+       */
+      settings: function (ajax, response, status) {
+        if (response.merge) {
+          $.extend(true, Drupal.settings, response.settings);
+        }
+        else {
+          ajax.settings = response.settings;
+        }
+        // Update if needed the document title on ajax settings update.
+        Gofast.setDocumentTitle(response)
+      },
+      /**
        * Toasts a message using Gofast Toaster.
        */
       toast: function (ajax, response, status) {
@@ -180,6 +193,13 @@ var Gofast = (function($) {
         Gofast.processAjax(response.href, false);
       },
 
+      /**
+       * Process Essential AjaxProcess function
+       */
+      processEssentialAjax: function (ajax, response, status) {
+        Gofast.Essential.processEssentialAjax(response.href, false);
+      },
+
       scrollToComment: function(ajax, response, status) {
         Gofast.scrollToComment(response.hrefComment);
       }
@@ -193,11 +213,31 @@ var Gofast = (function($) {
     },
 
     scrollToComment: function(comment) {
+      //Prevent endless loops when clicking on the forum
+      if(comment == "#comment-init" || comment == "#"){
+        return;
+      }
+      if ($("#metadataSideButton").length && !$("#metadataSideButton").hasClass("expand")) {
+        $("#metadataSideButton").click();
+      }
       $('a[href=#document__commentstab]').click();
-      if ($(comment).length >= 1) {
-        $('html, body').animate({
-          scrollTop: $(comment).offset().top - 70
-        }, 1000, 'swing');
+      if ($(comment).length >= 1 && $(comment).offset().top != 0) {
+        let scrolling_content = "";
+        if($("#document__commentstab").length && $("#myTabContent").length){
+          scrolling_content = $("#myTabContent").parent();
+        } else {
+          if(Gofast._settings.isEssential && $("#forumPageLayer > div").length){
+            scrolling_content = $("#forumPageLayer > div")
+          } else if($(".forum-node-wrapper").length){
+            scrolling_content = $(".forum-node-wrapper")
+          }
+        }
+        // Wait for the side content to be fully expanded in Essential
+        setTimeout(() => {
+          scrolling_content.animate({
+            scrollTop: scrolling_content.scrollTop() + ($(comment).offset().top - scrolling_content.offset().top)
+          }, 1000, 'swing');
+        }, 400)
         setTimeout(function(){
           $(comment).find(".timeline-content").addClass("comment-new");
           $(comment).find(".timeline-content").addClass("comment-new");
@@ -265,18 +305,23 @@ var Gofast = (function($) {
     },
 
     get: function (name) {
-      var me = this,
-          setting,
-          accessor = me._accessors[name];
-      if (typeof accessor === 'undefined')
-        return undefined;
-      for (var i = 0; i < accessor.length; i++) {
-        if (setting && typeof setting[accessor[i]] !== 'undefined')
-          setting = setting[accessor[i]];
-        else
-          setting = me._settings[accessor[i]];
+      if (typeof Drupal.settings.gofast[name] != "undefined") {
+        return Drupal.settings.gofast[name];
       }
-      return setting;
+      if (typeof Gofast._settings.gofast[name] != "undefined") {
+        return Gofast._settings.gofast[name];
+      }
+      if (typeof Drupal.settings.gofast_poll != "undefined" && typeof Drupal.settings.gofast_poll[name] != "undefined") {
+        return Drupal.settings.gofast_poll[name];
+      }
+      if (typeof Drupal.settings.gofast_search != "undefined" && typeof Drupal.settings.gofast_search[name] != "undefined") {
+        return Drupal.settings.gofast_search[name];
+      }
+      return false;
+    },
+
+    set: function(name, data) {
+      Gofast._settings.gofast[name] = Drupal.settings.gofast[name] = data;
     },
 
     initSettings: function () {
@@ -286,6 +331,7 @@ var Gofast = (function($) {
       me._settings = Drupal.settings || {};
       modules = me._settings.gofast && me._settings.gofast.modules || {};
 
+      // TODO: delete this _accessors attribute
       for (var module in modules) {
         if (!me._settings[module]) continue;
         for (var setting in me._settings[module])
@@ -506,6 +552,116 @@ var Gofast = (function($) {
       return w.innerHeight || e.clientHeight || g.clientHeight;
     },
 
+    getGofastCropper() {
+      // Private functions
+      var initCropper = function($image, saveHandler) {
+        // Cropper
+        var cropper = new Cropper($image, {
+          aspectRatio: 1,
+          viewMode: 1,
+          crop(event) {
+            var lg = document.getElementById('cropper-preview-lg');
+            lg.innerHTML = '';
+            lg.appendChild(cropper.getCroppedCanvas({width: 100, height: 100}));
+          }
+        });
+
+        var buttons = document.getElementById('cropper-buttons');
+
+        var methods = buttons.querySelectorAll('[data-method]');
+        methods.forEach(function(button) {
+          button.addEventListener('click', function(e) {
+            var method = button.getAttribute('data-method');
+            var option = button.getAttribute('data-option');
+            var option2 = button.getAttribute('data-second-option');
+
+            try {
+              option = JSON.parse(option);
+            }
+            catch (e) {
+            }
+
+            var result;
+            if (!option2) {
+              result = cropper[method](option, option2);
+            }
+            else if (option) {
+              result = cropper[method](option);
+            }
+            else {
+              result = cropper[method]();
+            }
+
+            if (method === 'getCroppedCanvas') {
+              var modal = document.getElementById('getCroppedCanvasModal');
+              var modalBody = modal.querySelector('.modal-body');
+              modalBody.innerHTML = '';
+              modalBody.appendChild(result);
+            }
+
+            var input = document.querySelector('#putData');
+            try {
+              input.value = JSON.stringify(result);
+            }
+            catch (e) {
+              if (!result) {
+                input.value = result;
+              }
+            }
+          });
+        });
+
+        var $inputImage = $('#inputImage');
+        $inputImage.once(function(){
+          $(this).change(function () {
+            var files = this.files;
+            var file;
+
+            if (files && files.length) {
+              file = files[0];
+              var ext = files[0].name.split('.').pop();
+              if (!/jpg|jpeg|png|gif/.test(ext)) {
+                Gofast.toast(Drupal.t("Please upload an image in JPEG, PNG or GIF format", {}, {context: "gofast:gofast_user"}), "warning");
+                return;
+              }
+
+              window._inputImageExt = ext;
+              var reader = new FileReader();
+              reader.readAsDataURL(file);
+              reader.onload = function(e) {
+                // browser completed reading file - display it
+                cropper.replace(e.target.result, false);
+              };
+            }
+          });
+        })
+
+        $('#save').once(function(){
+          $(this).on('click', function() {
+            saveHandler(this, cropper)
+          });
+        });
+      };
+
+      return {
+        // public functions
+        init: function($image, saveHandler) {
+          initCropper($image, saveHandler);
+        },
+      };
+    },
+    // given the ajax response, update the document title if needed
+    setDocumentTitle(ajaxResponse) {
+      let siteName = Drupal.settings.site_name || "GoFAST";
+      if (Gofast._settings.isEssential  && ajaxResponse['command'] == "settings") {
+        document.title = siteName;
+      } else if (ajaxResponse['command'] == "settings" && typeof ajaxResponse['settings']['title'] != 'undefined' && ajaxResponse['settings']['title'].length) {
+        document.title = ajaxResponse['settings']['title'] || siteName;
+        // we always have 1 command with merge at false on ajax nav, so this condition is used to reset the title to site name if no title is set on the target route
+      } else if (ajaxResponse['command'] == "settings" && !ajaxResponse['merge']) {
+        document.title = ajaxResponse['settings']['title'] || siteName;
+      }
+    },
     setCookie: function(name, value, expiration) {
        /**@todo encodeURIComponent() ? */
       if (typeof expiration === undefined) {
@@ -666,18 +822,16 @@ var Gofast = (function($) {
       var backdrop = $('#backdrop');
       backdrop.stop();
 
-      $(document).ready(function () {
-        // Get the docHeight and (ugly hack) add 50 pixels to make sure we don't
-        // have a *visible* border below our div. (modal.js)
-        var docHeight = $(document).height() + 50,
-        docWidth = $(document).width(),
-        css = {
-          height: docHeight + 'px',
-          width: docWidth + 'px'
-        };
+      // Get the docHeight and (ugly hack) add 50 pixels to make sure we don't
+      // have a *visible* border below our div. (modal.js)
+      var docHeight = $(document).height() + 50,
+      docWidth = $(document).width(),
+      css = {
+        height: docHeight + 'px',
+        width: docWidth + 'px'
+      };
 
-        $('#backdrop').css(css).fadeIn();
-      });
+      $('#backdrop').css(css).fadeIn();
     },
 
     addAreaBackdrop: function ($areaElement) {
@@ -785,6 +939,47 @@ var Gofast = (function($) {
         var user_id = Gofast.get("user").uid;
         $.get("/gofast/contextual_messages/set/"+user_id, {key: mykey, value: show});
 
+    },
+
+    hideTooltipsOnTooltipShowCallback: function(e) {
+      $("[data-toggle='tooltip']").tooltip("hide");
+      $(e.target).attr("data-hidden", false);
+    },
+
+    temporarySpaceDisplay: function(nodePath, nodeName, nodeId) {
+      Gofast.toast(Drupal.t("A new space is being created and will be shown as soon as it will be ready", {}, {
+        context: 'gofast:ajax_file_browser'
+      }), "info");
+
+      // disable refresh button
+      $("#file_browser_tooolbar_refresh").prop("disabled", true);
+      $("#file_browser_tooolbar_refresh").css("cursor", "not-allowed");
+      var fakeTreeNode = false;
+      // fake tree node
+      var waitForTreeInterval = setInterval(async function() {
+        if (!jQuery("#file_browser_full_tree_element > *").length) {
+          return;
+        }
+        clearInterval(waitForTreeInterval);
+        // fake GFB node
+        fakeTreeNode = await Gofast.ITHit.addItem(nodePath, nodeName, "Folder", true, Drupal.t("A new space is being created and will be shown as soon as it will be ready", {}, {
+          context: 'gofast:ajax_file_browser'
+        }));
+
+      }, 250);
+
+      // check if is in Alfresco store, if is in store reload the browser to show the real group node
+      var isInStoreInterval = setInterval(() => {
+        $.get("/og/is/" + nodeId + "/instore", (path) => {
+          if (path) {
+            clearInterval(isInStoreInterval);
+            $("#file_browser_tooolbar_refresh").prop("disabled", false);
+            $("#file_browser_tooolbar_refresh").css("cursor", "pointer");
+            Gofast.ITHit.tree.removeNode(fakeTreeNode);
+            Gofast.ITHit.navigate(path);
+          }
+        });
+      }, 1000);
     },
 
     modalMsg: function (message, title, options) {
@@ -968,10 +1163,10 @@ var Gofast = (function($) {
     toast: function (msg, type, title, options) {
       if(options !=null && options.length > 0){
         options = JSON.parse(options);
-      }        
+      }
       type = type || 'info';
       options = Gofast.apply({}, options || {}, Gofast.toasterConfig.defaults);
-      
+
       Gofast.getToaster(type,title,msg,options);
     },
 
@@ -998,7 +1193,7 @@ var Gofast = (function($) {
     //If we are on the dashboard and there is a tasks block, reload it
     refreshDashboardTasksBlock : function(){
         if($("#refresh-lightdashboard").length === 1){
-             $("#refresh-lightdashboard").click();          
+             $("#refresh-lightdashboard").click();
         }
     },
 
@@ -1052,6 +1247,11 @@ var Gofast = (function($) {
           }
         });
     },
+    
+    hideOthersDropdown: function(){
+      $('.dropdown-menu').removeClass('show');
+    },
+    
     isTablet: function () {
       var userAgent = navigator.userAgent.toLowerCase();
       var isTablet = /(ipad|tablet|(android(?!.*mobile))|(windows(?!.*phone)(.*touch))|kindle|playbook|silk|(puffin(?!.*(IP|AP|WP))))/.test(userAgent);
@@ -1066,6 +1266,9 @@ var Gofast = (function($) {
       let check = false;
       (function (a) { if (/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i.test(a) || /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(a.substr(0, 4))) check = true; })(navigator.userAgent || navigator.vendor || window.opera);
       return check;
+    },
+    isMobileResolution: function() {
+      return window.screen.width < 991;
     },
     isInternal: function () {
       var nodeData = Gofast.get('node');
@@ -1135,6 +1338,36 @@ var Gofast = (function($) {
         });
       }
     },
+
+    agreeToTracking: function() {
+      $('.atatus-banner').hide();
+      $('.atatus-backdrop').hide();
+      Gofast.setAtatusTracking(true);
+    },
+
+    disagreeToTracking: function() {
+      $('.atatus-banner').hide();
+      $('.atatus-backdrop').hide();
+      Gofast.setAtatusTracking(false);
+
+      // Remove atatus-script-section
+      $('#atatus-script-section').remove();
+    },
+
+    setAtatusTracking: function(enabled = true) {
+      // Ajax request to set the tracking value
+      $.ajax({
+        url: location.origin + "/gofast/user/set/atatus_tracking",
+        type: 'POST',
+        data: { enabled: enabled },
+        dataType: 'json',
+        async: false,
+        success: function (data) {
+          console.log(data);
+        }
+      });
+    },
+
     waitForTreeAsyncCall: async function(tId) {
       return await new Promise(resolve => {
         const interval = setInterval(() => {
@@ -1194,7 +1427,7 @@ var Gofast = (function($) {
         // don't forget to update the "More" icon as well
         $(".gofastDropdown > .navi-link  .navi-icon").remove();
         $(".gofastDropdown > .navi-link").prepend("<span class=\"navi-icon\"><i class=\"fas fa-arrow-left\"></i></span>")
-        $('.sideContent .gofastTab .nav-item .nav-link .nav-text').hide();             
+        $('.sideContent .gofastTab .nav-item .nav-link .nav-text').hide();
         return;
       }
       target.classList.add("open");
@@ -1558,6 +1791,17 @@ Drupal.behaviors._gofastInit = {
       handlers.splice(0, 0, handler);
   };
 
+  $.fn.getScrollParent = function(node) {
+      if (node === null) {
+        return null;
+      }
+      if (node.scrollHeight > node.clientHeight) {
+        return node;
+      } else {
+        return $().getScrollParent(node.parentNode);
+      }
+  };
+
 //  var ev = new $.Event('remove');
 //  $.each(['remove', 'empty', 'detach'], function(i, name){
 //    var orig = $.fn[name];
@@ -1606,3 +1850,15 @@ if (typeof Reflect === 'object' && typeof Reflect.ownKeys === 'function') {
 }
 
 },{}]},{},[1])
+/**
+ * Override URLSearchParams toString method to make the return string percent-encoded
+ */
+URLSearchParams.prototype.toString = function(){
+  const paramStrings = [];
+  for (const [key, value] of this) {
+    const encodedKey = encodeURI(key);
+    const encodedValue = encodeURI(value);
+    paramStrings.push(`${encodedKey}=${encodedValue}`);
+  }
+  return paramStrings.join('&');
+}

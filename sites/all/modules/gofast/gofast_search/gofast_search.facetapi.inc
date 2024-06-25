@@ -56,6 +56,39 @@ function gofast_search_facetapi_facet_info($searcher_info) {
     )
   );
 
+  $facets['field_custom_date'] = array(
+    'field' => 'ds_custom_date', // ends up in a single-valued index field.
+    'field api name' => 'field_custom_date',
+    'label' => GOFAST_METADATA_CUSTOM_DATE_LABEL,
+    'description' => t('Filter by %label', array("%label" => GOFAST_METADATA_CUSTOM_DATE_LABEL), array('context' => 'gofast:gofast_search')),
+    'query types' => array('date_queries'),
+    'map callback' => 'gofast_facet_date_map',
+    'map options' => array('format callback' => 'facetapi_format_timestamp'),
+    'range types' => array('future'),
+    'min callback' => 'gofast_facet_get_min_date',
+    'max callback' => 'gofast_facet_get_max_date',
+    'facet mincount allowed' => TRUE,
+    'hierarchy callback' => 'gofast_facet_date_hierarchy',
+    'allowed operators' => array(FACETAPI_OPERATOR_AND => TRUE),
+    'dependency plugins' => array('bundle', 'role'),
+    'default sorts' => array(
+      array('date', SORT_ASC)
+    )
+  );
+
+  $facets['classification'] = array(
+    'field' => 'im_field_classification',
+    'label' => t('Classification', array(), array('context' => 'gofast')),
+    'description' => t('Filter by Classification', array(), array('context' => 'gofast:gofast_search')),
+    'facet mincount allowed' => TRUE,
+    'map callback' => 'facetapi_map_taxonomy_terms',
+    'dependency plugins' => array('bundle', 'role'),
+    'allowed operators' => array(FACETAPI_OPERATOR_AND => TRUE),
+    'default sorts' => array(
+      array('display', SORT_ASC)
+    )
+  );
+
   $facets['field_date'] = array(
     'field' => 'ds_field_date', // ends up in a single-valued index field.
     'field api name' => 'field_date',
@@ -76,19 +109,6 @@ function gofast_search_facetapi_facet_info($searcher_info) {
     )
   );
 
-  $facets['status'] = array(
-    'field' => 'bs_status',
-    'label' => t('Deleted / Available Contents', array(), array('context' => 'gofast')),
-    'description' => t('Filter by Status', array(), array('context' => 'gofast:gofast_search')),
-    'map callback' => 'gofast_facet_status_field_mapping',
-    'map options' => array(),
-    'facet mincount allowed' => TRUE,
-    'dependency plugins' => array('bundle', 'role'),
-    'default sorts' => array(
-      array('display', SORT_ASC)
-    )
-  );
-
   // Override OG content membership facet.
   $og_facet = 'sm_' . GOFAST_OG_CONTENT_MEMBERSHIP_FIELD;
   $facets[$og_facet] = array(
@@ -97,7 +117,35 @@ function gofast_search_facetapi_facet_info($searcher_info) {
     'hierarchy callback' => 'gofast_facet_og_hierarchy',
     'default sorts' => array(array('display', SORT_ASC))
   );
-
+  $facets['field_title'] = array(
+    'field' => 'sm_unr_field_title', 
+    'label' => t('Title', array(), array('context' => 'gofast')),
+    'description' => t('Filter by Title', array(), array('context' => 'gofast:gofast_search')),
+    'facet mincount allowed' => TRUE,
+    'dependency plugins' => array('bundle', 'role'),
+    'default sorts' => array(
+      array('display', SORT_ASC)
+    )
+  );
+  $facets['field_retention_end'] = array(
+    'field' => 'ds_retention_end',
+    'field api name' => 'field_retention_end',
+    'label' => t('Retention date', array(), array('context' => 'gofast:gofast_search')),
+    'description' => t('Filter by Retention Date', array(), array('context' => 'gofast:gofast_search')),
+    'query types' => array('date_queries'),
+    'map callback' => 'gofast_facet_date_map',
+    'map options' => array('format callback' => 'facetapi_format_timestamp'),
+    'range types' => array('future'),
+    'min callback' => 'gofast_facet_get_min_date',
+    'max callback' => 'gofast_facet_get_max_date',
+    'hierarchy callback' => 'gofast_facet_date_hierarchy',
+    'facet mincount allowed' => TRUE,
+    'dependency plugins' => array('bundle', 'role'),
+    'allowed operators' => array(FACETAPI_OPERATOR_AND => TRUE),
+    'default sorts' => array(
+      array('date', SORT_ASC)
+    )
+  );
   return $facets;
 }
 
@@ -255,24 +303,10 @@ function gofast_facet_author_name_field_mapping(array $values) {
   $map = array();
   if (!empty($values)) {
      foreach($values as $uid){
-      $name = gofast_user_display_name($uid);
+      $infos_user = gofast_get_properties_user_by_uid_or_u_name($uid, NULL, ["firstname","lastname","picture"]);
+      $name = $infos_user->firstname." ".$infos_user->lastname;
       $map[$uid] = $name;
     }
-  }
-  return $map;
-}
-
-/**
- * FacetApi map callback.
- *
- *  Map content statuses (booelean) to the corresponding labels.
- */
-function gofast_facet_status_field_mapping(array $values) {
-  $map = array();
-  $labels = array(NODE_NOT_PUBLISHED => t('Deleted Contents', array(), array('context' => 'gofast')), NODE_PUBLISHED => t('Available Contents', array(), array('context' => 'gofast')));
-  foreach ($values as $value) {
-    $status = (int)($value === 'true');
-    $map[$value] = $labels[$status];
   }
   return $map;
 }
@@ -310,19 +344,23 @@ function _gofast_facet_get_date(array $facet, $type) {
   static $results = array();
 
   if (!isset($results[$type][$facet['name']])) {
-    if (in_array($facet['name'], array('created', 'changed'))) {
-      $query = db_select('node', 'n')->condition('status', 1);
-      $query->addExpression($type . '(' . $facet['name'] . ')', $type);
-      $time = $query->execute()->fetch()->{$type};
+    if (in_array($facet['name'], array('created', 'changed'))) {      
+      if($type == "min"){
+       $time =  variable_get("gofast_facet_get_date_min_".$facet['name'], 1325372400);
+      }elseif($type == "max"){
+        $time = time();
+      }
     }
     else {
       $query = db_select('field_data_' . $facet['name'], 'f');
       $query->addExpression($type . '(' . $facet['name'] . '_value)', $type);
       $query->addJoin('INNER', 'node', 'n', 'n.nid = f.entity_id');
       $query->condition('n.status', 1);
-      $time = '' . strtotime($query->execute()->fetch()->{$type});
+      $time = $query->execute()->fetch()->{$type};
+      if (!is_numeric($time)) {
+        $time = "" . strtotime($time);
+      }
     }
-
     $results[$type][$facet['name']] = $time;
   }
 
@@ -505,7 +543,7 @@ function gofast_search_form_facetapi_facet_display_form_alter(&$form, &$form_sta
  * Returns an array of facet filtered by a specific query type.
  *
  * @param string $query_type
- * @return An array with the matching facets.
+ * @return array with the matching facets.
  */
 function gofast_facet_by_query_type($query_type = NULL) {
   $facets = facetapi_get_facet_info(GOFAST_SEARCH_SOLR_SEARCHER);
@@ -635,16 +673,34 @@ function gofast_search_block_view_current_search_gofast_current_search_block_alt
  *  Perform alterations to the apachesolr_search block.
  */
 function gofast_search_block_view_apachesolr_search_sort_alter(&$data,$block){
-    $data['content'] .= "<script type='text/javascript'>"
-            . "jQuery('section[id^=\"block-apachesolr-search-sort\"]').find('li').addClass('btn btn-sm btn-default text-truncate').find('a').css('color', 'inherit');"
-            . "jQuery('.breadcrumb-gofast').hide();"
-            . "jQuery('section[id^=\"block-apachesolr-search-sort\"]').find('li').each(function(k, elem){"
+  
+    if(gofast_essential_is_essential()){
+      $content = "<script type='text/javascript'>"
+      . "jQuery('section[id^=block-apachesolr-search-sort]').find('div.btn-group').addClass('d-inline-block');"
+      . "jQuery('section[id^=\"block-apachesolr-search-sort\"]').find('li').addClass('btn btn-sm btn-default text-truncate').find('a').css('color', 'inherit');"
+      . "jQuery('.breadcrumb-gofast').hide();"
+      . "jQuery('section[id^=\"block-apachesolr-search-sort\"]').find('li').each(function(k, elem){"
+          . "var filter = jQuery(elem).find('a');"
+          . "jQuery(this).click(function(){jQuery(filter).click()});"
+          . "jQuery(elem).find('a').removeProp('href');"
+      . "})"
+      . "</script>";
+    }else{
+      $content = "<script type='text/javascript'>"
+      . "jQuery('section[id^=block-apachesolr-search-sort]').find('div.btn-group').addClass('d-inline-block');"
+      . "jQuery('section[id^=\"block-apachesolr-search-sort\"]').find('li').addClass('btn btn-sm btn-default text-truncate').find('a').css('color', 'inherit');"
+      . "jQuery('.breadcrumb-gofast').hide();"
+      . "jQuery('section[id^=\"block-apachesolr-search-sort\"]').find('li').each(function(k, elem){"
                 . "var href = jQuery(elem).find('a').prop('href');"
                 . "jQuery(elem).click(function(){Gofast.processAjax(href)});"
-                . "jQuery(elem).find('a').removeProp('href');"
-            . "})"
-            . "</script>";
+          . "jQuery(elem).find('a').removeProp('href');"
+      . "})"
+      . "</script>";
+    }
+    $data['content'] .= $content;
 
+    $data['content'] = str_replace('<span class="icon-after icon glyphicon glyphicon-chevron-down"', '<span class="order_indicator fa fa-caret-down"'  ,  $data['content']); 
+    $data['content'] = str_replace('<span class="icon-after icon glyphicon glyphicon-chevron-up"', '<span class="order_indicator fa fa-caret-up"'  ,  $data['content']); 
     $data['content'] = str_replace('<ul>', '<ul class="p-0 m-0"><div class="btn-group" role="group">', $data['content']);
     $data['content'] = str_replace('</ul>', '</div></ul>', $data['content']);
 }
@@ -819,7 +875,7 @@ function gofast_facetapi_link_active($variables) {
   $variables['options']['html'] = TRUE;
   $variables['options']['attributes']['class'][] = 'navi-link';
 
-  return '<div class="facetapi-facet facetapi-active">' . theme_link($variables) . $link_text . '</div>';
+  return '<div class="facetapi-facet facetapi-active">'  . $link_text . theme_link($variables). '</div>';
 }
 
 /**

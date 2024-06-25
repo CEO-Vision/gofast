@@ -4,7 +4,6 @@
  * 
  */
 require_once 'gofast_retention_utils.inc';
-require_once 'gofast_retention_form.inc';
 require_once 'gofast_retention_poll.inc';
 
 define('GOFAST_RETENTION_PERIOD_END', 'field_retention_end');
@@ -17,31 +16,15 @@ define('GOFAST_RETENTION_PERIOD_RECIPIENTS_VAR', 'gofast_period_retention_recipi
 
 function gofast_retention_init(){
   drupal_add_js(array('gofast_retention' => array('retention_matrice' => variable_get(GOFAST_RETENTION_PERIOD_MATRICE_VAR) )), 'setting');
-  drupal_add_js(drupal_get_path('module', 'gofast_retention') . "/js/gofast_retention.js");
-  drupal_add_css( drupal_get_path('module', 'gofast_retention') . "/css/gofast_retention.css" );
 }
 
 /*
- * Implements hook_menu
+ * Apply a retention on all documents associated to its category
  */
-function gofast_retention_menu(){
-  $items = array();
-  
-  $items['retention/apply'] = array(
-    'title' => "Retention",
-    'page callback' => 'gofast_retention_apply_retention',
-    'page arguments' => array('gofast_admin_settings'),
-    'access arguments' => array('administer site configuration'),
-  );
-  
-  return $items;
-}
-
-/*
- * Apply a retention on all documents associated to it's category
- */
-function gofast_retention_apply_retention(){
-    $retention_obj = $_POST['retention_obj'];
+function gofast_retention_apply_retention($retention_obj = FALSE){
+    if (!$retention_obj) {
+      $retention_obj = gofast_xss_clean($_POST['retention_obj']);
+    }
     
     //Retrieve the category
     $category = db_select("taxonomy_term_data", "ttd")
@@ -58,13 +41,12 @@ function gofast_retention_apply_retention(){
             ->propertyCondition('type', "alfresco_item")
             ->propertyCondition('status', 1)
             ->fieldCondition('field_category', 'tid', $category['tid']);
+    $result = $query->execute();
     
-    $nodes = array_keys($query->execute()['node']);
-    
-    
+    $nodes = empty($result) ? $result : array_keys($result['node']);
+
     //Release the client session and process
     set_time_limit(0);
-    print "OK";
     fastcgi_finish_request();
     
     foreach($nodes as $nid){
@@ -160,7 +142,6 @@ function gofast_retention_set_node_retention_end_date($edited_value, $node, $is_
            $node = gofast_archive_sorting_room_multifilling_to_pre_transfer_room( $node );
       }
       //if the node is archived, prevent call function which will rebuild permissions after
-      watchdog("debug archive", "is archived");
       $_POST['prevent_automatic_multifilling'] = true;    
   }else{
       if( module_exists('gofast_archive_sorting_room')){
@@ -176,7 +157,6 @@ function gofast_retention_set_node_retention_end_date($edited_value, $node, $is_
  * @param type $node
  */
 function gofast_retention_node_update($node){
-     
    if( $node->field_retention_end[LANGUAGE_NONE][0]['value'] !== NULL){
      //override permission to set readonly mode
       gofast_retention_set_node_readonly($node);
@@ -198,7 +178,7 @@ function gofast_retention_node_presave($node){
         $archived_taxonomy_term = taxonomy_get_term_by_name("Pre-Archived", 'state');
         $archived_taxonomy_term_id = reset($archived_taxonomy_term)->tid;
         if($node->{'field_state'}[LANGUAGE_NONE][0]['tid'] == $archived_taxonomy_term_id){
-            if( module_exists('gofast_archive_sorting_room')){  
+            if(module_exists('gofast_archive_sorting_room')){  
                 $_POST['prevent_automatic_multifilling'] = false;
             }else{
                 $_POST['prevent_automatic_multifilling'] = true;
@@ -219,9 +199,34 @@ function gofast_retention_form_alfresco_item_node_form_alter(&$form, &$form_stat
   unset($form['field_retention_end']);
 }
 
+/**
+ * Gets retention data for the given category: if there are no data, returns false
+ */
+function gofast_retention_get_category_retention($term) {
+  if (is_numeric($term)) {
+    $term = taxonomy_term_load($term);
+  }
+  $current_matrix = variable_get(GOFAST_RETENTION_PERIOD_MATRICE_VAR);
+  if (isset($current_matrix[$term->uuid])) {
+    return $current_matrix[$term->uuid];
+  } else {
+    return FALSE;
+  }
+}
+
+function gofast_retention_unset_category_retention($term) {
+  if (is_numeric($term)) {
+    $term = taxonomy_term_load($term);
+  }
+  $current_matrix = variable_get(GOFAST_RETENTION_PERIOD_MATRICE_VAR);
+  if (isset($current_matrix[$term->uuid])) {
+    unset($current_matrix[$term->uuid]);
+    variable_set(GOFAST_RETENTION_PERIOD_MATRICE_VAR, $current_matrix);
+  }
+}
 
 /*
- * Gest Retention End Date for the given node
+ * Gets Retention End Date for the given node
  */
 function gofast_retention_get_retention_date($node){
   return $node->field_retention_end[LANGUAGE_NONE][0]['value'];
@@ -250,21 +255,6 @@ function gofast_retention_theme(){
        'template' => 'tpl/gofast_retention-notifications-node-retention-list',
      )
   );
-}
-
-/**
- * Implements HOOK_template_preprocess_TEMPLATE()
- */
-function template_preprocess_gofast_retention_container_list_retention(){ 
-  drupal_add_js(array('gofast_retention' => array('retention_matrice' => variable_get(GOFAST_RETENTION_PERIOD_MATRICE_VAR) )), 'setting');
-  drupal_add_js(drupal_get_path('module', 'gofast_retention') . "/js/gofast_retention.js");
-}
-
-/**
- * Implements HOOK_template_preprocess_TEMPLATE()
- */
-function template_preprocess_gofast_retention_add_retention_period_form(){ 
-  drupal_add_css( drupal_get_path('module', 'gofast_retention') . "/css/gofast_retention.css" );
 }
 
 /**
@@ -352,17 +342,18 @@ function gofast_retention_node_period_ending_today_notify(){
           $title = t("Retention", array(), array('context' => 'gofast', 'langcode' => $user_lang));
           $footer = t('Message sent from %site_name', array('%site_name' => variable_get('site_name', 'GoFAST')), array('context' => 'gofast', 'langcode' => $user_lang));
 
-          $node_link = gofast_link_sharing_build_link($node->nid, $recpt['uid'] , 'none', NULL, TRUE);
+          $node_link = $base_url . '/node/' . $node->nid;
           
           $nodes_array[] = array(
             'icon' => theme('gofast_node_icon_format', array('node' => $node)),
             'link' => $node_link,
-            'title' => $node->title
+            'title' => $node->title, 
+            'nid' => $node->nid,
           );
         }
         $body = theme('gofast_retention_notifications_node_retention', array(
           'user_first_name' => $to['firstname'],
-          'user_url' => $base_url . '/user/' . $user->uid,
+          'user_url' => $base_url . '/user/' . $to['uid'],
           'user_lang' => $user_lang,
           'nodes' => $nodes_array,
           'expired_date' => t('within 1 day')
@@ -442,7 +433,7 @@ function gofast_retention_node_period_ending_today_notify(){
         }
         $body = theme('gofast_retention_notifications_node_retention', array(
           'user_first_name' => $to['firstname'],
-          'user_url' => $base_url . '/user/' . $user->uid,
+          'user_url' => $base_url . '/user/' . $to['uid'],
           'user_lang' => $user_lang,
           'nodes' => $nodes_array,
           'expired_date' => t('within 1 week')
@@ -484,3 +475,17 @@ function gofast_retention_node_period_ending_today_notify(){
       gofast_retention_set_context("node", "retention_date", $entity->field_retention_end[LANGUAGE_NONE][0]['value'] );
     }
   }
+
+/**
+ * Reindex all documents that have a running retention date (Pre-archive + category with retention date)
+ */
+function gofast_retention_update_7000(){
+  $nids = db_select("field_data_field_retention_end", "fdfre")
+            ->fields("fdfre", array("entity_id"))
+            ->isNotNull("fdfre.field_retention_end_value")
+            ->execute()
+            ->fetchCol();
+  if(!empty($nids)){
+    gofast_search_reindex_entities($nids, "node");
+  }
+}

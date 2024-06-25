@@ -19,7 +19,7 @@
         </li>
       <?php } ?>
     </ul>
-    <div class="manage-publications-info" style="position: absolute; right: 100px; margin-top: -5px;"><i class='fa fa-clock-o' style='color:orange' aria-hidden='true'></i> <?php echo t('Pending...', array(), array('context' => 'gofast:cmis')) ?></div>
+    <div class="manage-publications-info" style="position: absolute; right: 100px; margin-top: -15px;"><i class='fa fa-clock-o' style='color:orange' aria-hidden='true'></i> <?php echo t('Pending...', array(), array('context' => 'gofast:cmis')) ?></div>
     <span id="locations" style="display:none"><?php echo json_encode($locations_a); ?></span>
     <span id="locations_nid" style="display:none"><?php echo json_encode($locations_nid); ?></span>
     <span id="transformation" style="display:none"><?php echo $transformation ?></span>

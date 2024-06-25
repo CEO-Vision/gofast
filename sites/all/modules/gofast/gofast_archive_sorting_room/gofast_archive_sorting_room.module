@@ -172,7 +172,7 @@ function gofast_archive_sorting_room_toggle_to_Sorting_room( $node, $params){
     }
 
     //update aspect of node in alfresco
-    gofast_cmis_update_aspect_properties( $node );
+    gofast_cmis_update_aspect_properties($node, "update");
 }
 
 
@@ -198,7 +198,7 @@ function gofast_archive_sorting_room_manage_locations( $node, $new_location ){
 /*
  *
  */
-function gofast_archive_sorting_room_alter_cmis_update_aspect_properties( $wrapper, $properties){
+function gofast_archive_sorting_room_alter_cmis_update_aspect_properties($wrapper, $properties, $node){
 
     $properties['gofast:transferNum'] = $wrapper->field_archive_transfer_num->value()!== NULL ? $wrapper->field_archive_transfer_num->value() : "";
     $properties['gofast:transferName'] = $wrapper->field_archive_transfer_name->value()!== NULL ? $wrapper->field_archive_transfer_name->value() : "";
@@ -321,7 +321,7 @@ function gofast_archive_sorting_room_toggle_to_transfer_room( $node, $params ){
     gofast_archive_sorting_room_manage_locations( $node, $new_location );
 
     //update aspect of node in alfresco
-    gofast_cmis_update_aspect_properties( $node );
+    gofast_cmis_update_aspect_properties($node, "update");
 
 }
 
@@ -837,7 +837,7 @@ function gofast_archive_sorting_room_unarchive_document( $node ){
     node_save($node);
 
     //update aspect of node in alfresco
-    gofast_cmis_update_aspect_properties( $node );
+    gofast_cmis_update_aspect_properties($node, "update");
 
     return $node;
 
@@ -920,7 +920,10 @@ function gofast_archive_sorting_room_send_notification(){
         }
       }
 
-      $nids = gofast_og_get_content($preTransferRoom_gid, false);
+      $nids = array();
+      if(isset($preTransferRoom_gid)) {
+        $nids = gofast_og_get_content($preTransferRoom_gid, false);
+      }
       $infos = array();
       foreach ($nids as $nid) {
         $item = node_load($nid);
@@ -1178,5 +1181,10 @@ function gofast_archive_sorting_room_extra_metadata($node)
     $links .= theme('gofast_node_info_field', array('title' => t('Old emplacements', array(), array('context' => 'gofast:gofast_archive_sorting_room')), 'values' => $info['node_old_emplacements']));
   }
 
-  return $links;
+  $output = array(
+    'title' => t('Sorting room informations'),
+    'id' => 'document__extra_metadata__sorting_room_tab',
+    'theme' => $links
+  );
+  return $output;
 }

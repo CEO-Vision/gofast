@@ -60,7 +60,8 @@
                                         "For Signature ( Yousign" : "Pour signature ( Yousign",
                                         "For Advanced Signature ( Yousign" : "Pour signature avancée ( Yousign",
                                         "For Signature (Pastell" : "Pour signature (Pastell",
-					"For Information" : "Pour information"
+					"For Information" : "Pour information",
+					"A task has been reassigned" : "Une tâche a été réassignée",
 				},
 				"nl" : {
 					"The workflow has started" : "De workflow is gestart",
@@ -94,7 +95,8 @@
                                         "For Signature ( Yousign" : "Voor handtekening ( Yousign",
                                         "For Advanced Signature ( Yousign" : "Voor geavanceerde handtekening ( Yousign",
                                         "For Signature (Pastell" : "Voor handtekening ( Pastell",
-					"For Information" : "Ter informatie"
+					"For Information" : "Ter informatie",
+					"A task has been reassigned" : "Een taak is opnieuw toegewezen",
 				},
 			};
 			//Return the translated content

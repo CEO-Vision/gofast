@@ -3,6 +3,10 @@
 
 
 function gofast_workflows_get_cookie($admin = false, $real_password = false, $myuser = NULL){
+    
+    $base_url_standard = variable_get_value('base_url_standard');
+    define( 'URL_BONITA' , str_replace("https://", "http://", $base_url_standard)."/bonita/");
+    
     if($admin == false){
         if(empty($myuser)){
             global $user;
@@ -187,7 +191,13 @@ function gofast_workflows_list_all_groups(){
 
    return json_decode($content);  
         
-} 
+}
+
+function gofast_workflows_delete_actor($bonita_actor_name) {
+    db_delete("actor", array("target" => "bonita"))
+        ->condition("name", $bonita_actor_name)
+        ->execute();
+}
 
 function gofast_workflows_delete_group($bonita_groupId){
     gofast_workflows_get_cookie(true);
@@ -316,13 +326,63 @@ function gofast_workflows_create_group($group_node){
        
 }
 
+/**
+ * Add an actor for the given group name to the standard worfklow (by default)
+ * and binds it to the matching group.
+ * This will do nothing is the actor already exists.
+ */
+function gofast_workflows_create_actor($group_name, $workflow_name = "Document broadcast subprocess") {
+    gofast_workflows_activate_bonita_connection();
+    // Get process definition id, mandatory to add the actor to the right version of the workflow
+    $variable_name = "bonita_" . str_replace(" ", "_", strtolower($workflow_name)) . "_scope_id";
+    $workflow_scope_id = variable_get($variable_name, FALSE);
+    if (!$workflow_scope_id) {
+        $workflow_scope_id = db_select("process_definition", "pd", array("target" => "bonita"))
+            ->fields("pd", array("processId"))
+            ->condition("name", $workflow_name)
+            ->orderBy("id", "DESC")
+            ->range(0, 1)
+            ->execute()->fetchCol()[0];
+        variable_set($variable_name, $workflow_scope_id);
+    }
+    
+    // Check if userlist already exists in the workflow
+    $actor_name = $group_name;
+    $actor = db_select("actor", "a", array("target" => "bonita"))
+        ->fields("a", array("id"))
+        ->condition("scopeId", $workflow_scope_id)
+        ->condition("name", $actor_name)
+        ->execute()->fetchCol();
+    // If not, add it
+    if (empty($actor)) {
+        $last_id =  db_select("actor", "a", array("target" => "bonita"))->fields("a", array("id"))->orderBy("id", "DESC")->range(0, 1)->execute()->fetchCol()[0];
+        $actor_id = $last_id + 1;
+        db_insert("actor", array("target" => "bonita"))
+            ->fields(array(
+                'tenantid' => 1,
+                'id' => $actor_id,
+                'scopeId' => $workflow_scope_id,
+                'name' => $actor_name,
+                'displayName' => "",
+                'description' => "",
+                'initiator' => 0,
+            ))->execute();
+        // Get the group id
+        $group_id = db_select("group_", "g", array("target" => "bonita"))->fields("g", array("id"))->condition("name", $actor_name)->execute()->fetchCol()[0];
+        // Make the query to bind the userlist group to the userlist actor
+        if ($group_id) {
+        gofast_workflows_bind_group_to_actor($group_id, $actor_id);
+    }
+}
+}
+
 /*
  * Replicate a userlist in Bonita
  */
 function gofast_workflows_create_userlist($userlist){
     
     //displayname
-    $displayName = "ul_" . $userlist->ulid;
+    $displayName = $userlist->name;
     $name = "ul_" . $userlist->ulid;
 
     gofast_workflows_get_cookie(true);
@@ -338,7 +398,6 @@ function gofast_workflows_create_userlist($userlist){
 
 /* fonction qui renomme sur Bonita le groupe GF recu en parametre (en conservant sa hierarchie) */
 function gofast_workflows_update_group($group_node, $old_group_node){
-     watchdog("debug update entity3",$old_group_node->title );
     gofast_workflows_get_cookie(true);
     $cookie_name = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
     
@@ -359,14 +418,12 @@ function gofast_workflows_update_group($group_node, $old_group_node){
     }
     
    $data = array('displayName' => $displayName, 'name' => $name);
-   watchdog("debug update entity4",json_encode($data) );
    $infos_updated_group = gofast_workflows_curl_update_group($data, $cookie_name, $bonita_id);
 
     return $infos_updated_group;
-       
 }
 
-function gofast_workflows_update_userlist($userlist, $old_userlist){
+function gofast_workflows_update_userlist($userlist){
     gofast_workflows_get_cookie(true);
     $cookie_name = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
     
@@ -384,7 +441,7 @@ function gofast_workflows_update_userlist($userlist, $old_userlist){
         return null;
     }
     
-   $data = array('displayName' => 'ul_' . $ulid, 'name' => 'ul_' . $ulid);
+   $data = array('displayName' => $userlist->name, 'name' => 'ul_' . $ulid);
    
    $infos_updated_group = gofast_workflows_curl_update_group($data, $cookie_name, $bonita_id);
 
@@ -450,14 +507,14 @@ function gofast_workflows_synchronize_members_group($group_node, $just_add = fal
      //d'abord on retire tous les membres sur Bonita
      $bonita_members = gofast_workflows_curl_get_members_group_bonita($bonita_group["id"]);
      $formatted_bonita_members = array();
-     if(count($bonita_members) > 0){
+     if(isset($bonita_members) && count($bonita_members) > 0){
              foreach( $bonita_members as $member_bonita ){
                     $formatted_bonita_members[$member_bonita["id"]] = $member_bonita;
               }
      }
 
      if($just_add == false){   
-        if(count($bonita_members) > 0){
+        if(isset($bonita_members) && count($bonita_members) > 0){
             foreach($bonita_members as $member_bonita){
                 gofast_workflows_curl_delete_user_from_bonitagroup($member_bonita["id"], $bonita_group["id"]);
             }
@@ -484,19 +541,92 @@ function gofast_workflows_synchronize_members_group($group_node, $just_add = fal
      }
 }
 
+/**
+ * Get all active tasks assigned to target userlists
+ * @param array $ulids th userlist ids
+ * @param boolean $count if just the count is needed, then make a countQuery for better performance
+ * @param boolean $get_only_already_assigned get only the tasks which are not free to be taken and are not assigned to the current user
+ */
+function gofast_workflows_get_userlist_tasks($ulids, $count = FALSE, $get_only_already_assigned = FALSE) {
+    global $user;
+    if (empty($ulids)) {
+        return [];
+    }
+    $bonita_assignee_id = gofast_workflows_get_bonitaids_from_uids([$user->uid]);
+    $bonita_assignee_id = empty($bonita_assignee_id) ? 0 : reset($bonita_assignee_id);
+    gofast_workflows_activate_bonita_connection();
+    $group_names = array_map(fn($el) => "ul_" . $el, $ulids);
+    // when a task is done, it is automatically flushed out of the data_instance table
+    $tasks = db_select("data_instance", "da", array("target" => "bonita"));
+    $tasks->fields("da", array("containerId"));
+    if ($get_only_already_assigned) {
+        $tasks->leftJoin("flownode_instance", "fi", "fi.id = da.containerId");
+        $and = db_and();
+        $and->condition("fi.assigneeId", 0, "<>");
+        $and->condition("fi.assigneeId", $bonita_assignee_id, "<>");
+        $tasks->condition($and);
+    }
+    $tasks->condition("da.clobValue", $group_names, "IN")
+        ->condition("da.name", "assignee")
+        ->condition("da.containerType", "ACTIVITY_INSTANCE");
+
+    if ($count) {
+        return $tasks->countQuery()->execute()->fetchField();
+    }
+    return $tasks->execute()->fetchCol();
+}
+
+/**
+ * Make a request to Bonita to refresh the assignation on given tasks
+ * @param tasks an array of activity instance ids
+ */
+function gofast_workflows_update_tasks_actors(array $tasks, $group_name) {
+    $tasks_string = implode(",", $tasks);
+    // make the curl request to to retrigger the actor filter on those tasks
+    $params = array("taskids" => $tasks_string);
+    $url_params = http_build_query($params);
+    $url = URL_BONITA . "API/extension/updateActorsOfUserTasks?" . $url_params;
+    $cookie_name = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_VERBOSE, TRUE);
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+    curl_setopt($ch, CURLOPT_COOKIEFILE, 'sites/default/files/swf/'.$cookie_name);
+    $response = gofast_workflows_curl_exec($ch);
+    curl_close($ch);
+
+    // also log an error Drupal-side if something went wrong
+    if (json_decode($response)->message != "OK") {
+        watchdog(WATCHDOG_ERROR, "Something when wrong while updating tasks for Bonita group %group", ["%group" => $group_name]);
+    }
+}
+
+/**
+ * Get all active tasks assigned to target userlist and make a request to Bonita to refresh the assignation on those tasks
+ * @param $userlist the full userlist entity
+ */
+function gofast_workflows_update_userlist_tasks($userlist) {
+    // get and format tasks of target userlist
+    $tasks = gofast_workflows_get_userlist_tasks([$userlist->ulid]);
+    if (empty($tasks)) {
+        return;
+    }
+    gofast_workflows_update_tasks_actors($tasks, "ul_" . $userlist->ulid);
+}
+
 function gofast_workflows_synchronize_members_userlist($userlist){
     $bonita_group = gofast_workflows_get_bonitagroup_from_userlist($userlist);
     $members = $userlist->field_userlist_members[LANGUAGE_NONE];
        
-     $bonita_members = gofast_workflows_curl_get_members_group_bonita($bonita_group["id"]);
+     $bonita_members = (array) gofast_workflows_curl_get_members_group_bonita($bonita_group["id"]);
      $formatted_bonita_members = array();
-     if(count($bonita_members) > 0){
+     if(isset($bonita_members) && count($bonita_members) > 0){
              foreach( $bonita_members as $member_bonita ){
                     $formatted_bonita_members[$member_bonita["id"]] = $member_bonita;
               }
      } 
      
-     if(count($bonita_members) > 0){
+     if(isset($bonita_members) && count($bonita_members) > 0){
          foreach($bonita_members as $member_bonita){
              gofast_workflows_curl_delete_user_from_bonitagroup($member_bonita["id"], $bonita_group["id"]);
          }
@@ -520,6 +650,8 @@ function gofast_workflows_synchronize_members_userlist($userlist){
                }      
           }
      }
+     
+     gofast_workflows_update_userlist_tasks($userlist);
 }
 
 
@@ -574,6 +706,7 @@ function gofast_workflows_synchro_all_userlists($delete_all = false){
                 foreach($bonita_groups as $bonita_group){
                     if($bonita_group->id != 1 && $bonita_group->name !== "Utilisateurs" && substr($bonita_group->name, 0, 3) == "ul_"){
                         gofast_workflows_delete_group($bonita_group->id);
+                        gofast_workflows_delete_actor($bonita_group->name);
                     }
                 }
             }

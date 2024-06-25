@@ -6,6 +6,50 @@
  */
 
 /**
+ * Cleanup duplicate nodes (when we have several Drupal nodes pointing to the same Alfresco node)
+ */
+ function gofast_cmis_repair_duplicate_alfresco_reference(){
+  set_time_limit(0);
+  // get all duplicated items
+  $query = db_select("field_data_field_reference", "fdfr");
+  $query->addField("fdfr", "field_reference_value");
+  $query->innerJoin("node", "n", "n.nid=fdfr.entity_id");
+  $query->having("COUNT(*) > 1");
+  $query->addExpression("GROUP_CONCAT(nid)", "nids");
+  $query->addExpression("GROUP_CONCAT(changed)", "changed");
+  $query->groupBy("fdfr.field_reference_value");
+  $duplicate_items = $query->execute()->fetchAll();
+
+  foreach ($duplicate_items as $duplicate_item) {
+    $item_id = $duplicate_item->field_reference_value;
+    watchdog("gofast_cmis_repair_duplicate_alfresco_reference", "Handling " . $item_id);
+    $nids = explode(",", $duplicate_item->nids);
+    $changed = explode(",", $duplicate_item->changed);
+    // keep only newest node
+    $highest_timestamp = max($changed);
+    $index_of_highest_timestamp = array_keys($changed, $highest_timestamp)[0];
+    $nid_to_keep = $nids[$index_of_highest_timestamp];
+    watchdog("gofast_cmis_repair_duplicate_alfresco_reference", "Node to keep is " . $nid_to_keep);
+
+    // don't try to remove the alfresco node (by bypassing the gofast_cmis_node_delete hook implementation)
+    $_GET["bypass_gofast_cmis_node_delete"] = TRUE;
+    foreach ($nids as $nid) {
+        // ensure we keep the newest node
+        if ($nid == $nid_to_keep) {
+          continue;
+        }
+        node_delete($nid);
+    }
+    unset($_GET["bypass_gofast_cmis_node_delete"]);
+
+    // make sure the right nid is reference alfresco-side
+    $properties["gofast:nid"] = $nid_to_keep;
+    gofast_cmis_item_update_properties($item_id, $properties, TRUE, TRUE);
+    watchdog("gofast_cmis_repair_duplicate_alfresco_reference", "Cleanup done for " . $item_id);
+  }
+}
+
+/**
  * Implements hook_schema().
  */
 function gofast_cmis_schema(){
@@ -355,7 +399,7 @@ function gofast_cmis_update_7709(){
       $nb_broken_wiki++;
 
       //Retreive reference and fixed it
-      $fixed = gofast_book_wiki_repare_alf_reference($node);
+      //$fixed = gofast_book_wiki_repare_alf_reference($node);
 
       if($fixed != FALSE){
         $nb_fixed_wiki++;
@@ -405,7 +449,7 @@ function gofast_cmis_update_7710() {
 
         //Only rebuild if article is not multifiled
         if(count($node->og_group_content_ref[LANGUAGE_NONE]) < 2 ){
-          gofast_book_repare_emplacements($node, $parents_formatted);
+          //gofast_book_repare_emplacements($node, $parents_formatted);
           $nb_fixed_wiki++;
 
         }else{
@@ -429,15 +473,25 @@ function gofast_cmis_update_7710() {
 // create missing books mainly for emplacements restored by GOFAST-8617 (which fixed missing alfRef and field_emplacement on many articles)
 // hence: must be run after gofast_cmis_update_7710
 function gofast_cmis_update_7711() {
-  gofast_bookify_spaces();
-  gofast_book_log_multifiled_articles("Executing gofast_book_update_7003");
+  //gofast_bookify_spaces();
+  //gofast_book_log_multifiled_articles("Executing gofast_book_update_7003");
 }
 
+// reset folder templates permissions so admins are coordinators of folders_templates_folder
+function gofast_cmis_update_7712() {
+  usurp(1);
+  $folder_template_reference = gofast_ajax_file_browser_get_reference_from_href('/Sites/FOLDERS TEMPLATES');
+  $unique_name = GOFAST_ADMIN_PLATFORM;
+  $group_type = 'folders_templates_folder';
+  // update rules
+  $res = gofast_cmis_webservice_folder_assign_permissions($folder_template_reference,$unique_name,$group_type);
+  usurp(false);
+}
 
 /**
  * Fixed wiki homepage membership
  */
-function gofast_cmis_update_7712(){
+function gofast_cmis_update_7713(){
 
  watchdog('gofast_cmis', '%name() --- START -- REBUILD OG_MEMBERSHIPS FOR SPACE HOMEPAGE(WIKI) ---', array('%name' => __FUNCTION__));
 
@@ -475,7 +529,7 @@ function gofast_cmis_update_7712(){
         $node = node_load($nid);
 
         //Run gofast_cmis_update_7709() for one item
-        $fixed = gofast_book_wiki_repare_alf_reference($node);
+        //$fixed = gofast_book_wiki_repare_alf_reference($node);
         if($fixed != FALSE){
           $nb_fixed_wiki++;
         } else {
@@ -546,7 +600,7 @@ function gofast_cmis_update_7712(){
 
             //Only rebuild if article is not multifiled
             if (count($node->og_group_content_ref[LANGUAGE_NONE]) < 2) {
-              gofast_book_repare_emplacements($node, $parents_formatted);
+              //gofast_book_repare_emplacements($node, $parents_formatted);
               $nb_fixed_wiki++;
             } else {
               $wiki_still_broken[] = $node->nid;
@@ -568,6 +622,59 @@ function gofast_cmis_update_7712(){
   }
   variable_del('gf_all_wiki');
   watchdog('gofast_cmis', '%name() --- END --', array('%name' => __FUNCTION__));
+}
+
+/**
+ * Create business admin  LDAP group
+ */
+function gofast_cmis_update_7715() {
+
+  ## LDAP GOFAST BUSINESS ADMIN PLATFORM CREATION
+  ## get LDAP server
+  $LdapServer = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
+  $LdapServer->connectAndBindIfNotAlready();
+  $ldap_basedn = variable_get('gofast_ldap_int_base_dn');
+  $attributes = array();
+  $attributes['objectclass'] = array('groupOfNames');
+  $attributes['description'] = GOFAST_BUSINESS_ADMIN_PLATFORM;
+  $attributes['cn'] = GOFAST_BUSINESS_ADMIN_PLATFORM;
+  $gofast_ldap_gofast_admin_basedn = 'cn=' . $attributes['cn'] . ',ou=Groups,' . $ldap_basedn;
+
+  $LdapServer->groupAddGroup($gofast_ldap_gofast_admin_basedn, $attributes);
+
+  ## reach all admin platform user
+  $accounts_admin = array();
+  $accounts_admin = _gofast_user_load_multiple_by_roles('business administrator');
+
+  foreach($accounts_admin as $account_admin){
+    $LdapServer->groupAddMember($gofast_ldap_gofast_admin_basedn, $account_admin);
+  }
+
+  usurp(1);
+  
+  gofast_cmis_webservice_force_alfresco_ldap_synch(true);
+  
+  $folder_template_reference = gofast_ajax_file_browser_get_reference_from_href('/Sites/FOLDERS TEMPLATES');
+  $unique_name = GOFAST_BUSINESS_ADMIN_PLATFORM;
+  $group_type = 'folders_templates_folder';
+  // update rules
+  $res = gofast_cmis_webservice_folder_assign_permissions($folder_template_reference,$unique_name,$group_type);
+  usurp(false);
+}
+
+/**
+ * Make field reference unique for documents
+ */
+function gofast_cmis_update_7716() {
+  // we have to cleanup duplicate nodes (not just the rows, in order to avoid SQL errors while creating the unique key, but also to avoid potential CRON loops)
+  gofast_cmis_repair_duplicate_alfresco_reference();
+  // there is no "unique" definition existing at field level so we have to operate directly at db level
+  if(db_field_exists('field_data_field_reference', 'field_reference_value')){
+    db_add_unique_key("field_data_field_reference", "field_reference_value", ["field_reference_value"]);
+  }
+  if(db_field_exists('field_revision_field_reference', 'field_reference_value')){
+    db_add_unique_key("field_revision_field_reference", "field_reference_value", ["field_reference_value"]);
+  }
 }
 
 /**
@@ -601,7 +708,14 @@ function gofast_cmis_install(){
    if(db_field_exists('field_revision_field_main_emplacement', 'field_main_emplacement_value')){
                 db_change_field('field_revision_field_main_emplacement', 'field_main_emplacement_value', 'field_main_emplacement_value', $field);
    }
+  if(db_field_exists('field_data_field_reference', 'field_reference_value')){
+    db_add_unique_key("field_data_field_reference", "field_reference_value", ["field_reference_value"]);
+  }
+  if(db_field_exists('field_revision_field_reference', 'field_reference_value')){
+    db_add_unique_key("field_revision_field_reference", "field_reference_value", ["field_reference_value"]);
+  }
 }
+
 
 /**
  * Implements hook_uninstall().
@@ -609,3 +723,4 @@ function gofast_cmis_install(){
 function gofast_cmis_uninstall(){
   // Nothing to do !
 }
+

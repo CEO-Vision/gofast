@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * gofast_features_taxonomy.strongarm.inc

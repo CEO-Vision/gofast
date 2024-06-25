@@ -13,7 +13,7 @@ define("RADIOACTIVITY_COMBO_FORMATTER", "radioactivity_combo_formatter");
 define("RADIOACTIVITY_BASIC_WIDGET", "radioactivity_basic_widget");
 define("RADIOACTIVITY_HISTORY_GRAPH", "radioactivity_history_graph");
 
-include "radioactivity.field.inc";
+require_once 'radioactivity.field.inc';
 
 /**
  * Implements hook_permission().
@@ -66,7 +66,7 @@ function theme_radioactivity_history($vars) {
     'values' => array(),
     'tooltips' => array(),
     'cutoff' => $vars['cutoff'],
-    'tooltipFormat' => '<div style="padding-bottom:5px;padding-right:8px;"><span style="color:{{color}}">&#9679;</span> {{value}} | {{offset:tooltips}}</div>'
+    'tooltipFormat' => '<span style="color:{{color}}">&#9679;</span> {{value}} | {{offset:tooltips}}'
   );
 
   foreach ($vars['dataset'] as $time => $value) {
@@ -265,6 +265,11 @@ function _radioactivity_update_energy($entity_type, $entity_id, $field_name, $la
   $entities = entity_load($entity_type, array($entity_id));
   $entity = reset($entities);
 
+  // Ensure the entity still exists.
+  if (!$entity) {
+    return;
+  }
+
   // Ensure a field value is set so it can be incremented if $force is not TRUE.
   if (!isset($entity->{$field_name}[$language])) {
     $entity->{$field_name}[$language] = array(
@@ -272,6 +277,11 @@ function _radioactivity_update_energy($entity_type, $entity_id, $field_name, $la
         RADIOACTIVITY_FIELD_ENERGY => 0.0,
       ),
     );
+  }
+
+  // Some modules use the original property.
+  if (!isset($entity->original)) {
+    $entity->original = clone $entity;
   }
 
   if ($force) {
@@ -282,11 +292,6 @@ function _radioactivity_update_energy($entity_type, $entity_id, $field_name, $la
   }
 
   $entity->{$field_name}[$language][0][RADIOACTIVITY_FIELD_TIMESTAMP] = $time;
-
-  // Some modules use the original property.
-  if (!isset($entity->original)) {
-    $entity->original = $entity;
-  }
 
   // Ensure that file_field_update() will not trigger additional usage.
   unset($entity->revision);
@@ -305,6 +310,9 @@ function _radioactivity_update_energy($entity_type, $entity_id, $field_name, $la
     if ($entity_info['field cache']) {
       cache_clear_all("field:$entity_type:$id", 'cache_field');
     }
+    if (module_exists('entitycache')) {
+      entity_get_controller($entity_type)->resetCache(array($entity_id));
+    }
   } else {
     // In case the field uses another type of storage, invoke the field presave and update hooks.
     field_attach_presave($entity_type, $entity);
@@ -313,6 +321,8 @@ function _radioactivity_update_energy($entity_type, $entity_id, $field_name, $la
     entity_get_controller($entity_type)->resetCache(array($entity_id));
   }
 
+  // Invoke hook_radioactivity_update_energy().
+  module_invoke_all('radioactivity_update_energy', $entity, $entity_type, $entity_id, $field_name, $language, $energy_delta, $time, $force);
 }
 
 /**
@@ -438,6 +448,7 @@ function radioactivity_cron() {
     if (!defined("VAR_RADIOACTIVITY_MEMCACHED_HOST")) {
       define("VAR_RADIOACTIVITY_MEMCACHED_HOST", variable_get("radioactivity_memcached_host", "localhost"));
       define("VAR_RADIOACTIVITY_MEMCACHED_PORT", variable_get("radioactivity_memcached_port", "11211"));
+      define("VAR_RADIOACTIVITY_MEMCACHED_PREFIX", variable_get("radioactivity_memcached_prefix", ""));
     }
   }
 
@@ -505,6 +516,7 @@ function radioactivity_cron() {
             // Invoke rules event for cut off
             $items = db_select($table_name, 't')
                ->fields('t', array('entity_type', 'entity_id'))
+               ->condition("bundle", $bundle)
                ->condition($energy, $cut_off, '<')
                ->condition("deleted", "0")
                ->execute();
@@ -519,6 +531,7 @@ function radioactivity_cron() {
           }
 
           $cuts = db_delete($table_name)
+            ->condition("bundle", $bundle)
             ->condition($energy, $cut_off, '<')
             ->condition("deleted", "0")
             ->execute();
@@ -527,6 +540,7 @@ function radioactivity_cron() {
           $updated = db_update($table_name)
             ->expression($energy, $energy . ' * pow(2, (' . $timestamp . ' * 1.0 - ' . REQUEST_TIME . ') / ' . $half_life . ')')
             ->fields(array($timestamp => REQUEST_TIME))
+            ->condition("bundle", $bundle)
             ->condition($timestamp, REQUEST_TIME, '<')
             ->condition("deleted", "0")
             ->execute();
@@ -537,7 +551,7 @@ function radioactivity_cron() {
         if ($field_info['settings']['history'] == 1) {
           db_query("INSERT INTO {radioactivity_history}"
             . " (SELECT :id, entity_id, :time, " . $energy
-            . " FROM " . $table_name
+            . " FROM {" . $table_name . "}"
             . " WHERE deleted = 0)",
             array(':id' => $field_info['id'], ':time' => REQUEST_TIME)
           );
@@ -554,6 +568,9 @@ function radioactivity_cron() {
 
       // Clear the entity caches.
       entity_get_controller($entity_type)->resetCache();
+
+      // Clear the entity field caches.
+      cache_clear_all('field:' . $entity_type, 'cache_field', TRUE);
     }
   }
 
@@ -562,9 +579,6 @@ function radioactivity_cron() {
 
   // Groom the flood cache
   db_delete('radioactivity_flood_map')->condition('time', REQUEST_TIME - $timeout2, "<")->execute();
-
-  // clear field caches just to be sure
-  field_cache_clear();
 
   variable_set('radioactivity_last_cron_timestamp', REQUEST_TIME);
 
@@ -712,7 +726,12 @@ function radioactivity_ajax_render_alter(&$commands) {
   $scripts = drupal_add_js();
   if (!empty($scripts['settings'])) {
     $settings = $scripts['settings'];
-    array_unshift($commands, ajax_command_settings(call_user_func_array('array_merge_recursive', $settings['data']), TRUE));
+    
+    $datas = array_values($settings['data']);
+    $datas = array_filter($datas, fn($data) => is_array($data));
+    $datas = array_unique($datas);
+    
+    array_unshift($commands, ajax_command_settings(array_merge_recursive(...$datas), TRUE));
   }
 
 }

@@ -26,13 +26,6 @@ function gofast_user_menu()
     'delivery callback' => 'gofast_ajax_delivery'
   );
 
-  $items['spaces/private-space'] = array(
-    'page callback' => 'gofast_user_private_space_page',
-    'type' => MENU_CALLBACK,
-    'access arguments' => array('access content'),
-    'access callback' => 'user_access',
-  );
-
   $items['profile/save-language/%'] = array(
     'page callback' => 'gofast_user_save_lang',
     'page arguments' => array(2),
@@ -141,6 +134,12 @@ function gofast_user_menu()
     'access callback' => TRUE,
   );
 
+  $items['gofast/user/has/%/permission'] = array(
+    'page callback' => 'gofast_user_haspermission',
+    'page arguments'=> array(3),
+    'access callback' => TRUE,
+  );
+
   $items['gofast/user/%/profile/get'] = array(
     'page callback' => 'gofast_user_profile_get_json',
     'page arguments' => array(2),
@@ -155,20 +154,12 @@ function gofast_user_menu()
     // authorization is checked inside the callback
     'access callback' => TRUE
   );
-  
+
   // different logic to handle templating on the front side
   $items['gofast/user/%/profile/get/team'] = array(
     'page callback' => 'gofast_get_manager_managed_users',
     'page arguments' => array(2, 5),
     // authorization is checked inside the callback
-    'access callback' => TRUE
-  );
-
-  $items['gofast/user/login/redirect/%/%'] = array(
-    'page callback' => 'gofast_user_login_with_token',
-    'page arguments' => array(4,5),
-    'access arguments' =>  TRUE,
-    'type' => MENU_CALLBACK,
     'access callback' => TRUE
   );
 
@@ -185,6 +176,27 @@ function gofast_user_menu()
   );
 
 
+  $items['gofast/user/check/ldap'] = array(
+    'title' => 'check exists into external ldap',
+    'page callback' => 'gofast_user_check_email_exists_external_ldap',
+    'page arguments' => array(),
+    'access callback' => 'user_access',
+    'access arguments' => array('access user profiles'),
+  );
+
+  $items['gofast/user/set/atatus_tracking'] = array(
+    'page callback' => 'gofast_user_set_status_tracking',
+    'access callback' => true,
+    'access arguments' => array('access user profiles'),
+  );
+  $items['gofast/user/check/mail'] = array(
+    "title" => "Check if the mail is valid and not already exist",
+    "page callback" => "gofast_user_check_mail",
+    "page arguments" => array(),
+    "access callback" => "user_access",
+    "access arguments" => array("access user profiles"),
+  );
+
   return $items;
 }
 
@@ -199,18 +211,150 @@ function gofast_user_menu_alter(&$items)
     $items['user']['access callback'] = 'user_is_logged_in';
   }
   $items['admin/people/create']['page callback'] = 'gofast_user_node_add_user'; //GOFAST-7014
-  
+
     $login_form_disabled = variable_get("gofast_disable_login_form", FALSE);
   if($login_form_disabled){
       $items['user/login']['access callback'] = 'false';
   }
-  
+
   $items['admin/people']['access arguments'] = array('access administration pages');
   foreach ($items as $path => $item) {
     if (strpos($path, 'admin/config/development') !== FALSE) {
       $items[$path]['access callback'] = "gofast_user_is_drupal_admin";
     }
-  }  
+  }
+
+  // override thumbnail generation
+  $directory_path = file_stream_wrapper_get_instance_by_scheme('public')->getDirectoryPath();
+  $items[$directory_path . '/styles/%image_style']['page callback'] = "gofast_image_style_deliver";
+}
+
+
+function gofast_user_check_email_exists_external_ldap(){
+
+  //if GF is not sync with external LDAP, return without action
+  module_load_include('inc', 'gofast_ldap', 'gofast_ldap.settings');
+  $LdapServer = gofast_ldap_server_load(GOFAST_LDAP_EXT_SERVER);
+  if(!$LdapServer->name){
+    drupal_json_output(array('message' => 'no ldap'));
+    exit();
+  }
+
+  $mail = $_GET["mail"];
+  $_f = array('attr' => $LdapServer->mail_attr, 'value' => $mail);
+  list ($attribute, $value) = gofast_ldap_escape_filter($_f);
+  $filter = $attribute . '=' . $value;
+  $attributes[] = $LdapServer->user_attr;
+  $base_dn = reset($LdapServer->basedn);
+  $result = $LdapServer->search($base_dn, $filter, $attributes);
+
+  if($result["count"] != 0){
+    drupal_json_output(array('login' => $result[0][$LdapServer->user_attr][0], 'uid' => gofast_user_get_uid_by_login($result[0][$LdapServer->user_attr][0])));
+    exit();
+  }else{
+    drupal_json_output(array('message' => 'unknown user'));
+    exit();
+  }
+
+}
+
+/**
+ * Basically a copy-paste of image_style_deliver, except:
+ * 1. we don't need to handle private scheme
+ * 2. we return the original image instead of exiting if there is a generation error
+ */
+function gofast_image_style_deliver($style, $scheme) {
+  $args = func_get_args();
+  array_shift($args);
+  array_shift($args);
+  $target = implode('/', $args);
+
+  $valid = !empty($style) && file_stream_wrapper_valid_scheme($scheme);
+  if (!variable_get('image_allow_insecure_derivatives', FALSE) || strpos(ltrim($target, '\/'), 'styles/') === 0) {
+    $valid = $valid && isset($_GET[IMAGE_DERIVATIVE_TOKEN]) && $_GET[IMAGE_DERIVATIVE_TOKEN] === image_style_path_token($style['name'], $scheme . '://' . $target);
+  }
+  if (!$valid) {
+    return MENU_ACCESS_DENIED;
+  }
+
+  $image_uri = $scheme . '://' . $target;
+  $derivative_uri = image_style_path($style['name'], $image_uri);
+
+  // Treatment for private scheme has been removed since it's not relevant for GoFAST
+
+  // Confirm that the original source image exists before trying to process it.
+  if (!is_file($image_uri)) {
+    watchdog('image', 'Source image at %source_image_path not found while trying to generate derivative image at %derivative_path.',  array('%source_image_path' => $image_uri, '%derivative_path' => $derivative_uri));
+    return MENU_NOT_FOUND;
+  }
+
+  // Don't start generating the image if the derivative already exists or if
+  // generation is in progress in another thread.
+  $lock_name = 'image_style_deliver:' . $style['name'] . ':' . drupal_hash_base64($image_uri);
+  if (!file_exists($derivative_uri)) {
+    $lock_acquired = lock_acquire($lock_name);
+    if (!$lock_acquired) {
+      // Tell client to retry again in 3 seconds. Currently no browsers are known
+      // to support Retry-After.
+      drupal_add_http_header('Status', '503 Service Unavailable');
+      drupal_add_http_header('Content-Type', 'text/html; charset=utf-8');
+      drupal_add_http_header('Retry-After', 3);
+      print t('Image generation in progress. Try again shortly.');
+      drupal_exit();
+    }
+  }
+
+  // Try to generate the image, unless another thread just did it while we were
+  // acquiring the lock.
+  $success = file_exists($derivative_uri) || image_style_create_derivative($style, $image_uri, $derivative_uri);
+
+  if (!empty($lock_acquired)) {
+    lock_release($lock_name);
+  }
+
+  // This block is the actual override for GoFAST
+  if ($success) {
+    $image = image_load($derivative_uri);
+    file_transfer($image->source, array('Content-Type' => $image->info['mime_type'], 'Content-Length' => $image->info['file_size']));
+  }
+  else {
+    watchdog('image', 'Unable to generate the derived image located at %path.', array('%path' => $derivative_uri));
+    $image = image_load($image_uri);
+    $toolkit = image_get_toolkit();
+    $image_info = image_get_info($image_uri, $toolkit);
+    file_transfer($image_uri, array('Content-Type' => $image_info['mime_type'], 'Content-Length' => $image_info['file_size']));
+  }
+}
+
+/**
+ * Basically a copy-paste of image_style_deliver, except we return the original image if the style load fails
+ */
+function gofast_image_style_url($style_name, $path) {
+  $uri = image_style_path($style_name, $path);
+
+  // The passed-in $path variable can be either a relative path or a full URI.
+  $original_uri = file_uri_scheme($path) ? file_stream_wrapper_uri_normalize($path) : file_build_uri($path);
+
+  // This little block is the actual override for GoFAST
+  if (!is_file($uri)) {
+    $uri = $original_uri;
+  }
+
+  if (!variable_get('image_suppress_itok_output', FALSE)) {
+    $token_query = array(IMAGE_DERIVATIVE_TOKEN => image_style_path_token($style_name, $original_uri));
+  }
+
+  if (!variable_get('clean_url') && file_uri_scheme($uri) == 'public' && !file_exists($uri)) {
+    $directory_path = file_stream_wrapper_get_instance_by_uri($uri)->getDirectoryPath();
+    return url($directory_path . '/' . file_uri_target($uri), array('absolute' => TRUE, 'query' => $token_query));
+  }
+
+  $file_url = file_create_url($uri);
+  // Append the query string with the token, if necessary.
+  if ($token_query) {
+    $file_url .= (strpos($file_url, '?') !== FALSE ? '&' : '?') . drupal_http_build_query($token_query);
+  }
+  return $file_url;
 }
 
 function gofast_user_is_drupal_admin($string = "", $account = NULL) {
@@ -284,19 +428,6 @@ function gofast_user_profile_popup($uid = 0)
   return theme('gofast_user_profile_popup_template', array('uid' => $uid));
 }
 
-
-/**
- * Page callback for the current logged in user private space.
- */
-function gofast_user_private_space_page()
-{
-  $space = gofast_og_get_user_private_space();
-  // This is a workaround to add the actual node to the page vars.
-  $_GET['q'] = 'node/' . $space->nid;
-  return node_page_view($space);
-}
-
-
 /**
  * Ajax callback for user quick saving his prefered language.
  */
@@ -359,7 +490,7 @@ function gofast_user_edit_avatar($ajax, $uid)
     }
 
     $avatar = (!is_null($user->picture) ? '/sites/default/files/pictures/' . $user->picture->filename : null);
-    $output .= theme('gofast_user_avatar_crop', array(
+    $output = theme('gofast_user_avatar_crop', array(
       'avatar' => $avatar,
       'uid'    => $uid
     ));
@@ -384,25 +515,20 @@ function gofast_crop_save_avatar_ajax()
     $account = user_load($uid);
     $ext = !empty($_POST['ext']) ? strtolower($_POST['ext']) : '';
 
-    if (is_numeric($user->picture)) {
-      $user->picture = file_load($user->picture);
-      if (file_exists($user->picture)) {
-        file_delete($user->picture);
+    if (is_numeric($account->picture)) {
+      $account->picture = file_load($account->picture);
+      if (file_exists($account->picture)) {
+        file_delete($account->picture);
       }
     }
 
     $tmp_filename = 'sites/default/files/pictures/tempfile' . $uid;
 
-    /** WebP/m support is fine but image_style_url() fails to create thumbnails
-     * so we leave it as unsupported for now.
-    if (in_array($ext, ['webm', 'webp'])) {
-      // Function imagecreatefromstring does not support WebP.
-      file_put_contents($tmp_filename, $data);
-      $image = imagecreatefromwebp($tmp_filename);
+    if (!in_array($ext, ["jpeg", "jpg", "png", "gif"])) {
+      $output['errorMsg'] = t("Please upload an image in JPEG, PNG or GIF format", array(), array("context" => "gofast:gofast_user"));
+      $response = json_encode($output);
+      return $response;
     }
-    else {
-      $image = imagecreatefromstring($data);
-    } */
 
     $image = imagecreatefromstring($data);
     $func = $ext === 'jpg' ? 'imagejpeg' : 'image' . $ext;
@@ -425,8 +551,9 @@ function gofast_crop_save_avatar_ajax()
 
       // This line below is the most important, we generate the thumbnail
       // _programmatically_ (in case of permission issues if generating the thumbnail from a GET request)
-      $thumbnail_uri = image_style_path('thumbnail', $account->picture->uri);
-      image_style_create_derivative("thumbnail", $account->picture->uri, $thumbnail_uri);
+      $thumbnail_uri = gofast_image_style_url("thumbnail",$account->picture->uri);
+      $style = image_style_load("thumbnail");
+      image_style_create_derivative($style, $account->picture->uri, $thumbnail_uri);
 
       user_save($account);
       drupal_unlink('sites/default/files/pictures/tempfile' . $uid);
@@ -464,6 +591,15 @@ function gofast_user_whoami()
   exit();
 }
 
+// check if current user has given permission
+function gofast_user_haspermission($permission_name)
+{
+  $permission_name = urldecode($permission_name);
+  global $user;
+  drupal_json_output(user_access($permission_name, $user));
+  exit();
+}
+
 function gofast_user_whatcanido($operation, $nid)
 {
   // no type-hinting since all values coming from URL parts are initially strings, so we compensate for that
@@ -477,10 +613,6 @@ function gofast_user_unblockAndRefresh($uid)
 {
 
   gofast_user_unblock($uid);
-
-  $myView = views_embed_view('gofast_user_directory', 'page_3');
-
-  print $myView;
   exit();
 }
 
@@ -495,6 +627,70 @@ function gofast_user_unblock_profile($uid)
 
   print $profile_view;
   exit();
+}
+
+function gofast_user_unstandby_or_unleave($uid)
+{
+  //security check
+    if(!gofast_user_is_business_admin()){
+      return false;
+    }
+
+    $my_user = user_load($uid);
+
+    //use was standby
+    if($my_user->field_standby[LANGUAGE_NONE][0]["value"] == 1){
+      $edit = array('field_standby' => 0, 'status' => 1);
+      user_save($my_user, $edit);
+      //audit
+      global $user;
+      $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => 'user_unstandby', 'uid_to_unstandby' => $uid);
+      $event = serialize($event);
+      $last_event_serialized = rawurlencode($event);
+
+      $last_event_unserialized["mod_timestamp"] = time();
+      $last_event_unserialized["mod_author"] = $user->uid;
+
+      //Insert inton audit
+      gofast_audit_insert_line_audit(0, 'user_unstandby', $last_event_serialized, $last_event_unserialized); //The value 0 is define in order to not render node in the audit
+
+      //send the account creation notification
+      $message["params"]["account"] =  $my_user;
+      $message["id"] = "user_register_admin_created";
+      gofast_user_mail_alter($message);
+    }
+
+
+    gofast_user_unblock($uid);
+
+
+}
+
+function gofast_user_unstandby($uid)
+{
+  //security check
+    if(!gofast_user_is_business_admin()){
+      return false;
+    }
+    $my_user = user_load($uid);
+    $edit = array('field_standby' => 0, 'status' => 1);
+    user_save($my_user, $edit);
+    //audit
+    global $user;
+    $event = array('mod_author' => $user->uid, 'mod_timestamp' => time(), 'event' => 'user_unstandby', 'uid_to_unstandby' => $uid);
+    $event = serialize($event);
+    $last_event_serialized = rawurlencode($event);
+
+    $last_event_unserialized["mod_timestamp"] = time();
+    $last_event_unserialized["mod_author"] = $user->uid;
+
+    //Insert inton audit
+    gofast_audit_insert_line_audit(0, 'user_unstandby', $last_event_serialized, $last_event_unserialized); //The value 0 is define in order to not render node in the audit
+
+    //send the account creation notification
+    $message["params"]["account"] =  $my_user;
+    $message["id"] = "user_register_admin_created";
+    gofast_user_mail_alter($message);
 }
 
 function gofast_user_unblock($uid)
@@ -559,13 +755,13 @@ function gofast_user_block($uid)
 function gofast_user_get_groups_async($account_uid){
 
   $account = user_load($account_uid);
-  
+
   $section = $_GET['section'];
-  
+
   $spaces = array();
 
   $spaces = gofast_user_get_spaces_by_user($account, $section);
-  
+
   print $spaces;
   exit;
 }
@@ -578,19 +774,19 @@ function gofast_user_get_groups_async($account_uid){
  * @return $result
  */
 function gofast_user_get_spaces_by_user($account, $section){
-  
+
   global $user;
-  
+
   // Is the current user theme administrator ?
   $is_adm = gofast_user_is_adm($user);
 
   // Is the current user visiting his own profile (note : let su manage other
   // profiles as its own).
   $self = $user->uid == 1 || $user->uid == $account->uid;
-  
+
   $spaces = array();
   $result = '';
-  
+
   $groups_user_gids = gofast_og_get_spaces_by_user($account);
 
   $groups_user = node_load_multiple($groups_user_gids);
@@ -610,19 +806,23 @@ function gofast_user_get_spaces_by_user($account, $section){
           };
         }
       }
-      asort($spaces['path']);
-      foreach ($spaces['path'] as $gid => $webdav_path) {
-        $result .= gofast_breadcrumb_display_breadcrumb($gid, ['return' => TRUE, "title_link" => TRUE, "editable" => FALSE, "show_role" => TRUE, "show_role_for" => $account->uid]);
+      if(isset($spaces['path'])){
+        asort($spaces['path']);
+        $result .= '<ul style="margin-left: 0;padding-left:0;list-style: none;">';
+        foreach ($spaces['path'] as $gid => $webdav_path) {
+          $result .= gofast_breadcrumb_get_simplified_breadcrumb($gid,$account->uid,$webdav_path);
+        }
+        $result .= '<ul>';
       }
       if(empty($result)){
         $result = '<div class="text-muted">' . t('No spaces found') . '</div>';
       }
       break;
     case 'requests':
-      
+
       // Requested groups
       $requested_groups_ids = gofast_og_get_user_pending_spaces($account);
-      
+
       if (count($requested_groups_ids) > 0) {
         $query_og_info = db_select('node', 'n');
         $query_og_info->fields('n', array('nid', 'title', 'type'));
@@ -643,7 +843,7 @@ function gofast_user_get_spaces_by_user($account, $section){
       }
       break;
     case 'userlists':
-      
+
       // get userlists
       $userlists = array();
       $userlists_ids = gofast_userlist_get_userlists_by_user($account);
@@ -661,7 +861,7 @@ function gofast_user_get_spaces_by_user($account, $section){
         foreach ($userlists as $ulid => $title_userlists) {
           $userlists = entity_load('userlist', array($ulid));
           $userlist = $userlists[$ulid];
-          
+
           $result .= theme('gofast_user_display_userlist', array('nid' => $userlist->nid, 'ulid' => $ulid, 'title' => $title_userlists));
         }
       }
@@ -674,19 +874,13 @@ function gofast_user_get_spaces_by_user($account, $section){
   }
 
   return $result;
-  
+
 }
 
 // @todo will be obsolete as of GF4
 function gofast_user_groups_get_block_myteam_async($account_uid)
 {
   $output = '';
-  $block = gofast_user_block_view('my_team', $account_uid);
-  $output .= '<section id="block-gofast-user-my-team" class="block block-gofast-user contextual-links-region clearfix">';
-  $output .= '<h2 class="block-title">' . $block['subject'] . '</h2>';
-  $output .= $block['content'];
-  $output .= '</section>';
-
   print $output;
   exit;
 }
@@ -798,6 +992,7 @@ function gofast_user_profile_get_json($accountUid)
       "email" => $account->mail,
       "department" => $ldap['ldap_user_o'],
       "birthdate" => $account->field_birthdate[LANGUAGE_NONE][0]['value'] ?? "",
+      "expiration_date" => $account->field_extranet_expiration_date[LANGUAGE_NONE][0]["value"] ?? "",
       "manager" => $manager,
       'description' => $account->ldap_user_description[LANGUAGE_NONE][0]['value'] ?? "",
       'skills' => $account->field_skills[LANGUAGE_NONE] ?? "",
@@ -812,4 +1007,67 @@ function gofast_user_profile_get_json($accountUid)
     ]);
     exit;
   }
+}
+
+/**
+ * Function to set the atatus tracking field of a user (if user authorize the user ton send anonymous data to atatus)
+ */
+function gofast_user_set_status_tracking(){
+  global $user;
+
+  $user = user_load($user->uid);
+
+  // Check if $_POST['enabled'] is set
+  if(!isset($_POST['enabled'])){
+    drupal_json_output([
+      "success" => false,
+      "message" => "Missing enabled parameter"
+    ]);
+    exit;
+  }
+
+  $enabled = $_POST['enabled'];
+  if($enabled == 'true'){
+    $user->field_atatus_tracking[LANGUAGE_NONE][0]['value'] = 2;
+  }else{
+    $user->field_atatus_tracking[LANGUAGE_NONE][0]['value'] = 1;
+  }
+
+  user_save($user);
+
+  drupal_json_output([
+    "success" => true
+  ]);
+}
+
+function gofast_user_check_mail() {
+  global $user;
+  $mail = "";
+  $return_value = array();
+  if(isset($_POST["mail"])){
+    $mail = gofast_xss_clean($_POST["mail"]);
+  }
+
+  if (!preg_match('/^[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/', $mail)) {
+    // Invalid email
+    drupal_json_output(array("isValid" => false, "error" => "invalid"));
+    exit();
+  }
+
+  $is_valid = false;
+  $already_existing_user = user_load_by_mail($mail);
+  if($already_existing_user && $user->uid != $already_existing_user->uid){
+    if($already_existing_user->status != 1){
+      $is_valid = true;
+    }
+  } else {
+    $is_valid = true;
+  }
+  if($is_valid) {
+    $return_value = array("isValid" => $is_valid);
+  } else {
+    $return_value = array("isValid" => $is_valid, "error" => "already exist", "login" => $already_existing_user->name);
+  }
+  drupal_json_output($return_value);
+  exit();
 }

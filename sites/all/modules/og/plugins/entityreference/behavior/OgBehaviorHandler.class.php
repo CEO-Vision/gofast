@@ -123,7 +123,7 @@ class OgBehaviorHandler extends EntityReference_BehaviorHandler_Abstract {
       $gid = $item['target_id'];
 
       // Must provide correct state in the event that approval is required.
-      //Patch CEO-Vision, see https://www.drupal.org/node/2744405
+      // Patch CEO-Vision, see https://www.drupal.org/node/2744405
       if (empty($item['state']) && $entity_type == 'user' && !og_user_access($group_type, $gid, 'subscribe without approval', $entity) && !og_user_access($group_type, $gid, 'administer group')) {
         $item['state'] = OG_STATE_PENDING;
       }
@@ -208,26 +208,20 @@ class OgBehaviorHandler extends EntityReference_BehaviorHandler_Abstract {
       // that this field is attached to.
       foreach ($entity_types as $entity_type) {
         $entity_info = entity_get_info($entity_type);
-        $data['og_membership'] = array(
-          'table' => array(
-            'join' => array(
-              $entity_info['base table'] => array(
-                // Join entity base table on its id field with left_field.
-                'left_field' => $entity_info['entity keys']['id'],
-                'field' => 'etid',
-                'extra' => array(
-                  0 => array(
-                    'field' => 'entity_type',
-                    'value' => $entity_type,
-                  ),
-                ),
-              ),
+        $data['og_membership']['table']['join'][$entity_info['base table']] = array(
+          // Join entity base table on its id field with left_field.
+          'left_field' => $entity_info['entity keys']['id'],
+          'field' => 'etid',
+          'extra' => array(
+            0 => array(
+              'field' => 'entity_type',
+              'value' => $entity_type,
             ),
           ),
-          // Copy the original config from the table definition.
-          $field['field_name'] => $data['field_data_' . $field['field_name']][$field['field_name']],
-          $field['field_name'] . '_target_id' => $data['field_data_' . $field['field_name']][$field['field_name'] . '_target_id'],
         );
+          // Copy the original config from the table definition.
+        $data['og_membership'][$field['field_name']] = $data['field_data_' . $field['field_name']][$field['field_name']];
+        $data['og_membership'][$field['field_name'] . '_target_id'] = $data['field_data_' . $field['field_name']][$field['field_name'] . '_target_id'];
 
         // Change config with settings from og_membership table.
         foreach (array('filter', 'argument', 'sort', 'relationship') as $op) {
@@ -290,17 +284,17 @@ class OgBehaviorHandler extends EntityReference_BehaviorHandler_Abstract {
 
       $instance['field_mode'] = $field_mode;
       $valid_ids = entityreference_get_selection_handler($field, $instance, $entity_type, $entity)->validateReferencableEntities($ids);
-      
+
       //@CEOV patch : Don't validate entities as Userlists are considered
       //as invalid. 
-      /*if ($invalid_entities = array_diff($ids, $valid_ids)) {
-        foreach ($invalid_entities as $id) {
-          $new_errors[$field_mode][] = array(
-            'error' => 'og_invalid_entity',
-            'message' => t('The referenced group (@type: @id) is invalid.', array('@type' => $field['settings']['target_type'], '@id' => $id)),
-          );
-        }
-      }*/
+      // if ($invalid_entities = array_diff($ids, $valid_ids)) {
+      //   foreach ($invalid_entities as $id) {
+      //     $new_errors[$field_mode][] = array(
+      //       'error' => 'og_invalid_entity',
+      //       'message' => t('The referenced group (@type: @id) is invalid.', array('@type' => $field['settings']['target_type'], '@id' => $id)),
+      //     );
+      //   }
+      // }
     }
 
     if ($new_errors) {

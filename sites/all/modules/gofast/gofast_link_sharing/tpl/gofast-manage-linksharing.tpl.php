@@ -13,5 +13,6 @@
     <span id="nids" style="display:none"><?php echo json_encode($nids); ?></span>
     <span id="subject" style="display:none"><?php echo $subject ?></span>
     <span id="message" style="display:none"><?php echo $message ?></span>
+    <span id="folder_sharing_title" style="display:none"><?php echo $download_page_title ?></span> 
   </div>
 </div>

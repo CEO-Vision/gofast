@@ -159,6 +159,7 @@ function gofast_ztree_space_get_paths($space_nid) {
  * of paths. If the entries are paths we do nothing, if it's space names,
  * transforms the list of names in list of paths.
  * @param type $list the input list that could be paths or list of space names
+ * @return array
  */
 function gofast_ztree_normalize_list($list) {
   $sorted_list = array();
@@ -729,14 +730,27 @@ function gofast_ztree_array_path_to_nested_objects_async($array_path = array(), 
       $array_path[$key] = $path;
     }
   }
-
-  asort($array_path);
+  // Sort paths in ascending order, case-insensitive, spaces first
+  uasort($array_path, function($path_a, $path_b){
+    // Take only the last part of the path to compare them
+    $path_a = end(explode("/", $path_a));
+    $path_b = end(explode("/", $path_b));
+    // If we compare a space and a folder put the space before
+    if(str_starts_with($path_a, "_") XOR str_starts_with($path_b, "_")){
+      return str_starts_with($path_a, "_") ? -1 : 1;
+    }
+    // If we compare two space or two folder, sort normally case-insensitive
+    return strtoupper($path_a) <=> strtoupper($path_b);
+  });
 
   $tree = new ztree_tree;
   $last_depth = false;
 
   // We proceed to user accessible paths
   foreach ($array_path as $gid => $path) {
+    if (strpos($path, "Wikis") != FALSE) {
+      continue;
+    }
     $is_non_member_paths = false;
     /*if (in_array($path, $non_member_paths)) {
       $is_non_member_paths = true;
@@ -1048,7 +1062,7 @@ function gofast_ztree_array_path_to_nested_objects($array_path = array(), $array
           if (isset($node) && $path === $computed_path) {
             $node->open = TRUE;
             $node->nocheck = TRUE;
-            if (!gofast_og_is_root_space(node_load($node->gid)) && og_user_access('node', $node->gid, 'create alfresco_item content')){
+            if (isset($node->gid) && isset(node_load($node->gid)->nid) && !gofast_og_is_root_space(node_load($node->gid)) && og_user_access('node', $node->gid, 'create alfresco_item content')){
               if(gofast_group_is_archive(node_load($node->gid))){
                   $node->icon = '/'.drupal_get_path('module', 'gofast_mail_queue').'/icon/folder-archive-primary.png';
               }else{
@@ -1266,7 +1280,6 @@ function gofast_ztree_get_eligible_forms() {
   return array(
     'node_delete_confirm' => 'target',
     'alfresco_item_node_form' => GOFAST_OG_CONTENT_MEMBERSHIP_FIELD,
-    'article_node_form' => GOFAST_OG_CONTENT_MEMBERSHIP_FIELD,
     'forum_node_form' => GOFAST_OG_CONTENT_MEMBERSHIP_FIELD,
     'webform_node_form' => GOFAST_OG_CONTENT_MEMBERSHIP_FIELD,
     'group_node_form' => GOFAST_OG_PARENT_GROUP_FIELD,
@@ -1313,6 +1326,12 @@ function gofast_ztree_form_alter(&$form, &$form_state) {
     if ($form_id === "node_delete_confirm" && !gofast_og_is_space($form['#node'])) {
       return;
     }
+
+    // GOFAST-10137 - Do not show ztree on node edit form if metadata is being edited
+    if($form_state['edit_metadata']){
+      return;
+    }
+
     $form['#after_build'][] = 'gofast_ztree_after_build';
   }
 }
@@ -1322,9 +1341,10 @@ function gofast_ztree_form_alter(&$form, &$form_state) {
  */
 function gofast_ztree_after_build($form, &$form_state) {
 
-  $ztree_field = $form_state['ztree_field']['#value'];
+  $ztree_field = (string) $form_state['ztree_field']['#value'];
   $form_field = $form[$ztree_field];
   $form_id = $form_state['build_info']['form_id'];
+  $node = $form_state['node'];
 
   if($form_id === 'gofast_taxonomy_add_locations_form' ||  $form_id === 'gofast_taxonomy_manage_locations_form' || $form_id === "gofast_taxonomy_manage_folder_locations_form" || $form_id === 'gofast_dashboard_add_folder_form' || $form_id === 'gofast_stats_list_docs_form'){
       $ztree_field = GOFAST_CMIS_LOCATIONS_FIELD;
@@ -1365,7 +1385,7 @@ function gofast_ztree_after_build($form, &$form_state) {
       $type = 'content';
       $ztree_options = array("widget_locations" => "true");
       if ($form_id === 'alfresco_item_node_form' /*|| $form_id === 'article_node_form'*/) {
-        $ztree_options += array("alfresco_document" => "true");
+        $ztree_options += array("alfresco_document" => "true", "chkStyle" => "checkbox");
       }
       break;
     case GOFAST_OG_PARENT_GROUP_FIELD:
@@ -1439,7 +1459,7 @@ function gofast_ztree_after_build($form, &$form_state) {
       else {
         $selected = array_map(function($element) {
           return $element['value'];
-        }, $field['#default_value']);
+        }, (array) $field['#default_value']);
       }
       $paths = $field['#options'];
     }
@@ -1448,7 +1468,7 @@ function gofast_ztree_after_build($form, &$form_state) {
 
       $field = $form_field[LANGUAGE_NONE];
       if(isset($form_state['values'][$ztree_field][LANGUAGE_NONE][0]['default']) || isset($form_field[LANGUAGE_NONE][0]['default']['#default_value'])){
-        if (count($form_state['values'][$ztree_field][LANGUAGE_NONE][0]['default']) > 0) {
+        if (count((array) $form_state['values'][$ztree_field][LANGUAGE_NONE][0]['default']) > 0) {
           $selected = $form_state['values'][$ztree_field][LANGUAGE_NONE][0]['default'];
         }
         else {
@@ -1513,7 +1533,7 @@ function gofast_ztree_after_build($form, &$form_state) {
         if (in_array($value, $selected)) {
           unset($selected[array_search($key, $selected)]);
           $nid_selected_options = $node->og_group_content_ref['und'][$key]['target_id'];
-          if (og_user_access('node', $nid_selected_options, 'create alfresco_item content') == 1){
+          if (isset($nid_selected_options) && og_user_access('node', $nid_selected_options, 'create alfresco_item content') == 1){
             $selected_paths[$key] = $value;
           }else{
             unset($selected_options[$key]);
@@ -1525,7 +1545,7 @@ function gofast_ztree_after_build($form, &$form_state) {
         if (in_array($key, $selected)) {
           unset($selected[array_search($key, $selected)]);
           $nid_selected_options = $node->og_group_content_ref['und'][$key]['target_id'];
-          if (og_user_access('node', $nid_selected_options, 'create alfresco_item content') == 1){
+          if (isset($nid_selected_options) && og_user_access('node', $nid_selected_options, 'create alfresco_item content') == 1){
             $selected_paths[$key] = $value;
           }else{
             unset($selected_options[$key]);
@@ -1590,8 +1610,8 @@ function gofast_ztree_after_build($form, &$form_state) {
           }
      // }
 
-    if (count($form_field[LANGUAGE_NONE][0]['default']['#options']) > 0) {
-      $paths = isset($form_field[LANGUAGE_NONE][0]['default']['#options'][$space_types[$space_type]]) ? $form_field[LANGUAGE_NONE][0]['default']['#options'][$space_types[$space_type]] : array();
+    if (count((array) $form_field[LANGUAGE_NONE][0]['default']['#options']) > 0) {
+      $paths = (array) isset($form_field[LANGUAGE_NONE][0]['default']['#options'][$space_types[$space_type]]) ? $form_field[LANGUAGE_NONE][0]['default']['#options'][$space_types[$space_type]] : array();
       if (count($paths) > 0) {
         $first_option = array_slice($paths, 0, 1, TRUE);
         $selected = !empty($form_field[LANGUAGE_NONE][0]['default']['#default_value']) ? $form_field[LANGUAGE_NONE][0]['default']['#default_value'] : array_flip($first_option);
@@ -1616,8 +1636,8 @@ function gofast_ztree_after_build($form, &$form_state) {
 
           if($spaces_defaults['create_sub_space']){
             $first_level_spaces = array_merge(
-                    gofast_og_get_children(4, FALSE, FALSE, TRUE),
-                    gofast_og_get_children(6, FALSE, FALSE, TRUE)
+                    gofast_og_get_children(GOFAST_CMIS_LOCATIONS_FIELD_GROUPS_GID, FALSE, FALSE, TRUE),
+                    gofast_og_get_children(GOFAST_CMIS_LOCATIONS_FIELD_EXTRANET_GID, FALSE, FALSE, TRUE)
             );
           }
           if($role !== OG_ADMINISTRATOR_ROLE  && $gid != $form_field[LANGUAGE_NONE][0]['default']["#default_value"] && !in_array($gid, $first_level_spaces)){
@@ -1655,8 +1675,7 @@ function gofast_ztree_after_build($form, &$form_state) {
   global $user;
   $request_field_archived = db_query("SELECT * FROM {field_data_field_archive} where field_archive_value = 1");
   $fields_archived = $request_field_archived->fetchAll();
-       if ($form_id === 'alfresco_item_node_form' || $form_id === 'gofast_taxonomy_add_locations_form' || $form_id === 'gofast_taxonomy_manage_locations_form' || $form_id === "gofast_taxonomy_manage_folder_locations_form"
-           || $form_id === 'gofast_og_space_admin_add_members_form' || $form_id === 'gofast_og_space_admin_edit_members_form'
+  if ($form_id === 'alfresco_item_node_form' || $form_id === 'gofast_taxonomy_add_locations_form' || $form_id === 'gofast_taxonomy_manage_locations_form' || $form_id === "gofast_taxonomy_manage_folder_locations_form" || $form_id === 'gofast_og_space_admin_add_members_form' || $form_id === 'gofast_og_space_admin_edit_members_form'
            || $form_id == "gofast_chat_join_space_room_form"
            || $form_id == "gofast_dashboard_add_space_shortcut_form") {
            $ztree_block = gofast_ztree_block_content($type, $paths, $ztree_options, $paths_options, true);
@@ -1942,7 +1961,7 @@ function gofast_ztree_async_json($print = true){
   $is_internal = $_REQUEST["is_internal"] ? TRUE : FALSE;
   $is_confidential = $_REQUEST["is_confidential"] ? TRUE : FALSE;
 
-  if (count($array_node) > 1) {
+  if (count((array) $array_node) > 1) {
 
     $path_options = gofast_get_node_locations_async($node, $origine, $template,null,$ispublication);
     foreach ($array_node as $nid) {

@@ -10,10 +10,12 @@ if (gofast_user_is_adm($user)) {
 
 if (count(module_implements("extra_metadata")) >= 1) {
   //Check if node have metadata
-  $extra_data = '';
+  $extra_datas = array();
   foreach (module_implements("extra_metadata") as $module) {
     $metadata = call_user_func($module . "_extra_metadata", $node);
-    $extra_data .= $metadata;
+    if(!empty($metadata)){
+      $extra_datas[] = $metadata;
+    }
   }
 
   if(!empty($extra_data)){
@@ -35,9 +37,11 @@ if (count(module_implements("extra_metadata")) >= 1) {
         <a class="dropdown-item" data-toggle="tab" href="#document__infotab">
           <?php print t('Informations', [], ['context' => 'gofast']); ?>
         </a>
-        <a class="dropdown-item" data-toggle="tab" href="#document__extra_metadata_tab">
-          <?php print t('Specifics informations', [], ['context' => 'gofast']); ?>
-        </a>
+        <?php foreach($extra_datas as $extra_data) : ?>
+          <a class="dropdown-item" data-toggle="tab" href="#<?php print $extra_data['id']; ?>">
+            <?php print $extra_data['title']; ?>
+          </a>
+        <?php endforeach; ?>
       </div>
     </li>
   <?php } else { ?>

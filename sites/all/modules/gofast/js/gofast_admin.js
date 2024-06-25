@@ -8,19 +8,28 @@
                 $('#gofastSettingsTabs').addClass('processed'); 
 
                 //Bind click events to all the tabs to load their content asynchronously;
-                const settingsTabIds = ["edit-general", "edit-smtp", "edit-rssfeed", "edit-ldap", "edit-users", "edit-documents", "edit-spaces", "edit-sso", "edit-visibility", "edit-indexing", "edit-integrity", "edit-categories", "edit-metadata", "edit-retention", "edit-custom-link", "edit-signature", "edit-pastell","edit-esup"];
+                const settingsTabIds = ["edit-general", "edit-smtp", "edit-rssfeed", "edit-ldap", "edit-users", "edit-documents", "edit-spaces", "edit-sso", "edit-visibility", "edit-indexing", "edit-integrity", "edit-categories", "edit-custom-link", "edit-signature", "edit-signature-digitalsign", "edit-pastell","edit-esup", "edit-tags", "edit-webhook", "edit-bluemind"];
                 for (const settingsTabId of settingsTabIds) {
-                    $('html').on('click', '#tab-' + settingsTabId + ':not(".active")', function(){loadSettingsTab(settingsTabId);});
+                    $('html').on('click', '#gofastSettingsTabs .' + settingsTabId + ':not(".active")', function(){
+                      let dataFormId = $(this).data("form-id");
+                      loadSettingsTab(settingsTabId, dataFormId);
+                    });
+                    
                 }
-                $('html').on('click', '#tab-edit-update:not(".active")', function(){Gofast.processAjax("/admin/config/gofast/update");});
+                $('html').on('click', '#gofastSettingsTabs .edit-update:not(".active")', function(){Gofast.processAjax("/admin/config/gofast/update");});
 
                 //load first displayed tab
-                jQuery("#gofastSettingsTabs a").first().click();
+                if ($("#gofastSettingsTabs .nav-link[href=\"" + window.location.hash +"\"]").length) {
+                    $("#gofastSettingsTabs .nav-link[href=\"" + window.location.hash +"\"]").click();
+                } else {
+                    $("#gofastSettingsTabs a").first().click();
+                }
             }
 
             //Hide irrelevant inputs when needed
             Gofast.displayTargetsBySourceCheckbox(".form-item-has-custom-link", [".form-item-custom-link-label", ".form-item-custom-link-link"]);
             Gofast.displayTargetsBySourceCheckbox(".form-item-disable-login", [".form-item-disable-password-reset > label", ".form-item-disable-password-reset > div"]);
+            Gofast.displayTargetsBySourceCheckbox(".form-item-has-signature-background", [".form-item-files-signature-background"]);
         }
     };
 
@@ -48,7 +57,7 @@
         }
     };
 
-    // here the content of the tab is fetched and attached to the matching div
+    // Here the content of the tab is fetched and attached to the matching div
     Gofast.loadSettingsTab = function(tab){
         loadSettingsTab(tab);
     };
@@ -57,25 +66,71 @@
         if (!$(sourceCheckboxSelector)) {
             return;
         }
-        let sourceCheckboxState = $(sourceCheckboxSelector + " input").is(":checked");
-        if (!sourceCheckboxState) {
-            for(targetSelector of targetsSelectors) $(targetSelector).addClass("d-none");
+        let sourceCheckbox = $(sourceCheckboxSelector + " input");
+        // Hide the input on form load if needed
+        if (!$(sourceCheckbox).prop("checked")) {
+            for(const targetSelector of targetsSelectors) $(targetSelector).addClass("d-none");
         }
-        $(sourceCheckboxSelector).on("change", () => {
-            for(targetSelector of targetsSelectors) $(targetSelector).toggleClass("d-none");
-        });
-    }
-    
-    function loadSettingsTab(tab){
-        $("#gofastAdminTabContent").html('<div class="loader-settings"></div>');
-        $.post(location.origin + "/admin/config/gofast/global/getform/" + tab, function(output){
-            var form = JSON.parse(output)['html'];
-            var container = $("#gofastAdminTabContent").html(form);
-            Drupal.attachBehaviors();
-            attachSettingsFormAjax(container, "#gofastAdminTabContent");
+        // Hide/unhide the input on checkbox change
+        $(sourceCheckbox).on("change", () => {
+            if ($(sourceCheckbox).prop("checked")) {
+                for(const targetSelector of targetsSelectors) $(targetSelector).removeClass("d-none");
+            } else {
+                for(const targetSelector of targetsSelectors) $(targetSelector).addClass("d-none");
+            }
         });
     }
 
+  function loadSettingsTab(tab, formID = null) {
+    // Container
+    var container = $("#gofastAdminTabContent");
+    var spinner   = $('.loader-settings');
+    
+    // Function to hide all children except the one with a specific id
+    var hideAllExcept = function(id) {
+      container.children().each(function () {
+        if ($(this).attr('id') !== id+'-container') {
+          $(this).css('display', 'none');
+        } else {
+          $(this).css('display', 'block');
+        }
+      });
+    }
+
+    if (formID !== null) {
+      var potentialForm = $('#' + formID);
+      // If form is already present in the DOM
+      if (potentialForm.length) {
+        hideAllExcept(formID);
+        return;
+      }
+    }
+
+    hideAllExcept(formID);
+    // add spinner
+    spinner.show();
+    // Only fetch new form via AJAX if there is no formID or if it's not found in DOM
+    $.post(location.origin + "/admin/config/gofast/global/getform/" + tab, function (output) {
+
+      if (formID !== null) {
+        // Check if the form container already exists in the DOM
+        var existingContainerEl = $(`#${formID}-container`);
+
+        // If the form container does not exist, then append it
+        if (existingContainerEl.length === 0) {
+          var containerEl = $(`<div id="${formID}-container"></div>`)
+          var form = JSON.parse(output)['html'];
+          var newForm = $(form);
+
+          spinner.hide();
+          containerEl.append(newForm);
+          container.append(containerEl);
+          Drupal.attachBehaviors();
+          attachSettingsFormAjax(container, "#gofastAdminTabContent");
+        }
+      }
+    });
+  }
     // event listener to ajaxify the form submission
     function attachSettingsFormAjax(container, tab){
         $(container).find('form').submit(function(event) {
@@ -96,10 +151,15 @@
                     Gofast.toast(data, 'error');
                     Gofast.removeLoading();
                 }
-                var new_container = $(tab).html(html);
-                attachSettingsFormAjax(new_container, tab);
-                Drupal.attachBehaviors();
-                var errors = JSON.parse(data)['error'];
+                
+              var new_container = $(tab).html(html);
+              new_container.find("form[id]").each(function() {
+                var currentId = $(this).attr("id");
+                $(this).attr("id", currentId + "-container");
+              });
+              attachSettingsFormAjax(new_container, tab);
+              Drupal.attachBehaviors();
+              var errors = JSON.parse(data)['error'];
                 if(errors === null){
                     Gofast.toast(Drupal.t('Your configuration has been saved.'), 'success');
                 }else{

@@ -172,7 +172,7 @@ function jquerymenu_trail_creator() {
   return $url_array;
 }
 
-function recursive_link_creator($items = array(), $trail, $parentid = '') {
+function recursive_link_creator($items, $trail, $parentid = '') {
   static $menucount = 0;
 
   $count = 0;

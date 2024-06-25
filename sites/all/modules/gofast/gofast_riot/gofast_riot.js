@@ -1,5 +1,7 @@
 (function ($, Gofast, Drupal) {
 
+  Gofast = Gofast || {};
+
   Gofast._riot = function() {
     return {
       //############### PROPERTIES ###############
@@ -48,6 +50,24 @@
 
         //Wait for the full content of the window to be loaded before interferring with elements inside
         waitForFullMatrixLoadInterval: null,
+
+        //Wait for the full content of the base avatar to be displayed before replacing it
+        waitForBaseAvatar: null
+      },
+      listeners: {
+        // If click an element outside Riot, autoclose Riot modal to "shortcut" the focus lock trap
+        // which otherwise would prevent focus on any parent document element
+        shortcutFocusLock: function(e) {
+          const dialogButtons = $("#IframeRiotBloc").contents()[0].querySelectorAll(".mx_ImageView_button_close, .mx_Dialog_primary, .mx_Dialog_cancelButton");
+          if ($("#IframeRiotBloc") && $("#IframeRiotBloc").contents()[0] && dialogButtons.length) {
+            for (const dialogButton of dialogButtons) {
+              dialogButton.click();
+            }
+            setTimeout(() => {
+              $(e.target).focus();
+            }, 500);
+          }
+        },
       },
       
       // Settings to implement in the local storage for Element notifications
@@ -82,24 +102,23 @@
         
         //Display Element
         Gofast.Riot.display();
+
+        $(document).on("mousedown", Gofast.Riot.listeners.shortcutFocusLock);
       },
       
       /*
        *
       */
-      destroy: function(collapse = true){      
-        for (const interval in Gofast.Riot.intervals) {
-          clearInterval(Gofast.Riot.intervals[interval]);
-        }  
-        
+      destroy: function(collapse = true){
         if (collapse) {
           Gofast.Riot.collapse();
         }
-        $("#IframeRiotBloc").attr("src", "")
+        $("#IframeRiotBloc").attr("src", "");
         Gofast.Riot = null;
         Gofast.Riot = Gofast._riot();
+        $(document).off("mousedown", Gofast.Riot.listeners.shortcutFocusLock);
       },
-      
+
       /*
        * Preconfigure Element before instanciation
       */
@@ -115,7 +134,12 @@
         localStorage['mx_im.vector.fake.direct_sortBy'] = "RECENT"; // | ALPHABETIC
 
         // Localization
-        localStorage['mx_local_settings'] = JSON.stringify({language: Drupal.settings.gofast.language});
+        let mxSettings = {webRtcForceTURN: true}; // disable P2P by default
+        if (localStorage['mx_local_settings']) {
+          mxSettings = JSON.parse(localStorage['mx_local_settings']); // keep already existing settings
+        } 
+        mxSettings["language"] = Drupal.settings.gofast.language; // for the language regardless of existing settings
+        localStorage['mx_local_settings'] = JSON.stringify(mxSettings);
 
         // Browser compatiblity check
         Gofast.Riot.checkBrowserCompatibility();
@@ -150,11 +174,15 @@
        * Ask Element for a session
       */
       login: function () {
+        const loginParams = {user: Gofast.Riot.User.name.toLowerCase(), password: Drupal.settings.TOKEN_RIOT, type: "m.login.password"};
+        if (typeof Drupal.settings.DEVICE_RIOT != "undefined") {
+          loginParams.device_id = Drupal.settings.DEVICE_RIOT;
+        }
         $.ajax({
           url: "https://" + Drupal.settings.GOFAST_COMM + "/_matrix/client/r0/login",
           type: "POST",
           contentType: "application/json; charset=utf-8",
-          data: JSON.stringify({user: Gofast.Riot.User.name.toLowerCase(), password: Drupal.settings.TOKEN_RIOT, type: "m.login.password"}),
+          data: JSON.stringify(loginParams),
           dataType: "json",
           success: Gofast.Riot.onLogin,
           error: Gofast.Riot.handleFailure,
@@ -194,6 +222,15 @@
           Gofast.Riot.accessToken = data.access_token;
         }else{
           Gofast.Riot.accessToken = localStorage.riot_access_token;
+        }
+
+        if (typeof Drupal.settings.DEVICE_RIOT == "undefined" || data.device_id != Drupal.settings.DEVICE_RIOT) {
+          $.ajax({
+            url: window.location.origin + '/SaveRiotDevice',
+            type: 'POST',
+            data: {device: data.device_id},
+            dataType: 'html',
+          });
         }
         
         //Our session is ready
@@ -242,6 +279,10 @@
             Gofast.Riot.destroy();
             return;
           }
+        }).error(() => {
+          Gofast.toast(Drupal.t("The Element server is not available. Please try again later.", {}, {context: "gofast:gofast_riot"}), "error");
+          Gofast.Riot.destroy();
+          return;
         });
         // if COMM server is up, we add a reload button to be able to re-init the riot block from scratch
         $("#IframeRiotBloc").attr("src", "");
@@ -254,9 +295,8 @@
       */
       display: function(){
         //Wait for our session to be ready
-        clearInterval(Gofast.Riot.intervals.displayInterval)
         let displayAttemptsCounter = 0;
-        Gofast.Riot.intervals.displayInterval = setInterval(async function(){
+        Gofast.Riot.intervals.displayInterval = setInterval(async () => {
           // if it has been more than 30 seconds we're trying to connect
           if (displayAttemptsCounter > 100) {
             Gofast.Riot.handleFailure();
@@ -270,17 +310,22 @@
           
           //Display Element
           $(".gofastRiotReload").addClass("d-none");
-          $("#IframeRiotBloc").attr("src", "/sites/all/libraries/riot/index.html?v=6")
+          $("#IframeRiotBloc").attr("src", "/sites/all/libraries/riot/index.html?v=v=420_1_5")
 
           clearInterval(Gofast.Riot.intervals.displayInterval);
 
           //Wait for content to be fully loaded
           await new Promise((resolve, reject) => {
             Gofast.Riot.intervals.waitForFullMatrixLoadInterval = setInterval(() => {
-              if (!document.querySelector("#IframeRiotBloc") || !document.querySelector("#IframeRiotBloc").contentWindow.document.querySelector(".mx_MatrixChat ")) {
+              if (!document.querySelector("#IframeRiotBloc") || !document.querySelector("#IframeRiotBloc").contentWindow.document.querySelector(".mx_MatrixChat")) {
                 return;
               }
               clearInterval(Gofast.Riot.intervals.waitForFullMatrixLoadInterval);
+              $("#IframeRiotBloc").contents().find('body').addClass("gofast-side-content").addClass("gofast-side-content-collapsed");
+              $("#IframeRiotBloc").contents().find('body').addClass("gofast-side-content-collapsed");
+              Gofast.Riot.isExpanded = false;
+              // don't trigger element contextual menu when element is collapsed
+              $("#IframeRiotBloc").contents().find(".mx_UserMenu").css("pointer-events", "none");
               //Our session is ready, display and process Element
               Gofast.Riot.applyBubbleEvents();
               Gofast.Riot.processTooltips();
@@ -302,31 +347,41 @@
         Gofast.Riot.intervals.bubbleEventsInteval = setInterval(function(){
           var $iframe_body = $("#IframeRiotBloc").contents().find('body');
           
-          $iframe_body.find('div.mx_RoomTile,.mx_AccessibleButton.mx_RoomSublist_auxButton').not("click-expand-processed").on('click', function() {
+          $iframe_body.find('.mx_AccessibleButton').not("click-expand-processed").on('click', function() {
             if(!Gofast.Riot.isExpanded){
               Gofast.Riot.expand();
             }
           }).addClass("click-expand-processed");
         }, 1500);
       },
+
+      //Move the user menu to a visible place
+      showUserMenu: function(iframeHolder = "#IframeRiotBloc"){
+        const $leftPanel = $(iframeHolder).contents().find(".mx_LeftPanel_filterContainer");
+        const $userMenu = $(iframeHolder).contents().find(".mx_UserMenu");
+        // we don't have to show the avatar image twice in the same area, so we wait for the riot avatar to be loaded and replace it by an icon
+        Gofast.Riot.intervals.waitForBaseAvatar = setInterval(() => {
+          clearInterval(Gofast.Riot.intervals.waitForBaseAvatar);
+          if (!$userMenu.find(".mx_BaseAvatar").length) {
+            return;
+          }
+          clearInterval(Gofast.Riot.intervals.waitForBaseAvatar);
+          setTimeout(() => {
+            $userMenu.find(".mx_BaseAvatar").html('<img loading="lazy" alt="" src="'+document.location.origin+'/sites/all/modules/gofast/gofast_mail_queue/icon/cog-solid-grey.png" crossorigin="anonymous" referrerpolicy="no-referrer" data-type="round" width="24px" height="24px">');
+            $leftPanel.prepend($userMenu);
+          }, 1000);
+        }, 100);
+      },
       
       processTooltips: function(){
-
+        clearInterval(Gofast.Riot.intervals.tooltipsInterval);
         Gofast.Riot.intervals.tooltipsInterval = setInterval(function() {
           if (!$("#IframeRiotBloc").contents().find('body').find(".mx_RoomSublist_minimized").length || $("#IframeRiotBloc").contents().find('body').find(".mx_RoomSublist_minimized .mx_RoomSublist_skeletonUI").length > 0) {
             return;
           }
           
           // Make tooltips always visible regardless of the bloc being collapsed or not.
-          var $tooltip;
-
-          // Apply this css (iframe scope) regardless of riot theme. This hides the
-          // default tooltip container that cannot overflow from the iframe when the
-          // bloc is collapsed and also hides the horizontal resize handle that makes
-          // the pointer buggy and is useless in bloc mode (not in conversation page).
-          var $head = $("#IframeRiotBloc").contents().find('head');
-          var style = '.mx_Tooltip_wrapper, .mx_ResizeHandle_horizontal { display:none; }';
-          $('<style type="text/css">' + style + '</style>').appendTo($head);
+          var $tooltip = $('<div/>');
 
           var $iframe_body = $("#IframeRiotBloc").contents().find('body');
           $iframe_body.on('mouseover', 'div.mx_AccessibleButton', function(e) {
@@ -346,7 +401,7 @@
               // when trying to remove the compoenent.
               $tooltip = $(e.delegateTarget).find('.mx_Tooltip').clone();
 
-              if (!$tooltip.length) {
+              if ($tooltip && !$tooltip.length) {
                 // hover intent was not long enough to make the toolip appear OR there is no mx_Tooltip
                 if (typeof $(e.delegateTarget).attr("aria-label") != "undefined" && typeof $(e.delegateTarget).attr("title") == "undefined") {
                   $(e.delegateTarget).attr("title",  $(e.delegateTarget).attr("title") ??  $(e.delegateTarget).attr("aria-label"));
@@ -358,15 +413,17 @@
               var top = parseInt($tooltip.css('top')) + 50;
               var right = parseInt($tooltip.css('right'));
 
-              $tooltip.css({
-                top: top + 'px',
-                left: 'unset',
-                right: right + 10 + 'px',
-              });
+              if ($tooltip) {
+                $tooltip.css({
+                  top: top + 'px',
+                  left: 'unset',
+                  right: right + 10 + 'px',
+                });
 
-              // Insert the tooltip into the DOM outside the iframe so it can expand
-              // properly.
-              $tooltip.appendTo('#conteneurIframe');
+                // Insert the tooltip into the DOM outside the iframe so it can expand
+                // properly.
+                $tooltip.appendTo('#conteneurIframe');
+              }
             }, 100);
           });
 
@@ -376,7 +433,6 @@
             }
             if ($tooltip) {
               $tooltip.remove();
-              $tooltip = null;
             }
           });
           clearInterval(Gofast.Riot.intervals.tooltipsInterval);
@@ -397,14 +453,35 @@
       /** temporary fix, issue opened at Element Web: https://github.com/vector-im/element-web/issues/22951 */
       initFetchListener: function() {
           // GOFAST-8052 - make download button work inside the iframe
-          document.addEventListener("riotFetchRequest", ({detail}) => {
-            if(detail.endpoint.includes("media/r0/download")) {
-              this.generateDownloadLink(detail.endpoint);
+          document.addEventListener("riotFetchRequest", async ({detail}) => {
+            const endpointPattern = /media\/.*\/download/;
+            if(!!detail.endpoint.match(endpointPattern)) {
+              let linkParentTile = detail.downloadLinkElement.closest(".mx_EventTile");
+              if (!linkParentTile) { // fetch automatically triggered on load
+                await new Promise((resolve, reject) => {
+                  // to get the event tile containing the download link, we have to wait for it to be rendered...
+                  const waitForTileInterval = setInterval(() => {
+                    linkParentTile =  detail.iframeWindow.document.querySelector("a[href='"+detail.endpoint+"']")?.closest(".mx_EventTile");
+                    if (!linkParentTile) {
+                        return;
+                    }
+                    clearInterval(waitForTileInterval);
+                    resolve();
+                  }, 250);
+                });
+              }
+
+              // we just get the header of the resource (not the whole of it) to know for sure if it's an image
+              const headersResponse = await fetch(detail.endpoint, { method: 'HEAD' });
+              const contentType = headersResponse.headers.get('content-type');
+              if (!contentType.startsWith('image/')) { // we don't need to prefetch images (worse: it would predownload them)
+                this.generateDownloadLink(detail.endpoint)
+              }
               // there are two download link elements we have to set
-              const downloadLinkHoverable = detail.downloadLinkElement.closest(".mx_EventTile").querySelector(".mx_MessageActionBar_downloadButton");
-              const downloadLinkElement = detail.downloadLinkElement.closest(".mx_EventTile").querySelector(".mx_MFileBody");
+              const downloadLinkHoverable = linkParentTile?.querySelector(".mx_MessageActionBar_downloadButton");
+              const downloadLinkElement = linkParentTile?.querySelector(".mx_MFileBody");
               [downloadLinkHoverable, downloadLinkElement].forEach((el) => {
-                el.addEventListener("click", e => {
+                el?.addEventListener("click", e => {
                   e.preventDefault();
                   this.generateDownloadLink(detail.endpoint);
                 });
@@ -428,8 +505,11 @@
             riotWindow.fetch = function() {
               const downloadLinkElement = iframeWindow.document.elementFromPoint(mousePosX, mousePosY);
               const result = fetch.apply(this, arguments);
+              if (typeof arguments[0] != "string") {
+                return result;
+              }
               riotWindow.parent.document.dispatchEvent(new CustomEvent("riotFetchRequest", {
-                detail: {endpoint: arguments[0], downloadLinkElement}
+                detail: {endpoint: arguments[0], downloadLinkElement, iframeWindow}
               }));
               return result;
             }
@@ -441,7 +521,7 @@
         $('#animateRiot').once('animated', function () {
           $(this).click(Gofast.Riot.onHandleClick);
         });
-        $(".gofastRiotReload").on("click", function(){
+        $(".gofastRiotReload:not('.processed')").addClass("processed").on("click", function(){
           Gofast.Riot.destroy(false);
           Gofast.Riot.isInit = false; // this will not unset the login token in local storage so sessions will remain synced after init
           Gofast.Riot.init();
@@ -458,6 +538,14 @@
         else {
           Gofast.Riot.collapse();
         }
+        if(Gofast._settings.isEssential){
+          if(Gofast.Riot.isExpanded){
+            $("#animateRiot > i.fa-chevron-left").removeClass("fa-chevron-left").addClass("fa-chevron-right")
+          } else {
+            $("#animateRiot > i.fa-chevron-right").removeClass("fa-chevron-right").addClass("fa-chevron-left")
+            
+          }
+        }
       },
       
       /*
@@ -467,6 +555,8 @@
         var w = Gofast.Riot.widthExpanded;
         $('#conteneurIframe').animate({width: w + 'px'});
         Gofast.Riot.isExpanded = true;
+        $("#IframeRiotBloc").contents().find('body').removeClass("gofast-side-content-collapsed");
+        $("#IframeRiotBloc").contents().find(".mx_UserMenu").css("pointer-events", "auto");
       },
       
       /*
@@ -476,11 +566,18 @@
         var w = Gofast.Riot.widthCollapsed;
         $('#conteneurIframe').animate({width: w + 'px'});
         Gofast.Riot.isExpanded = false;
+        $("#IframeRiotBloc").contents().find('body').addClass("gofast-side-content-collapsed");
+        $("#IframeRiotBloc").contents().find(".mx_UserMenu").css("pointer-events", "none");
       },
     };
   };
   
   $(document).ready(function(){
+    
+    // Don't load Element if on tablet of mobile devices
+    if(Gofast.isTablet() || Gofast.isMobile()){
+      return;
+    }
     //Initialize our Riot library
     Gofast.Riot = Gofast._riot();
     //Initialize Element

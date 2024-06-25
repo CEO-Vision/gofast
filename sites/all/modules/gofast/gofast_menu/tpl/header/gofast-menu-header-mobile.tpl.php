@@ -1,11 +1,11 @@
 <?php
 $detect = new Mobile_Detect();
-$is_mobile = ($detect->isMobile() || $detect->isTablet() || $detect->is('iPad'));
+$is_mobile = gofast_mobile_is_phone();
 ?>
 <div id="kt_header_mobile"
-     class="header-mobile align-items-center header-mobile-fixed">
+     class="header-mobile align-items-center header-mobile-fixed<?= (gofast_essential_is_essential() && !gofast_mobile_is_phone()) ? " d-none" : ""; ?>">
     <!--begin::Logo-->
-    <a href="/home_page_navigation#navBrowser">
+    <a id="gf-mobile-home-button" href="/home_page_navigation#navBrowser">
         <img alt="Logo" src="/sites/all/themes/bootstrap-keen/logo.png"
              class="h-30px">
     </a>

@@ -1,10 +1,11 @@
 <?php
+global $base_url;
 if (isset($node->field_person_in_charge[LANGUAGE_NONE][0]["target_id"]) && $node->field_person_in_charge[LANGUAGE_NONE][0]["target_id"] != 0) {
   $responsible = user_load($node->field_person_in_charge[LANGUAGE_NONE][0]["target_id"]);
-  $user_pic = '<img width="40" style="border-radius: 5px; vertical-align: middle;" typeof="foaf:Image" src="' . gofast_get_url_picture_by_id($responsible->picture->fid) . '" alt="' . t("@user's picture", array('@user' => format_username($user)), array('context' => 'gofast:gofast_user')) . '" title="' . t("@user's picture", array('@user' => format_username($responsible)), array('context' => 'gofast:gofast_user')) . '" />';
+  $user_pic = '<img width="40" style="padding-right: 5px; border-radius: 5px; vertical-align: middle;" typeof="foaf:Image" src="' . gofast_get_url_picture_by_id($responsible->picture->fid) . '" alt="' . t("@user's picture", array('@user' => format_username($user)), array('context' => 'gofast:gofast_user')) . '" title="' . t("@user's picture", array('@user' => format_username($responsible)), array('context' => 'gofast:gofast_user')) . '" />';
   $username = gofast_user_display_name($responsible);
 } else {
-  $user_pic = FALSE;
+  $user_pic = '<img width="40" style="padding-right: 5px; border-radius: 5px; vertical-align: middle;" typeof="foaf:Image" src="' . $base_url . '/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" alt="' . t("@user's picture", array('@user' => format_username($user)), array('context' => 'gofast:gofast_user')) . '" title="' . t("@user's picture", array('@user' => format_username($responsible)), array('context' => 'gofast:gofast_user')) . '" />';
   $username = t('None', array(), $l);
 }
 ?>
@@ -20,6 +21,11 @@ if (isset($node->field_person_in_charge[LANGUAGE_NONE][0]["target_id"]) && $node
               <tbody>
                 <tr>
                   <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                    <?= $node_icon_template ?>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
                     <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= t('Responsible', array(), $l) ?></div>
                   </td>
                 </tr>
@@ -30,7 +36,7 @@ if (isset($node->field_person_in_charge[LANGUAGE_NONE][0]["target_id"]) && $node
                         <tbody>
                           <tr>
                             <td>
-                              <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" style="padding-right: 5px;" width="40">
+                              <?= $user_pic ?>
                             </td>
                             <td><span style="font-size: 14px; font-weight: 400;">&nbsp;<?= $username ?> </td>
                           </tr>
@@ -39,6 +45,7 @@ if (isset($node->field_person_in_charge[LANGUAGE_NONE][0]["target_id"]) && $node
                     </div>
                   </td>
                 </tr>
+                <?php if (!empty($node->body[LANGUAGE_NONE][0]["value"])) : ?>
                 <tr>
                   <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
                     <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:1;text-align:left;color:#000000;">
@@ -46,6 +53,7 @@ if (isset($node->field_person_in_charge[LANGUAGE_NONE][0]["target_id"]) && $node
                     </div>
                   </td>
                 </tr>
+                <?php endif; ?>
               </tbody>
             </table>
           </div>
@@ -55,6 +63,7 @@ if (isset($node->field_person_in_charge[LANGUAGE_NONE][0]["target_id"]) && $node
     </tbody>
   </table>
 </div>
+<?php if (!empty($node->body[LANGUAGE_NONE][0]["value"])) : ?>
 <!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
 <div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
   <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;">
@@ -79,6 +88,7 @@ if (isset($node->field_person_in_charge[LANGUAGE_NONE][0]["target_id"]) && $node
     </tbody>
   </table>
 </div>
+<?php endif; ?>
 <?php if (isset($task)) : ?>
   <!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
   <div style="background:white;background-color:white;margin:0px auto;max-width:992px;">

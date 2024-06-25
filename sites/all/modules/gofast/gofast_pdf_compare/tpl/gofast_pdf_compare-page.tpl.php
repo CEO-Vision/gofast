@@ -3,10 +3,7 @@
         <div class="h3 mb-2"><?php print theme('gofast_node_icon_format', array('node' => node_load($nid_source), 'size' => 2)) . node_load($nid_source)->title ?></div>
         <span class="h3"><?php print t("Version comparator : Version", array(), array("context" => "gofast:gofast_pdf_compare")) . " " . $version_source . " " . t("to", array(), array("context" => "gofast:gofast_pdf_compare"))  . " " . $version_dest; ?></span>
     </div>
-    <div id="pdf_compare_content" class="card-body">
-        <div class="loader-comparator"></div>
-        <p style="text-align: center;font-size: 1.5em"><?php print t("Looking for differences...", array(), array("context" => "gofast:gofast_pdf_compare")); ?></p>
-    </div>
+    <?= theme("gofast_pdf_compare_loader") ?>
     <div class="card-footer">
         <button class="btn btn-default btn-sm pdf_version_back"><i class="fa fa-arrow-left"></i> <?php print t('Back to the document', array(), array('context' => 'gofast:gofast_pdf_compare')); ?></button>
     </div>

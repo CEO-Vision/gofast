@@ -2,8 +2,8 @@
     <div class="w-100 justify-content-between header-menu header-menu-layout-default " id="gf-topbar-menu">
         <ul class="menu-nav">
             <!--begin::Logo-->
-            <li class="menu-item menu-item-submenu">
-                <a href="/<?php if(!gofast_mobile_is_mobile_domain()){ variable_get('site_frontpage', 'activity'); }else{ echo 'home_page_navigation#navBrowser'; } ?>" class="brand-logo">
+            <li class="menu-item menu-item-submenu" id="gf-home-button">
+                <a href="/<?php if(!gofast_essential_is_essential()){ variable_get('site_frontpage', 'activity'); }else{ echo 'home_page_navigation#navBrowser'; } ?>" class="brand-logo">
                     <img alt="Logo" src="<?= theme_get_setting('logo') ?? '/sites/all/modules/gofast/img/logo_enterprise.png' ?>" class="h-30px" />
                 </a>
             </li>

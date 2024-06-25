@@ -153,7 +153,6 @@
 }
 
 #file_browser_full_tree_element{
-  width: calc(100% - 1rem); /* room for the scrollbar */
   margin-top: -5px;
   height: 441px;
   padding: 0px;
@@ -202,7 +201,20 @@
   background-color: rgb(245,245,245);
 }
 
-#file_browser_full_files > .gofast-node-actions{
+@media (min-width: 700px) and (min-height: 700px) {
+  #file_browser_full_upload{
+    height: 14rem;
+  }
+  #file_browser_full_upload_table {
+    height: 100%;
+  }
+  #file_browser_full_upload_label_container {
+    position: relative;
+    height: 10rem;
+  }
+}
+
+#gofastBrowserContentPanel > .gofast-node-actions, #gofast_file_browser_side_content > .gofast-node-actions{
   z-index: 99999;
 }
 
@@ -210,10 +222,7 @@ a[id^="file_browser_full_tree_element_"].curSelectedNode{
   opacity: 1 !important;
   border: solid 1px #abdaf2 !important;
   background-color: #edf9ff !important;
-}
 
-a[id^="file_browser_full_tree_element_"]{
-  color: #777 !important;
 }
 
 .file_browser_full_files_element.selected{
@@ -342,4 +351,97 @@ a[id^="file_browser_full_tree_element_"]{
 
 #file_browser_mobile_toolbar_refresh_group > button > i {
   font-size: 1rem;    
+}
+
+.tooltip-body{
+  border-top:1px solid #EBEDF3;
+  padding-top:.3rem;
+  margin-top:.3rem;
+  font-size:0.8rem;
+}
+
+
+#select2-fileBrowserSelect-results {
+  max-height: 300px;
+}
+
+.ztree .ztreeFa {
+  font-family: "Font Awesome 5 Pro" !important;
+  font-weight: 900 !important;
+  margin-right: 4px !important;
+  padding-left: 2px !important;
+}
+
+.ztree .ztreeFa.far {
+  font-weight: 400 !important;
+}
+
+.ztree li span.button.ztreeFa{
+  background-image: none;
+}
+.ztree li span.button.ztreeFa:not(.bookmark_collection_ico_docu){
+  height: 0px !important;
+}
+
+.ztreeFa.templates{
+  color:#F0685A !important;
+}
+
+.ztreeFa.wikis{
+  color:#20c997 !important;
+}
+
+
+.ztree li span.button.center_close::before, .ztree li span.button.bottom_close::before{
+  content: "\f054";
+}
+.ztree li span.button.center_open::before, .ztree li span.button.bottom_open::before{
+  content: "\f078";
+}
+
+.ztree li span.button.center_close, .ztree li span.button.bottom_close, .ztree li span.button.center_open, .ztree li span.button.bottom_open{
+  font-family: "Font Awesome 5 Pro" !important;
+  font-weight: 900 !important;
+  margin-right: 4px !important;
+  padding-left: 3.5px !important;
+  background-image: none !important;
+  padding-top: 10px;
+}
+
+.noContext{
+  pointer-events: none;
+  background-color: #bababa9c;
+}
+
+#wikiPageLayer > #kt_content, #wikiPageLayer .mainContent{
+  padding: 0px;
+}
+
+#compress_files > span.navi-icon > i{
+  color: #b5b5c3 !important;
+}
+
+.item-size, .item-date, .item-type{
+  font-family: 'Segoe UI';
+}
+
+.item-size{
+  text-align: right !important; 
+}
+
+.dropdownEssentialHistory {
+  z-index: 96;
+}
+
+@media screen and (max-width: 900px) and (max-height: 550px){
+  .gofastDropdown.dropdown>.dropdown-menu.dropleft {
+    left: auto;
+    position: fixed!important;
+    right: 284px;
+    overflow: hidden;
+    overflow-y: auto;
+    bottom: 2px;
+    max-height: 93%;
+    top: 4%!important;
+  }
 }

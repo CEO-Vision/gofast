@@ -107,6 +107,7 @@ function radioactivity_admin_general_form() {
 
     $host = variable_get('radioactivity_memcached_host', 'localhost');
     $port = variable_get('radioactivity_memcached_port', '11211');
+    $prefix = variable_get('radioactivity_memcached_prefix', '');
 
     $form['memcache']['radioactivity_memcached_host'] = array(
       '#type' => 'textfield',
@@ -126,8 +127,18 @@ function radioactivity_admin_general_form() {
       '#default_value' => $port,
     );
 
+    $form['memcache']['radioactivity_memcached_prefix'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Prefix'),
+      '#description' => t('Prefix for memcache (usually for multisite installations)'),
+      '#size' => 128,
+      '#required' => FALSE,
+      '#default_value' => $prefix,
+    );
+
     $settings .= "define('VAR_RADIOACTIVITY_MEMCACHED_HOST', '$host');" . PHP_EOL;
     $settings .= "define('VAR_RADIOACTIVITY_MEMCACHED_PORT', '$port');" . PHP_EOL;
+    $settings .= "define('VAR_RADIOACTIVITY_MEMCACHED_PREFIX', '$prefix');" . PHP_EOL;
   }
   else {
     $form['memcache']['#description'] = t('PHP memcache(d) extension is not enabled! Memcached storage type is not available.');
@@ -237,6 +248,7 @@ function radioactivity_admin_general_form_submit($form_id, $form_state) {
   if (class_exists('Memcache') || class_exists("Memcached")) {
     variable_set('radioactivity_memcached_host', $form_state['values']['radioactivity_memcached_host']);
     variable_set('radioactivity_memcached_port', $form_state['values']['radioactivity_memcached_port']);
+    variable_set('radioactivity_memcached_prefix', $form_state['values']['radioactivity_memcached_prefix']);
   }
 
   if (class_exists('Redis')) {

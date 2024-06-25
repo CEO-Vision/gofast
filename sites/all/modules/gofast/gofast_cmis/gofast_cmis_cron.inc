@@ -74,7 +74,7 @@ function gofast_cmis_send_alert_email($reason, $fail = FALSE, $nid = '', $nodere
 /*
  * Process an item to be synchronized in Drupal
  */
-function gofast_cmis_process_item($node_ref, $name, $person, $path, $gid, $author, $cron = FALSE){
+function gofast_cmis_process_item($node_ref, $name, $person, $path, $gid, $author, $aid = NULL, $cron = FALSE){
   usurp(user_load_by_name($person)->uid);
   $_POST['prevent_automatic_multifilling'] = true;
   if(!$cron){
@@ -102,31 +102,20 @@ function gofast_cmis_process_item($node_ref, $name, $person, $path, $gid, $autho
   foreach($parents->objectList as $parent){
     $path = $parent->properties["cmis:path"];
   }
+  $path = mb_convert_encoding($path , "UTF-8", mb_detect_encoding($path , "UTF-8, ISO-8859-1, ISO-8859-15", true));
   $gid = gofast_cmis_get_spaceid_by_webdav_folder($path, null);
   if($gid == NULL){
       //If we can't retrieve a gid, it probably means there is no such folder
-      gofast_cmis_write_log_info("Unable to find " . $path);
+      gofast_cmis_write_log_info("Unable to find " . $path . " for item " . $node_ref);
+      return;
   }
   if(!og_user_access("node", $gid, "create alfresco_item content")){
-      gofast_cmis_write_log_info("Forbidden write permission to " . $path);
+      gofast_cmis_write_log_info("Forbidden write permission to " . $path . " for item " . $node_ref);
   }
 
   //Check either the item is deleted
   $item_is_deleted = FALSE;
-  $url = "http://localhost:8080/alfresco/service/get/version/?reference=" . str_replace('workspace', 'archive', $node_ref);
-  $username = "admin";
-  $password = gofast_get_admin_pwd();
-
-  $ch = curl_init();
-  curl_setopt($ch, CURLOPT_HEADER, 0);
-  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-  curl_setopt($ch, CURLOPT_USERPWD, $username . ":" . $password);
-  curl_setopt($ch, CURLOPT_URL, $url);
-  $buffer = curl_exec($ch);
-
-  $buf = strip_tags($buffer);
-  $result = trim($buf);
-  $item_delete = json_decode($result);
+  $item_delete = gofast_cmis_is_deleted_from_alfresco($node_ref);
 
   if(isset($item_delete[0]->nodeRef)){ //Found a deleted node
     $item_is_deleted = TRUE;
@@ -162,14 +151,22 @@ function gofast_cmis_process_item($node_ref, $name, $person, $path, $gid, $autho
    * At this point, an alfresco item was found, contained in $item
    * ---------------------------------------------
    */
-  gofast_cmis_write_log_info("Item is deleted: " . var_export($item_is_deleted, TRUE), FALSE);
+  // GOFAST-8794: it may happen an operation below systematically fails and never returns (e. g. gofast_update_node_field)
+  // so to avoid having the item coming back endlessly to gofast_cmis_process_cron, we delete it upfront from the alfresco_replication table
+  if ($aid) { // if $aid is not set, it means this function has been called from alfresco_script.php rather than by a cron looking to the alfresco_replication table
+    db_delete('alfresco_replication')
+      ->condition('aid', $aid)
+      ->execute();
+    gofast_cmis_write_log_info("Item " . $node_ref . " is deleted: " . var_export($item_is_deleted, TRUE), FALSE);
+  }
+
 
   //We try to retrieve the node ID using the given reference
-  gofast_cmis_write_log_info("Trying to get corresponding Drupal node", FALSE);
+  gofast_cmis_write_log_info("Trying to get corresponding Drupal node for item " . $node_ref, FALSE);
   $nid = gofast_cmis_node_get_by_reference($node_ref);
 
   if($nid == null && $item_is_deleted == FALSE){//The node doesn't exist or is about to be created
-    gofast_cmis_write_log_info("Creating Drupal node", FALSE);
+    gofast_cmis_write_log_info("Creating Drupal node for item " . $node_ref, FALSE);
     gofast_cmis_process_item_create_node($item, $node_ref, $name, $person, $path, $gid, $author);
   }
   else if($nid == null && $item_is_deleted == TRUE){ //Node isn't created but Alfresco item is in the trash
@@ -179,15 +176,15 @@ function gofast_cmis_process_item($node_ref, $name, $person, $path, $gid, $autho
   else if($nid != null && is_object($item)){ //Node is created and item was found, we update/delete the node
     $node = node_load($nid);
     if( $node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value'] !== $node_ref){ //Node found but alfresco_reference mismatch, we create a new node
-      gofast_cmis_write_log_info("Creating Drupal node", FALSE);
+      gofast_cmis_write_log_info("Creating Drupal node for item " . $node_ref, FALSE);
       gofast_cmis_process_item_create_node($item, $node_ref, $name, $person, $path, $gid, $author);      
     }else{  //We update/delete the node
-      gofast_cmis_write_log_info("Updating Drupal node", FALSE);
+      gofast_cmis_write_log_info("Updating Drupal node for item " . $node_ref, FALSE);
       gofast_cmis_process_item_update_node($item, $nid, $person, $item_is_deleted);
     }
   }
   else if($nid != null && $item_is_deleted == TRUE){ //Node is created and item is deleted, we delete the node
-    gofast_cmis_write_log_info("Deleting Drupal node", FALSE);
+    gofast_cmis_write_log_info("Deleting Drupal node for item " . $node_ref, FALSE);
     gofast_cmis_process_item_update_node($item, $nid, $person, $item_is_deleted);
   }
   else{
@@ -233,7 +230,7 @@ function gofast_cmis_process_item_create_node($item, $node_ref, $name, $person, 
       // gofast_cmis_write_log_info("Creating node programmatically", FALSE);
       // $node = gofast_cmis_create_node_programmatically($node_ref, $person, $name, $status, $language, $private, $gid, $path, $author, $created, $main_emplacement);
    // } else {
-      gofast_cmis_write_log_info("Creating node programmatically", FALSE);
+      gofast_cmis_write_log_info("Creating node programmatically for item " . $node_ref, FALSE);
       $node = gofast_cmis_create_node_programmatically($node_ref, $person, $name, $status, $language, $private, $gid, $path, $author, $created);
     //}
 
@@ -262,7 +259,7 @@ function gofast_cmis_process_item_update_node($item, $nid, $person, $is_deleted)
 
   //If the item is deleted, replicate it to the Drupal node
   if($is_deleted){
-    gofast_cmis_write_log_info("Deleting Drupal node as Alfresco node is deleted", FALSE);
+    gofast_cmis_write_log_info("Deleting Drupal node " . $nid . " as Alfresco node is deleted", FALSE);
     $_GET['nid'] = $nid;
     cache_clear_all("field:node:$nid", 'cache_field');
     $node = node_load($nid, null, true);
@@ -278,19 +275,18 @@ function gofast_cmis_process_item_update_node($item, $nid, $person, $is_deleted)
      * ________Location/Space update________
      */
     //Retrieve all spaces of the alfresco node
-    $parents = gofast_cmis_item_get_parent($item_id, TRUE);
-    foreach($parents->objectList as $parent){
-      $paths[] = $parent->properties["cmis:path"];
-    }
+    $paths = gofast_cmis_webservice_get_node_parents($item_id);
+
     $field = GOFAST_CMIS_LOCATIONS_FIELD;
 
+    $paths_diff = [];
     //Format new paths as they are in node to compare them
     foreach($paths as $path){
       $paths_diff[]['value'] = $path;
     }
 
     if(!empty(gofast_array_diff_recursive($node->field_emplacement[LANGUAGE_NONE], $paths_diff, FALSE))){ //Need to update locations
-      gofast_cmis_write_log_info("Updating: locations", FALSE);
+      gofast_cmis_write_log_info("Updating: locations for item " . $item_id, FALSE);
       //Prepare and send the request to gofast_xeditable
       $_POST['pk'] = $nid;
       $_POST['name'] = $field;
@@ -300,9 +296,9 @@ function gofast_cmis_process_item_update_node($item, $nid, $person, $is_deleted)
         gofast_cmis_write_log_info("emplacement correspond to migration replication ".$item->properties['cmis:name'], FALSE);
         $_POST['technically_save'] = TRUE;
       }
-      gofast_cmis_write_log_info("About to update locations", FALSE);
+      gofast_cmis_write_log_info("About to update locations for item " . $item_id, FALSE);
       gofast_update_node_field();
-      gofast_cmis_write_log_info("Locations updated", FALSE);
+      gofast_cmis_write_log_info("Locations updated for item " . $item_id, FALSE);
       $document_update = FALSE;
     }
 
@@ -311,7 +307,7 @@ function gofast_cmis_process_item_update_node($item, $nid, $person, $is_deleted)
      */
     $field = "title";
     if($node->title !== $item->properties['cmis:name']){ //Need to update title
-      gofast_cmis_write_log_info("Updating: title", FALSE);
+      gofast_cmis_write_log_info("Updating: title for item " . $item_id, FALSE);
       //Prepare and send the request to gofast_xeditable
       $_POST['pk'] = $nid;
       $_POST['name'] = $field;
@@ -330,7 +326,7 @@ function gofast_cmis_process_item_update_node($item, $nid, $person, $is_deleted)
      */
      //We check if the version has changed
      if($item->properties['cmis:versionLabel'] != $node->field_current_version[LANGUAGE_NONE][0]['value']){
-       gofast_cmis_write_log_info("Updating: version", FALSE);
+       gofast_cmis_write_log_info("Updating: version for item " . $item_id, FALSE);
        $node = node_load($node->nid, NULL, TRUE);
        if(gofast_check_version_is_migration_update($node->field_current_version[LANGUAGE_NONE][0]['value']) || $outdated_event){
            gofast_cmis_write_log_info("version correspond to migration replication ".$item->properties['cmis:name'], FALSE);
@@ -399,6 +395,26 @@ function gofast_check_version_is_migration_update($old_version){
 }
 
 /*
+ * Specific cron for deletions, running in the same timespans as gofast_integrity
+ */
+function gofast_cmis_cleanup_cron() {
+  $in_time_range = gofast_integrity_check_date();
+
+  if(!$in_time_range){
+    return;
+  }
+
+  //Delete not converted previews
+  $list = glob('/var/www/d7/sites/default/files/oo_previews/notconverted*');
+  foreach($list as $filepath){
+    $timestamp = filemtime($filepath);
+    if (time() - $timestamp > 1800) { //don't delete if the file has less than 30mn
+    unlink($filepath);
+    }
+  }
+}
+
+/*
  * Process cron replication
  */
 function gofast_cmis_process_cron(){
@@ -450,7 +466,7 @@ function gofast_cmis_process_cron(){
               ->execute();
 
     gofast_cmis_write_log_info("CRON: Processing " . $item->noderef);
-    gofast_cmis_process_item($item->noderef, $item->name, $item->person, $item->path, $item->gid, $item->author, TRUE);
+    gofast_cmis_process_item($item->noderef, $item->name, $item->person, $item->path, $item->gid, $item->author, $item->aid, TRUE);
 
     //Delete item in database
     gofast_cmis_write_log_info("CRON: End of replication for " . $item->noderef);

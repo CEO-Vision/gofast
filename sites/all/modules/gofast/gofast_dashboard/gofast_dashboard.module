@@ -113,6 +113,14 @@ function gofast_dashboard_menu(){
     'type' => MENU_NORMAL_ITEM
   );
 
+  $items["gofast/dashboard/get_bookmark_block_content/%"] = array(
+    'page callback' => 'gofast_dashboard_get_bookmark_block_content',
+    'page arguments' => array(3),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
 
 
   return $items;
@@ -225,7 +233,7 @@ function gofast_dashboard_display(){
 
   //Fullscreen for Dashboard since there is no side content to display
   $container = theme('gofast_content_container_fluid', ['content' => $page]);
-  $subheader = (gofast_mobile_is_mobile_domain() != TRUE) ? theme('gofast_dashboard_dashboard_breadcrumb', array()) : "";
+  $subheader = (gofast_essential_is_essential() != TRUE) ? theme('gofast_dashboard_dashboard_breadcrumb', array()) : "";
 
   if ($_GET["is_ajax"] == "true") {
     print $container;
@@ -274,17 +282,19 @@ function gofast_dashboard_get_all_flags($type_filter = null) {
         }
     }
     
-    $string_empty = "You have not yet bookmarked any content. Click the 'Bookmark this' link when viewing a piece of content to add it to this list.";
+    $string_empty = "You don't have any favorite @type at the moment. Click on the 'Bookmark this' button in the action menu on any @type to add it to your favorites.";
     if(empty($res["content"])) {
-        $res["content"][] = array(
-          "link" => t($string_empty, array(), array('context' => 'gofast_dashboard')),
-          "title" => t($string_empty, array(), array('context' => 'gofast_dashboard'))
-        );
+      $res["content"][] = array(
+        "link" => t($string_empty, array("@type" => t("content")), array('context' => 'gofast_dashboard')),
+        "title" => t($string_empty, array("@type" => t("content")), array('context' => 'gofast_dashboard')),
+        "is_empty" => true
+      );
     }
     if(empty($res["space"])) {
-          $res["space"][] = array(
-          "link" => t($string_empty, array(), array('context' => 'gofast_dashboard')),
-          "title" => t($string_empty, array(), array('context' => 'gofast_dashboard'))
+      $res["space"][] = array(
+          "link" => t($string_empty, array("@type" => t("space")), array('context' => 'gofast_dashboard')),
+          "title" => t($string_empty, array("@type" => t("space")), array('context' => 'gofast_dashboard')),
+          "is_empty" => true
         );
     }
     usort($res["content"], function($a, $b) {
@@ -446,7 +456,7 @@ function gofast_dashboard_dashboard_add_shortcut($js){
     $commands = array();
     $commands[] = ctools_modal_command_dismiss();
     $all_flags = gofast_dashboard_get_all_flags();
-    $view_updated  = theme('gofast_dashboard_dashboard_favorites_spaces', ['content' => $all_flags['space'], 'type' => 'space']);
+    $view_updated  = theme('dashboard_block_favorites_spaces', ['content' => $all_flags['space'], 'type' => 'space']);
     $view_wrapped = '<div id="dashboard_block_favorites_spaces">' . $view_updated . '</div>';
 
     $commands[] = ajax_command_replace($selector, $view_wrapped);
@@ -523,8 +533,8 @@ function gofast_dashboard_dashboard_add_content($js){
 
     $all_flags = gofast_dashboard_get_all_flags();
     //Old view page1
-    $view_updated = theme('gofast_dashboard_dashboard_favorites_spaces', ['content' => $all_flags['content'], 'type' => 'content']);
-    $view_wrapped = '<div id="dashboard-favorite-contents">' . $view_updated . '</div>';
+    $view_updated = theme('dashboard_block_favorites_content', ['content' => $all_flags['content'], 'type' => 'content']);
+    $view_wrapped = '<div id="dashboard_block_favorites_content">' . $view_updated . '</div>';
 
     $commands[] = ajax_command_replace($selector, $view_wrapped);
     $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
@@ -606,29 +616,20 @@ function gofast_dashboard_add_folder_form($form, &$form_state, $node = NULL){
 /**
  */
 function gofast_dashboard_add_shortcut_form_submit($form, &$form_state){
-  global $user;
-
   $nids = $form_state['input']['spaces'];
 
-  $og_pinned = array();
-  foreach($nids as $nid){
-    $flag = flag_get_flag('bookmarks');
-    $flag->flag('flag', $nid, $user, TRUE);
-    $og_pinned[] = gofast_get_node_title($nid);
-  }
-
-  drupal_set_message(t('The following spaces have been added to your favorites: %spaces', array('%spaces' => implode(', ', $og_pinned)), array('context' => 'gofast_dashboard')));
-  $form_state['redirect'] = 'dashboard';
+  gofast_modal_flag_bookmark_collection(null, $nids, "bookmark_flag_tree");
 }
 
 function gofast_dashboard_add_folder_form_submit($form, &$form_state){
   $selected_folders = $form_state['input']['field_emplacement'];
 
+  $references = [];
   foreach($selected_folders as $path){
-      gofast_ajax_file_browser_bookmark_folder("/alfresco/webdav" . $path . "/");
+      $references[] = gofast_ajax_file_browser_get_reference_from_href($path);
   }
-
-  $form_state['redirect'] = 'dashboard';
+  $_GET["folder_reference"] = $references;
+  gofast_modal_flag_bookmark_collection(null, 0, "bookmark_folder_flag_tree");
 }
 
 function gofast_dashboard_add_space_content_form($form, &$form_state, $node = NULL){
@@ -667,26 +668,13 @@ function gofast_dashboard_add_space_content_form($form, &$form_state, $node = NU
 /**
  */
 function gofast_dashboard_add_content_form_submit($form, &$form_state){
-  global $user;
-  
   $documents = json_decode($form_state['input']['ac-list-tags-list-documents']);
+  $nids = [];
+  foreach ($documents as $document) {
+    $nids[] = $document->value;
+  }
   
-  foreach ($documents as $key => $document) {
-    $ogs[] = [
-      'nid' => $document->value,
-      'name' => $document->name
-    ];
-  }
-
-  $og_pinned = array();
-  foreach($ogs as $og){
-    $flag = flag_get_flag('bookmarks');
-    $flag->flag('flag', $og['nid'], $user, TRUE);
-    $og_pinned[] = $og['name'];
-  }
-
-  drupal_set_message(t('The following contents have been added to your favorites: %spaces', array('%spaces' => implode(', ', $og_pinned)), array('context' => 'gofast_dashboard')));
-  $form_state['redirect'] = 'dashboard';
+  gofast_modal_flag_bookmark_collection(null, $nids, "bookmark_flag_tree");
 }
 
 /**
@@ -771,7 +759,8 @@ function template_preprocess_dashboard_block_favorites_folders(&$variables){
 
          $final_path = array();
          $unencoded_path = $path;
-         if(gofast_mobile_is_mobile_domain()){
+         $detect = new Mobile_Detect();
+         if(gofast_mobile_is_phone()){
            $final_path["link"] = "<a href='" . $base_url . "/home_page_navigation?&path=" . $path . "#navBrowser'>" . $folder_name . "</a>";
            $final_path["unthemed_link"] = $base_url . "/home_page_navigation?&path=" . $path . "#navBrowser";
          }else{
@@ -817,7 +806,8 @@ function template_preprocess_dashboard_folder_placeholder(&$variables){
 
          $final_path = array();
          $unencoded_path = $path;
-         if(gofast_mobile_is_mobile_domain()){
+         $detect = new Mobile_Detect();
+         if(gofast_mobile_is_phone()){
            $final_path["link"] = "<a href='" . $base_url . "/home_page_navigation?&path=" . $path . "#navBrowser'>" . $folder_name . "</a>";
            $final_path["unthemed_link"] = $base_url . "/home_page_navigation?&path=" . $path . "#navBrowser";
          }else{
@@ -829,7 +819,7 @@ function template_preprocess_dashboard_folder_placeholder(&$variables){
          $final_path["path"] = $display_path;
          $array_folders[] = $final_path;
      }
-     $variables['browser_path'] = gofast_mobile_is_mobile_domain() ? '/home_page_navigation?&path=/Sites#navBrowser' : "/node/$private_space_nid#ogdocuments";
+     $variables['browser_path'] = gofast_mobile_is_phone() ? '/home_page_navigation?&path=/Sites#navBrowser' : "/node/$private_space_nid#ogdocuments";
      $variables['favorite_folders'] = $array_folders;
 }
 
@@ -846,7 +836,7 @@ function template_preprocess_gofast_dashboard_dashboard_main_orga(&$variables) {
 
   $terms = taxonomy_get_term_by_name('Web Page', 'format');
   $term = reset($terms);
-  $variables['og_calendar_link'] = gofast_mobile_is_mobile_domain() ? '/calendar_simplified' : '/node/'.$og->nid.'#ogcalendar';
+  $variables['og_calendar_link'] = gofast_essential_is_essential() ? '/calendar_simplified' : '/node/'.$og->nid.'#ogcalendar';
   
   $variables['article_search_url_params'] = 'f[0]=im_field_format:'.$term->tid.'&f[1]=sm_og_group_content_ref:node:'.$og->nid;
 }
@@ -1162,4 +1152,16 @@ function gofast_dashboard_views_api() {
     'api' => 3,
     'path' => drupal_get_path('module', 'gofast_dashboard'),
   );
+}
+
+function gofast_dashboard_get_bookmark_block_content($node_category) {
+  $all_flags = gofast_dashboard_get_all_flags();
+  if($node_category == "space"){
+    $block_content = theme('dashboard_block_favorites_spaces', ['content' => $all_flags[$node_category], 'type' => $node_category]);
+  } elseif($node_category == "content"){
+    $block_content = theme('dashboard_block_favorites_content', ['content' => $all_flags[$node_category], 'type' => $node_category]);
+  }
+  
+  print $block_content;
+  exit;
 }

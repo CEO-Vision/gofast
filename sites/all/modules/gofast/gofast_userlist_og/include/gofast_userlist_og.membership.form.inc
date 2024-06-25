@@ -14,7 +14,10 @@ function gofast_userlist_og_form_og_ui_add_users_alter(&$form, &$form_state, $fo
 
   $group = entity_load_single($group_type, $gid);
   $label = entity_label($group_type, $group);
-
+  $member_space = gofast_getUserMembersByNodeId($gid);
+  $member_infos = array_map(function($member) {
+    return array('etid' => $member->etid, 'entity_type' => $member->entity_type);
+  }, $member_space);
   $form['og_user']['#title'] = t('Add a group member or a userlist to %group', array('%group' => $label));
 
   $form['og_user']['member_entity_type'] = array(
@@ -25,12 +28,29 @@ function gofast_userlist_og_form_og_ui_add_users_alter(&$form, &$form_state, $fo
     '#type' => 'hidden'
   );
 
+  $space_type = gofast_get_node_type($gid, TRUE);
+  $extranet_users_form = true;
+  $spaces_config = variable_get("spaces_defaults");
+  if($space_type === 'group'){
+    if ($spaces_config['group_add_external_user'] == '0') {
+      drupal_set_message(t('Adding external users to groups is enabled !'));
+    }
+  }
+  if($space_type === 'organisation'){
+    if ($spaces_config['organization_add_external_user'] == '0') {
+      drupal_set_message(t('Adding external users to organizations is enabled !'));
+    }
+  }
+
   $attributes_name = [
     'class' => [' form-control-tags js-tagify'],
     //'data-enforce' => '', //  Comment : Do not allow putting data that dose not exist | Decomment : allow putting data that dose not exist
     'data-user' => '', // show ac users
     //'data-node' => '', // show ac node
     'data-userlist' => '', // show ac userlist
+    'data-space-type' => $space_type,
+    'extranet-users-form' => $extranet_users_form,
+    'data-exclude-current-members' => json_encode($member_infos),
     //'data-taxonomy_term' => '' // show ac taxonomy term
   ];
 
@@ -158,7 +178,21 @@ function gofast_userlist_og_form_og_ui_delete_membership($form, &$form_state, $g
     );
 
     $member = entity_load_single('userlist', $og_membership->etid);
+    $account = user_load($og_membership->etid);
+    
+    [$hasTasks, $name, $warning] = gofast_og_checkIfTasksInSpace($gid, 
+      $og_membership->entity_type, $account, 
+      $og_membership, $member->name);
 
+    if ($hasTasks) {
+      $form['warning'] = array(
+        '#type' => 'markup',
+        '#markup' => '<div class="alert alert-block alert-dismissible alert-warning messages warning d-flex align-items-center" role="alert">
+                      <div class="alert-icon"><i class="fa fa-exclamation-triangle pr-5" style="font-size:1.5em"></i></div>
+                      <div class="alert-text">' . $warning . '</div>
+                    </div>',
+      );
+    }
     $confirm_form = confirm_form($form,
         t('Remove membership in group @group', array('@group' => $label)),
         'group/' . $og_membership->group_type . '/' . $og_membership->gid . '/admin/people',

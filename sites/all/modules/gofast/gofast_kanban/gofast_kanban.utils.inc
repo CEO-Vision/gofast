@@ -65,14 +65,14 @@ function gofast_kanban_build($nid, $filter = NULL){
 /**
  * Get all column of the given kanban
  * @param type $kanban
- * @return type
+ * @return array
  */
 function gofast_kanban_get_columns($kanban) {
   $kanban_columns = array();
   foreach ($kanban->field_board_columns['und'] as $key => $tid) {
     $tid = $tid['tid'];
     $kanban_columns[$tid] = array(
-          'title' => i18n_taxonomy_localize_terms(taxonomy_term_load($tid))->name,
+          'title' => t(taxonomy_term_load($tid)->name, [], ["context" => "gofast:gofast:kanban"]),
           'id' => $tid,
           'order' => $key
         );
@@ -87,7 +87,7 @@ function gofast_kanban_get_columns($kanban) {
  * @param type $columns = array() Array of wanted columns
  * @param boolean $full if TRUE => return taks fully detailed, if FALSE => rerurn only task nid (default TRUE)
  * @param string $filter 
- * @return type
+ * @return array
  */
 function gofast_kanban_get_tasks($kanban, $columns = NULL, $full = TRUE, $filter = NULL ){
   $tasks = array();
@@ -113,7 +113,7 @@ function gofast_kanban_get_tasks($kanban, $columns = NULL, $full = TRUE, $filter
     $query->fieldOrderBy('field_column_index', 'value');
     $results = $query->execute();
     if(isset($results)){
-      $tasks_nids = array_keys($results['node']);
+      $tasks_nids = array_keys((array) $results['node']);
       if($full){
         $tasks_nodes = node_load_multiple($tasks_nids);
         foreach($tasks_nodes as $task){
@@ -128,6 +128,29 @@ function gofast_kanban_get_tasks($kanban, $columns = NULL, $full = TRUE, $filter
   return $tasks;
 }
 
+/**
+ * Return display info for the task status
+ * @param $task the task node
+ * @return array containing state, localized state and state indicator
+ */
+function gofast_kanban_get_task_status_decorator($task) {
+  $task_details = [];
+  $task_details["state"] = "";
+  $task_details["localized_state"] = "";
+  $task_details["localized_state_indicator"] = "primary";
+  if (!empty($task->field_state)) {
+    $task_status_term = taxonomy_term_load($task->field_state[LANGUAGE_NONE][0]['tid']);
+    $task_details["state"] = $task_status_term->name;
+    if ($task_details["state"] == "Done") {
+      $task_details["localized_state_indicator"] = "success";
+    }
+    if ($task_details["state"] == "To Do") {
+      $task_details["localized_state_indicator"] = "danger";
+    }
+    $task_details["localized_state"] = i18n_taxonomy_localize_terms($task_status_term)->name;
+  }
+  return $task_details;
+}
 
 /**
  * Return a class decorator for the deadline
@@ -180,12 +203,13 @@ function gofast_kanban_get_task_details($task) {
     $task_details['checklist_deadline_color_indicator'] = gofast_kanban_get_task_deadline_decorator($deadline_date_cklist, $task_status );
   }
 
-  $deadline_date = null;
+  //Display badge depending on state
+  $task_details = array_merge($task_details, gofast_kanban_get_task_status_decorator($task));
+
   if (!empty($task->field_date[LANGUAGE_NONE][0]['value'])) {
     $deadline_date = new DateTime($task->field_date[LANGUAGE_NONE][0]['value']);
-    $task_status = taxonomy_term_load($task->field_state[LANGUAGE_NONE][0]['tid'])->name;
     $task_details['deadline'] = format_date($deadline_date->getTimestamp(),  'short_without_hours');
-    $task_details['deadline_color_indicator']= gofast_kanban_get_task_deadline_decorator($deadline_date, $task_status );
+    $task_details['deadline_color_indicator']= gofast_kanban_get_task_deadline_decorator($deadline_date, $task_details["state"]);
   }
 
   //Get the closest deadline
@@ -212,18 +236,12 @@ function gofast_kanban_get_task_details($task) {
   
   //get first items of checklist
   $task_details['first_item_label'] = gofast_kanban_get_user_checklist_first_item($task->nid);
+  $task_details['count_assigned_items'] = gofast_kanban_get_user_checklist_count_item($task->nid);
   
   $task_details['attachments']= array();
   foreach ($task->field_target_link[LANGUAGE_NONE] as $key => $elt){
     $task_details['attachments'][] = $elt['target_id'];
   }
-
-
-//  $task_details['content-visibility'] = '';
-//  if($task->field_content_visibility[LANGUAGE_NONE][0]['value'] == 0){
-//    $task_details['content-visibility'] = "checked='checked'";
-//  }
-//  
   
   $task_details['person_in_charge'] = $task->field_person_in_charge[LANGUAGE_NONE][0]['target_id'];
   $task_details['members'] = array();
@@ -254,7 +272,7 @@ function gofast_kanban_get_user_checklist_first_item($task_nid, $user_uid = NULL
   }
   
   $first_item_obj = gofast_kanban_get_user_checklist_item_with_nearest_deadline($task_nid, $user_uid);
-  if(count ($first_item_obj) == 0){
+  if(is_array($first_item_obj) && count($first_item_obj) == 0){
      $first_item = t("You are the card's responsible", array(), array('gofast_kanban'));
   }else{
      $first_item = $first_item_obj->label;
@@ -265,6 +283,33 @@ function gofast_kanban_get_user_checklist_first_item($task_nid, $user_uid = NULL
   
   return $first_item;
   
+}
+
+function gofast_kanban_get_user_checklist_count_item($task_nid, $user_uid = NULL){
+  $items = array();
+  
+  global $user;
+  if(!isset($user_uid)){
+    $user_uid = $user->uid;
+  }
+  
+  //Get item with nearest deadline
+  $filters = array(
+      0 => array(
+          'name' => 'c.task_nid',
+          'value' => $task_nid,
+          'operator' => '='
+      ),
+      1 => array(
+          'name' => 'ci.status',
+          'value' => '0', //uncompleted
+          'operator' => '='
+      ),
+  );
+  
+  $count = gofast_kanban_get_user_checklistItems($user_uid, TRUE, $filters, TRUE);
+  
+  return $count;
 }
 
 /**
@@ -406,7 +451,7 @@ function gofast_kanban_format_checklist_event($event_details){
 
   $checklist_updates = array();
 
-  foreach (array_keys($event_details) as $key) {
+  foreach (array_keys((array) $event_details) as $key) {
     if (strpos($key, 'todolist') === 0) {
       $temp = explode('_', $key);
 
@@ -959,26 +1004,23 @@ function gofast_kanban_board_get_column_index($kanban_nid, $column_id){
  * @param type $uid
  * @param boolean $full if TRUE return also Checklist data
  * @param array() $filters e.g array( 0 => array('name' => <name> , 'value' => <value>,'operator' => <operator> ))
+ * @param boolean $count if TRUE make a faster query and just return the number of items
  * @return array() $items
  */
-function gofast_kanban_get_user_checklistItems($uid = false, $full = FALSE, $filters = array()){
-    global $user;
-    if($user->uid == 0){
-        return array();
-    }
+function gofast_kanban_get_user_checklistItems($uid = false, $full = FALSE, $filters = array(), $count = FALSE){
+  global $user;
+  if($user->uid == 0){
+    return array();
+  }
 
-  $timer_start = microtime(true);
-//watchdog('gofast_kanban', '%name() START : uid=[%uid] ', array('%name' => __FUNCTION__, '%uid' => $uid), WATCHDOG_DEBUG);
-  
   $items = array();
   
   $query = db_select('gofast_kanban_checklist_item', 'ci')
-     ->fields('ci', array('ciid', 'cid', 'label', 'deadline', 'uid', 'status'));
+    ->fields('ci', array('ciid', 'cid', 'label', 'deadline', 'uid', 'status'));
 
-  //Do not include tasks from Card  wiwth "Done" status
+  //Do not include tasks from Card  with "Done" status
   if($full){
     $query->leftJoin('gofast_kanban_checklist', 'c', 'ci.cid = c.cid');
-//    $query->leftJoin('field_data_field_state', 's', "s.entity_id = c.task_nid AND s.entity_type = 'node' ");
     $query->fields('c', array('task_nid', 'label'));
   }
      
@@ -995,14 +1037,16 @@ function gofast_kanban_get_user_checklistItems($uid = false, $full = FALSE, $fil
   
   $query->orderBy('deadline', 'ASC');
 
+  if ($count) {
+    $results = $query->countQuery()->execute()->fetchField();
+    return $results;
+  }
+
   $results = $query->execute()->fetchAll();
   if (count($results) > 0) {
-     $items = $results;
-  } 
-  
-  $timer_stop = microtime(true);
-//watchdog('gofast_kanban', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_DEBUG);
-  
+    $items = $results;
+  }
+
   return $items;
 }
 
@@ -1041,80 +1085,203 @@ function gofast_kanban_get_task_from_checklistItem($ciid, $full= FALSE){
 }
 
 /**
- * Return all tasks assigne to the given user
+ * Given a tasks object splitted by boards, get the formatted checklists progress matching those tasks
+ */
+function gofast_kanban_get_checklists_progress_by_board_tasks($board_tasks) {
+  $formatted_counts = [];
+  foreach ($board_tasks as $tasks) {
+    foreach ($tasks as $task) {
+      if (!$task["nb_items"]) {
+        continue;
+      }
+      $progress = $task["nb_items_completed"] / $task["nb_items"];
+      $formatted_counts["kanban-" . $task["nid"]] = $progress;;
+    }
+  }
+  return $formatted_counts;
+}
+
+/**
+ * Separate function to get the number of tasks (checklist items) assigned to the given user
+ * With a single query and without fetching the actual tasks for better performances
+ * @param int $uid
+ * @param boolean $with_progress If TRUE returns fields to track checklist progress
+ * @param array $tasks_nid If not empty will count only checklist items inside the tasks referenced by the given tasks ids
+ * @return int|array
+ */
+function gofast_kanban_get_user_tasks_count($uid, $with_progress = FALSE, $tasks_nid = []) {
+  $done_status = array_shift(taxonomy_get_term_by_name('Done', 'state'));
+
+  $query = db_select('gofast_kanban_checklist_item', 'ci');
+  $query->leftJoin('gofast_kanban_checklist', 'c', 'ci.cid = c.cid');
+  $query->fields('c', array('task_nid'));
+  $query->leftJoin('node', 'n', 'c.task_nid = n.nid');
+  $query->leftJoin('field_data_field_state', 'st', 'st.entity_id = n.nid');
+  if ($uid) {
+    $query->condition('ci.uid', $uid, '=');
+  }
+  if (!empty($tasks_nid)) {
+    $query->condition('c.task_nid', $tasks_nid, 'IN');
+  }
+  $query->condition('ci.status', 0, '='); // only get open checklist items
+  $query->condition('n.status', 1, '=');
+  $or = db_or();
+  $or->condition('st.field_state_tid', $done_status->tid, '<>');
+  $or->isNull('st.field_state_tid');
+  $query->condition($or);
+  $query->groupBy("c.task_nid");
+
+  if ($with_progress) {
+    $query->leftJoin('gofast_kanban_checklist_item', 'ci_total', 'c.cid = ci_total.cid'); // get the total amount of checklist items to compute the total checklist progress
+    $query->addExpression("COUNT (DISTINCT ci_total.ciid)", "checklist_items_count");
+    $query->addExpression("COUNT(DISTINCT CASE WHEN ci_total.status = 1 THEN ci_total.ciid END)", "checklist_done_items_count");
+    $results = $query->execute()->fetchAll();
+    return $results;
+  }
+  $count = $query->countQuery()->execute()->fetchField();
+  return $count;
+}
+
+/**
+ * Return all tasks assigned to the given user
  * @param type $uid
  * @param type $full
- * @return type
+ * @return array
  */
 function gofast_kanban_get_user_tasks($uid, $full = FALSE){
-    
-  $timer_start = microtime(true);
-//watchdog('gofast_kanban', '%name() START : uid=[%uid] ', array('%name' => __FUNCTION__, '%uid' => $uid), WATCHDOG_DEBUG);
-  
   $tasks = array();
   $tasks_nids = array();
   
   $done_status = array_shift(taxonomy_get_term_by_name('Done', 'state'));
-  
-  $query = new EntityFieldQuery();
-  $query->entityCondition('entity_type', 'node')
-      ->entityCondition('bundle', 'task')
-      ->propertyCondition('status', 1)
-      ->fieldCondition('field_person_in_charge', 'target_id', $uid)
-      ->fieldCondition('field_state', 'tid', $done_status->tid, '<>');
-    //  ->fieldCondition('field_members', 'target_id', array($uid) , 'IN');
-  $query->fieldOrderBy('field_date', 'value', 'ASC');
-  $results = $query->execute();
-  
-  if (isset($results)) {
-    $tasks_nids = array_keys($results['node']);
-  }
   
   // Retreive tasks for which the user is assigned to checklist item
   $filters = array(
     0 => array('name' => 'ci.status', 'value' => 0, 'operator' => '=')
   );
 
+  $checklist_for_user = gofast_kanban_get_user_checklistItems($uid, TRUE, $filters);
 
-  $checklist_for_user = gofast_kanban_get_user_checklistItems($uid, TRUE, $filters );
   if (!empty($checklist_for_user)) {
     
     foreach ($checklist_for_user as $item) {
       $tasks_nids[] = $item->task_nid;
     }
-
+    
     $query2 = new EntityFieldQuery();
     $query2->entityCondition('entity_type', 'node')
       ->entityCondition('bundle', 'task')
       ->propertyCondition('status', 1)
       ->propertyCondition('nid', $tasks_nids, 'IN');
     
-  // Removed due to EntityFieldQuery::fieldOrderby() limitation => https://www.drupal.org/project/drupal/issues/1662942
-  // $query2->fieldOrderBy('field_date', 'value', 'ASC');
-    
     $final_results = $query2->execute();
-  }else{
-    $final_results = $results;
   }
 
   if (!empty($tasks_nids)) {
 
-    $nids = array_keys($final_results['node']);
+    $nids = array_keys((array)$final_results['node']);
+    $tasks_nodes = node_load_multiple($nids);
+    
+    //remove task from cards with "Done" status
+    foreach($nids as $key=> $nid){
+      if($tasks_nodes[$nid]->field_state[LANGUAGE_NONE][0]['tid'] == $done_status->tid){
+        unset($tasks_nodes[$nid]);
+        unset($nids[$key]);
+      }
+    }
     
     if($full == FALSE){
       return $nids;
     }
-    
-    $tasks_nodes = node_load_multiple($nids);
 
     foreach ($tasks_nodes as $task) {
-      $tasks[] = gofast_kanban_get_task_details($task);
+      $task_details = gofast_kanban_get_task_details($task);
+      
+      if($task_details['count_assigned_items'] > 1){ //If we have multiple tasks to do, change label to count tasks
+        $task_details['first_item_label'] = $task_details['count_assigned_items'] . " " . t('ToDo tasks assigned', [], ['context' => "gofast:gofast_kanban"]);
+      }
+      
+      $tasks[] = $task_details;
+    }
+  }
+  
+  return $tasks;
+}
+
+/**
+ * Return all tasks assigne to the given user
+ * @param type $uid
+ * @param type $full
+ * @return type
+ */
+function gofast_kanban_get_other_tasks($uid, $full = FALSE){
+  $tasks = array();
+  $tasks_nids = array();
+  
+  $tasks_nids_in_charge = [];
+  $tasks_nids_members = [];
+  
+  $done_status = array_shift(taxonomy_get_term_by_name('Done', 'state'));
+  
+  //Retrieve tasks I'm in charge
+  $query_in_charge = db_select('node', 'n');
+  $query_in_charge->fields('n', ['nid', 'type'])
+      ->condition('fpic.field_person_in_charge_target_id', $uid)
+      ->condition('fs.field_state_tid', $done_status->tid, '<>')
+      ->condition('n.status', 1);
+  $query_in_charge->addJoin('INNER', 'field_data_field_person_in_charge', 'fpic', 'n.nid=fpic.entity_id');
+  $query_in_charge->addJoin('INNER', 'field_data_field_state', 'fs', 'n.nid=fs.entity_id');
+  $results_in_charge = $query_in_charge->execute()->fetchAllAssoc('nid');
+  
+  if (isset($results_in_charge)) {
+    $tasks_nids_in_charge = array_keys($results_in_charge);
+  }
+  
+  //Retrieve tasks I'm member of
+  $query_members = db_select('node', 'n');
+  $query_members->fields('n', ['nid', 'type'])
+      ->condition('fpic.field_members_target_id', $uid)
+      ->condition('fs.field_state_tid', $done_status->tid, '<>')
+      ->condition('n.status', 1);
+  $query_members->addJoin('INNER', 'field_data_field_members', 'fpic', 'n.nid=fpic.entity_id');
+  $query_members->addJoin('INNER', 'field_data_field_state', 'fs', 'n.nid=fs.entity_id');
+  $results_members = $query_members->execute()->fetchAllAssoc('nid');
+  
+  if (isset($results_members)) {
+    $tasks_nids_members = array_keys($results_members);
+  }
+  
+  $tasks_nids = array_merge($tasks_nids_in_charge, $tasks_nids_members);
+
+  if (!empty($tasks_nids)) {
+
+    $nids = $tasks_nids;
+    $tasks_nodes = node_load_multiple($nids);
+    
+    //remove task from cards with "Done" status
+    foreach($nids as $key=> $nid){
+      if($tasks_nodes[$nid]->field_state[LANGUAGE_NONE][0]['tid'] == $done_status->tid){
+        unset($tasks_nodes[$nid]);
+        unset($nids[$key]);
+      }
+    }
+    
+    if($full == FALSE){
+      return $nids;
+    }
+
+    foreach ($tasks_nodes as $task) {
+      $task_details = gofast_kanban_get_task_details($task);
+      
+      if(in_array($task_details['nid'], $tasks_nids_in_charge)){
+        $task_details['first_item_label'] = t("You are the card's responsible", array(), array('gofast:gofast_kanban'));
+      }else{
+        $task_details['first_item_label'] = t("You are a member of this card", array(), array('gofast:gofast_kanban'));
+      }
+      
+      $tasks[] = $task_details;
     }
   }
 
-  $timer_stop = microtime(true);
-//watchdog('gofast_kanban', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_DEBUG);
-  
   return $tasks;
 }
 
@@ -1122,7 +1289,7 @@ function gofast_kanban_get_user_tasks($uid, $full = FALSE){
 /**
  * Return nbtask per columns
  * @param type $kanban_nid
- * @return type
+ * @return array
  */
 function gofast_kanban_count_tasks_per_column($kanban_nid) {
 
@@ -1135,39 +1302,3 @@ function gofast_kanban_count_tasks_per_column($kanban_nid) {
   }
   return $tasks;
 }
-
-/*
-function gofast_kanban_get_looper_css(){
-    
-  $css = array();
-  $css[] = drupal_get_path('module', 'gofast_kanban') . LOOPER_THEME_DIR_CSS . 'theme.css';
-  $css[] = drupal_get_path('module', 'gofast') . '/css/font-awesome.css';
-  $css[] = drupal_get_path('module', 'gofast_kanban') . LOOPER_THEME_DIR_VENDOR . 'open-iconic/css/open-iconic-bootstrap.min.css';
-  $css[] = drupal_get_path('module', 'gofast_kanban') . LOOPER_THEME_DIR_VENDOR . 'tributejs/tribute.css';
-  $css[] = drupal_get_path('module', 'gofast_kanban') . LOOPER_THEME_DIR_VENDOR . 'simplemde/simplemde.min.css';
-  $css[] = drupal_get_path('module', 'gofast_kanban') . LOOPER_THEME_DIR_VENDOR . 'flatpickr/flatpickr.min.css';
-  
-  return $css;
-}
-
-
-function gofast_kanban_get_looper_js(){
-  
-  $js = array();
-  
-  $js[] = drupal_get_path('module', 'gofast_kanban') . LOOPER_THEME_DIR_VENDOR . 'jquery/jquery.min.js';
-  $js[] = drupal_get_path('module', 'gofast_kanban') . LOOPER_THEME_DIR_VENDOR . 'bootstrap/js/popper.min.js';
-  $js[] = drupal_get_path('module', 'gofast_kanban') . LOOPER_THEME_DIR_VENDOR . 'bootstrap/js/bootstrap.min.js';
-  $js[] = drupal_get_path('module', 'gofast_kanban') . LOOPER_THEME_DIR_VENDOR . 'stacked-menu/stacked-menu.min.js';
-  $js[] = drupal_get_path('module', 'gofast_kanban') . LOOPER_THEME_DIR_VENDOR . 'pace/pace.min.js';
-  $js[] = drupal_get_path('module', 'gofast_kanban') . LOOPER_THEME_DIR_VENDOR . 'perfect-scrollbar/perfect-scrollbar.min.js';
-  $js[] = drupal_get_path('module', 'gofast_kanban') . LOOPER_THEME_DIR_VENDOR . 'sortablejs/Sortable.js';
-  $js[] = drupal_get_path('module', 'gofast_kanban') . LOOPER_THEME_DIR_VENDOR . 'tributejs/tribute.min.js';
-  $js[] = drupal_get_path('module', 'gofast_kanban') . LOOPER_THEME_DIR_VENDOR . 'simplemde/simplemde.min.js';
-  $js[] = drupal_get_path('module', 'gofast_kanban') . LOOPER_THEME_DIR_VENDOR . 'flatpickr/flatpickr.min.js';
-
-  $js[] = drupal_get_path('module', 'gofast_kanban') . LOOPER_THEME_DIR_JS . 'theme.min.js';
-  
-  return $js;
-}
-*/

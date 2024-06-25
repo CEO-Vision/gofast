@@ -17,3 +17,5 @@ files[] = ldap_test.module
 files[] = LdapServerTest.class.php
 files[] = LdapTestFunctions.class.php
 files[] = LdapUserTestCase.class.php
+
+test_dependencies[] = og:og

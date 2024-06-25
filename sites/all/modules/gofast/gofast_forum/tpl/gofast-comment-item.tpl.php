@@ -6,9 +6,23 @@ if ($item['is_private']) {
 }
 ?>
 
+<?php
+    if (!empty($item['text'])) {
+      $doc = new DOMDocument();
+      $item['text'] = mb_convert_encoding($item['text'], 'HTML-ENTITIES', "UTF-8"); 
+      $doc->loadHTML($item['text']);   
+      $images = $doc->getElementsByTagName('img');
+      foreach ($images as $image) {
+        if (str_contains($image->getAttribute('src'), '/ckeditor/plugins/smiley/images/')) {
+          $image->setAttribute('class', trim($image->getAttribute('class') . ' ckeditor-emoji'));
+        }
+      }
+      $item['text'] = $doc->saveHTML();
+    }
+?>
 <div class="timeline-item pl-8" id="<?php echo "comment-". $item['comment_id'] ?>">
     <div class="timeline-media border-0">
-        <?php print theme('user_picture', array('account' => user_load($item['creator_id']),'popup' => TRUE, 'dimensions' => 40)); ?>
+        <?php print theme('user_picture', array('account' => user_load($item['creator_id']),'popup' => TRUE, 'dimensions' => 40, 'style' => 'thumbnail')); ?>
     </div>
     <div class="timeline-label d-flex justify-content-between align-items-center px-0">
         <span class="text-muted "><?= format_date(strtotime(($item['edited_date'] != $item['creation_date']) ? $item['edited_date'] : $item['creation_date'] ), "medium") ?></span>

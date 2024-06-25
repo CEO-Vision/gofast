@@ -7,7 +7,8 @@
 ], $user->roles); ?>
 
 <div class="card card-custom card-stretch p-2">
-    <!--begin::Header-->
+    <?php if (!gofast_mobile_is_phone()): ?>
+        <!--begin::Header-->
     <div class="card-header border-0 py-0 px-5 min-h-auto">
         <div class="card-toolbar w-100 d-flex justify-content-center">
           <?php if ($user_is_admin) : ?>
@@ -16,20 +17,23 @@
         </div>
     </div>
     <!--end::Header-->
+    <?php endif; ?>
 
     <!--begin::Body-->
     <div id="activity-feed-container" class="card-body pt-0 pb-4 px-4 h-100  position-relative " >
 
     <?php } ?>
-        <div id="activity-feed" class="table-responsive GofastActivityFeed">
+        <div id="activity-feed" class="GofastActivityFeed">
             <div class="GofastActivityFeed__table">
-                <table id="activity-feed-table" class="table table-vertical-center table-head-custom ">
+                <table id="activity-feed-table" class="table table-vertical-center table-head-custom " data-ismobile=<?= $is_mobile?>>
                     <tbody>
+                    <?php if (!$is_mobile) { ?>
                     <tr>
                         <th></th>
                         <th><?php echo t('Title', array(), array('context' => 'gofast')); ?></th>
                         <th><?php echo t('Spaces', array(), array('context' => 'gofast')); ?></th>
                     </tr>
+                    <?php } ?>
                     <?php echo $table_content; ?>
                     </tbody>
                 </table>
@@ -54,7 +58,7 @@
 
 
 
-<?php if(gofast_mobile_is_mobile_domain()){ ?>
+<?php if(gofast_essential_is_essential()){ ?>
 <style>
     @media (min-width: 768px){
         .col-sm-9 {

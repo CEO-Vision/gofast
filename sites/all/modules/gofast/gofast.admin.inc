@@ -169,18 +169,17 @@ function gofast_admin_settings() {
         '#attributes' => array('class' => array('edit-signature')),
       );
   }
-
-   //DUA
-    if (!module_exists('gofast_community')){
-        $form['retention'] = array(
-        '#title' => t('Document Retention', array(), array('context' => 'gofast:gofast_retention')),
-        '#type' => 'fieldset',
-        '#collapsible' => FALSE,
-        '#collapsed' => FALSE,
-        '#group' => 'vt',
-        '#attributes' => array('class' => array('edit-retention')),
-      );
-    }
+  
+  if(module_exists('gofast_digitalsign')) {
+    $form['signature_digitalsign'] = array(
+      '#title' => t('Signature Digitalsign', array(), array('context' => 'gofast:gofast_signature')),
+      '#type' => 'fieldset',
+      '#collapsible' => FALSE,
+      '#collapsed' => FALSE,
+      '#group' => 'vt',
+      '#attributes' => array('class' => array('edit-signature-digitalsign')),
+    );
+  }
 
   if (module_exists('gofast_community')){
         $form['update'] = array(
@@ -192,6 +191,7 @@ function gofast_admin_settings() {
         '#attributes' => array('class' => array('edit-update')),
       );
   }
+
   if(module_exists('gofast_pastell')){
       $form['pastelll'] = array(
         '#title' => t('GoFAST Pastell'),
@@ -202,7 +202,7 @@ function gofast_admin_settings() {
         '#attributes' => array('class' => array('edit-pastell')),
         );
   }
-  
+
   if(module_exists('gofast_esup')){
       $form['esup'] = array(
         '#title' => t('GoFAST ESUP'),
@@ -230,7 +230,7 @@ function gofast_admin_settings_tabs() {
        if ($router_item['access']) {
             $gofastAdminTabs['general'] = array(
                 'title' => t('General', array(), array('context' => 'gofast')),
-                'attributes' => array('class' => 'edit-general'),
+                'attributes' => array('class' => 'edit-general', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
                 'icon' => 'flaticon-settings'
             );
         }
@@ -241,7 +241,7 @@ function gofast_admin_settings_tabs() {
         if ($router_item['access']) {
           $gofastAdminTabs['smtp'] = array(
               'title' => t('SMTP Server', array(), array('context' => 'gofast')),
-              'attributes' => array('class' => 'edit-smtp'),
+              'attributes' => array('class' => 'edit-smtp', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
               'icon' => 'flaticon-mail'
           );
         }
@@ -252,7 +252,7 @@ function gofast_admin_settings_tabs() {
         if ($router_item['access']) {
             $gofastAdminTabs['rssfeeds'] = array(
                 'title' => t('RSS Feeds', array(), array('context' => 'gofast')),
-                'attributes' => array('class' => 'edit-rssfeed'),
+                'attributes' => array('class' => 'edit-rssfeed', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
                 'icon' => 'flaticon-feed'
             );
         }
@@ -263,7 +263,7 @@ function gofast_admin_settings_tabs() {
         if ($router_item['access']) {
             $gofastAdminTabs['ldap'] = array(
                 'title' => t('LDAP / AD Server', array(), array('context' => 'gofast')),
-                'attributes' => array('class' => 'edit-ldap'),
+                'attributes' => array('class' => 'edit-ldap', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
                 'icon' => 'flaticon-folder-1'
             );
         }
@@ -274,7 +274,7 @@ function gofast_admin_settings_tabs() {
         if ($router_item['access']) {
             $gofastAdminTabs['users'] = array(
                 'title' => t('Users', array(), array('context' => 'gofast')),
-                'attributes' => array('class' => 'edit-users'),
+                'attributes' => array('class' => 'edit-users', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
                 'icon' => 'flaticon-users'
             );
         }
@@ -285,20 +285,30 @@ function gofast_admin_settings_tabs() {
         if ($router_item['access']) {
             $gofastAdminTabs['documents'] = array(
                 'title' => t('Documents', array(), array('context' => 'gofast')),
-                'attributes' => array('class' => 'edit-documents'),
+                'attributes' => array('class' => 'edit-documents', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
                 'icon' => 'flaticon2-document'
             );
         }
     }
-
 
     $sub_path = $tab_path . "/edit-spaces";
     if ($router_item = menu_get_item($sub_path)) {
         if ($router_item['access']) {
             $gofastAdminTabs['spaces'] = array(
                 'title' => t('Spaces', array(), array('context' => 'gofast')),
-                'attributes' => array('class' => 'edit-spaces'),
+                'attributes' => array('class' => 'edit-spaces', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
                 'icon' => 'flaticon2-group'
+            );
+        }
+    }
+
+    $sub_path = $tab_path . "/edit-tags";
+    if ($router_item = menu_get_item($sub_path)) {
+        if ($router_item['access']) {
+            $gofastAdminTabs['tags'] = array(
+                'title' => t('Tags', array(), array('context' => 'gofast')),
+                'attributes' => array('class' => 'edit-tags', 'data-form-id' => 'gofastTagsTable'),
+                'icon' => 'fas fa-tags'
             );
         }
     }
@@ -308,7 +318,7 @@ function gofast_admin_settings_tabs() {
         if ($router_item['access']) {
             $gofastAdminTabs['sso'] = array(
                 'title' => t('SSO', array(), array('context' => 'gofast')),
-                'attributes' => array('class' => 'edit-sso'),
+                'attributes' => array('class' => 'edit-sso', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
                 'icon' => 'flaticon2-user-outline-symbol'
             );
         }
@@ -319,7 +329,7 @@ function gofast_admin_settings_tabs() {
         if ($router_item['access']) {
             $gofastAdminTabs['visibility'] = array(
                 'title' => t('Visibility', array(), array('context' => 'gofast')),
-                'attributes' => array('class' => 'edit-visibility'),
+                'attributes' => array('class' => 'edit-visibility', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
                 'icon' => 'flaticon-visible'
             );
         }
@@ -330,7 +340,7 @@ function gofast_admin_settings_tabs() {
         if ($router_item['access']) {
             $gofastAdminTabs['indexing'] = array(
                 'title' => t('Search Index', array(), array('context' => 'gofast')),
-                'attributes' => array('class' => 'edit-indexing'),
+                'attributes' => array('class' => 'edit-indexing', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
                 'icon' => 'flaticon-search'
             );
         }
@@ -341,28 +351,22 @@ function gofast_admin_settings_tabs() {
         if ($router_item['access']) {
             $gofastAdminTabs['integrity'] = array(
                 'title' => t('Integrity', array(), array('context' => 'gofast:gofast_integrity')),
-                'attributes' => array('class' => 'edit-integrity'),
+                'attributes' => array('class' => 'edit-integrity', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
                 'icon' => 'flaticon2-graph-2'
             );
         }
     }
 
-    /*
-$gofastAdminTabs['onlyoffice'] = array(
-  'title' => t('OnlyOffice parameters', array(), array('context' => 'gofast')),
-);
- */
-
-    // $sub_path = $tab_path . "/edit-categories";
-    // if ($router_item = menu_get_item($sub_path)) {
-    //     if ($router_item['access']) {
-    //         $gofastAdminTabs['categories'] = array(
-    //             'title' => t('Categories', array(), array('context' => 'gofast')),
-    //             'attributes' => array('class' => 'edit-categories'),
-    //             'icon' => 'flaticon2-setup'
-    //         );
-    //     }
-    // }
+    $sub_path = $tab_path . "/edit-categories";
+    if ($router_item = menu_get_item($sub_path)) {
+        if ($router_item['access']) {
+          $gofastAdminTabs['categories'] = array(
+                'title' => t('Categories', array(), array('context' => 'gofast')),
+                'attributes' => array('class' => 'edit-categories', 'data-form-id' => 'gofast-admin-categories-settings-form'),
+                'icon' => 'flaticon2-setup'
+            );
+        }
+    }
 
     if (module_exists('gofast_signature')) {
         $sub_path = $tab_path . "/edit-signature";
@@ -370,24 +374,24 @@ $gofastAdminTabs['onlyoffice'] = array(
             if ($router_item['access']) {
                 $gofastAdminTabs['signature'] = array(
                     'title' => t('Signature', array(), array('context' => 'gofast:gofast_signature')),
-                    'attributes' => array('class' => 'edit-signature'),
+                    'attributes' => array('class' => 'edit-signature', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
+                    'icon' => 'fas fa-file-signature'
                 );
             }
         }
     }
 
-    //DUA
-    if (!module_exists('gofast_community')) {
-        $sub_path = $tab_path . "/edit-retention";
-        if ($router_item = menu_get_item($sub_path)) {
-            if ($router_item['access']) {
-                $gofastAdminTabs['retention'] = array(
-                    'title' => t('Document Retention', array(), array('context' => 'gofast:gofast_retention')),
-                    'attributes' => array('class' => 'edit-retention'),
-                    'icon' => 'flaticon-calendar-with-a-clock-time-tools'
-                );
-            }
-        }
+    if (module_exists('gofast_digitalsign')) {
+      $sub_path = $tab_path . "/edit-signature-digitalsign";
+      if ($router_item = menu_get_item($sub_path)) {
+          if ($router_item['access']) {
+              $gofastAdminTabs['signature_digitalsign'] = array(
+                  'title' => t('Signature Digitalsign', array(), array('context' => 'gofast:gofast_signature')),
+                  'attributes' => array('class' => 'edit-signature-digitalsign', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
+                  'icon' => 'fas fa-file-signature'
+              );
+          }
+      }
     }
 
     $sub_path = $tab_path . "/edit-custom-link";
@@ -395,11 +399,24 @@ $gofastAdminTabs['onlyoffice'] = array(
         if ($router_item['access']) {
             $gofastAdminTabs['custom_link'] = array(
                 'title' => t('Custom Link', array(), array('context' => 'gofast:gofast_menu')),
-                'attributes' => array('class' => 'edit-custom-link'),
+                'attributes' => array('class' => 'edit-custom-link', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
                 'icon' => 'fas fa-archway'
             );
         }
     }
+    
+   if(module_exists('gofast_webhook')) {
+     $sub_path = $tab_path . "/edit-webhook";
+     if ($router_item = menu_get_item($sub_path)) {
+       if ($router_item['access']) {
+         $gofastAdminTabs['webhook'] = [
+           'title' => t('Gofast Webhook', [], ['context' => 'gofast:gofast_webhook']),
+           'attributes' => ['class' => 'edit-webhook', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])],
+           'icon' => 'fas fa-level-up',
+         ];
+       }
+     }
+   }
 
     if (module_exists('gofast_community')) {
         $sub_path = $tab_path . "/edit-update";
@@ -407,7 +424,7 @@ $gofastAdminTabs['onlyoffice'] = array(
             if ($router_item['access']) {
                 $gofastAdminTabs['update'] = array(
                     'title' => t('Update'),
-                    'attributes' => array('class' => 'edit-update'),
+                    'attributes' => array('class' => 'edit-update', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
                 );
             }
         }
@@ -419,7 +436,7 @@ $gofastAdminTabs['onlyoffice'] = array(
             if ($router_item['access']) {
                 $gofastAdminTabs['pastelll'] = array(
                     'title' => t('GoFAST Pastell'),
-                    'attributes' => array('class' => 'edit-pastell'),
+                    'attributes' => array('class' => 'edit-pastell', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
                 );
             }
         }
@@ -437,6 +454,20 @@ $gofastAdminTabs['onlyoffice'] = array(
             }
         }
     }
+
+  if (module_exists('gofast_bluemind')) {
+    $sub_path = $tab_path . "/edit-bluemind";
+    if ($router_item = menu_get_item($sub_path)) {
+      if ($router_item['access']) {
+        $gofastAdminTabs['gofast_bluemind'] = array(
+          'title' => t('GoFAST BlueMind'),
+          'attributes' => array('class' => 'edit-bluemind', 'data-form-id' => str_replace('_', '-',$router_item['page_arguments'][0])),
+          'icon' => 'fas fa-calendar'
+        );
+      }
+    }
+  }
+    
     return $gofastAdminTabs;
 }
 
@@ -548,10 +579,9 @@ function gofast_admin_menu(){
 
   $items['admin/config/gofast/global/getform/edit-categories'] = array(
     'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('gofast_admin_category_settings_form'),
+    'page callback' => array('gofast_admin_categories_settings_page'),
     'access arguments' => array('administer categories configuration'),
-    'delivery callback' => 'gofast_admin_deliver_page',
+    'delivery callback' => 'gofast_admin_deliver_html',
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
   );
@@ -611,13 +641,178 @@ function gofast_admin_menu(){
     'type' => MENU_NORMAL_ITEM,
     'file' => 'gofast.admin.inc'
   );
+  $items['admin/config/gofast/global/getform/edit-signature-digitalsign'] = array(
+    'title' => t('Gofast Configuration', array(), array('context' => 'gofast:gofast_signature')),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gofast_admin_signature_digitalsign_settings_form'),
+    'access arguments' => array('administer signature configuration'),
+    'delivery callback' => 'gofast_admin_deliver_page',
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'gofast.admin.inc'
+  );
+  $items['admin/config/gofast/global/getform/edit-tags'] = array(
+    'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_admin_tags_settings_page',
+    'access arguments' => array('administer tags configuration'),
+    'delivery callback' => 'gofast_admin_deliver_html',
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'gofast.admin.inc'
+  );
+  //link for the webhook
+  $items['admin/config/gofast/global/getform/edit-webhook'] = array(
+    'title' => t('Gofast Configuration', [], ['context' => 'gofast:gofast_webhook']),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['gofast_webhook_settings_form'],
+    'access arguments' => ['administer gofast webhook'],
+    'delivery callback' => 'gofast_admin_deliver_page',
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'gofast.admin.inc',
+  );
+  $items['admin/action/apply_retention'] = array(
+    'title' => t('Gofast Configuration', array(), array('context' => 'gofast')),
+    'page callback' => array('gofast_admin_action_set_retention_rules'),
+    'access arguments' => array('administer categories configuration'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'gofast.admin.inc'
+  );
 
+  $items['admin/config/gofast/global/getform/edit-bluemind'] = array(
+    'title' => t('Gofast Configuration', [], ['context' => 'gofast:gofast_bluemind']),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['gofast_bluemind_admin_settings_form'],
+    'delivery callback' => 'gofast_admin_deliver_page',
+    'access arguments' => array('administer users configuration'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'gofast.admin.inc',
+  );
+  
   return $items;
 }
 
+function gofast_admin_tags_settings_page() {
+  $columns = [];
+
+  $columns['links'] = t('links', [], ['context' => 'gofast:gofast']);
+  $columns['name'] = t('Tag name', [], ['context' => 'gofast:gofast']);
+  $columns['docs'] = t('Number of documents', [], ['context' => 'gofast:gofast']);
+  $columns['actions'] = t('Actions', [], ['context' => 'gofast:gofast']);
+
+  $jsonColumns = htmlspecialchars(json_encode($columns), ENT_QUOTES);
+
+  $content = theme('gofast_admin_tags_table', ["columns" => $jsonColumns]);
+
+  return $content;
+}
 
 /**
- * Add search related settings to the configuration form.
+ * Admin categories page
+ * @throws \Exception
+ * @return string
+ */
+function gofast_admin_categories_settings_page(): string {
+
+  $content = '';
+
+  if (!module_exists('gofast_community')){
+    $form = drupal_get_form('gofast_admin_categories_settings_form');
+    $content .= drupal_render($form);
+  }
+  
+  $columns = [];
+
+  $columns['name'] = t('Category name', [], ['context' => 'gofast:gofast']);
+  $columns['standard'] = t('Standard?', [], ['context' => 'gofast:gofast']);
+  $columns['dua'] = t('Retention', [], ['context' => 'gofast:gofast']);
+  if (module_exists("gofast_naming_rules")) {
+    $columns['rules'] = t('Naming rules', [], ['context' => 'gofast:gofast']);
+  }
+  // $columns['criticity'] = t('Criticity', [], ['context' => 'gofast:gofast']);
+  $columns['docs'] = t('Docs', [], ['context' => 'gofast']);
+  $columns['in'] = t('Spaces', [], ['context' => 'gofast']);
+  $columns['actions'] = t('Created by', [], ['context' => 'gofast:gofast']);
+
+  $jsonColumns = htmlspecialchars(json_encode($columns), ENT_QUOTES);
+
+  $content .= theme('gofast_admin_categories_table', ["columns" => $jsonColumns]);
+  
+  return $content;
+}
+
+/**
+ * Admin categories form
+ */
+function gofast_admin_categories_settings_form(): array {
+  $form = [];
+    $form['archivists'] = [
+      '#title' => t('Archivists', [], ['context' => 'gofast']),
+      '#type' => 'fieldset',
+      '#collapsible' => FALSE,
+      '#collapsed' => FALSE,
+    ];
+
+    $recipients = [];
+    if (NULL != variable_get(GOFAST_RETENTION_PERIOD_RECIPIENTS_VAR)) {
+      $list_recipient = variable_get(GOFAST_RETENTION_PERIOD_RECIPIENTS_VAR);
+
+      foreach ($list_recipient as $recipient) {
+        $recipient_user = user_load($recipient->id);
+        $recipients[] = gofast_ac_format_value_json('user', $recipient_user);
+      }
+    }
+
+    $form['archivists']['group'] = array(
+      '#type' => 'container',
+      '#prefix' => '<label class="control-label" for="edit-field-tags">'.t('Current list of mail recipients', [], ['context' => 'gofast:gofast_retention']).'</label>',
+      '#attributes' => array("class" => array("d-flex")),
+    );
+    $form['archivists']['group']['ac-list-tags-list-recipients'] = [
+      '#type' => 'textfield',
+      '#default_value' => json_encode($recipients),
+      '#id' => 'edit-field-tags',
+      '#maxlength' => 999999,
+      '#attributes' => [
+        'class' => ['form-control-tags js-tagify retention-archivist-users'],
+        'data-user' => '', // show ac users
+        ],
+    ];
+    
+    $form['archivists']['group']['submit'] = [
+      '#type' => 'submit',
+      '#value' => t('Save'),
+      '#attributes' => [
+        'class' => ['btn btn-primary'],
+      ],
+    ];
+    return $form;
+}
+
+  /** 
+   * Submit handler for the categories form
+   * @param $form 
+   * @param &$form_state
+   */
+  function gofast_admin_categories_settings_form_submit($form, &$form_state):void {
+    
+    if (!module_exists("gofast_community")) {
+      $recipients = $form_state['values']['ac-list-tags-list-recipients'];
+      $array_dest = json_decode($recipients);
+      if(count($array_dest) > 0){
+        $json_list_recipients = array();
+        foreach($array_dest as $dest_json){
+          $account = user_load($dest_json->value);
+          $account_obj = new stdClass();
+          $account_obj->id = $dest_json->value;
+          $account_obj->address = $account->mail;
+          $account_obj->name = $account->name;
+          $account_obj->type = "user";
+          $json_list_recipients[] = $account_obj;
+        }
+        variable_set(GOFAST_RETENTION_PERIOD_RECIPIENTS_VAR, $json_list_recipients);
+      }
+    }
+  }
+  /**
+   * Add search related settings to the configuration form.
  */
 function gofast_admin_indexing_settings_form() {
   include_once 'gofast_search/gofast_search.admin.inc';
@@ -1431,6 +1626,20 @@ function gofast_admin_ldap_settings_form_submit(&$form, &$form_state) {
  */
 function gofast_admin_users_settings_form() {
   $form = array();
+  
+  $form['user_standby'] = array(
+    '#title' => t('Enable standby mode for new users', array(), array('context' => 'gofast')),
+    '#type' => 'fieldset',
+    '#collapsible' => FALSE,
+    '#collapsed' => FALSE
+  );
+
+  $form['user_standby']['standby_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Enable 'User-support' Profile Validation for User creation", array(), array('context' => 'gofast')),
+    '#default_value' => variable_get("gofast_standby_enabled", false),
+    '#description' => t("If checked, users will be create in standby, and a 'User-support' validation will be necessarly for activating this new accounts.", array(), array('context' => 'gofast'))
+  );
 
   $form['user_form'] = array(
     '#title' => t('Default configuration of the user form', array(), array('context' => 'gofast')),
@@ -1500,8 +1709,8 @@ function gofast_admin_users_settings_form() {
 
   $password_policy_settings = gofast_ldap_get_password_policy_settings();
 
-  $min_password_lifetime_days = $password_policy_settings["min_password_lifetime"]/60/60/24;
-  $max_password_lifetime_days = $password_policy_settings["max_password_lifetime"]/60/60/24;
+  $min_password_lifetime_days = (int) $password_policy_settings["min_password_lifetime"]/60/60/24;
+  $max_password_lifetime_days = (int) $password_policy_settings["max_password_lifetime"]/60/60/24;
 
    $form["password_policy"] = array(
         '#title' => t('Password policy', array(), array('context' => 'gofast:gofast_ldap')),
@@ -1599,6 +1808,7 @@ function gofast_admin_users_settings_form_submit(&$form, &$form_state) {
     unset($user_form_defaults['password_policy_max_password_lifetime']);
 
     variable_set("user_form_defaults", $user_form_defaults);
+    variable_set("gofast_standby_enabled", $form_state['values']['standby_enabled']);
 }
 
 /**
@@ -1661,6 +1871,19 @@ function gofast_admin_documents_settings_form() {
     '#default_value' => $documents_form_defaults['gofast_onlyoffice_ro_preview'],
   );
 
+  $form['document_custom_date_field'] = array(
+    '#title' => t('Custom date', array(), array('context' => 'gofast')),
+    '#type' => 'fieldset',
+    '#collapsible' => FALSE,
+    '#collapsed' => FALSE
+  );
+
+  $form['document_custom_date_field']['gofast_metadata_custom_date_label'] = array(
+    '#type' => 'textfield',
+    '#title' => t("Name of the custom date field", array(), array('context' => 'gofast')),
+    '#default_value' => GOFAST_METADATA_CUSTOM_DATE_LABEL,
+  );
+
   $form['documents_security'] = array(
     '#title' => t('Document security', array(), array('context' => 'gofast')),
     '#type' => 'fieldset',
@@ -1670,18 +1893,73 @@ function gofast_admin_documents_settings_form() {
 
   foreach($documents_form_defaults['xss_whitelist'] as $nid){
     $node = node_load($nid);
-    $xss_whitelist[] = gofast_modal_ac_format_documents_value('node', $node, $node->nid, $node->title, array());
+    $xss_whitelist[] = gofast_ac_format_value_json('node', $node);
   }
 
   $form['documents_security']['xss'] = array(
     '#title' => t("XSS filtering whitelist", array(), array('context' => 'gofast')),
     '#type' => 'textfield',
-    '#default_value' => implode(',', $xss_whitelist),
-    '#maxlength' => '', // no maxlength
-    '#autocomplete_path' => 'gofast_contents_spaces_autocomplete',
-    '#attributes' => array('class' => array('labelize-autocomplete')),
+    '#maxlength' => 999999,
+    '#default_value' => json_encode($xss_whitelist),
+    '#attributes' => array(
+      // spaces and conferences descriptions may have xss bypassed as well
+      'id' => 'edit-bundles-alfresco_item-article-conference',
+      'class' => ['form-control-tags js-tagify'],
+      'data-node' => '',
+      'data-get-spaces' => '',
+    ),
+    '#name' => 'ac-list-tags-xss',
     '#description' => t("By default and for security reasons, a large amount of HTML tags are filtered in space's home pages, articles, document's summaries... For complex usages, you may want to have some pages to bypass this filter, you can add them here by typing the page's title.", array(), array('context' => 'gofast'))
   );
+
+  if (!module_exists("gofast_community")) {
+    $form['retention'] = array(
+      '#title' => t('Retention', array(), array('context' => 'gofast')),
+      '#type' => 'fieldset',
+      '#collapsible' => FALSE,
+      '#collapsed' => FALSE
+    );
+  
+    $list_recipient = array();
+    $recipients = array();
+    if ( NULL != variable_get(GOFAST_RETENTION_PERIOD_RECIPIENTS_VAR) ) {
+      $list_recipient = variable_get(GOFAST_RETENTION_PERIOD_RECIPIENTS_VAR);
+  
+      foreach($list_recipient as $recipient){
+        $recipient_user =  user_load($recipient->id);
+        $recipients[] = gofast_ac_format_value_json('user', $recipient_user);
+      }
+    }
+  
+    $form['retention']['ac-list-tags-list-recipients'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Current list of mail recipients', array(), array('context' => 'gofast:gofast_retention')),
+      '#default_value' => json_encode($recipients),
+      '#id' => 'edit-field-tags',
+      '#maxlength' => 999999,
+      '#attributes' => [
+        'class' => ['form-control-tags js-tagify'],
+        'data-user' => '', // show ac users
+      ],
+    );
+    $form['documents_external_links'] = array(
+      '#title' => t('External links', array(), array('context' => 'gofast')),
+      '#type' => 'fieldset',
+      '#collapsible' => FALSE,
+      '#collapsed' => FALSE
+    );
+    $form['documents_external_links']['enable_automatic_renaming'] = array(
+      '#title' => t('Enable automatic renaming', array(), array('context' => 'gofast')),
+      '#description' => t("If this option is enabled, http requests will be made from the server to retrieve the page title.", array(), array("context" => "gofast")),
+      '#type' => 'checkbox',
+      '#default_value' => variable_get("enable_automatic_external_link_title", true),
+    );
+    $form['documents_external_links']['allow_http'] = array(
+      '#title' => t('Allow external links to redirect to http urls', array(), array('context' => 'gofast')),
+      '#type' => 'checkbox',
+      '#default_value' => variable_get("use_http_link", false),
+    );
+  }
 
   $form['submit'] = array(
     '#type' => 'submit',
@@ -1710,20 +1988,38 @@ function gofast_admin_documents_settings_form_submit(&$form, &$form_state) {
     unset($documents_form_defaults['form_id']);
     unset($documents_form_defaults['op']);
 
-    //XSS Filtering
-    $input_xss = $form_state['input']['edit-xss-hidden-values'];
+    //Custom fields
+    variable_set("gofast_metadata_custom_date_label", $documents_form_defaults["gofast_metadata_custom_date_label"]);
+    unset($documents_form_defaults['gofast_metadata_custom_date_label']);
 
-    if(strpos($input_xss, "[{") !== FALSE){
-      $xss = json_decode($form_state['input']['edit-xss-hidden-values'], TRUE);
-      foreach($xss as $ac_content){
-        $documents_form_defaults['xss_whitelist'][] = $ac_content['id'];
-      }
-    }else{
-      $documents_form_defaults['xss_whitelist'] = explode(' ', $input_xss);
-      array_shift($documents_form_defaults['xss_whitelist']);
+    //XSS Filtering
+    $input_xss = json_decode($form_state['input']['ac-list-tags-xss']);
+
+    foreach($input_xss as $ac_content){
+      $documents_form_defaults['xss_whitelist'][] = $ac_content->value;
     }
 
     variable_set("documents_form_defaults", $documents_form_defaults);
+
+    if (!module_exists("gofast_commmunity")) {
+      $recipients = $form_state['values']['ac-list-tags-list-recipients'];
+      $array_dest = json_decode($recipients);
+      if(count($array_dest) > 0){
+        $json_list_recipients = array();
+        foreach($array_dest as $dest_json){
+          $account = user_load($dest_json->value);
+          $account_obj = new stdClass();
+          $account_obj->id = $dest_json->value;
+          $account_obj->address = $account->mail;
+          $account_obj->name = $account->name;
+          $account_obj->type = "user";
+          $json_list_recipients[] = $account_obj;
+        }
+        variable_set(GOFAST_RETENTION_PERIOD_RECIPIENTS_VAR, $json_list_recipients);
+      }
+    }
+    variable_set("enable_automatic_external_link_title", $form_state['values']['enable_automatic_renaming']);
+    variable_set("use_http_link", $form_state['values']['allow_http']);
 }
 
 /**
@@ -1768,6 +2064,20 @@ function gofast_admin_spaces_settings_form() {
     '#type' => 'checkbox',
     '#default_value' => $spaces_defaults['create_sub_space'],
     '#description' => t('If checked, users are allowed to create their own group or extranet spaces under any 1st level spaces. <br />Example: "Groups/Project_ABC/<strong>My own space</strong>"', array(), array('context' => 'gofast'))
+  );
+
+  $form['spaces_permissions']['group_add_external_user'] = array(
+    '#title' => t(' Disable adding external users to groups', array(), array('context' => 'gofast')),
+    '#type' => 'checkbox',
+    '#default_value' => $spaces_defaults['group_add_external_user'],
+    '#description' => t('If checked, administrator will not be allowed to add external users to groups.', array(), array('context' => 'gofast'))
+  );
+
+  $form['spaces_permissions']['organization_add_external_user'] = array(
+    '#title' => t(' Disable adding external users to organizations', array(), array('context' => 'gofast')),
+    '#type' => 'checkbox',
+    '#default_value' => $spaces_defaults['organization_add_external_user'],
+    '#description' => t('If checked, administrator will not be allowed to add external users to organizations.', array(), array('context' => 'gofast'))
   );
 
   $form['submit'] = array(
@@ -1848,6 +2158,7 @@ function gofast_admin_sso_settings_form() {
         '#type' => 'fieldset',
         '#collapsible' => TRUE,
         '#collapsed' => TRUE,
+        '#keen-accordion' => TRUE,
     );
 
     $form['login']['disable_login'] = array(
@@ -2021,7 +2332,9 @@ function gofast_admin_sso_format_idp_form($idp_form){
     $idp_form["entity_id"]["#description"] = t($idp_form["entity_id"]["#description"], array(), array('context' => 'gofast:gofast_sso'));
     $idp_form["app_name"]["#description"] = t($idp_form["app_name"]["#description"], array(), array('context' => 'gofast:gofast_sso'));
     $idp_form["idp_login_url"]["#description"] = t($idp_form["idp_login_url"]["#description"], array(), array('context' => 'gofast:gofast_sso'));
+    $idp_form["idp_login_url"]["#maxlength"] = NULL; // "no" maxlength
     $idp_form["idp_logout_url"]["#description"] = t($idp_form["idp_logout_url"]["#description"], array(), array('context' => 'gofast:gofast_sso'));
+    $idp_form["idp_logout_url"]["#maxlength"] = NULL; // "no" maxlength
     $idp_form["idp_x509_certs"]["#description"] = t($idp_form["idp_x509_certs"]["#description"], array(), array('context' => 'gofast:gofast_sso'));
 
     foreach($idp_form["idp_x509_certs"] as $k => &$field){
@@ -2126,7 +2439,51 @@ function gofast_admin_sso_format_sp_form($sp_form){
  * SSO settings (from Gofast admin form) validate callback
  */
 function gofast_admin_sso_settings_form_validate($form, &$form_state) {
+  $values = &$form_state['values'];
 
+  // check if values are inconsistently empty or filled
+  // list of fields to check if all filled or all empty
+  $fields = [
+    'name',
+    'entity_id',
+    'app_name',
+    'idp_login_url',
+    'idp_logout_url',
+  ];
+  $fields = array_map(
+    fn ($name) => [
+      'name' => $name,
+      'value' => $values[$name],
+      'title' => $form['idp'][$name]['#title']
+    ],
+    $fields
+  );
+
+    $max_url_length = 255; // Max length for URL fields 
+    $idp_login_url_length = strlen($values['idp_login_url']);
+    $idp_logout_url_length = strlen($values['idp_logout_url']);
+  
+    if ($idp_login_url_length > $max_url_length) {
+      form_set_error(
+          'idp_login_url',
+          t('!name cannot be longer than %max characters but is currently %length characters long.', [
+              '!name' => $form['idp']['idp_login_url']['#title'],
+              '%max' => $max_url_length,
+              '%length' => $idp_login_url_length
+          ])
+      );
+  }
+  
+  if ($idp_logout_url_length > $max_url_length) {
+      form_set_error(
+          'idp_logout_url',
+          t('!name cannot be longer than %max characters but is currently %length characters long.', [
+              '!name' => $form['idp']['idp_logout_url']['#title'],
+              '%max' => $max_url_length,
+              '%length' => $idp_logout_url_length
+          ])
+      );
+  }
 }
 
 /**
@@ -2181,6 +2538,14 @@ function gofast_admin_deliver_page($form){
     'error' => form_get_errors(),
   );
   print json_encode($output);
+}
+
+function gofast_admin_deliver_html($content){
+  $output = array(
+    'html' => $content,
+    'error' => null,
+  );
+  print json_encode($output, JSON_INVALID_UTF8_IGNORE);
 }
 
 function gofast_admin_visibility_settings_form() {
@@ -2257,6 +2622,18 @@ function gofast_admin_general_settings_form() {
     '#maxlength' => 40,
     '#description' => t("Use this field to upload your logo.")
   );
+  $form['position'] = array(
+    '#type' => 'select',
+    '#title' => t('Logo on login page',array(), array('context' => 'gofast')),
+    '#default_value' => isset($theme_settings['position'])? intval($theme_settings['position']):0,
+    '#options' => [
+      0 => t('Not shown', [], ['context' => 'gofast']),
+      1 => t('Above the login form (Pos.1)', [], ['context' => 'gofast']),
+      2 => t('In the top right corner (Pos.2)', [], ['context' => 'gofast']),
+      3 => t('At the center of the left block (Pos.3)', [], ['context' => 'gofast']),
+    ],
+    '#description' => '<a href="/custom/modal/'.base64_encode("/sites/all/themes/bootstrap-gofast4/Logo_position.png").'" class="nav-link active ctools-use-modal pl-0"> '. t("Show available positions", array(), array("context" =>  "gofast")).'</a>'
+  );
 
   $form['default_gofast_version'] = array(
     '#type' => 'radios',
@@ -2318,13 +2695,6 @@ function gofast_admin_general_settings_form() {
     '#default_value' => $home_page === 'node' ? '' : $home_page,
     '#description' => t('Enter keywords related to the content you want to display in the home page, then select the appropriate content title apearing in the filtered list (content must be public). Leave blank to set default Home Page.', array(), array('context' => 'gofast')),
     //'#autocomplete_path' => 'gofast-search/node-autocomplete',
-  );
-
-  $form['mobile_url'] = array(
-    '#title' => t('Mobile subdomain', array(), array('context' => 'gofast')),
-    '#type' => 'textfield',
-    '#default_value' => variable_get('mobile_url'),
-    '#description' => t('Set the mobile subdomain of ', array(), array('context' => 'gofast')) . variable_get("site_name", "GoFAST")
   );
 
   $form['document_reference_label'] = array(
@@ -2433,306 +2803,6 @@ function gofast_admin_onlyoffice_settings(&$form, &$form_state) {
   }
 }
 
-function gofast_admin_category_settings_form() {
-  $form = array();
-  $filters = variable_get('gofast_map_category_spaces', array());
-  $existing_terms = taxonomy_get_tree(GOFAST_VID_CATEGORY, 0, NULL, TRUE);
-
-  // 1st part of the form : Add / Edit categories
-  $form['add_edit'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Add/Edit a category', array(), array('context' => 'gofast')),
-    '#collapsible' => FALSE,
-    '#collapsed' => FALSE,
-    'markup' => array(
-      '#markup' => t('You can add or edit an existing category.', array(), array('context' => 'gofast'))
-    ),
-    '#tree' => TRUE, //Make the form elements keep their tree
-  );
-
-  // This contains the "Add new category" action and one action for every category.
-  $edit_category_actions = array();
-  foreach ($existing_terms as $existing_term) {
-    if($existing_term->field_standard_gf[LANGUAGE_NONE][0]['value'] != 1){
-      $edit_category_actions[$existing_term->tid] = t('Edit ', array(), array('context' => 'gofast')) . i18n_taxonomy_localize_terms($existing_term)->name;
-    }
-  }
-  $category_add_actions = array(0 => t('Add a new category', array(), array('context' => 'gofast'))) + $edit_category_actions;
-
-  $form['add_edit']['action'] = array(
-    '#type' => 'select',
-    '#title' => t('Choose action', array(), array('context' => 'gofast')),
-    '#options' => $category_add_actions,
-  );
-
-  // List all terms and their localizations
-  foreach ($category_add_actions as $term_id => $category) {
-    $form['add_edit'][$term_id] = array(
-      '#type' => 'fieldset',
-      '#title' => $category,
-      '#collapsible' => FALSE,
-      '#collapsed' => FALSE,
-      '#states' => array(
-        'visible' => array(
-          ':input[name="add_edit[action]"]' => array('value' => $term_id),
-        ),
-      )
-    );
-
-    // Building localization fields for every language detected
-    $language_list = language_list();
-    usort($language_list, function($a, $b) {
-      if ($a->language === 'en') {
-        return -1;
-      }
-      else if ($a->language === $b->language) {
-        return 0;
-      }
-      else
-        return ($a < $b) ? -1 : 1;
-    });
-    foreach ($language_list as $language) {
-      $default_value = '';
-      if ($term_id !== 0) {
-        // Get the term localization
-        $term = taxonomy_term_load($term_id);
-        i18n_taxonomy_term_name($term, $language->language);
-        if ($language->language === 'en') {
-          $default_value = $term->name;
-        }
-        else {
-          // Get the default_value if exists
-          $val = i18n_string_get_string("taxonomy:term:$term->uuid:name", $language->language);
-          if (isset($val->translations[$language->language]) && $val->translations[$language->language] !== FALSE) {
-            $default_value = $val->translations[$language->language];
-          }
-        }
-      }
-      if ($language->name == 'French' || $language->name == 'English'){
-      $form['add_edit'][$term_id][$language->language] = array(
-        '#type' => 'textfield',
-        '#title' => t($language->name),
-        '#default_value' => $default_value,
-      );
-      }
-    }
-  }
-
-  // 2nd part of the form : Filters by groups
-  $form['filter'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Filter categories to space(s)', array(), array('context' => 'gofast')),
-    '#collapsible' => FALSE,
-    '#collapsed' => FALSE,
-    'markup' => array(
-      '#markup' => t('You can filter categories to specified spaces. This mean only documents into at least one of these spaces could be tag with this category. Leave empty to allow category for every space.', array(), array('context' => 'gofast'))
-    )
-  );
-
-    $form['filter']['standard']= array(
-      '#type' => 'fieldset',
-      '#title' => t('Standard categories', array(), array('context' => 'gofast')),
-      '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
-      '#keen-accordion' => TRUE,
-    );
-
-    $form['filter']['custom']= array(
-      '#type' => 'fieldset',
-      '#title' => t('Custom categories', array(), array('context' => 'gofast')),
-      '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
-      '#keen-accordion' => TRUE,
-    );
-
-
-  //sort form table
-  usort($existing_terms, function ($a, $b) {
-    return (i18n_taxonomy_localize_terms($a)->name < i18n_taxonomy_localize_terms($b)->name) ? -1 : 1;
-  });
-
-  // Building labelized filters for every category
-  foreach ($existing_terms as $existing_term) {
-    $current_term_spaces = array();
-    if (array_key_exists($existing_term->tid, $filters)) {
-      foreach ($filters[$existing_term->tid] as $node_id) {
-        $node = node_load($node_id);
-        $current_term_spaces[] = gofast_modal_ac_format_space_value('node', $node, $node->nid, $node->title, array());
-      }
-    }
-
-    if($existing_term->field_standard_gf[LANGUAGE_NONE][0]['value'] == 1){
-      $form['filter']['standard'][$existing_term->tid] = array(
-        '#title' => i18n_taxonomy_localize_terms($existing_term)->name,
-        '#type' => 'textfield',
-        '#default_value' => implode(',', $current_term_spaces),
-        '#maxlength' => '', // no maxlength
-        '#autocomplete_path' => 'gofast_space_autocomplete',
-        '#attributes' => array('class' => array('labelize-autocomplete'))
-      );
-    }else{
-      $form['filter']['custom'][$existing_term->tid] = array(
-        '#title' => i18n_taxonomy_localize_terms($existing_term)->name,
-        '#type' => 'textfield',
-        '#default_value' => implode(',', $current_term_spaces),
-        '#maxlength' => '', // no maxlength
-        '#autocomplete_path' => 'gofast_space_autocomplete',
-        '#attributes' => array('class' => array('labelize-autocomplete'))
-      );
-    }
-  }
-
-  $form_state['term_ids'] = array_map(function($element) {
-    return $element->tid;
-  }, $existing_terms);
-
-  $form['submit'] = array(
-    '#type' => 'submit',
-    '#attributes' => array(
-      "class" => array("btn btn-success"),
-    ),
-    '#value' => t('Save categories', array(), array('context' => 'gofast'))
-  );
-  return $form;
-}
-
-/**
- * Gofast configuration form validate callback.
- */
-function gofast_admin_category_settings_form_validate(&$form, &$form_state) {
-
-  $add_edit_field = $form['add_edit'];
-
-  // Build an array for the new item
-  $new_category = array();
-  foreach (language_list() as $language) {
-    $value = $add_edit_field[0][$language->language]['#value'];
-    if (!empty($value)) {
-      if (!locale_string_is_safe($value)) {
-        form_set_error('translations', t('The submitted string contains disallowed HTML: %string', array('%string' => $value), array('context' => 'gofast')));
-        watchdog('locale', 'Attempted submission of a translation string with disallowed HTML: %string', array('%string' => $value), WATCHDOG_WARNING);
-      }
-      $new_category[$language->language] = $value;
-    }
-  }
-
-  if (!empty($new_category)) {
-    // If there is no "default" (en) language, get the first entered by the user
-    if (!isset($new_category['en'])) {
-      $new_category['en'] = reset(array_slice($new_category, 0, 1));
-      $form_state['values']['add_edit'][0]['en'] = $new_category['en'];
-      $add_edit_field[0]['en']['#value'] = $new_category['en'];
-      $add_edit_field[0]['en']['#default_value'] = $new_category['en'];
-    }
-  }
-
-  // Build an array of categories with their respective localized values
-  $updated_categories = array();
-  foreach ($form_state['values']['add_edit'] as $tid => $langcodes) {
-    if($tid == 0 || $tid == "action"){
-      continue;
-    }
-    foreach (language_list() as $language) {
-      $value = $langcodes[$language->language];
-      if (!locale_string_is_safe($value)) {
-        form_set_error('translations', t('The submitted string contains disallowed HTML: %string', array('%string' => $value)));
-        watchdog('locale', 'Attempted submission of a translation string with disallowed HTML: %string', array('%string' => $value), WATCHDOG_WARNING);
-      }
-      if ($add_edit_field[$tid][$language->language]['#default_value'] !== $value) {
-        $updated_categories[$tid][$language->language] = $value;
-      }
-    }
-  }
-
-  $form_state['new_category'] = $new_category;
-  $form_state['updated_categories'] = $updated_categories;
-
-  // Validating on filters (retrieving from lablelized js data)
-  $map_category_spaces = array();
-  foreach ($form_state['input'] as $tid => $v) {
-
-    if (!is_numeric($tid)) {
-      continue;
-    }
-
-    $category_values = array();
-    if (substr($form_state['input']['edit-' . $tid . '-hidden-values'], 0, 2) === "[{") {
-      $json_list_spaces = json_decode($form_state['input']['edit-' . $tid . '-hidden-values']);
-
-      foreach ($json_list_spaces as $space) {
-        $category_values[] = $space->id;
-      }
-    } else {
-      $category_values = explode(' ', $form_state['input']['edit-' . $tid . '-hidden-values']);
-      array_shift($category_values);
-    }
-    $map_category_spaces[$tid] = $category_values;
-  }
-
-  $form_state['map_category_spaces'] = $map_category_spaces;
-}
-
-function gofast_admin_visibility_settings_form_submit(&$form, &$form_state){
- // Update global user visibility & extranet users access policy.
-  variable_set('gofast_user_partitioning', (int) $form_state['values']['user_partitioning']);
-  // Update space visibility setting.
-  variable_set('gofast_og_partitioning', (int) $form_state['values']['space_partitioning']);
-  // Update admin visibility setting.
-  //variable_set('gofast_admin_visibility', (int) $form_state['values']['checkbox_admin']);
-  //Update conference check setting
-  variable_set('gofast_conference_check_room', (int) $form_state['values']['checkbox_conference_check']);
-}
-
-/**
- * Gofast configuration form submit callback.
- */
-function gofast_admin_category_settings_form_submit(&$form, &$form_state) {
-
-  // If the 'new_category' is not empty, it means we want to create a new term.
-  if (!empty($form_state['new_category'])) {
-    $term = gofast_taxonomy_vocabulary_add_term(GOFAST_VID_CATEGORY, $form_state['new_category']['en']);
-    // We set the other languages localizations
-    unset($form_state['new_category']['en']);
-    module_load_include("pages.inc", "i18n_string");
-    $lid = i18n_string_get_string("taxonomy:term:$term->uuid:name", $form_state['new_category']);
-    $term_form_state = array();
-    $term_form_state['values']['lid'] = $lid->lid;
-    $term_form_state['values']['translations'] = $form_state['new_category'];
-    drupal_form_submit("i18n_string_locale_translate_edit_form_submit", $term_form_state);
-  }
-
-  // We update every category
-  foreach ($form_state['updated_categories'] as $tid => $updated_language) {
-    $term = taxonomy_term_load($tid);
-    // If we update the term base name (en), then we have to update the term itself
-    if ($term->name !== $updated_language['en'] && !empty($updated_language['en'])) {
-      $term->name = $updated_language['en'];
-      taxonomy_term_save($term);
-
-      //We also have to update the term in the i18n database source table - GOFAST-4056
-      db_update('locales_source')
-        ->fields(array(
-                  'source' => $updated_language['en'],
-                ))
-        ->condition('context', 'term:' . $term->uuid . ':name')
-        ->execute();
-    }
-    // We set the other languages localizations
-    unset($updated_language['en']);
-    module_load_include("pages.inc", "i18n_string");
-    $lid = i18n_string_get_string("taxonomy:term:$term->uuid:name", $updated_language);
-    $term_form_state = array();
-    $term_form_state['values']['lid'] = $lid->lid;
-    $term_form_state['values']['translations'] = $updated_language;
-    drupal_form_submit("i18n_string_locale_translate_edit_form_submit", $term_form_state);
-  }
-
-  drupal_get_messages();
-
-  // Filters submit : Save current settings to the variable
-  variable_set('gofast_map_category_spaces', $form_state['map_category_spaces']);
-}
-
 /**
  * Implements hook_form()
  */
@@ -2799,6 +2869,12 @@ function gofast_admin_custom_link_settings_form_submit(&$form, &$form_state) {
   }
 }
 
+function gofast_admin_visibility_settings_form_submit(&$form, &$form_state){
+  variable_set("gofast_user_partitioning", $form_state["values"]["user_partitioning"]);
+  variable_set("gofast_og_partitioning", $form_state["values"]["space_partitioning"]);
+  variable_set("gofast_conference_check_room", $form_state["values"]["checkbox_conference_check"]);
+}
+
 function gofast_admin_general_settings_form_validate(&$form, &$form_state) {
     $form_state['values']['site_name'] = trim($form_state['values']['site_name']);
     if (empty($form_state['values']['site_name']) && $form_state['values']['logo'] == 0) {
@@ -2854,7 +2930,10 @@ function gofast_admin_general_settings_form_submit(&$form, &$form_state) {
   else {
     // logo actif -> on désactive le titre (nom du site) pour ne pas surcharger:
     $theme_settings['toggle_name'] = 0;
-
+    if ($form_state['values']['position'] != $theme_settings['position']) {
+      $theme_settings['position'] = intval( $form_state['values']['position']);
+     }
+     variable_set('theme_bootstrap_gofast_settings', $theme_settings);
     // Upload :
     if (!empty($_FILES['files']['name']['logo_upload_gofast'])) {
       $directory_path = variable_get('file_public_path', conf_path() . '/files');
@@ -2921,17 +3000,12 @@ function gofast_admin_general_settings_form_submit(&$form, &$form_state) {
   $instance['default_value'][0]['value'] = $form_state['values']['notifications_frequency'];
   field_update_instance($instance);
 
-  foreach(['subscribe_term', 'subscribe_node', 'subscribe_og', 'subscribed_user'] as $bundle) {
+  foreach(['subscribe_term', 'subscribe_node', 'subscribe_og', 'subscribe_user'] as $bundle) {
     $instance = field_read_instance('flagging', 'field_frequency_comment', $bundle);
-    $instance['default_value'][0]['value'] = $form_state['values']['comments_notifications_frequency'];
-    field_update_instance($instance);
-  }
-
-  if (!empty($form_state['values']['mobile_url'])){
-      variable_set('mobile_url', $form_state['values']['mobile_url']);
-      $cmd = ('sed -i -e "s/^\$conf\[\'mobile_prefix_url\'\] = .*/\$conf\[\'mobile_prefix_url\'\] = \''. $form_state['values']['mobile_url'] . '\';/g" /var/www/d7/sites/default/settings.php');
-      shell_exec($cmd);
-      //file_put_contents("/var/www/d7/sites/default/settings.php", $exec);
+    if ($instance) {
+      $instance['default_value'][0]['value'] = $form_state['values']['comments_notifications_frequency'];
+      field_update_instance($instance);
+    }
   }
 
   if(!empty($form_state['values']['document_reference_label'])){
@@ -3025,7 +3099,6 @@ function gofast_admin_signature_settings_form_validate(&$form, &$form_state) {
 
 }
 
-
 function gofast_admin_signature_settings_form_submit(&$form, &$form_state) {
 
   variable_set('gofast_yousign_api_url', $form_state['values']['api_url']);
@@ -3037,4 +3110,1049 @@ function gofast_admin_signature_settings_form_submit(&$form, &$form_state) {
   }else{
        variable_set('gofast_yousign_proof_folder', $form_state['values']['proof_folder']);
   }
+}
+
+function gofast_admin_signature_digitalsign_settings_form(&$form, &$form_state) {
+  $form = array();
+
+  $form['signature_digitalsign_form'] = array(
+    '#title' => t('Default configuration of the signature feature', array(), array('gofast:gofast_signature')),
+    '#type' => 'fieldset',
+    '#collapsible' => FALSE,
+    '#collapsed' => FALSE
+  );
+
+  $form['signature_digitalsign_form']['api_url'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Digitalsign API URL', array(), array('gofast:gofast_signature')),
+    '#default_value' => GOFAST_DIGITALSIGN_API_URL,
+    '#description' => ''
+  );
+
+  $form['signature_digitalsign_form']['portal_url'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Digitalsign portal URL', array(), array('gofast:gofast_signature')),
+    '#default_value' => GOFAST_DIGITALSIGN_PORTAL_URL,
+    '#description' => ''
+  );
+
+  $form['signature_digitalsign_form']['api_cert'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Digitalsign API certificate', array(), array('gofast:gofast_signature')),
+    '#default_value' => GOFAST_DIGITALSIGN_API_CERT,
+    '#description' => t("You have to copy the whole certificate", array(), array('gofast:gofast_signature')),
+  );
+
+  $form['signature_digitalsign_form']['api_private_key'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Digitalsign API private key', array(), array('gofast:gofast_signature')),
+    '#default_value' => GOFAST_DIGITALSIGN_API_PRIVATEKEY,
+    '#description' => t("You have to copy the whole certificate", array(), array('gofast:gofast_signature')),
+  );
+
+  $form['signature_digitalsign_form']['has_signature_background'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Enable custom background on DigitalSign signature display", array(), array('context' => 'gofast:gofast_signature')),
+    '#default_value' => GOFAST_DIGITALSIGN_HAS_BACKGROUND,
+  );
+
+  $form['signature_digitalsign_form']['signature_background'] = array(
+    '#type' => 'file',
+    '#title' => t('Upload signature background', array(), array('context' => 'gofast:gofast_signature')),
+    '#maxlength' => 40,
+    '#description' => t("Use this field to upload your signature background. The file must be in .pdf format."),
+    "#attributes" => array("data-allowed" => "application/pdf", "data-preview" => "form-item-signature-background-preview")
+  );
+  
+  if (GOFAST_DIGITALSIGN_HAS_BACKGROUND) {
+    $form['signature_digitalsign_form']['signature_background']["#suffix"] = '<div id="form-item-signature-background-preview" class="mb-2"><iframe style="width: 100%; height: 100%;" src="'. file_create_url(GOFAST_DIGITALSIGN_BACKGROUND) .'"></iframe></div>';
+  }
+
+  $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Save', array(), array('context' => 'gofast')),
+  );
+
+  return $form;
+}
+
+function gofast_admin_signature_digitalsign_settings_form_validate(&$form, &$form_state) {
+  if ($form_state['values']['has_signature_background'] && !$form['signature_digitalsign_form']['has_signature_background']['#default_value'] && empty($_FILES['files']['name']['signature_background'])) {
+    form_set_error("signature", t("If you enable a signature custom background, you must upload a background for that purpose", [], ["gofast:gofast_signature"]));
+  }
+}
+
+function gofast_admin_signature_digitalsign_settings_form_submit(&$form, &$form_state) {
+  if ($form_state['values']['has_signature_background'] && !empty($_FILES['files']['name']['signature_background'])) {
+    $destination = 'public://signature_logos/';
+    file_prepare_directory($destination, FILE_CREATE_DIRECTORY);  
+    // actual upload
+    if ($file = file_save_upload('signature_background', array('file_validate_extensions' => array('pdf')), $destination, FILE_EXISTS_REPLACE)) {
+      $file->status = FILE_STATUS_PERMANENT;
+      file_save($file);
+      drupal_unlink(drupal_realpath(GOFAST_DIGITALSIGN_BACKGROUND));
+      variable_set('gofast_digitalsign_background', $file->uri);
+    }
+  }
+  variable_set('gofast_digitalsign_has_background', (bool) $form_state['values']['has_signature_background']);
+  variable_set('gofast_digitalsign_api_url', $form_state['values']['api_url']);
+  variable_set('gofast_digitalsign_portal_url', $form_state['values']['portal_url']);
+  variable_set('gofast_digitalsign_api_cert', $form_state['values']['api_cert']);
+  variable_set('gofast_digitalsign_api_privatekey', $form_state['values']['api_private_key']);
+}
+
+/**
+ * Implements hook_taxonomy_term_delete
+ */
+function gofast_taxonomy_term_delete($term) {
+  if ($term->vid == GOFAST_VID_CATEGORY) {
+    // will unset retention only if it has been set on that term
+    gofast_retention_unset_category_retention($term);
+  }
+}
+
+/**
+ * Ajax endpoint to set retention rules on a category.
+ */
+function gofast_admin_action_set_retention_rules() {
+  extract($_POST, EXTR_PREFIX_SAME, '_');
+  $current_matrix = variable_get(GOFAST_RETENTION_PERIOD_MATRICE_VAR);
+  $tid = gofast_xss_clean($tid);
+  $term = taxonomy_term_load($etid);
+  if (isset($clear)) {
+    unset($current_matrix[$term->uuid]);
+    variable_set(GOFAST_RETENTION_PERIOD_MATRICE_VAR, $current_matrix);
+    drupal_json_output(["data" => ["placeholder" => theme("gofast_ac_placeholder")], "message" => ["success" => t('The retention clear was successful', [], ["context" => "gofast:gofast_retention"])]]);
+    exit();
+  }
+  if ($action != "-None-" && !$period) {
+    drupal_json_output(["data" => [], "message" => ["error" => t("You must fill all mandatory fields")]]);
+    exit;
+  }
+  if ($action == "-None-") {
+    gofast_retention_unset_category_retention($term);
+    $data = [];
+  } else {
+    $current_matrix[$term->uuid] = array(
+      'uuid' => $term->uuid,
+      'tid' => $term->tid,
+      'period' => gofast_xss_clean($period),
+      'period_unit' => gofast_xss_clean($period_unit),
+      'action' => gofast_xss_clean($action),
+    );
+    variable_set(GOFAST_RETENTION_PERIOD_MATRICE_VAR, $current_matrix);
+    $multiselect_actions = ["-None-" => t("None"), "Archive" => t("Archive"), "Sort" => t("For sorting"), "Destroy" => t("For disposal")];
+    $multiselect_period_units =  ["d" => t("day(s)"), "m" => t("month(s)"), "y" => t("year(s)")];
+    $data = ["placeholder" => $multiselect_actions[$action] . " " . t("after") . " " . $period . " " . $multiselect_period_units[$period_unit]];
+  }
+
+  drupal_json_output(["data" => $data, "message" => ["success" => t('The retention apply was successful', [], ["context" => "gofast:gofast_retention"])]]);
+}
+
+/**
+ * This form is intended to apply retention rules retroactively.
+ */
+function gofast_admin_categories_multiple_apply_retention_form($form, &$form_state, $terms) {
+  if (module_exists("gofast_community")) {
+    return;
+  }
+  $terms = array_unique($terms);
+  $form['terms'] = [
+    '#type' => 'hidden',
+    '#value' => $terms,
+  ];
+
+  $retention_matrix = variable_get(GOFAST_RETENTION_PERIOD_MATRICE_VAR);
+  $retention_matrix_uuids = array_keys($retention_matrix);
+
+  $units = array('d' => 'day(s)', 'm' => 'month(s)', 'y' => 'year(s)');
+  $units_trad = array();
+  foreach($units as $key => $unit){
+    $units_trad[$key] = t($unit);
+  }
+
+  $has_retention = FALSE;
+  if (!empty($terms)) {
+      $value = "<h3>" . t('List of selected categories', [], ['context' => 'gofast:gofast_taxonomy']) . "</h3>";
+      $value .= '<ul>';
+      foreach ($terms as $key => $term) {
+          $full_cat = taxonomy_term_load($term);
+          $cat_name = i18n_taxonomy_localize_terms($full_cat)->name;
+          if (in_array($full_cat->uuid, $retention_matrix_uuids)) {
+            $has_retention = TRUE;
+            $value .= '<li><strong>' . $cat_name . '</strong> (';
+            $retention_item = $retention_matrix[$full_cat->uuid];
+            $translated_actions = ["-None-" => t("None"), "Archive" => t("Archive"), "Sort" => t("For sorting"), "Destroy" => t("For disposal")];
+            $translated_action = $translated_actions[$retention_item["action"]];
+            $period = $retention_item["period"] . " " . $units_trad[$retention_item['period_unit']];
+            $retention_string = t("@action after @period", ["@action" => $translated_action, "@period" => $period], ["context" => "gofast:gofast_retention"]);
+            $value .= $retention_string . ")</li>";
+          }
+      }
+      $value .= '</ul>';
+  }
+  if (!$has_retention) {
+    $value = "<h3>" . t("No category with retention set has been selected", array(), array("context" => "gofast:gofast_retention")) . "</h3>";
+  }
+
+  $form ['warning'] = [
+    '#type' => 'markup',
+    '#markup' => "<div class='alert alert-custom alert-notice alert-light-warning fade show' role='alert'><div class='alert-icon'><i class='flaticon-warning'></i></div><div class='alert-text m-0'><span class='font-weight-bold'>" . format_plural(count($terms), "You are going to apply this retention to all documents with the associated category. These documents won't be editable anymore as long as they have this category. Are you sure ?", "You are going to apply this retention to all documents with the associated categories. These documents won't be editable anymore as long as they have those categories. Are you sure ?", array(), array('context' => 'gofast:gofast_retention')) . "</span></div></div>"
+  ];
+
+  $form['terms_names'] = [
+    '#type' => 'markup',
+    '#markup' => $value,
+  ];
+
+  $confirm_form = confirm_form(
+    $form,
+    format_plural(count($terms), 'Are you sure you want to apply retention on the selected category?', 'Are you sure you want to apply retention on the selected categories?', [], ["context" => "gofast:gofast_retention"]),
+    'admin/config/gofast/global#edit-categories',
+    ''
+  );
+  if (!$has_retention) {
+    $confirm_form['actions']['submit']['#attributes']['disabled'] = TRUE;
+    $confirm_form['actions']['submit']['#attributes']['style'] = "cursor: not-allowed;";
+  }
+  unset($confirm_form['actions']['cancel']);
+
+  return $confirm_form;
+}
+
+function gofast_admin_categories_multiple_apply_retention_form_submit($form, &$form_state) {
+  $terms = $form_state['values']['terms'];
+  $current_matrix = variable_get(GOFAST_RETENTION_PERIOD_MATRICE_VAR);
+  $form_state['redirect'] = 'admin/config/gofast/global#edit-categories';
+  // The operation will return prematurely to be able to finish without server timeout, so we set the response message now
+  $commands[] = gofast_command_toast_message(t('The retention apply was successful', [], ["context" => "gofast:gofast_retention"], 'success'));
+  $commands[] = ctools_modal_command_dismiss();
+  $commands[] = gofast_command_processAjax("/admin/config/gofast/global#edit-categories");
+  print ajax_render($commands);
+  // Release the client session and process
+  set_time_limit(0);
+  fastcgi_finish_request();
+  foreach ($terms as $term) {
+      $term = taxonomy_term_load($term);
+      $term_uuid = $term->uuid;
+      if (!isset($current_matrix[$term_uuid])) {
+        continue;
+      }
+      // select nodes with associated category to apply retention to them
+      $nids = db_select("field_data_field_category", "cat")
+        ->fields("cat", array("entity_id"))
+        ->condition('field_category_tid', $term->tid)
+        ->execute()->fetchCol();
+
+    foreach ($nids as $nid) {
+      $node = node_load($nid);
+      $node = gofast_retention_set_node_retention_end_date($term->name, $node, true);
+      node_save($node);
+    }
+  }
+}
+
+/**
+ * This form is not used anymore. But it may be used in the future if the bulk action to set retention rules is reintroduced.
+ */
+function gofast_admin_categories_multiple_retention_form($form, &$form_state, $terms) {
+  if (module_exists("gofast_community")) {
+    return;
+  }
+  $terms = array_unique($terms);
+  $form['terms'] = [
+    '#type' => 'hidden',
+    '#value' => $terms,
+  ];
+
+  $retention_matrix = variable_get(GOFAST_RETENTION_PERIOD_MATRICE_VAR);
+  $retention_matrix_uuids = array_keys($retention_matrix);
+  
+  $units = array('d' => 'Day', 'm' => 'Month', 'y' => 'Year');
+  $units_trad = array();
+  foreach($units as $key => $unit){
+    $units_trad[$key] = t($unit, array(), array('context' => 'gofast:gofast_retention'));
+  }
+
+  if (!empty($terms)) {
+    $value = "<h3>" . t('List of selected categories', [], ['context' => 'gofast:gofast_taxonomy']) . "</h3>";
+    $value .= '<ul>';
+    foreach ($terms as $term) {
+        $full_cat = taxonomy_term_load($term);
+        $cat_name = i18n_taxonomy_localize_terms($full_cat)->name;
+        $id_string = "checkbox-item-" . $term;
+        $checkbox = '<label class="checkbox checkbox-single kt-checkbox--solid mr-1"><input id="' . $id_string . '" class="checkbox-item" type="checkbox" checked>&nbsp;<span></span></label>';
+        $value .= '<li class="list-unstyled d-flex">' . $checkbox . '<strong>' . $cat_name . '</strong>';
+        if (in_array($full_cat->uuid, $retention_matrix_uuids)) {
+          $value .= " (";
+          $retention_item = $retention_matrix[$full_cat->uuid];
+          $action = t($retention_item["action"], array(), array('context' => 'gofast:gofast_retention'));
+          $period = $retention_item["period"] . " " . $units_trad[$retention_item['period_unit']];
+          $retention_string = t("@action after @period", ["@action" => $action, "@period" => $period], ["context" => "gofast:gofast_retention"]);
+          $value .= $retention_string . ")";
+        } else {
+          $value .= " (" . t("No associated retention", [], ["context" => "gofast:gofast_retention"]) . ")";
+        }
+        $value .= '</li>';
+    }
+    $value .= '</ul>';
+  }
+
+  $form['terms_names'] = [
+    '#type' => 'markup',
+    '#markup' => $value,
+  ];
+
+  $form['unset_all_bs_switch'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Check this if you want to unset the retention for all selected categories", [], ["context" => "gofast:gofast_retention"]),
+    '#default_value' => 1,
+  );
+
+  $form['retention'] = [
+    '#type' => 'fieldset'
+  ];
+
+  $form['retention']['duration'] = array(
+    '#title' => t('Retention duration', array(), array('context' => 'gofast:gofast_retention')),
+    '#type' => 'textfield',
+    '#description' => "<p class='text-muted'>" . t("If a selected category has a retention duration, it will be replaced by this duration", [], ["context" => "gofast:gofast_retention"]),
+  );
+
+  $form['retention']['unit'] = array(
+    '#title' => t('Unit', array(), array('context' => 'gofast:gofast_retention')),
+    '#type' => 'select',
+    '#options' => $units_trad,
+  );
+
+  $actions = array('-None-', 'Archive', 'For sorting', 'For disposal');
+  $actions_trad =array();
+  foreach($actions as $action){
+    $actions_trad[$action] = t($action, array(), array('context' => 'gofast:gofast_retention'));
+    }
+  $form['retention']['action'] = array(
+    '#title' => t('Final fate', array(), array('context' => 'gofast:gofast_retention')),
+    '#type' => 'select',
+    '#options' => $actions_trad,
+    '#description' => "<p class='text-muted'>" . "<i class=\"fa fa-warning text-warning\"></i>" .  t("The action will not be triggered automatically, it's an information for the archivists who will decide in the end what to do", [], ["context" => "gofast:gofast_retention"])
+  );
+
+  // runs hook (letting modules such as gofast_archive_sorting_room altering the forum)
+  foreach(module_implements('alter_admin_retention_settings_form') as $module){
+    $function = $module . '_alter_admin_retention_settings_form';
+    $form = call_user_func( $function, $form, $units_trad );
+  }
+
+  $confirm_form = confirm_form(
+    $form,
+    format_plural(count($terms), 'Are you sure you want to update the category retention?', 'Are you sure you want to update the categories retention?', [], ["context" => "gofast:gofast_retention"]),
+    'admin/config/gofast/global#edit-categories',
+    ''
+  );
+  unset($confirm_form['actions']['cancel']);
+
+  return $confirm_form;
+}
+
+function gofast_admin_categories_multiple_retention_form_validate($form, &$form_state) {
+  $unset_all = $form_state['values']['unset_all_bs_switch'];
+  $duration = $form_state['values']['duration'];
+  if ($unset_all == 0 && (strlen($duration) == 0 || !is_numeric($duration))) {
+      form_set_error("taxonomy", t("You must input a numeric retention duration", [], ["context" => "gofast:gofast_retention"]));
+  }
+}
+
+function gofast_admin_categories_multiple_retention_form_submit($form, &$form_state) {
+  $terms = explode(" ", $form_state['input']['terms']);
+  $current_matrix = variable_get(GOFAST_RETENTION_PERIOD_MATRICE_VAR);
+
+  // first we remove everything
+  foreach ($terms as $key => $term) {
+    $terms[$key] = taxonomy_term_load($term);
+    $term_uuid = $terms[$key]->uuid;
+    unset($current_matrix[$term_uuid]);
+  }
+  $unset_all = $form_state['values']['unset_all_bs_switch'];
+  // case the user just wants to unset retention
+  if ($unset_all != 0) {
+    variable_set(GOFAST_RETENTION_PERIOD_MATRICE_VAR, $current_matrix);
+    return;
+  }
+
+  foreach ($terms as $term) {
+    $current_matrix[$term_uuid] = array(
+      'uuid' => $term->uuid,
+      'tid' => $term->tid,
+      'period' => $form_state['values']['duration'] ,
+      'period_unit' => $form_state['values']['unit'],
+      'action' => $form_state['values']['action']
+    );
+  }
+  variable_set(GOFAST_RETENTION_PERIOD_MATRICE_VAR, $current_matrix);
+
+  if(isset($form_state['values']['frequence_sorting']['duration'])){
+    gofast_archive_sorting_room_settings_frequence_notification($form, $form_state);
+  }
+
+  $form_state['redirect'] = 'admin/config/gofast/global#edit-categories';
+  drupal_set_message(t('The retention setting was successful', [], ["context" => "gofast:gofast_retention"]));
+  return;
+}
+
+function gofast_admin_categories_multiple_manage_criticities_form($form, &$form_state, $terms) {
+  $terms = array_unique($terms);
+  $standard_terms = [];
+  gofast_admin_categories_set_categories_list_form_markup($form, $terms, $standard_terms, FALSE);
+
+  $options = [];
+  $options[0] = t("None", array(), array("context" => "gofast"));
+
+  $allowed_taxonomy_state = taxonomy_allowed_values(field_info_field('field_criticity'));
+  foreach ($allowed_taxonomy_state as $tid => $term){
+    $localized_term = i18n_taxonomy_localize_terms(taxonomy_term_load($tid));
+    $options[$localized_term->tid] = $localized_term->name;
+  }
+
+  // criticity select
+  $form['criticity'] = array(
+      '#title' => t("Input here the target criticity", [], ["gofast:gofast_taxonomy"]),
+      '#type' => 'select',
+      '#description' => format_plural(count($terms), 'The criticity will be applied to the selected category. If "None" is selected, the previously applied criticity will be removed from the selected category.', 'The criticity will be applied to all selected categories. If "None" is selected, all previously applied criticities will be removed from the selected categories.', array(), array('context' => 'gofast:gofast_taxonomy')),
+      '#options' => $options,
+  );
+
+  $form['#suffix'] = "<p class='text-muted'>" . "<i class=\"fa fa-warning text-warning\"></i>" .  t("The target criticity will be applied automatically to all documents having the selected categories", [], ["context" => "gofast:gofast_taxonomy"]);
+
+  $confirm_form = confirm_form(
+      $form,
+      format_plural(count($terms), 'Are you sure you want to update the category criticity?', 'Are you sure you want to update the categories criticity?', [], ["context" => "gofast:gofast_taxonomy"]),
+      'admin/config/gofast/global#edit-categories',
+      ''
+  );
+  unset($confirm_form['actions']['cancel']);
+  if (empty($terms)) {
+      $confirm_form['actions']['submit']['#attributes']['disabled'] = TRUE;
+      $confirm_form['actions']['submit']['#attributes']['style'] = "cursor: not-allowed;";
+  }
+  return $confirm_form;
+}
+
+function gofast_admin_categories_multiple_manage_criticities_form_submit($form, &$form_state) {
+  $terms = explode(" ", $form_state['input']['terms']);
+  $target_criticity = $form_state['input']['criticity'];
+
+  foreach ($terms as $tid) {
+    $term = taxonomy_term_load($tid);
+    if ($target_criticity > 0) {
+      $term->field_category_criticity[LANGUAGE_NONE][0]["tid"] = $target_criticity;
+      // apply the new criticity to all nodes having the matching category
+      $nids = db_select("field_data_field_category", "cat")
+        ->fields("cat", array("entity_id"))
+        ->condition('field_category_tid', $tid)
+        ->execute()->fetchCol();
+      foreach ($nids as $nid) {
+        $node = node_load($nid);
+        $node->field_criticity[LANGUAGE_NONE][0]["tid"] = $target_criticity;
+        field_attach_update('node', $node);
+      }
+    } else {
+      $term->field_category_criticity = [];
+    }  
+    taxonomy_term_save($term);
+  }
+
+  $form_state['redirect'] = 'admin/config/gofast/global#edit-categories';
+  drupal_set_message(format_plural(count($terms), 'You have successfully updated the criticity of the selected category', 'You have successfully updated the criticity of the selected categories', [], ["context" => "gofast:gofast_taxonomy"]));
+  return;
+}
+
+function gofast_admin_categories_multiple_merge_form($form, &$form_state, $terms) {
+  if (module_exists("gofast_naming_rules")) {
+    $message = html_entity_decode(t(htmlentities("The selected category has the following naming rule <rule></rule>. Please be sure to know what you are doing before applying it."), [], ["context" => "gofast:gofast_naming_rules"]));
+    $callback = "Gofast.namingRules.events.toggleWarningOnInput";
+    $form["gofast_naming_rules_warning"] = array(
+      "#type" => "markup",
+      "#markup" => theme("gofast_naming_rules_warning", ["message" => $message, "callback" => $callback, "selector" => ".modal input#edit-categories"]),
+    );
+  }
+  $terms = array_unique($terms);
+  $standard_terms = [];
+  gofast_admin_categories_set_categories_list_form_markup($form, $terms, $standard_terms);
+  $form['categories'] = array(
+    '#title' => t("Input here the category you want to merge to", [], ["gofast:gofast_taxonomy"]),
+    '#type' => 'textfield',
+    '#name' => 'ac-list-tags-list-cats',
+    '#maxlength' => '', // no maxlength
+    '#prefix' => "<div style='clear:both;'>",
+    '#suffix' => "</div>",
+    '#description' => "<p class='text-muted'>" . t("Merged categories will not exist anymore but target category will be applied to all documents on which they were applied", [], ["context" => "gofast:gofast_taxonomy"]),
+    '#placeholder' => "<p class='text-muted'>" . t("Start typing the name of a category"),
+    '#attributes' => [
+      'class' => ['form-control-tags js-tagify'],
+      'data-taxonomy_term' => '',
+      'data-ac-max-tags' => 1,
+      'data-vid' => GOFAST_VID_CATEGORY,
+      'data-translate' => '',
+    ]
+  );
+
+  $confirm_form = confirm_form(
+    $form,
+    format_plural(count($terms), 'Are you sure you want to merge the category?', 'Are you sure you want to merge the categories?', [], ["context" => "gofast:gofast_taxonomy"]),
+    'admin/config/gofast/global#edit-categories',
+    ''
+  );
+  unset($confirm_form['actions']['cancel']);
+  if (empty($terms)) {
+      $confirm_form['actions']['submit']['#attributes']['disabled'] = TRUE;
+      $confirm_form['actions']['submit']['#attributes']['style'] = "cursor: not-allowed;";
+  }
+  return $confirm_form;
+}
+
+function gofast_admin_categories_multiple_merge_form_validate($form, &$form_state) {
+  $target_cat = json_decode($form_state['input']['ac-list-tags-list-cats']);
+  if (count($target_cat) != 1) {
+    form_set_error("taxonomy", t("You have to select one target category, no less, no more", [], ["gofast:gofast_taxonomy"]));
+  }
+}
+
+function gofast_admin_categories_multiple_merge_form_submit($form, &$form_state) {
+  $terms = $form_state['values']['terms'];
+  $merge_into = json_decode($form_state['input']['ac-list-tags-list-cats']);
+  $term_id = $merge_into[0]->value;
+
+  $cats_to_remove = array_values(array_diff($terms, [$term_id]));
+  gofast_admin_tags_set_nodes_tag($term_id, $terms, GOFAST_VID_CATEGORY);
+
+  // cleanup
+  foreach($cats_to_remove as $tid) {
+    taxonomy_term_delete($tid);
+  }
+
+  $form_state['redirect'] = 'admin/config/gofast/global#edit-categories';
+  drupal_set_message(t('The category merge was successful', [], ["context" => "gofast:gofast_taxonomy"]));
+  return;
+}
+
+function gofast_admin_categories_multiple_delete_confirm_form_submit($form, &$form_state) {
+  $terms = $form_state['values']['terms'];
+  foreach ($terms as $term) {
+      taxonomy_term_delete($term);
+  }
+  $form_state['redirect'] = 'admin/config/gofast/global#edit-categories';
+  drupal_set_message(t('You have successfully deleted selected categories', [], ["context" => "gofast:gofast_taxonomy"]));
+  return;
+}
+
+function gofast_admin_categories_multiple_manage_spaces_form($form, &$form_state, $terms) {
+  $terms = array_unique($terms);
+  $standard_terms = [];
+  $all_gids = gofast_admin_categories_set_categories_list_form_markup($form, $terms, $standard_terms);
+
+  $default_spaces = [];
+  foreach($all_gids as $gid) {
+      $autocompleted_spaces = gofast_ac_format_value_json('node', node_load($gid), null, []);
+      $autocompleted_spaces["nid"] = $gid;
+      $default_spaces[] = $autocompleted_spaces;
+  }
+
+  $form['allow_all_bs_switch'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Check this if you want to allow the selected categories in all spaces", [], ["context" => "gofast:gofast_taxonomy"]),
+    '#default_value' => empty($all_gids) ? 1 : 0,
+  );
+
+  // ac input
+  $form['spaces'] = array(
+      '#title' => t("Input here the spaces you want to restrict the category to", [], ["gofast:gofast_taxonomy"]),
+      '#type' => 'textfield',
+      '#name' => 'ac-list-tags-spaces',
+      '#maxlength' => '', // no maxlength
+      '#value' => empty($default_spaces) ? "" : json_encode($default_spaces, JSON_HEX_APOS),
+      '#prefix' => "<div style='clear:both;'>",
+      '#suffix' => "</div>",
+      '#description' => "<p class='text-muted'>" . t("Subspaces of selected spaces will inherit their parents' available categories", [], ["context" => "gofast:gofast_taxonomy"]),
+      '#placeholder' => "<p class='text-muted'>" . t("Start typing the name of a space"),
+      '#attributes' => [
+          'data-get-spaces' => ''
+      ]
+  );
+
+  $confirm_form = confirm_form(
+      $form,
+      format_plural(count($terms), 'Are you sure you want to update the category spaces?', 'Are you sure you want to update the categories spaces?', [], ["context" => "gofast:gofast_taxonomy"]),
+      'admin/config/gofast/global#edit-categories',
+      ''
+  );
+  unset($confirm_form['actions']['cancel']);
+  if (empty($terms)) {
+      $confirm_form['actions']['submit']['#attributes']['disabled'] = TRUE;
+      $confirm_form['actions']['submit']['#attributes']['style'] = "cursor: not-allowed;";
+  }
+  return $confirm_form;
+}
+
+function gofast_admin_categories_multiple_manage_spaces_form_validate($form, &$form_state) {
+  $allow_all = $form_state['values']['allow_all_bs_switch'];
+  $spaces = json_decode($form_state['input']['ac-list-tags-spaces']);
+  if ($allow_all == 0 && empty($spaces)) {
+      form_set_error("taxonomy", t("If the category is not authorized in all spaces, you must target at least one authorized space", [], ["context" => "gofast:gofast_taxonomy"]));
+  }
+}
+
+function gofast_admin_categories_multiple_manage_spaces_form_submit($form, &$form_state) {
+  $terms = explode(" ", $form_state['input']['terms']);
+
+  $allow_all = $form_state['values']['allow_all_bs_switch'];
+  $spaces = json_decode($form_state['input']['ac-list-tags-spaces']);
+
+  if ($allow_all > 0) {
+      gofast_taxonomy_categories_delete_all_spaces_memberships($terms);
+  } else {
+      $gids = array_map(fn($el) => $el->value, $spaces);
+      gofast_taxonomy_categories_restrict_categories_to_spaces($terms, $gids);
+  }
+
+  $form_state['redirect'] = 'admin/config/gofast/global#edit-categories';
+  drupal_set_message(t('You have successfully updated spaces for selected categories', [], ["context" => "gofast:gofast_taxonomy"]));
+  return;
+}
+
+function gofast_admin_categories_add_form($form, &$form_state) {
+  $form['title'] = array(
+      '#title' => t("Input here the technical name of the new category. If needed, you will be able to translate it afterwards.", [], ["gofast:gofast_taxonomy"]),
+      '#type' => 'textfield',
+  );
+  
+  $form['allow_all_bs_switch'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Check this if you want to allow the new category in all spaces", [], ["context" => "gofast:gofast_taxonomy"]),
+    '#default_value' => 1,
+  );
+
+  // ac input
+  $form['spaces'] = array(
+      '#title' => t("Input here the spaces you want to restrict the category to", [], ["gofast:gofast_taxonomy"]),
+      '#type' => 'textfield',
+      '#name' => 'ac-list-tags-spaces',
+      '#maxlength' => '', // no maxlength
+      '#value' => empty($default_spaces) ? "" : json_encode($default_spaces, JSON_HEX_APOS),
+      '#prefix' => "<div style='clear:both;'>",
+      '#suffix' => "</div>",
+      '#description' => "<p class='text-muted'>" . t("Subspaces of selected spaces will inherit their parents' available categories", [], ["context" => "gofast:gofast_taxonomy"]),
+      '#placeholder' => "<p class='text-muted'>" . t("Start typing the name of a space"),
+      '#attributes' => [
+          'data-get-spaces' => ''
+      ]
+  );
+
+  $confirm_form = confirm_form(
+      $form,
+      t('Are you sure you want to create a new category?', [], ["context" => "gofast:gofast_taxonomy"]),
+      'admin/config/gofast/global#edit-categories',
+      ''
+  );
+  unset($confirm_form['actions']['cancel']);
+  return $confirm_form;
+}
+
+function gofast_admin_categories_add_form_validate($form, &$form_state) {
+  $cat_title = trim(gofast_xss_clean($form_state['input']['title']));
+  $existing_term = taxonomy_get_term_by_name($cat_title, "category");
+  if (!empty($existing_term)) {
+      form_set_error("taxonomy", t("A category with the same name already exists", [], ["context" => "gofast:gofast_taxonomy"]));
+  }
+  if (strlen($cat_title) == 0) {
+      form_set_error("taxonomy", t("A category name can't be empty", [], ["context" => "gofast:gofast_taxonomy"]));
+  }
+  $allow_all = $form_state['values']['allow_all_bs_switch'];
+  $spaces = json_decode($form_state['input']['ac-list-tags-spaces']);
+  if ($allow_all == 0 && empty($spaces)) {
+      form_set_error("taxonomy", t("If the category is not authorized in all spaces, you must target at least one authorized space", [], ["context" => "gofast:gofast_taxonomy"]));
+  }
+}
+
+function gofast_admin_categories_add_form_submit($form, &$form_state) {
+  $cat_title = trim(gofast_xss_clean($form_state['input']['title']));
+  $allow_all = $form_state['values']['allow_all_bs_switch'];
+  $spaces = json_decode($form_state['input']['ac-list-tags-spaces']);
+  gofast_taxonomy_vocabulary_add_term(GOFAST_VID_CATEGORY, $cat_title);
+  $term = taxonomy_get_term_by_name($cat_title, "category");
+  if (is_array($term)) {
+    $term = array_shift($term);
+  }
+
+  if ($allow_all > 0) {
+      gofast_taxonomy_categories_delete_all_spaces_memberships([$term->tid]);
+  } else {
+      $gids = array_map(fn($el) => $el->value, $spaces);
+      gofast_taxonomy_categories_restrict_categories_to_spaces([$term->tid], $gids);
+  }
+
+  $form_state['redirect'] = 'admin/config/gofast/global#edit-categories';
+  drupal_set_message(t('You have successfully created a new category', [], ["context" => "gofast:gofast_taxonomy"]));
+  return;
+}
+
+function gofast_admin_categories_rename_translate_form($form, &$form_state) {
+  global $user;
+  $category = $form_state["build_info"]["args"][0];
+
+  $form['title'] = array(
+      '#title' => t("Input here the technical name of the category", [], ["gofast:gofast_taxonomy"]),
+      '#type' => 'textfield',
+      '#default_value' => $category->name,
+  );
+
+  $language_list = gofast_clean_language_list();
+  foreach ($language_list as $key => $available_language) {
+    if($available_language->enabled == 0){
+      unset($language_list[$key]);
+    }
+  }
+  usort($language_list, function($a, $b) use ($user) {
+    if ($a->language == $user->language) {
+      return -1;
+    }
+    if ($b->language == $user->language) {
+      return 1;
+    }
+    return strcmp($a->language, $b->language);
+  });
+  foreach ($language_list as $language) {
+      $default_value = i18n_object('taxonomy_term', $category)->localize($language->language)->name;
+      $form['translations_' . $language->language] = array(
+          '#title' => t("Input here the category translation for @language", ["@language" => t($language->name)], ["gofast:gofast_taxonomy"]),
+          '#type' => 'textfield',
+          '#default_value' => $default_value,
+      );
+  }
+
+  $confirm_form = confirm_form(
+      $form,
+      t('Are you sure you want to update the category?', [], ["context" => "gofast:gofast_taxonomy"]),
+      'admin/config/gofast/global#edit-categories',
+      ''
+  );
+  unset($confirm_form['actions']['cancel']);
+  return $confirm_form;
+}
+
+function gofast_admin_categories_rename_translate_form_validate($form, &$form_state) {
+  $cat_title = trim(gofast_xss_clean($form_state['input']['title']));
+  if (strlen($cat_title) == 0) {
+      form_set_error("taxonomy", t("A category technical name can't be empty", [], ["context" => "gofast:gofast_taxonomy"]));
+  }
+  foreach($form_state['input'] as $input_name => $input) {
+      if($input_name == "title" || substr($input_name, 0, strlen("translations_")) == "translations_") {
+          if (!locale_string_is_safe($input)) {
+              form_set_error('translations', t('The submitted string contains disallowed HTML: %string', array('%string' => $input)));
+          }
+      }
+  }
+}
+
+function gofast_admin_categories_rename_translate_form_submit($form, &$form_state) {
+  $cat_title = trim(gofast_xss_clean($form_state['input']['title']));
+  $category = $form_state["build_info"]["args"][0];
+  // just in case
+  $full_term = taxonomy_term_load($category->tid);
+  if ($full_term->name != $cat_title) {
+      $full_term->name = $cat_title;
+      taxonomy_term_save($full_term);
+  }
+  foreach($form_state['input'] as $input_name => $input) {
+      if(substr($input_name, 0, strlen("translations_")) == "translations_") {
+          $langcode = substr($input_name, strlen("translations_"));
+          $langstring = i18n_string_object_translate('taxonomy_term', $full_term, ["langcode" => $langcode])->name;
+          $langinput = trim(gofast_xss_clean($input));
+          if ($langstring == $langinput) {
+              continue;
+          }
+          gofast_taxonomy_add_translation_by_term_name($category->tid, $langcode, $langinput);
+      }
+  }
+  $form_state['redirect'] = 'admin/config/gofast/global#edit-categories';
+  drupal_set_message(t('You have successfully updated the category', [], ["context" => "gofast:gofast_taxonomy"]));
+  return;
+}
+
+function gofast_admin_tags_merge_form($form, &$form_state, $terms) {
+  $form['#id'] = 'gofast_admin_tags_merge_form';
+  $form['#submit'] = ['gofast_admin_tags_merge_form_submit'];
+
+  $form['terms'] = [
+    '#type' => 'hidden',
+    '#value' => $terms,
+  ];
+
+
+  $terms_markup = "<h3> ". t("The following tags will be merged:", array(), array("context" => "gofast:gofast_modal")) . "</h3>";
+  $terms_markup .= "<ul>";
+  foreach ($terms as $term) {
+    $term = taxonomy_term_load($term);
+    $terms_markup .= "<li>" . $term->name . "</li>";
+  }
+  $terms_markup .= "</ul>";
+
+  $form['summary'] = [
+    '#type' => 'markup',
+    '#markup' => $terms_markup
+  ];
+
+  $ac_prefix = "<h3> ". t("Please select the target tag the selected tags will be merged into:", array(), array("context" => "gofast:gofast_modal")) . "</h3>";
+  $form['ac-list-tags-list-tags'] = [
+    '#prefix' => $ac_prefix,
+    '#type' => 'textfield',
+    '#id' => 'edit-field-tags',
+    '#maxlength' => 512,
+    '#attributes' => [
+      'class' => [' form-control-tags js-tagify'],
+      'data-taxonomy_term' => '',
+      'data-ac-max-tags' => 1,
+      'data-vid' => GOFAST_VID_TAGS,
+    ],
+  ];
+  
+  $form['#validate'][] = 'gofast_admin_tags_merge_form_validate';
+
+  $count = count($terms);
+  $confirm_form = confirm_form($form, t('Merge @count selected tag(s) into?', ['@count' => $count]), 'admin/config/gofast/global#edit-tags');
+  unset($confirm_form['actions']['cancel']);
+
+  return $confirm_form;
+}
+
+function gofast_admin_tags_merge_form_validate($form, &$form_state){
+  $merge_into = json_decode($form_state['values']['ac-list-tags-list-tags']);
+  $term_id = $merge_into[0]->value;
+  
+  if(!$term_id || !is_numeric($term_id)){
+    form_set_error('taxonomy', t("Please select a target tag to merge into.", [], ['context' => 'gofast:gofast_taxonomy']));
+    return;
+  }
+}
+
+function gofast_admin_tags_merge_form_submit($form, &$form_state) {
+  $terms = $form_state['values']['terms'];
+  $merge_into = json_decode($form_state['values']['ac-list-tags-list-tags']);
+  $name = $merge_into[0]->name;
+  $term_id = $merge_into[0]->value;
+
+  // contains tags that are in the source tags but not in the target tag: those tags will not be used by any document anymore and should be removed
+  $emptied_tags_tids = array_values(array_diff($terms, [$term_id]));
+
+  // update tags
+  gofast_admin_tags_set_nodes_tag($term_id, $terms);
+
+  // cleanup
+  foreach($emptied_tags_tids as $tid) {
+      taxonomy_term_delete($tid);
+  }
+
+  $form_state['redirect'] = 'admin/config/gofast/global#edit-tags';
+  drupal_set_message(t('You have successfully merged terms into <b>%term</b>', ['%term' => $name]));
+  return;
+}
+
+function gofast_admin_tags_set_nodes_tag($target_tid, $source_tids, $vid = GOFAST_VID_TAGS) {
+  $target = "tags";
+  if ($vid == GOFAST_VID_CATEGORY) {
+    $target = "category";
+  }
+  db_update("field_data_field_" . $target)
+      ->fields(["field_" . $target . "_tid" => $target_tid])
+      ->condition("field_" . $target . "_tid", $source_tids, 'IN')
+      ->execute();
+  // get all documents whom metadata have been modified
+  $query = db_select("node", "n");
+  $query->fields("n", ["nid"]);
+  $query->innerJoin("field_data_field_" . $target, "t", "t.entity_id = n.nid AND n.status = 1");
+  $query->condition("t.field_" . $target . "_tid", $source_tids, 'IN');
+  $nids = $query->execute()->fetchCol();
+  // and reindex them
+  gofast_search_reindex_entities($nids, "node");
+}
+
+function gofast_admin_get_nodes_with_tags($terms = [], $vid = GOFAST_VID_TAGS) {
+  $target = "tags";
+  if ($vid == GOFAST_VID_CATEGORY) {
+    $target = "category";
+  }
+
+  if (!empty($terms) && is_array($terms)) {
+      $query = db_select("field_data_field_" . $target, 'tax');
+      $query->addfield('tax', 'entity_id');
+      $query->condition("field_" . $target . "_tid", $terms, "IN");
+      return $query->execute()->fetchCol();
+  }
+  return [];
+}
+
+function gofast_admin_tags_multiple_delete_confirm_form($form, &$form_state, $terms) {
+  $form['terms'] = [
+      '#type' => 'hidden',
+      '#value' => $terms,
+  ];
+
+  $value = t('List of choose terms');
+  $value .= '<ul>';
+  foreach ($terms as $term) {
+      $term_load = taxonomy_term_load($term);
+      $name = $term_load->name;
+      $value .= '<li>' . $name . '</li>';
+  }
+  $value .= '</ul>';
+  $form['terms_names'] = [
+      '#type' => 'markup',
+      '#markup' => $value,
+  ];
+
+  $confirm_form = confirm_form($form, t('Are you sure you want to delete the term(s)?'), 'admin/config/gofast/global#edit-tags');
+  unset($confirm_form['actions']['cancel']);
+  return $confirm_form;
+}
+
+function gofast_admin_tags_multiple_delete_confirm_form_submit($form, &$form_state) {
+  $terms = $form_state['values']['terms'];
+  $names = [];
+  foreach ($terms as $term) {
+      $load_term = taxonomy_term_load($term);
+      $names[] = $load_term->name;
+      taxonomy_term_delete($term);
+  }
+
+  // Clean values in nodes
+  $nodes = gofast_admin_get_nodes_with_tags($terms);
+  if (!empty($nodes)) {
+      foreach ($nodes as $node) {
+          $node_load = node_load($node);
+          $wrapper = entity_metadata_wrapper('node', $node_load);
+          $tags = $wrapper->field_tags->value();
+          foreach ($tags as $tag) {
+              $tids[] = $tag->tid;
+          }
+          $tids = array_unique($tids);
+          $new_tids = [];
+          foreach ($tids as $tid) {
+              if (in_array($tid, $terms)) {
+              continue;
+              }
+              $new_tids[] = $tid;
+          }
+          $wrapper->field_tags->set($new_tids);
+          $wrapper->save();
+      }
+  }
+  drupal_set_message(t('Deleted terms %name.', ['%name' => implode(', ', $names)]));
+  watchdog('gofast_directory', t('Deleted terms %name.', ['%name' => implode(', ', $names)]), array(), WATCHDOG_NOTICE);
+  $form_state['redirect'] = 'admin/config/gofast/global#edit-tags';
+  cache_clear_all();
+  return;
+}
+
+function gofast_admin_categories_get_category_item_form_markup($tid, $term_name, $disabled = FALSE) {
+  $all_gids = [];
+  $spaces_query = db_select("og_membership", "ogm")
+      ->fields("ogm", array("gid"))
+      ->condition("ogm.field_name", GOFAST_TAXONOMY_CATEGORY_MEMBERSHIP_FIELD)
+      ->condition("ogm.entity_type", "taxonomy_term")
+      ->condition("ogm.etid", $tid)
+      ->execute()->fetchCol();
+
+  $spaces = "(" . t('Allowed in all spaces', [], ['context' => 'gofast:gofast_taxonomy']) . ")";
+  if (!empty($spaces_query)) {
+      $spaces = "(";
+      foreach($spaces_query as $space) {
+          $all_gids[] = $space;
+          $crumbs = gofast_breadcrumb_get_breadcrumb($space)[0];
+          foreach ($crumbs as $crumb) {
+              $spaces .= strip_tags($crumb["name"]) . "/";
+          }
+          $spaces = substr($spaces, 0, -1);
+          $spaces .= ", ";
+      }
+      $spaces = trim($spaces, ", ");
+      $spaces .= ")";
+  }
+  $label_disabled_string = $disabled ? " checkbox-disabled" : "";
+  $disabled_string = $disabled ? " disabled" : " checked";
+  $id_string = "checkbox-item-" . $tid;
+  $value = '<li class="d-flex">';
+  $value .= '<label class="checkbox checkbox-single kt-checkbox--solid mr-1' . $label_disabled_string . '"><input id="' . $id_string . '" class="checkbox-item" type="checkbox"' . $disabled_string . '>&nbsp;<span></span></label>';
+  $value .= '<strong>' . $term_name . '</strong> ' . $spaces;
+  $value .= '</li>';
+
+  return [$value, $all_gids];
+}
+
+function gofast_admin_categories_set_categories_list_form_markup(&$form, &$terms, &$standard_terms, $skip_standard = TRUE) {
+  $all_gids = [];
+  foreach ($terms as $i => $term) {
+      if (gofast_taxonomy_categories_is_category_standard($term)) {
+          $standard_terms[] = $term;
+          unset($terms[$i]);
+      }
+  }
+
+  // If wanted, list standard terms along with the other terms
+  if (!$skip_standard) {
+    $terms = [...$terms, ...$standard_terms];
+    $standard_terms = [];
+  }
+
+  $form['terms'] = [
+      '#type' => 'hidden',
+      '#value' => $terms,
+  ];
+
+  if (!empty($terms)) {
+      $value = "<h3>" . t('List of selected categories', [], ['context' => 'gofast:gofast_taxonomy']) . "</h3>";
+      $value .= '<ul class="list-unstyled">';
+      foreach ($terms as $term) {
+          $full_cat = taxonomy_term_load($term);
+          $cat_name = i18n_taxonomy_localize_terms($full_cat)->name;
+          [$value_item, $gids_item] = gofast_admin_categories_get_category_item_form_markup($term, $cat_name);
+          $value .= $value_item;
+          $all_gids = [...$all_gids, ...$gids_item];
+      }
+      $value .= '</ul>';
+  }
+
+  if (!empty($standard_terms)) {
+      $value .= "<h3>" . t('The following categories are standard and will not be modified', [], ['context' => 'gofast:gofast_taxonomy']) . "</h3>";
+      $value .= '<ul class="list-unstyled">';
+      foreach ($standard_terms as $standard_term) {
+          $full_cat = taxonomy_term_load($standard_term);
+          $cat_name = i18n_taxonomy_localize_terms($full_cat)->name;
+          [$value_item, $gids_item] = gofast_admin_categories_get_category_item_form_markup($standard_term, $cat_name, TRUE);
+          $value .= $value_item;
+      }
+      $value .= '</ul>';
+  }
+
+  $form['terms_names'] = [
+      '#type' => 'markup',
+      '#markup' => $value,
+  ];
+  return $all_gids;
+}
+
+function gofast_admin_categories_multiple_delete_confirm_form($form, &$form_state, $terms) {
+  $terms = array_unique($terms);
+  $standard_terms = [];
+  gofast_admin_categories_set_categories_list_form_markup($form, $terms, $standard_terms);
+
+  $confirm_form = confirm_form(
+      $form,
+      format_plural(count($terms), 'Are you sure you want to delete the category?', 'Are you sure you want to delete the categories', [], ["context" => "gofast:gofast_taxonomy"]),
+      'admin/config/gofast/global#edit-categories'
+  );
+  unset($confirm_form['actions']['cancel']);
+  if (empty($terms)) {
+      $confirm_form['actions']['submit']['#attributes']['disabled'] = TRUE;
+      $confirm_form['actions']['submit']['#attributes']['style'] = "cursor: not-allowed;";
+  }
+  return $confirm_form;
 }

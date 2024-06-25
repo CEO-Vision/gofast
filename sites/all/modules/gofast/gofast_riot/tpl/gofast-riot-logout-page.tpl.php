@@ -12,7 +12,11 @@
           //Delete local storage to finalize the clear
           localStorage.clear();
           indexedDB.deleteDatabase('matrix-js-sdk:riot-web-sync');
+          indexedDB.deleteDatabase('matrix-js-sdk::riot-web-sync');
+          indexedDB.deleteDatabase('matrix-js-sdk:matrix-sdk-crypto');
+          indexedDB.deleteDatabase('matrix-js-sdk::matrix-sdk-crypto');
           indexedDB.deleteDatabase('matrix-js-sdk:crypto');
+          indexedDB.deleteDatabase('matrix-js-sdk::crypto');
           indexedDB.deleteDatabase('matrix-react-sdk');
           indexedDB.deleteDatabase('logs');
         },
@@ -21,7 +25,11 @@
     //Delete local storage to finalize the clear
     localStorage.clear();
     indexedDB.deleteDatabase('matrix-js-sdk:riot-web-sync');
+    indexedDB.deleteDatabase('matrix-js-sdk::riot-web-sync');
+    indexedDB.deleteDatabase('matrix-js-sdk:matrix-sdk-crypto');
+    indexedDB.deleteDatabase('matrix-js-sdk::matrix-sdk-crypto');
     indexedDB.deleteDatabase('matrix-js-sdk:crypto');
+    indexedDB.deleteDatabase('matrix-js-sdk::crypto');
     indexedDB.deleteDatabase('matrix-react-sdk');
     indexedDB.deleteDatabase('logs');
   }

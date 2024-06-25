@@ -18,57 +18,28 @@ function PbTableCtrl($scope, $http, $sce, $filter) {
            function successCallback(response) {
            var i = 0;
             response.data.response.content.forEach(function(myTask) {
-                    if(typeof myTask.type !== "undefined" && myTask.type == "kanban"){
-                        var kanban_element = $scope.properties.content[i];  
-                       
-                        if(kanban_element.deadline_color_indicator == "deadline-nearly-reached"){
-                            myTask.deadline_color = "#d35400";
-                        }else if(kanban_element.deadline_color_indicator == "deadline-reached"){
-                            myTask.deadline_color = "#c0392b";
-                        }else{
-                            myTask.deadline_color = "#2ecc71";
-                        }
-                        
-                        if(typeof kanban_element.deadline !== "undefined" && kanban_element.deadline !== ""){
-                            myTask.deadline = kanban_element.deadline;
-                            myTask.has_deadline = true;
-                        }else{
-                            myTask.end_date = " / ";
-                            myTask.deadline = " / ";
-                        }
-                        
-                        myTask.actor = get_kanban_user_html(myTask, kanban_element.person_in_charge);
-                        myTask.start_date = kanban_element.created_date;
-                        myTask.alt_title = $filter('gfTranslate')("label.completed_at") + " " + kanban_element.progress + "%";
-                        myTask.title = kanban_element.title;
-                        myTask.displayDescription = kanban_element.first_item_label+" ("+myTask.alt_title+")";
-                        myTask.type_icon = "fa-trello";
-                        myTask.nid = kanban_element.nid;
-                        myTask.documents = get_kanban_documents_html(kanban_element.attachments, myTask);
-                    }else{
-                        myTask.title = myTask.processHistory.title;
-                        myTask.alt_title = myTask.title;
-                        if($scope.properties.session.user_id == myTask.assigned_id){
-                            myTask.is_author = true;
-                        }else{
-                            myTask.is_author = false;
-                        }
-                       
-                        myTask.actor = get_initiator_html(myTask.processHistory, myTask);
-                        myTask.documents = get_documents_html(myTask.processCurrent, myTask);
-                        myTask.deadline = get_deadline_html(myTask.processCurrent,myTask);
-                        myTask.start_date = myTask.processHistory.start_date;
-                        myTask.processName = myTask.processInstance.name;
-                        myTask.processVersion = myTask.processInstance.version;
-                        myTask.processId = myTask.processInstance.id;
-                        myTask.type_icon = "fa-cogs";
-                        myTask.can_delete = get_variable_can_delete_instance(myTask.processCurrent, myTask.processInstance);
-                        console.log("can_delete");
-                         console.log(myTask.can_delete);
-                    }
-        
-                    $scope.final_content.push(myTask);
-                    i++;
+                myTask.title = myTask.processHistory.title;
+                myTask.alt_title = myTask.title;
+                if($scope.properties.session.user_id == myTask.assigned_id){
+                    myTask.is_author = true;
+                }else{
+                    myTask.is_author = false;
+                }
+                myTask.actor = get_initiator_html(myTask.processHistory, myTask);
+                myTask.documents = get_documents_html(myTask.processCurrent, myTask);
+                myTask.deadline = get_deadline_html(myTask.processCurrent,myTask);
+                myTask.process_end_date = myTask.processCurrent.end_date;
+                myTask.has_process_end_date = true;
+                myTask.processName = myTask.processInstance.name;
+                myTask.processVersion = myTask.processInstance.version;
+                myTask.processId = myTask.processInstance.id;
+                myTask.type_icon = "fa-cogs";
+                myTask.can_delete = get_variable_can_delete_instance(myTask.processCurrent, myTask.processInstance);
+                myTask.can_delegate_task = myTask.processDefinitition.name.toLowerCase() == "document broadcast" && myTask.assigned_id !== 0 && myTask.is_eligible;
+                myTask.is_assigned_group_task = myTask.assigned_id !== 0 && myTask.login.startsWith("ul_");
+
+                $scope.final_content.push(myTask);
+                i++;
            });
         });
    
@@ -126,7 +97,13 @@ function PbTableCtrl($scope, $http, $sce, $filter) {
  
       window.parent.parent.Drupal.gofast_workflows.ceo_vision_js_task_doit(row.id, row.processDefinititionSub.name+"/"+row.processDefinititionSub.version, "", row.name, force_assign, modal);
   };
-  
+
+  $scope.ceo_vision_js_task_delegate = function() {
+    var row = $scope.properties.selectedRow;
+    var taskName = $filter('gfTranslate')(row.displayDescription);
+    window.parent.parent.Drupal.gofast_workflows.ceo_vision_js_task_delegate(row.rootCaseId, row.id, row.processDefinititionSub.name+"/"+row.processDefinititionSub.version, taskName);
+  }
+
   $scope.ceo_vision_js_task_delete = function() {
       var row = $scope.properties.selectedRow;
       window.parent.parent.Drupal.gofast_workflows.ceo_vision_js_delete_task(row.rootCaseId);
@@ -178,6 +155,9 @@ function PbTableCtrl($scope, $http, $sce, $filter) {
                          //var label_actor = $filter('gfTranslate')("label.started_by");
                          var label_actor = "";
                          myTask.actor = $sce.trustAsHtml("<div style='clear:both;'>"+label_actor+" "+response.data.content+"</div>");
+                      }else if (myTask.assigned_id === 0) {
+                         var label_actor = "";
+                         myTask.actor = $sce.trustAsHtml("<div style='clear:both;'>"+label_actor+"</div>");
                       }else{
                           //var label_actor = $filter('gfTranslate')("label.assigned_to");
                           var label_actor = "";
@@ -273,7 +253,7 @@ function PbTableCtrl($scope, $http, $sce, $filter) {
   }
   
   function get_deadline_html(processVariables, myTask){
-      var d = new Date(processVariables.end_date);
+      var d = new Date(myTask.expectedEndDate);
       var timestamp_now = new Date().getTime() / 1000;
       var timestamp = d.getTime() / 1000;
       
@@ -291,13 +271,13 @@ function PbTableCtrl($scope, $http, $sce, $filter) {
        }
       
     myTask.has_deadline = true;
-    if(processVariables.end_date === null || typeof processVariables.end_date == "undefined"){
-        processVariables.end_date = " / ";
+    if(myTask.expectedEndDate === null || typeof myTask.expectedEndDate == "undefined"){
+        myTask.expectedEndDate = " / ";
         myTask.has_deadline = false;
         myTask.deadline_color = "#5bc0de";
         
     }
-      var deadline_html = processVariables.end_date;
+      var deadline_html = myTask.expectedEndDate;
     
       return deadline_html;
   }

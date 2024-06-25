@@ -101,7 +101,7 @@ function og_access_node_access_records($node) {
 
       $has_private = FALSE;
       foreach ($entity_groups as $group_type => $values) {
-        entity_load($group_type, $values);    
+        entity_load($group_type, $values);
         foreach ($values as $gid) {
           $list_gids[$group_type][] = $gid;
           if ($has_private) {

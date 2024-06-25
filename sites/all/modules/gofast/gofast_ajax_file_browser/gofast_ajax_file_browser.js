@@ -53,6 +53,10 @@
      */
     processingItems: false,
     /*
+     * Last set of files fetched to the filebrowser with extra informations, used to track context navigation in essential version
+     */
+    lastProcessedResources: [],
+    /*
      * Set the drop path, used to queue events in another folder than the initial
      */
     dropPath: false,
@@ -81,10 +85,87 @@
      */
     sortOrder: 'asc',
     /*
+     * Keep track of intervals
+     */
+    intervals: {},
+    /*
+     * A variable to remember the upload operation to apply when a user interaction is needed
+     */
+    rememberUploadOp: null,
+    
+    initTreeTooltip: function(treeNodeToTooltip){
+      treeNodeToTooltip.forEach((node,i) => {
+        
+        //check if the element is a space
+        if(node.name[0] !== "_" || node.level == '1'){
+          return;  
+        }
+        
+        const tId = node.tId;
+        element = $('#'+tId).find('a').first();
+        
+        element.attr('data-toggle','tooltip');
+        element.attr('title','');
+        
+        element.on('inserted.bs.tooltip',(e)=>{
+          if($(e.target).attr("data-loaded")){
+            return;
+          }
+          
+          $(".ztree-tooltip .spinner").css("transform", "translateX(-.75rem)");
+          $(".ztree-tooltip").css({"max-width":"max-content"});
+          
+          //put the tooltip higher to compensate the body
+          if($('.ztree-tooltip').attr('x-placement') == 'top'){
+            $('.ztree-tooltip').css('top', parseInt($('.ztree-tooltip').css('top')) + -0.6 + 'rem');
+          }
+        });
+        element.on("show.bs.tooltip", function(e) {
+            $(e.target).attr("data-hidden",false);
+        });
+        element.on('shown.bs.tooltip',(e)=>{
+          if ($(e.target).hasClass("processed")) {
+            return;
+          }
+          $(e.target).addClass("processed");
+          //get nid of the hovered space with the path
+          $.get(location.origin + '/ajax/getnidfromhref', { href: treeNodeToTooltip[i].path, force: true }, function (nid) {
+            if(nid==''){
+              return;
+            }
+            //get description with the nid
+            $.get(location.origin+'/get/'+nid+'/description/async',function(description){
+              //add body part to the tooltip
+              let descriptionTag = description == "" ? "" : ("<div class='tooltip-body'>" + description + "</div>");
+              $(e.target).attr('data-original-title', treeNodeToTooltip[i].name + descriptionTag);
+              
+              $(e.target).attr("data-loaded", true);
+              if($(e.target).attr("data-hidden") != 'true'){
+              $(e.target).tooltip('show');
+              }
+            });
+          });
+        });
+        element.on("hide.bs.tooltip", (e) => {
+            $(e.target).attr("data-hidden",true);
+        });
+      });
+      
+      $("[data-toggle='tooltip']").tooltip({
+        template: "<div class=\"tooltip ztree-tooltip text-center\" role=\"tooltip\"><div class=\"arrow\"></div><div class=\"tooltip-inner\"></div></div>",
+        placement: "top",
+        html: true,
+        delay: {"show": 1000},
+        trigger: "hover",
+        title: '<div class="spinner spinner-track spinner-primary d-inline-flex position-absolute"></div>',
+      });
+    },
+    /*
      * Refresh the breadcrumb
      */
     refreshBreadcrumb: function (usedPath, refreshPage) {
       var baseUrl = window.location.protocol + "//" + window.location.host;
+      usedPath = usedPath.replace(/\&/g, "%26").replace(/\+/g, "%2B");
       var folderPath = "";
       //formatting path to match the next call
       var index = usedPath.indexOf('/', usedPath.lastIndexOf('/_') + 1);
@@ -94,47 +175,36 @@
         usedPath = usedPath.substring(0, index);
       }
       //getting node
-      $.post(baseUrl + '/ajax/getnidfromhref', { href: usedPath.replace(/\&/g, "%26").replace(/\+/g, "%2B") }, function (data) {
-        //to avoid calling if we already are on the node
-        if (Gofast.get("node")["id"] !== data || Gofast.ITHit.locationChanged) {
-          if (Gofast.get("node")["id"] === data) Gofast.ITHit.locationChanged = false;
-          else Gofast.ITHit.locationChanged = true;
-          if (Gofast.get("node")["id"] !== data && refreshPage && typeof Gofast.processAjax !== "undefined") {
-            // reloads
-            Gofast.processAjax("/node/" + data + "?&path=" + usedPath + folderPath + location.hash);
-          } else {
+      $.post(baseUrl + '/ajax/getnidfromhref', { href: usedPath }, function (data) {
+          //to avoid calling if we already are on the node
+          if (Gofast.get("node")["id"] !== data || Gofast.ITHit.locationChanged) {
+            if (Gofast.get("node")["id"] === data) Gofast.ITHit.locationChanged = false;
+            else Gofast.ITHit.locationChanged = true;
+            if (Gofast.get("node")["id"] !== data && refreshPage && typeof Gofast.processAjax !== "undefined") {
+              // reloads
+              Gofast.processAjax("/node/" + data + "?path=" + usedPath + folderPath + location.hash);
+            } else {
               if (Gofast.get("node")["id"] !== data) {
                 // use History API not to actually trigger a reload
-                history.pushState({}, "", "/node/" + data + "?&path=" + usedPath + folderPath + location.hash);
                 // window.location.href = window.location.origin + "/node/" + data + "?&path=" + usedPath + folderPath + location.hash;
               }
-              //getting breadcrumb
-              $.post(baseUrl + '/gofast/node-breadcrumb/' + data, function(breadcrumb){
-                //update the breadcrumb
-                Gofast.breadcrumb_gid = data;
-                $(".breadcrumb-gofast").replaceWith(breadcrumb);
-                  Drupal.attachBehaviors();
-
-                //Toggle members button
-                if ($(breadcrumb).find('.breadcrumb-item').find('i').hasClass('fa-home') || Gofast.ITHit.currentPath == "/alfresco/webdav/Sites/_Groups" || Gofast.ITHit.currentPath == "/alfresco/webdav/Sites/_Organisations" || Gofast.ITHit.currentPath == "/alfresco/webdav/Sites/_Extranet" || $(breadcrumb).find('.breadcrumb-item').find('i').hasClass('fa-share-alt'))  {
-                  //Disable members button
-                  $('a[href="#gofastSpaceMembers"]').attr("id", "tab_ogmembers_disabled");
-                  $('a[href="#gofastSpaceMembers"]').css("pointer-events", "none");
-                  $('a[href="#gofastSpaceMembers"]').addClass("disabled");
-                  $('a[href="#gofastSpaceMembers"]').parent().addClass("disabled");
-                } else {
-                  //Enable members button
-                  $('a[href="#gofastSpaceMembers"]').attr("id", "");
-                  $('a[href="#gofastSpaceMembers"]').css("pointer-events", "initial");
-                  $('a[href="#gofastSpaceMembers"]').removeClass("disabled");
-                  $('a[href="#gofastSpaceMembers"]').parent().removeClass("disabled");
-                }
-
-                $.post(baseUrl + '/gofast/node-actions/' + data, {fromBrowser: true}, function (actions) {
-                  $("#breadcrumb-alt-actions").replaceWith(actions);
-                  Drupal.attachBehaviors();
-                });
-            });
+              // If we navigate to a root folder (ex: FOLDER TEMPLATES)
+              if(usedPath == "" && folderPath != ""){
+                Gofast.ITHit.disableFileBrowserTabs(null, true);
+              } else {
+                //getting breadcrumb
+                $.post(baseUrl + '/gofast/node-breadcrumb/' + data, function(breadcrumb){
+                  //update the breadcrumb
+                  Gofast.breadcrumb_gid = data;
+                  $(".breadcrumb-gofast").replaceWith(breadcrumb);
+                    Drupal.attachBehaviors();
+                    Gofast.ITHit.disableFileBrowserTabs(data);
+                  $.post(baseUrl + '/gofast/node-actions/' + data, {fromBrowser: true}, function (actions) {
+                    $("#breadcrumb-alt-actions").replaceWith(actions);
+                    Drupal.attachBehaviors();
+                  });
+              });
+            }
           }
         }
       });
@@ -209,6 +279,7 @@
         //Add the item to the list
         var processedItem = $('#file_browser_full_files_table').find('tbody:last-child').append(itemHTML);
         processedItem = processedItem.find('tr').last();
+        processedItem[0].scrollIntoView({behavior: "smooth", block: "end"});
         Gofast.ITHit.reset_full_browser_size();
         if (disabled) {
           $(".file_browser_full_files_element ").last().find("*").prop("disabled", true);
@@ -254,18 +325,101 @@
      * If onlyTree is set to true, we just update the zTree
      * If noRecursion is set to true, we only update the zTree for the wanted location
      */
-    navigate: function (path, onlyTree, noRecursion, noPush, selectItem, deleteTree) {
+    navigate: async function (path, onlyTree, noRecursion, noPush, selectItem, deleteTree, eventType="load") {
+      if (!Gofast.ITHit.Client) {
+        Gofast.ITHit.init();
+      }
       clearInterval(Gofast.ITHit.refreshBreadcrumbTimeout);
+
+      //wait for NProgress to load before navigating
+      if(!$(NProgress.settings.parent).length){
+        const loadNProgressParentInterval = setInterval(()=>{
+          if($(NProgress.settings.parent).length){
+            clearInterval(loadNProgressParentInterval);
+            Gofast.ITHit.navigate(path, onlyTree, noRecursion, noPush, selectItem, deleteTree, eventType);
+            return
+          }
+        })
+      }
       NProgress.start();
-      path = path.replace(/%2F/g, '/').replace(/\+/g, ' ');
+      path = decodeURIComponent(path).replace(/%2F/g, '/').replace(/\+/g, '%2B').replace(/\&/g, "%26");
+      
+      //Remove trailing slash at the end
+      if(path[path.length-1] == "/"){
+        path = path.slice(0,-1)
+      }
+      
       if (path.indexOf('/alfresco/webdav') !== 0) {
         path = "/alfresco/webdav" + path;
       }
+      // If the selected location is the same as the one we're navigating to, simply expand the node to expand all the parents as well.
+      if(Gofast._settings.isEssential){
+        if(Gofast.ITHit.currentPath == path){
+          let selectedTreeNode = Gofast.ITHit.tree.getNodeByParam("path", path)
+          Gofast.ITHit.tree.expandNode(selectedTreeNode, true)
+        }
+      }
       var fullPath = path;
-      if (typeof ITHit === "undefined" || typeof Gofast.ITHit.Session === "undefined") { //Not ready to navigate
+      
+      //As we navigate, set tabs as unprocessed to reload them later
+      $('#gofastBrowserContentPanel > .tab-pane').each((e,i)=>{
+        $(i).removeClass('processed')
+      })
+      if(eventType != "expand") {
+        await $.get(location.origin + "/ajax/getnidfromhref?href=" + Gofast.ITHit.getSpacePath(path)).done((nid)=>{
+          //Check if don't have nid (ex: root folder)
+          if(nid == ""){
+            return;
+          }
+          $(".GofastNodeOg").attr("id", "node-" + nid).attr("data-nid", nid);
+        })
+      }
+      
+      if(Gofast._settings.isEssential){
+        if(eventType != "expand"){
+        if ($(".add-alfresco_item").length) {
+          let addAlfrescoItemHref = $(".add-alfresco_item").attr("href");
+          if (!addAlfrescoItemHref.includes(window.location.origin)) {
+            addAlfrescoItemHref = window.location.origin + addAlfrescoItemHref;
+          }
+          let urlObject = new URL(addAlfrescoItemHref);
+          urlObject.searchParams.set("path", path.replace("/alfresco/webdav", ""));
+          $(".add-alfresco_item").unbind()
+          delete(Drupal.ajax[$(".add-alfresco_item").attr("href")])
+          $(".add-alfresco_item").attr("href", urlObject.toString());
+          $(".add-alfresco_item").removeClass("ctools-use-modal-processed");
+          Drupal.attachBehaviors()
+        }
+          Gofast.Essential.setSpaceObject(path, true);
+          if($(".GofastNodeOg").attr("data-nid") != undefined) {
+            let nid = +$(".GofastNodeOg").attr("data-nid");
+            if(nid != "" && eventType != "backgroundNavigation"){
+                Gofast.Essential.setNodeObject(nid, true);
+            }
+            $("#essential-actions > div > div.dropdown.ml-3.dropleft > div > ul > li > a").each(function() {
+              var hrefValue = $(this).attr("href");
+              hrefValue = hrefValue.replace(/\d+/, nid);
+              $(this).attr("href", hrefValue);
+            });
+            
+            if(Gofast._settings.gofast_ajax_file_browser.private_space_nid != nid){
+              $.post(location.origin + '/essential/update_contextual_space_actions/' + nid, {isAjax : true},  function (actions) {
+                $("#essential-actions").html(actions);
+              });
+            }else{
+              if($("#essential-actions").length){
+                $("#essential-actions a").addClass("disabled");
+                $("#essential-actions .dropdown-menu").remove();
+              }
+            }
+          }
+        }
+      }
+      
+      if (typeof ITHit === "undefined" || typeof Gofast.ITHit.Session === "undefined") {//Not ready to navigate
         //Try later
         setTimeout(Gofast.ITHit.navigate, 1000, path);
-      } else { //Ready to navigate
+    } else { //Ready to navigate
         Gofast.ITHit.Session.OpenFolderAsync(path, null,
           function (asyncResult) {
 
@@ -317,7 +471,13 @@
                 var error_new_document_ztree = ['/alfresco/webdav/Sites/_Public', '/alfresco/webdav/Sites/_Extranet', '/alfresco/webdav/Sites/_Groups', '/alfresco/webdav/Sites/_Organisations'];
                 var folder_template_path = '/alfresco/webdav/Sites/FOLDERS TEMPLATES';
                 if (jQuery.inArray(path, error_new_document_browser) !== -1 || jQuery.inArray(path, error_new_document_ztree) !== -1 || Gofast._settings.gofast_ajax_file_browser.archived_spaces.indexOf(decodeURI(path).substring(0, decodeURI(path).length - 1)) !== -1 || Gofast._settings.gofast_ajax_file_browser.archived_spaces.indexOf(decodeURI(path).substring(0, decodeURI(path).length)) !== -1) {
-                  $('#file_browser_tooolbar_new_item').prop('disabled', true);
+                  if(Gofast._settings.isEssential && !Gofast._settings.isMobileDevice){
+                    if(eventType != "expand"){
+                      $('#file_browser_tooolbar_new_item').prop('disabled', true);
+                    }
+                  } else {
+                    $('#file_browser_tooolbar_new_item').prop('disabled', true);
+                  }
                 } else {
                   $('#file_browser_tooolbar_new_item').prop('disabled', false);
                 }
@@ -337,6 +497,7 @@
                   Gofast.ITHit._processItems(items, fullPath);
 
                   fullPath = decodeURIComponent(fullPath);
+                  fullPath = fullPath.replaceAll("&", "%26").replaceAll("+", "%2B")
                   //Remove slash at the end if needed
                   if (fullPath.substr(-1, 1) === "/") {
                     fullPath = fullPath.substring(0, fullPath.length - 1);
@@ -346,7 +507,13 @@
                   Gofast.ITHit.Uploader.SetUploadUrl(location.origin + fullPath);
 
                   if (!noPush) {
-                    Gofast.ITHit.updatePathParam(fullPath);
+                    var folderType;                 
+                    if (folder.DisplayName.substr(0, 1) === "_") {                    
+                      folderType = "space";
+                    }else{                  
+                      folderType = "folder";
+                    }
+                    Gofast.ITHit.updatePathParam(fullPath, eventType, folderType);
                   }
 
                   //Select the wanted item
@@ -364,8 +531,7 @@
                   $('#file_browser_tooolbar_cart_button').prop('disabled', true);
                   //Disable contextual actions
                   $('#file_browser_tooolbar_contextual_actions').prop('disabled', true);
-
-                  if (location.hash.startsWith("#ogdocuments")) {
+                  if ((!Gofast._settings.isEssential && $(".gofast-og-page").length)) {
                     //setting an interval to avoid multiple useless calls
                     Gofast.ITHit.refreshBreadcrumbTimeout = setTimeout(function () {
                       Gofast.ITHit.refreshBreadcrumb(path.substring(16, path.length), false);
@@ -373,7 +539,7 @@
                   }
                 }
 
-                Gofast.ITHit._processTree(path, noRecursion, deleteTree);
+                Gofast.ITHit._processTree(path, noRecursion, deleteTree, eventType);
                 if (onlyTree) {
                   NProgress.done();
                 }
@@ -389,29 +555,11 @@
             const gofastBrowserMagicCheckbox = document.querySelector("#gofastBrowserMagicCheckbox");
             if (gofastBrowserMagicCheckbox) {
               const toggleAllGofastCheckboxes = () => {
-                $('.gfb-cbx').each(function () {
-                  // If the Magic Checkox is checked, we check all the checkboxes in the current folder
-                  if (gofastBrowserMagicCheckbox.checked) {
-                    $(this).prop('checked', true);
-                    $(this).parents('.file_browser_full_files_element').addClass('selected');
-                  } else {
-                    $(this).prop('checked', false);
-                    $(this).parents('.file_browser_full_files_element').removeClass('selected');
-                  }
-                  if (gofastBrowserMagicCheckbox.checked) {
-                    $('#file_browser_tooolbar_copy').prop('disabled', false);
-                    $('#file_browser_tooolbar_cut').prop('disabled', false);
-                    $('#file_browser_tooolbar_cart_button').prop('disabled', false);
-                    $('#file_browser_full_container #file_browser_tooolbar_manage').removeClass("disabled").addClass("btn-white").attr("data-toggle", "tooltip").tooltip();
-                    $('#file_browser_tooolbar_contextual_actions').prop('disabled', false);
-                  } else {
-                    $('#file_browser_tooolbar_copy').prop('disabled', true);
-                    $('#file_browser_tooolbar_cut').prop('disabled', true);
-                    $('#file_browser_tooolbar_cart_button').prop('disabled', true);
-                    $('#file_browser_full_container #file_browser_tooolbar_manage').addClass("disabled").removeClass("btn-white").attr("data-toggle", "tooltip").tooltip();
-                    $('#file_browser_tooolbar_contextual_actions').prop('disabled', true);
-                  }
-                });
+                if(gofastBrowserMagicCheckbox.checked) {
+                  Gofast.ITHit.selectAll();
+                } else {
+                  Gofast.ITHit.deselectAll();
+                }
               };
               // init magic checkbox initial state
               gofastBrowserMagicCheckbox.checked = false;
@@ -420,7 +568,12 @@
           }
         );
       }
-      Gofast.ITHit.handleDropZonePermission(path);
+      $(document).trigger("ajax-browser-navigate");
+      setTimeout(()=>{
+        const treeNodeToPopover = Gofast.ITHit.tree.getNodesByFilter(()=>true);
+        Gofast.ITHit.initTreeTooltip(treeNodeToPopover);
+        Gofast.ITHit.handleDropZonePermission(path);
+      }, 2000);
       // uncheck magic checkbox
       if ($("#gofastBrowserMagicCheckbox")) {
         $("#gofastBrowserMagicCheckbox").prop("checked", false);
@@ -444,60 +597,126 @@
      * Push a new state in history containing the path param
      * Occures at navigation
      */
-    updatePathParam: function (path) {
-      //Get params
-      var params = {};
+    updatePathParam: function (path, eventType, folderType = "folder") {
+      var pushHash = "";
 
-      if (location.search) {
-        var parts = location.search.substring(1).split('&');
-
-        for (var i = 0; i < parts.length; i++) {
-          var nv = parts[i].split('=');
-          if (!nv[0]) continue;
-          params[nv[0]] = nv[1] || true;
+      if(Gofast._settings.isEssential){
+        // If it's a background navigation, don't change the url
+        if(eventType == "backgroundNavigation"){
+          return;
+        }
+        pushHash = location.hash
+        //Check if the hash is for filebrowser tabs or if it is empty to set a default value
+        if((pushHash != "#ogdocuments" 
+        && pushHash != "#oghome" 
+        && pushHash != "#ogcalendar" 
+        && pushHash != "#ogkanban" 
+        && pushHash != "#ogconversation" 
+        && pushHash != "#gofastSpaceMembers") || pushHash == ""){
+          pushHash = "#ogdocuments"
+        }
+      } else {
+        //Prepare hash to push
+        if (location.hash !== "") {
+          pushHash = location.hash;
         }
       }
 
       var replace = false;
-      if (typeof params.path === "undefined") {
+      // Make sure that path variable is correct
+      path = path.replace("/alfresco/webdav", "");
+      path = path.replace(/&/g, '%26');
+      // 
+      let searchParams = new URLSearchParams(location.search);
+      // if(!searchParams.has("path")){
+      //   replace = true;
+      // }
+      // Get the search url part with the path
+      let searchQueryString = Gofast.ITHit.buildSearchQueryStringWithPath(path);
+
+      //Prepare URL to push
+      var pushUrl = location.origin + location.pathname + searchQueryString + pushHash;
+      var currentPathWithParams = location.origin+location.pathname+location.search+location.hash;
+
+      if (decodeURI(pushUrl) == decodeURI(currentPathWithParams)) {
         replace = true;
       }
 
-      //Change path param
-      params.path = path.replace('/alfresco/webdav', '');
-      params.path = params.path.replace(/&/g, '%26');
-
-      //Prepare params to push
-      var pushParams = '?';
-      for (var key in params) {
-        pushParams += "&" + key + "=" + params[key];
-      }
-
-      //Prepare hash to push
-      var pushHash = "";
-      if (location.hash !== "") {
-        pushHash = location.hash;
-      }
-
-      //Prepare URL to push
-      var pushUrl = location.origin + location.pathname + pushParams + pushHash;
-
-      if (replace) {
-        history.replaceState(null, "Gofast", pushUrl);
-      } else {
-        history.pushState(null, "Gofast", pushUrl);
-      }
+      if(folderType == "space"){
+        $.post('/ajax/getnidfromhref', { href: path.replace(/\&/g, "%26").replace(/\+/g, "%2B") }, function (nid) {  
+          pushUrl = location.origin + "/node/" + nid + searchQueryString + pushHash  
+          if (replace) {
+            history.replaceState(null, "Gofast", pushUrl);
+          } else {
+            history.pushState(null, "Gofast", pushUrl);
+          }  
+        })
+      }else{
+        nid = "";
+        if(location.pathname.startsWith("/node/")){
+          nid = location.pathname.split("/")[2]
+        } else if ($("#gofastContainer > .essentialFileBrowser").attr("id") ) { // User is navigating from url without "/node/xxx"
+          // Take nid of the loaded space in the dom
+          nid = $("#gofastContainer > .essentialFileBrowser").attr("id")
+          nid = nid.replace("node-", "")
+        }
+        if(location.pathname.substring(0, 21) == "/home_page_navigation"){ // Special navigation in mobile phone home page
+          pushUrl = location.origin + "/home_page_navigation/" + searchQueryString + pushHash  
+        }else{
+          pushUrl = location.origin + "/node/" + nid + searchQueryString + pushHash  
+        }
+        if (replace) {
+          history.replaceState(null, "Gofast", pushUrl);
+        } else {
+          history.pushState(null, "Gofast", pushUrl);
+        }  
+      }   
     },
+
+    /**
+     * Tests if the user is running on Mac OS using the user agent
+     *
+     * @returns {boolean} true if the device is running Mac OS (hopefully)
+     */
+    _isMacOS: function() {
+      // note: the User Agent string may not be reliable
+      return navigator.userAgent.includes("Mac OS X");
+    },
+
     /*
      * Usually called when loading a space node (in the tpl)
      */
     attachBrowserEvents: function () {
-      $('#file_browser_full_files_table').on('keydown', function (e) {
-        if (e.keyCode == 65 && e.ctrlKey == true && document.activeElement.id !== "rename-form") { //CTRL+A pressed
-          Gofast.ITHit.selectAll();
+      $('#file_browser_full_files_table')
+        .on('keydown', function (event) {
+          if (document.activeElement.id === "rename-form") return; // don't override when in form
+          if (event.key !== 'a') return; // require A to be pressed
+          // make the shortcut use CMD on mac os
+          if(Gofast.ITHit._isMacOS()) {
+            if (!event.metaKey) return; // CMD is not pressed
+          } else {
+            if (!event.ctrlKey) return; // CTRL is not pressed
+          }
+
+          if(event.shiftKey) {
+            // note: Chrome and firefox already bind a shortcut to CTRL+SHIFT+A without the possibility of rebinding it
+            // making it unusable on these browsers, however other browsers may let user use this shortcut
+            Gofast.ITHit.deselectAll(); // CTRL+SHIFT+A pressed: deselect all
+          } else {
+            Gofast.ITHit.selectAll(); // CTRL+A pressed: select all
+          }
+
           return false;
-        }
-      });
+        })
+        .on('keydown', function (event) {
+          if(event.code !== 'Escape') return;
+
+          // Escape pressed: deselect all
+          Gofast.ITHit.deselectAll();
+
+          return false;
+        });
+
       $("#file_browser_full_files_table").on('keyup', function (e) {
         if (e.keyCode == 46) { //Suppr pressed
           if ($("#rename-form").length !== 0 || $("#new-folder-form").length !== 0) {
@@ -520,10 +739,16 @@
             name = name.pop();
 
             if (name.substr(0, 1) !== '_') {
-              if (decodeURI(name) === "FOLDERS TEMPLATES") {
-                Gofast.toast(Drupal.t("You can't delete FOLDERS TEMPLATES.", {}, { context: 'gofast:ajax_file_browser' }), "warning");
+              if(decodeURI(name) === "FOLDERS TEMPLATES"){
+                Gofast.toast(Drupal.t("'FOLDERS TEMPLATES' folder cannot be deleled.", {}, {context: 'gofast:ajax_file_browser'}), "warning");
                 noDelete = true;
-              } else {
+              }else if(decodeURI(name) === "TEMPLATES"){
+                Gofast.toast(Drupal.t("'TEMPLATES' folder cannot be deleled.", {}, {context: 'gofast:ajax_file_browser'}), "warning");
+                noDelete = true;
+              }else if(decodeURI(name) === "Wikis"){
+                Gofast.toast(Drupal.t("Wikis folders can't be deleted", {}, { context: 'gofast' }), "warning");
+                noDelete = true;
+              }else {
                 data.push(elem.innerText);
               }
             } else {
@@ -625,23 +850,24 @@
         if (target.hasClass('ui-resizable-resizing')) {
           return;
         }
-        if (target.find('.order_indicator').not('.gofast_display_none').length !== 0) { //Just need to switch the order
+        if (target.find('.order_indicator').not('.gofast_display_none').length !== 0) {
+          //Just need to switch the order
           if (target.find('.order_indicator').not('.gofast_display_none').hasClass('fa-caret-up')) {
             //Switch to asc order
-            target.find('.fa-caret-down').removeClass('gofast_display_none');
             target.find('.fa-caret-up').addClass('gofast_display_none');
-
-            Gofast.ITHit.sortOrder = 'asc';
-          } else {
-            //Switch to desc order
-            target.find('.fa-caret-up').removeClass('gofast_display_none');
-            target.find('.fa-caret-down').addClass('gofast_display_none');
+            target.find('.fa-caret-down').removeClass('gofast_display_none');
 
             Gofast.ITHit.sortOrder = 'desc';
+          } else if (target.find('.order_indicator').not('.gofast_display_none').hasClass('fa-caret-down')) {
+            //Switch to desc order
+            target.find('.fa-caret-down').addClass('gofast_display_none');
+            target.find('.fa-caret-up').removeClass('gofast_display_none');
+
+            Gofast.ITHit.sortOrder = 'asc';
           }
         } else { //Set order to asc and change ordering type
           target.parent().find('.order_indicator').addClass('gofast_display_none');
-          target.find('.fa-caret-down').removeClass('gofast_display_none');
+          target.find('.fa-caret-up').removeClass('gofast_display_none');
 
           Gofast.ITHit.sortOrder = 'asc';
 
@@ -681,6 +907,9 @@
 
         //Edit elements width
         $('#file_browser_full_files_table').find('tr').find('.item-name').innerWidth(name_width);
+        if (Gofast.ITHit.display === 'icons') {
+          $('#file_browser_full_files_table').find('tr').find('.item-icon').css("cssText", "text-align: center; font-size: 80px; height: 75px; width: " + name_width + "px !important;");
+        }
 
         //Search what width we have to correct
         var correction_width = (icon_width + name_width + size_width + type_width + modified_width + info_width) - header_width + 10;
@@ -722,6 +951,9 @@
           //We need to revert the resizing as we can't resize anymore
           $('#name_header').innerWidth(name_width - correction_width);
           $('#file_browser_full_files_table').find('tr').find('.item-name').innerWidth(name_width - correction_width);
+          if (Gofast.ITHit.display === 'icons') {
+            $('#file_browser_full_files_table').find('tr').find('.item-icon').css("cssText", "text-align: center; font-size: 80px; height: 75px; width: " + (name_width - correction_width) + "px !important;");
+          }
         } else {
           $('#modified_header').innerWidth(modified_width - correction_width);
           $('#file_browser_full_files_table').find('tr').find('.item-date').innerWidth(modified_width - correction_width);
@@ -815,13 +1047,114 @@
           return;
         }
       });
+      $('#modified_header').resize(function (e) {
+        e.stopPropagation();
+        if (!(new URLSearchParams(window.location.search)).has("path")) {
+          return;
+        }
+        const icon_width = $('#file_browser_full_files_header').find('th:first').innerWidth();
+        const header_width = $("#file_browser_full_files_header").innerWidth();
+        const name_width = $('#name_header').innerWidth();
+        const size_width = $('#size_header').innerWidth();
+        const type_width = $('#type_header').innerWidth();
+        const modified_width = $('#modified_header').innerWidth();
+        const info_width = $('#info_header').innerWidth();
+
+        $('#file_browser_full_files_table').find('tr').find('.item-date').innerWidth(modified_width);
+
+        //Search what width we have to correct
+        let correction_width = (icon_width + name_width + size_width + type_width + modified_width + info_width) - header_width + 10;
+         //We need to have a repartition of this correction between headers.
+         // A header cannot be smaller than 80px
+
+          //Alter modified header
+          const alter_modified_width_max = -(10 - modified_width);
+          if (alter_modified_width_max < correction_width) {
+            correction_width -= alter_modified_width_max;
+            $('#modified_header').innerWidth(10);
+            $('#file_browser_full_files_table').find('tr').find('.item-date').innerWidth(10);
+  
+            //We need to revert the resizing as we can't resize anymore
+            $('#type_header').innerWidth(type_width - correction_width);
+            $('#file_browser_full_files_table').find('tr').find('.item-type').innerWidth(type_width - correction_width);
+          } else {
+            $('#modified_header').innerWidth(modified_width - correction_width);
+            $('#file_browser_full_files_table').find('tr').find('.item-date').innerWidth(modified_width - correction_width);
+            return;
+        }
+      });
     },
+
     /*
      * Select all items
      */
     selectAll: function () {
-      $('.file_browser_full_files_element').not('#file_browser_back_button').addClass('selected');
+      const magicCheckbox = document.querySelector("#gofastBrowserMagicCheckbox");
+      if(null != magicCheckbox) {
+        magicCheckbox.checked = true;
+      }
+
+      $('.file_browser_full_files_element')
+        .not('#file_browser_back_button')
+        .addClass('selected');
+
+      $('.gfb-cbx')
+        .each(function () {
+          $(this).prop('checked', true);
+        });
+
+        Gofast.ITHit._enableToolbar(true);
     },
+
+    /*
+     * Deselect all items
+     */
+    deselectAll: function () {
+      const magicCheckbox = document.querySelector("#gofastBrowserMagicCheckbox");
+      if(null != magicCheckbox) {
+        magicCheckbox.checked = false;
+      }
+
+      $('.file_browser_full_files_element')
+        .not('#file_browser_back_button')
+        .removeClass('selected');
+
+      $('.gfb-cbx')
+        .each(function() {
+          $(this).prop('checked', false);
+        });
+
+      Gofast.ITHit._enableToolbar(false);
+    },
+
+    /**
+     * Enables or disables the toolbar
+     * @param {boolean} active - Whether the toolbar should be enabled or not
+     */
+    _enableToolbar: function(active) {
+      $('#file_browser_tooolbar_copy').prop('disabled', !active);
+      $('#file_browser_tooolbar_cut').prop('disabled', !active);
+      $('#file_browser_tooolbar_cart_button').prop('disabled', !active);
+
+      const toolbar = $('#file_browser_full_container #file_browser_tooolbar_manage')
+
+      if(active) {
+        toolbar
+          .removeClass("disabled")
+          .addClass("btn-white");
+      } else {
+        toolbar
+          .addClass("disabled")
+          .removeClass("btn-white");
+      }
+
+      toolbar
+        .attr("data-toggle", "tooltip")
+        .tooltip();
+      
+      $('#file_browser_tooolbar_contextual_actions').prop('disabled', !active);
+    },
+
     /*
      * Set the display type of the browser
      */
@@ -859,26 +1192,38 @@
       jQuery("#file_browser_full_upload_label_container").css("cursor", "auto");
       jQuery("#file_browser_full_upload_label_container").off("click");
     },
-    handleDropZoneLabel: function(currentPath = "", canUpload = false) {
-      let itemLabel = '<td id="file_browser_full_upload_label" style="width: 100%; display: inline-block; border-top: none; color: var(--gray-dark);" class="text-center py-1">' + Drupal.t("You can't upload documents or folders in this space", {}, {context : "gofast:gofast_ajax_file_browser"}) + '</td>';
-      if (canUpload) itemLabel = '<td id="file_browser_full_upload_label" style="width: 100%; display: inline-block; border-top: none; color: var(--gray-dark);" class="text-center py-1">' + Drupal.t("Click or drag your documents or folders here to share in:", {}, {context: "gofast:gofast_ajax_file_browser"}) + '<br><strong>' + decodeURIComponent(currentPath) +'</strong></td>';
+    handleDropZoneLabel: function(currentPath = "", canUpload = false, itemLabel = "") {
+      if (!itemLabel.length && !canUpload) {
+        itemLabel = Drupal.t("You can't upload documents or folders in root spaces (Groups, Organizations, Public, Extranet).", {}, {context : "gofast:gofast_ajax_file_browser"}) + '<br>' + Drupal.t("Please upload your files in sub-spaces or create them.", {}, {context : "gofast:gofast_ajax_file_browser"});
+      }
+      if (!itemLabel.length && canUpload) {
+        itemLabel = Drupal.t("Click or drag your documents or folders here to share in:", {}, {context: "gofast:gofast_ajax_file_browser"}) + '<br><strong>' + decodeURIComponent(currentPath) + '</strong>';
+      }
+      const templatedItemLabel = '<td id="file_browser_full_upload_label" style="width: 100%; display: inline-block; border-top: none; color: var(--gray-dark);" class="text-center py-1">' + itemLabel + '</td>';
 
       if (document.getElementById("file_browser_full_upload_label")) document.getElementById("file_browser_full_upload_label").remove();
-      document.querySelector("#file_browser_full_upload_table_head + tr").insertAdjacentHTML("afterbegin", itemLabel);
+      document.querySelector("#file_browser_full_upload_table_head + tr").insertAdjacentHTML("afterbegin", templatedItemLabel);
     },
     /**
      * Root spaces and non-updatable nodes should not have upload listeners
-     * This must be triggered on navigation and handles two things: labels and upload listeners
+     * This must be triggered on navigation and handles two things: labels and
+     * upload listeners
      */
     handleDropZonePermission: function(currentPath = "") {
       const dropZone = document.getElementById('file_browser_full_upload');
-      if (!dropZone) {
+      if (typeof Gofast.ITHit.Uploader === "undefined" || !dropZone) {
         return;
       }
       if (currentPath.length === 0) currentPath = Gofast.ITHit.getPathParam();
       currentPath = currentPath.replace("/alfresco/webdav", "").replace("/Sites/", "").replaceAll("_", "");
 
       Gofast.ITHit.Uploader.Queue.RemoveListener('OnQueueChanged', '_UploadQueueChanged', this);
+      const isWikiLocation = Gofast.ITHit.currentPath.includes("/Wikis");
+      if (isWikiLocation) {
+        Gofast.ITHit.handleDropZoneLabel(currentPath, false, Drupal.t("There can be only wiki articles in the Wikis folder", {}, { context: 'gofast:ajax_file_browser' }));
+        Gofast.ITHit.handleDropZoneClickEvent();
+        return;
+      }
       if(["/Sites", "Groups", "Extranet", "Organisations", "Public"].some(val => val == currentPath)) {
         Gofast.ITHit.handleDropZoneLabel(currentPath);
         Gofast.ITHit.handleDropZoneClickEvent();
@@ -902,6 +1247,10 @@
       //Remove slash at the end
       if (path.substr(-1, 1) === "/") {
         path = path.substring(0, path.length - 1);
+      }
+      if (path.includes("/Wikis")) {
+        Gofast.toast(Drupal.t("A folder cannot be created inside a Wikis folder", {}, { context: 'gofast:ajax_file_browser' }), "warning");
+        return;
       }
 
       //Create a fake item to process it in the table
@@ -939,12 +1288,9 @@
 
           //Delete spaces at the beginning and end of the name
           new_name = new_name.trim();
-          //Prevent users to create folders starting with '_'
-          if (new_name.substr(0, 1) === "_") {
-            Gofast.toast(Drupal.t("You can't create a folder with a name starting with '_'"), "warning");
+          if(!validateItemName(new_name, "folder")){
             return;
           }
-
           //Trigger the animation
           name_element.html('<div class="loader-filebrowser"></div>' + new_name);
 
@@ -958,13 +1304,9 @@
 
         //Delete spaces at the beginning and end of the name
         new_name = new_name.trim();
-
-        //Prevent users to create folders starting with '_'
-        if (new_name.substr(0, 1) === "_") {
-          Gofast.toast(Drupal.t("You can't create a folder with a name starting with '_'"), "warning");
+        if(!validateItemName(new_name, "folder")){
           return;
         }
-
         //Trigger the animation
         name_element.html('<div class="loader-filebrowser"></div>' + new_name);
 
@@ -994,6 +1336,7 @@
           if (asyncFResult.IsSuccess) {
             //Reload and go to folder position
             Gofast.ITHit.navigate(path, null, null, null, asyncFResult.Result.Href);
+            Gofast.ITHit.navigate(asyncFResult.Result.Href);
           } else if (asyncFResult.Error instanceof ITHit.WebDAV.Client.Exceptions.MethodNotAllowedException) {
             Gofast.toast(name + " " + Drupal.t("already exists in this folder", {}, { context: 'gofast:ajax_file_browser' }), "warning");
             element.remove();
@@ -1057,7 +1400,7 @@
      */
     copySelected: function () {
       if (Gofast.ITHit.currentPath.includes("/Wikis")) {
-        Gofast.toast(Drupal.t("A wiki article cannot be copied outside of its Wikis folder", {}, { context: 'gofast:ajax_file_browser' }), "info");
+        Gofast.toast(Drupal.t("A wiki article cannot be copied outside of its Wikis folder", {}, { context: 'gofast:ajax_file_browser' }), "warning");
         return;
       }
       //Get selected items
@@ -1086,7 +1429,7 @@
      */
     cutSelected: function () {
       if (Gofast.ITHit.currentPath.includes("/Wikis")) {
-        Gofast.toast(Drupal.t("A wiki article cannot be cut outside of its Wikis folder", {}, { context: 'gofast:ajax_file_browser' }), "info");
+        Gofast.toast(Drupal.t("A wiki article cannot be cut outside of its Wikis folder", {}, { context: 'gofast:ajax_file_browser' }), "warning");
         return;
       }
       //Get selected items
@@ -1115,7 +1458,7 @@
      */
     paste: function () {
       if (Gofast.ITHit.currentPath.includes("/Wikis")) {
-        Gofast.toast(Drupal.t("There can be only wiki articles in the Wikis folder", {}, { context: 'gofast:ajax_file_browser' }), "info");
+        Gofast.toast(Drupal.t("There can be only wiki articles in the Wikis folder", {}, { context: 'gofast:ajax_file_browser' }), "warning");
         return;
       }
       if (Gofast.ITHit.copyType === 'C') { //Copy
@@ -1182,6 +1525,13 @@
       Gofast.ITHit.Uploader.Queue.OnUploadItemsCreatedCallback = function (oUploadItemsCreated) {
         items = [];
 
+        //Prevent drag and drop of documents in Wikis folders
+        const isWikiLocation = Gofast.ITHit.currentPath.includes("/Wikis");
+        if (isWikiLocation) {
+          Gofast.toast(Drupal.t("There can be only wiki articles in the Wikis folder", {}, { context: 'gofast:ajax_file_browser' }), "warning");
+          return;
+        }
+
         for (i = 0; i < oUploadItemsCreated.Items.length; i++) {
           items[i] = oUploadItemsCreated.Items[i];
         }
@@ -1198,26 +1548,34 @@
 
           if (file === null) {
             //This might be a folder and it will not be created
-            oUploadItemsCreated.Items.splice(id, 1);
             item_delete = true;
           }
           relativepath.forEach(function (part) {
             if (part.substr(0, 1) === "_") {
               Gofast.toast(Drupal.t("You can't create the following document because a part of it's path is starting with '_' : ") + "<strong>" + item.GetRelativePath() + "</strong>", "warning");
-              oUploadItemsCreated.Items.splice(id, 1);
               item_delete = true;
             }
           });
           if (item_delete === false) {
             var path = item._UploadProvider.Url._BaseUrl;
+            if (path.indexOf('/Wikis') !== -1) {
+              Gofast.toast(Drupal.t("There can be only wiki articles in the Wikis folder", {}, { context: 'gofast:ajax_file_browser' }), "warning");
+              item_delete = true;
+            }
             if (path.indexOf('/alfresco/webdav/Sites/FOLDERS TEMPLATES') !== -1) {
               Gofast.toast(Drupal.t("You can't create documents in folders templates"), "warning");
-              oUploadItemsCreated.Items.splice(id, 1);
               item_delete = true;
             }
           }
+          //If an item has been set to be removed from queue, remove it from queue
+          if (item_delete) {
+            oUploadItemsCreated.Items.splice(id, 1);
+          }
         });
         oUploadItemsCreated.Upload(oUploadItemsCreated.Items);
+        //Set back upload URL to current location in case drop was inside another location
+        Gofast.ITHit.dropPath = false;
+        Gofast.ITHit.Uploader.SetUploadUrl(location.origin + Gofast.ITHit.currentPath);
       };
     },
     /*
@@ -1242,6 +1600,7 @@
         });
         uploadItem.AddListener('OnProgressChanged', '_UploadItemQueueChanged', this);
         uploadItem.AddListener('OnStateChanged', '_UploadItemQueueChanged', this);
+        uploadItem.AddListener('OnBeforeUploadStarted', '_UploadItemQueueBeforeStart', this);
         if (Gofast.ITHit.dropPath) {
           Gofast.ITHit.dropPath = false;
           Gofast.ITHit.Uploader.SetUploadUrl(location.origin + Gofast.ITHit.currentPath);
@@ -1251,6 +1610,48 @@
       $.each(changes.RemovedItems, function (index, uploadItem) {
         console.log('removed');
       }.bind(this));
+    },
+    /*
+     *
+     */
+    _UploadItemQueueBeforeStart: function(oBeforeUploadStarted, item){
+      let relativePath = item._UploadProvider.Url._RelativePath.split("/");
+      relativePath.pop(); // pop the file name
+      let containerName = relativePath.length ? relativePath.pop() : ""; // pop the container name or an empty string if the container is the root upload folder
+      if (containerName.startsWith("%5F")) {
+        let toasterString = Drupal.t("The item @item in @path was skipped because folders can't begin with '_'.");
+        toasterString = toasterString.replace("@item", item._UploadProvider.FSEntry._File.name).replace("@path", decodeURIComponent(item._UploadProvider.Url._OriginalUrl.replace('/alfresco/webdav/Sites/', '/')));
+        Gofast.toast(toasterString, "warning");
+        var index = Gofast.ITHit.queue.findIndex(function (e) {
+          return e !== null && e.operation === "upload" && e.path === item._UploadProvider.Url._OriginalUrl;
+        });
+        oBeforeUploadStarted.Skip();
+        Gofast.ITHit.queue[index] = null;
+        return;
+      }
+      //Try to see if the item already exists
+      Gofast.ITHit.Session.OpenItemAsync(item._UploadProvider.Url._OriginalUrl, null, function (asyncResult) {
+        if (asyncResult.IsSuccess) {
+          //The item already exists, let the queue know the item have to be validated by the user. Get queue item by path
+          var index = Gofast.ITHit.queue.findIndex(function (e) {
+            return e !== null && e.operation === "upload" && e.path === item._UploadProvider.Url._OriginalUrl;
+          });
+          
+          if (!$.isNumeric(index)) {
+            //Item not found in the queue, abort transfer and send an error in the console
+            oBeforeUploadStarted.Skip();
+            console.log("Warning : Transfer aborted due to queue item not found for: ");
+            console.log(item);
+          }
+          
+          //Add a flag to the queue and the BeforeUpload event
+          Gofast.ITHit.queue[index].toValidate = 1;
+          Gofast.ITHit.queue[index].beforeUploadEvent = oBeforeUploadStarted;
+        }else{
+          //The item doesn't exists
+          oBeforeUploadStarted.Upload();
+        }
+      });
     },
     /*
      * Upload item queue changed
@@ -1281,6 +1682,15 @@
         case "Completed":
           state = 4;
           break;
+        case "Canceled":
+          state = 5;
+      }
+
+      if (state <= 1) {
+        $("#file_browser_full_upload_button").show();
+      }
+      if (state > 1 && Gofast.ITHit.queue.length <= 1) {
+        $("#file_browser_full_upload_button").hide();
       }
       Gofast.ITHit.queue[index].status = state;
 
@@ -1312,7 +1722,7 @@
 
             //Build a folder item object
             var item = {
-              DisplayName: folderPath.split("/").pop(),
+              DisplayName: decodeURIComponent(folderPath.split("/").pop()),
               Href: folderPath.substr(window.location.origin.length),
               ResourceType: type,
               LastModified: new Date()
@@ -1464,10 +1874,10 @@
         },
         callback: {
           onClick: function (event, treeId, treeNode, clickFlag) {
-            Gofast.ITHit.navigate(treeNode.path, false, true);
+            Gofast.ITHit.navigate(treeNode.path, false, true, null, null, null, "click");
           },
           onExpand: function (event, treeId, treeNode, clickFlag) {
-            Gofast.ITHit.navigate(treeNode.path, true, true);
+            Gofast.ITHit.navigate(treeNode.path, true, true, null, null, null, "expand");
           },
           onRightClick: Gofast.ITHit._contextMenuHandler,
         }
@@ -1483,9 +1893,19 @@
         treeNodes.push(new_node);
       });
 
-      //Instenciate zTree
+      //Instanciate zTree
       var tree = $("#file_browser_full_tree_element");
       Gofast.ITHit.tree = $.fn.zTree.init(tree, settings, treeNodes);
+      //Override default behavior of selectNode tree method to add autoscroll on select
+      Gofast.ITHit.tree.onlySelectNode = Gofast.ITHit.tree.selectNode;
+      Gofast.ITHit.tree.selectNode = function() {
+        Gofast.ITHit.tree.onlySelectNode.apply(this, arguments);
+        const curSelectedNode = document.querySelector(".curSelectedNode");
+        // without this condition navigation may break on simplified version
+        if (curSelectedNode) {
+          curSelectedNode.scrollIntoView({ behavior: "smooth", block: "center"});
+        }
+      };
       Gofast.ITHit.tree.addFakeNode = async function(parentPath, newNodeName, disabled = false, tooltip = false) {
         var zTreeObj = this;
         var parentNode;
@@ -1499,6 +1919,7 @@
               return;
             }
             clearInterval(waitForParentInterval);
+            $("#" + parentNode.tId + "_switch").click();
             newNode = {...parentNode, ...{name: newNodeName, children: []}};
             zTreeObj.addNodes(parentNode, -1, [newNode]);
             if (disabled) {
@@ -1523,7 +1944,7 @@
      * Call when navigating
      * If noRecursion is set to true, we only update the zTree for the wanted location
      */
-    _processTree: function (path, noRecursion, deleteTree) {
+    _processTree: function (path, noRecursion, deleteTree, eventType) {
       //DEBUG TC
       var currentPath = ["/alfresco/webdav/Sites"];
       Gofast.additionalGFBNodes.forEach(function (item, index) {
@@ -1550,34 +1971,60 @@
       //Call for recursion if needed
       if (noRecursion) {
         currentPath.forEach(function (item, index, array) {
-          Gofast.ITHit._processTreePart(item + '/' + path, []);
+          let itemAppend = path ? "/" + path : "";
+          Gofast.ITHit._processTreePart(item + itemAppend, [], eventType);
         })
       } else {
         currentPath.forEach(function (item, index, array) {
-          Gofast.ITHit._processTreePart(item, splitPath);
+          Gofast.ITHit._processTreePart(item, splitPath, eventType);
         })
       }
-      const makeDroppable = !path.includes("/Wikis");
-      Gofast.ITHit._processZTreeDropZones(makeDroppable);
+      Gofast.ITHit._processZTreeDropZones(path, eventType);
     },
-    _processZTreeDropZones: function(makeDroppable = true) {
+    /**
+     * Add drag & drop events to ztree nodes
+     */
+    _processZTreeDropZones: function(path, eventType) {
+      // Check if we are not in a "Wikis" folder or if it's been expanded
+      // If we are in a "Wikis" folder, we don't want to allow drag&drop items to other locations
+      const  makeDroppable = !path.includes("/Wikis") || eventType == "expand";
+
       var nodes = $("#file_browser_full_tree").find("a");
       var nodeDragEvents = makeDroppable ? {over: "Gofast.ITHit.moveDragOver(event)", leave: "Gofast.ITHit.moveDragLeave(event)"} :  {over: "", leave: ""};
 
+      var nodesArray = nodes.get();
+      var filteredNodeArray = [];
+      // Filter nodes to get only droppable ones
+      nodesArray.forEach((el, i) => {
+        const elementTId = $(el).parent("[treenode]").attr("id");
+        const treeNode = Gofast.ITHit.tree.getNodeByTId(elementTId)
+        // Prevent Wikis folder and ites subfolders being droppable
+        if(!treeNode.path.endsWith("/Wikis") && !treeNode.path.includes("/Wikis/")){
+          filteredNodeArray.push(el);
+        }
+      })
+      nodes = $(filteredNodeArray)
       //Add drop events
       nodes.attr("ondragover", nodeDragEvents.over);
       nodes.attr("ondragleave", nodeDragEvents.leave);
 
       //Set drag and drop zone for upload
       nodes.each(function (k, elem) {
-        makeDroppable ? elem.addEventListener("drop", Gofast.ITHit.moveDrop) : $(elem).off("drop");
-        makeDroppable ? Gofast.ITHit.Uploader.DropZones.AddById(elem.id) :Gofast.ITHit.Uploader.DropZones.RemoveById(elem.id);
+        if(makeDroppable){
+          elem.addEventListener("drop", Gofast.ITHit.moveDrop)
+          // Clear existing drop event to put them back on new tree elements
+          Gofast.ITHit.Uploader.DropZones.RemoveById(elem.id);
+          Gofast.ITHit.Uploader.DropZones.AddById(elem.id)
+        } else {
+          $(elem).off("drop");
+          Gofast.ITHit.Uploader.DropZones.RemoveById(elem.id);
+        }
       });
     },
     /*
      * Called in zTree processing for each opened folder
      */
-    _processTreePart: function (path, split) {
+    _processTreePart: function (path, split, eventType) {
       Gofast.ITHit.Session.OpenFolderAsync(path, null,
         function (asyncResult) {
 
@@ -1598,12 +2045,6 @@
               var items = asyncResult.Result;
               var nodes_to_add = []
 
-              //Decode HTML entities
-              path = decodeURIComponent(path);
-
-              //Search where to put the elements in zTree
-              var node_parent = Gofast.ITHit.tree ? Gofast.ITHit.tree.getNodeByParam("path", path) : null;
-
               //Order nodes before processing them, regarding their names
               items.sort(function (a, b) {
                 var comp_a = eval('a.DisplayName.toLowerCase()');
@@ -1611,61 +2052,109 @@
                 return (comp_a > comp_b) ? 1 : ((comp_b > comp_a) ? -1 : 0);
               });
 
-              //Process items in zTree
-                            
-              for (var i = 0; i < items.length; i++) {
-                var item = items[i];
-                //If it's not a folder, continue
-                if (item.ResourceType !== "Folder") {
-                  continue;
+              //Handle history for GoFAST Essential
+              if(Gofast._settings.isEssential){
+                Gofast.ITHit._handleEssentialHistory(path, split, eventType, items);
+                if(location.hash == "#oghome"){
+                  Gofast.selectCurrentWikiArticle()
                 }
+              }
+              //Unhide any hidden fileBrowser elements if they exist.
+              if(Gofast._settings.isEssential && eventType === "click"){
+                Gofast.Essential.unHideFileBrowserLayerChildren()
+              }
+              //Decode HTML entities
+              path = decodeURIComponent(path);
 
-                //Decode HTML entities
-                item.Href = decodeURIComponent(item.Href);
-                //Remove slash at the end if needed
-                if (item.Href.substr(-1, 1) === "/") {
-                  item.Href = item.Href.substring(0, item.Href.length - 1);
-                }
+              //Search where to put the elements in zTree
+              var node_parent = Gofast.ITHit.tree ? Gofast.ITHit.tree.getNodeByParam("path", path) : null;
+              
+              
+              //Prevent space to expand on click on Essential version
+              if(!(split.length == 0 && eventType != "expand") || !Gofast._settings.isEssential){
+                //Process items in zTree
+                for (var i = 0; i < items.length; i++) {
+                  var item = items[i];
+                  //If it's not a folder, continue
+                  if (item.ResourceType !== "Folder") {
+                    continue;
+                  }
 
-                //Search if our wanted node exists
-                if (Gofast.ITHit.tree && Gofast.ITHit.tree.getNodeByParam("path", item.Href) === null) {
-                  //Need to add the node to the tree
-                  var name = item.Href.split('/');
-                  name = name.pop();
+                  //Decode HTML entities
+                  item.Href = decodeURIComponent(item.Href);
+                  //Remove slash at the end if needed
+                  if (item.Href.substr(-1, 1) === "/") {
+                    item.Href = item.Href.substring(0, item.Href.length - 1);
+                  }
 
+                  //Search if our wanted node exists
+                  if (Gofast.ITHit.tree && Gofast.ITHit.tree.getNodeByParam("path", item.Href) === null) {
+                    //Need to add the node to the tree
+                    var name = item.Href.split('/');
+                    name = name.pop();
+
+                  var icon = ""
                   //Get icon path
-                  var icon = Gofast.ITHit._getIconPath(name, item.Href, "image");
+                  if(Gofast._settings.isEssential){
+                    icon = "ztreeEssential fas ztreeFa "
+                  } else {
+                    icon = "fas ztreeFa "
+                  }
+                  if(name == "TEMPLATES"){
+                    icon += "fa-folder templates"
+                  } else if (name == "Wikis") {
+                    icon += "fa-folder wikis"
+                  } else {
+                    icon += Gofast.ITHit._getIconPath(name, item.Href, "fa");
+                  }
+                  icon += " "
                   for (var j = 0; j < Gofast._settings.gofast_ajax_file_browser.archived_spaces.length; j++) {
-                    if (decodeURIComponent(item.Href) == Gofast._settings.gofast_ajax_file_browser.archived_spaces[j]) {
-                      icon = '/sites/all/modules/gofast/gofast_ajax_file_browser/img/archive_space.png';
+                    if (
+                      decodeURIComponent(item.Href) ==
+                      Gofast._settings.gofast_ajax_file_browser.archived_spaces[j]
+                    ) {
+                        icon = "fas ztreeFa fa-archive "
                     }
                   }
 
-                  //Set open status to open or close, regarding the full path and the actual item path
-                  if (path.indexOf(item.Href) !== -1) {
-                    var open = true;
-                  } else {
-                    var open = false;
+                    //Set open status to open or close, regarding the full path and the actual item path
+                    if (path.indexOf(item.Href) !== -1) {
+                      var open = true;
+                    } else {
+                      var open = false;
+                    }
+
+                    var type = item.ResourceType;
+
+                    if (node_parent) {
+                      //Push the node to the array
+                      nodes_to_add.push({ id: Math.floor(Math.random() * 999999), pId: node_parent.id, name: name, open: open, path: item.Href, icon: "", iconSkin: icon, isParent: true, type: type });
+                    }
                   }
-
-                  var type = item.ResourceType;
-
-                  //Push the node to the array
-                  nodes_to_add.push({ id: Math.floor(Math.random() * 999999), pId: node_parent.id, name: name, open: open, path: item.Href, icon: icon, isParent: true, type: type });
                 }
               }
-
               //Add nodes to the tree if needed
-              if (nodes_to_add.length > 0) {
+              if (nodes_to_add.length > 0 && node_parent) {
                 Gofast.ITHit.tree.addNodes(node_parent, nodes_to_add)
+                // Add drop events to new nodes
+                Gofast.ITHit._processZTreeDropZones(path, eventType);
               }
               //Iterate again if needed
               if (split.length > 0) {
-                Gofast.ITHit._processTreePart(path + "/" + split.shift(), split);
+                Gofast.ITHit._processTreePart(path + "/" + split.shift(), split, eventType);
               } else {
+
+                //get all displayed nodes and init tooltip on spaces
+                const treeNodeToTooltip = Gofast.ITHit.tree.getNodesByFilter(()=>true);
+                Gofast.ITHit.initTreeTooltip(treeNodeToTooltip);
+                
                 //All is done, we can select the item in the zTree if needed
                 if (typeof Gofast.ITHit.tree.getSelectedNodes()[0] !== "object" || Gofast.ITHit.tree.getSelectedNodes()[0].path !== Gofast.ITHit.currentPath) {
                   Gofast.ITHit.tree.selectNode(Gofast.ITHit.tree.getNodeByParam("path", decodeURIComponent(Gofast.ITHit.currentPath)));
+                  if(Gofast._settings.isEssential){
+                    $("#gofast_over_content").scrollTop(0)
+                    $("#file_browser_full_tree_element").scrollLeft(0)
+                  }
                 }
               }
             }
@@ -1719,7 +2208,7 @@
           }
         } else if (name === "TEMPLATES") {
           var icon = "TEMPLATE";
-        }else{
+        } else{
             var icon = "fa-folder";
         }
       }
@@ -1755,22 +2244,28 @@
       var name = decodeURIComponent(path.last());
       path = path.join('/');
 
+      if(!Gofast._settings.isEssential){
       //Get the 'Back' button at the top of the list
-      itemHTML += Gofast.ITHit._getBackButton(name);
-
-      if (path !== "/alfresco/webdav") {
-        //Add the item to the list
+        itemHTML += Gofast.ITHit._getBackButton(name);
+        
+        if (path !== "/alfresco/webdav") {
+          //Add the item to the list
         var processedItem = $('#file_browser_full_files_table').find('tbody:last-child').append(itemHTML);
         processedItem = processedItem.find('tr').last();
-
-        //Attach event handlers to the processed item
-        Gofast.ITHit._attachEvents(null, processedItem, path);
+          
+          //Attach event handlers to the processed item
+          
+          Gofast.ITHit._attachEvents(null, processedItem, path);
+        }
       }
 
       //Replace items last modified dates with last version date
       //Split folders and files
       var folders = items.filter(function (e) { return e.ResourceType === 'Folder'; });
       var resources = items.filter(function (e) { return e.ResourceType === 'Resource'; });
+
+      Gofast.ITHit.currentFolders = folders;
+      Gofast.ITHit.currentResources = resources;
 
       if (resources.length < 300 && folders.length < 300) {
         //Get the documents paths
@@ -1781,7 +2276,7 @@
         $.ajax({
           url: location.origin + '/alfresco/service/post/file_browser_extra_informations?alf_ticket=' + Drupal.settings.ticket,
           type: "POST",
-          timeout: 2000,
+          timeout: 3000,
           data: { files: JSON.stringify(Hrefs_files), folders: JSON.stringify(Hrefs_folders), current_folder: fullPath.replace("/alfresco/webdav/", "") },
           contentType: "application/json; charset=utf-8",
           dataType: "json",
@@ -1828,6 +2323,22 @@
           }
         }
 
+        if (response.files && response.files.props && response.files.props.nids && response.files.visibility.length > 0) {
+          for (var j = 0; j < resources.length; j++) {
+            if (response.files.props.nids[j]) {
+              resources[j].Nid = response.files.props.nids[j];
+            }
+          }
+        }
+
+        if (response.files && response.files.props && response.files.props.nids && response.files.visibility.length > 0) {
+          for (var j = 0; j < resources.length; j++) {
+            if (response.files.props.nodeRefs[j]) {      
+             resources[j].NodeRef = 'workspace://SpacesStore/'+response.files.props.nodeRefs[j];
+            }
+          }
+        }
+
         if (response.folders && response.folders.permissions && response.folders.permissions.length > 0) {
           for (var j = 0; j < folders.length; j++) {
             if (response.folders.permissions[j]) {
@@ -1835,6 +2346,15 @@
             }
           }
         }
+
+        if (response.folders && response.folders.visibility.length > 0) {
+          for (var j = 0; j < folders.length; j++) {
+            if (response.folders.props.folderRefs[j]) {      
+              folders[j].NodeRef =  'workspace://SpacesStore/'+response.folders.props.folderRefs[j];
+            }
+          }
+        }
+        
         if (response.folders && response.folders.visibility && response.folders.visibility.length > 0) {
           for (var j = 0; j < folders.length; j++) {
             if (response.folders.visibility[j]) {
@@ -1866,7 +2386,9 @@
       }
 
       //Merge the arrays
-      items = folders.concat(resources);
+      Gofast.ITHit.lastProcessedResources = resources;
+      Gofast.ITHit.storeAllContentsEssential()
+      var items = folders.concat(resources);
 
       //Sort items
       items = Gofast.ITHit.sort(items);
@@ -1929,6 +2451,458 @@
 
       icon_container.html(infoHTML);
     },
+    /*
+     * 
+     * Handle the history select2 component when navigating in GoFAST Essential
+     * TODO @TCH : Comment all this code / Review with @JLE
+     * 
+    */
+    _handleEssentialHistory: function(path, split, eventType, items){
+      let targetDrupalPath = path.replace("/alfresco/webdav", "");
+      let searchQueryString = Gofast.ITHit.buildSearchQueryStringWithPath(targetDrupalPath);
+      // Change the value of the select and add new option with last path
+      if (split.length == 0 && eventType != "expand") {
+        var hash = location.hash
+        //Check if the hash is for filebrowser tabs or if it is empty to set a default value
+        if((hash != "#ogdocuments" 
+        && hash != "#oghome" 
+        && hash != "#ogcalendar" 
+        && hash != "#ogkanban" 
+        && hash != "#ogconversation" 
+        && hash != "#gofastSpaceMembers") || hash == ""){
+          hash = "#ogdocuments"
+        }
+        if(eventType == "click" && $("#fileBrowserLayer").hasClass("d-none")){
+          $.get(location.origin+"/ajax/getnidfromhref?href="+path).done((nid) => {
+
+            if($("#activityFeedLayer").length){
+              $('#activityFeedLayer').remove()
+            }
+            if($("#searchPageLayer").length){
+              $('#searchPageLayer').remove()
+              /**
+               * Checks if the file browser layer is not already processed and the "fileBrowserLayerContainer" is not present.
+               * If the conditions are met, the following actions are performed:
+               * 
+               * 1. Adds the class "processed" to the "#fileBrowserLayer" and prepends the fetched fileBrowserContent to it.
+               * 2. Removes the "d-none" class from the "#essentialFileBrowserHistory" element, making it visible.
+               * 3. Unhide any file browser elements if present
+               * 4. Reloads the file browser using Gofast.ITHit.reload().
+               * 
+               * This block ensures the file browser content is fetched and added to the DOM, updating the file browser layer.
+               * The class "processed" serves as a marker to prevent redundant content fetching on subsequent calls.
+               * 
+               * NB: This block to not show multiple layers at the same time after removing the search layer. 
+               */
+              if(!$('#fileBrowserLayer').hasClass('processed') && !$('.fileBrowserLayerContainer').length){
+                Gofast.Essential.getFileBrowserContent().then((fileBrowserContent) => {
+                  $('#fileBrowserLayer').addClass('processed').prepend(fileBrowserContent)
+                  $('#essentialFileBrowserHistory').removeClass('d-none')
+                  Gofast.Essential.unHideFileBrowserLayerChildren()
+                  Gofast.ITHit.reload()
+                });
+              }
+            }
+            if($("#wikiPageLayer").length){
+              $("#wikiPageLayer").remove()
+            }
+
+            if($("#forumPageLayer").length){
+              $(".gofastHighlightedForum").removeClass("gofastHighlightedForum bg-primary text-white rounded");
+              $("#forumPageLayer").remove()
+            }
+
+            $('#fileBrowserLayer').removeClass('d-none').addClass('d-flex')
+
+            Gofast.ITHit.reset_full_browser_size()
+
+            $('.essentialHeader a.btn-clean').removeClass('selected')
+              if($('#topbarNavFileBrowserButton').length > 0){
+                  $('#topbarNavFileBrowserButton').addClass('selected')
+              }
+          })
+        }
+        
+        if($('#activityFeedLayer').length > 0 && !location.pathname.startsWith("/activity")){
+          $('#activityFeedLayer').remove()
+          $('#fileBrowserLayer').removeClass('d-none').addClass('d-flex')
+          Gofast.Essential.unHideFileBrowserLayerChildren()
+
+          $('.essentialHeader a.btn-clean').removeClass('selected')
+            if($('#topbarNavFileBrowserButton').length > 0){
+                $('#topbarNavFileBrowserButton').addClass('selected')
+            }
+        }
+
+        if((Gofast._settings.isEssential && !window.location.pathname.startsWith("/search/solr") && !window.location.pathname.startsWith("/activity") && (window.location.search != "" || $(".GofastNode").length == 0))){
+          if(Gofast.get("node") != undefined){
+            if(!(Gofast.get("node").type == "article" || Gofast.get("node").type == "forum")){
+              if(Gofast.get("node").type == "alfresco_item"){
+                let targetPathname = "/node/" + Gofast.get("node").id
+                if(window.location.pathname == targetPathname){
+                  history.replaceState({}, "", targetPathname + searchQueryString + hash);
+                } else {
+                  history.pushState({}, "", targetPathname + searchQueryString + hash);
+                }
+              } else {
+                let pathArray = path.split("/");
+                //if navigate to folder, change url to parent space nid
+                if(pathArray[pathArray.length-1].startsWith("_")){
+                  $.get(location.origin+"/ajax/getnidfromhref?href="+path).done((nid) => {
+                    let currentPathWithParams = window.location.pathname+window.location.search+window.location.hash;
+                    let targetPathWithParams = "/node/" + nid + searchQueryString + hash;
+                    if (currentPathWithParams != targetPathWithParams) {
+                      history.pushState({}, "", targetPathWithParams);
+                    }
+                    Gofast.ITHit.reset_full_browser_size()
+                  })
+                } else {
+                
+                  //change to documents tab when navigating on folders
+                  if(hash != "#ogdocuments" && $("#ogtab_documents").length){
+                    $("#ogtab_documents").click()
+                  }
+                  let isFolder = false
+                  let pathArrayReverse = path.split("/").reverse()
+                  //iterate until the first space parent is find
+                  pathArrayReverse.forEach((e,i)=>{
+                    if(isFolder){
+                      return;
+                    }
+                    //if the node is a space, stop the loop and change the url
+                    if(e.startsWith("_")){
+                      isFolder = true;
+                      let parentSpace = path.slice(0,path.indexOf(pathArray[pathArray.length-i]))
+                      $.get(location.origin+"/ajax/getnidfromhref?href="+parentSpace).done((nid)=>{
+                        if(nid != ""){
+                          history.pushState({}, "", "/node/" + nid + searchQueryString + hash)
+                          Gofast.ITHit.reset_full_browser_size()
+                        }
+                      });
+                    }
+                  })
+                }
+              }
+            }
+          }
+        }
+        let pathTab = path.split('/')
+        let usedPath = path
+        if (pathTab[pathTab.length - 1].substring(0, 1) != "_") {
+          usedPath = usedPath.slice(0, -(pathTab[pathTab.length - 1].length + 1))
+        }
+        var needProcess = []
+        $('#gofastBrowserContentPanel > .tab-pane').each((i, el) => {
+          let tabContent = $(el)
+          if (!tabContent.hasClass("processed")) {
+            tabContent.addClass("processed");
+            needProcess[tabContent.attr("id")] = true;
+          } else {
+            needProcess[tabContent.attr("id")] = false;
+          }
+        })
+        //Get content of tab and change tabContent value
+        const loadTab = function (tabContent, nid) {
+          $.get('/essential/get_node_content_part/' + tabContent.attr('id') + '/' + nid).done((result) => {
+            tabContent.html(result)
+            if (tabContent.attr('id') == "oghome" && location.hash == "#oghome") {
+              $("#oghome").load("/gofast_og/home_async/" + nid, function (response, status, xhr) {
+                if (status == "success") {
+                  Drupal.attachBehaviors();
+                }
+              });
+            }
+            Drupal.attachBehaviors();
+            if(tabContent.attr("id") == "ogcalendar") {
+              if(Gofast.calendar != undefined) {
+                Gofast.calendar.initCalendar()
+              }
+            }
+            if (tabContent.attr('id') == "gofastSpaceMembers" && location.hash == "#gofastSpaceMembers") {
+              $('#gofastSpaceMembersLink').trigger('shown.bs.tab')
+            }
+          })
+        }
+        //Get old nid with data attributes stored in the tabContent. Must be called before loadTab
+        const getTabContentOldNid = function (tabContent) {
+          let oldNid = 0
+          let tabName = tabContent.attr("id")
+          if (tabName == "oghome") {
+            oldNid = $("#gofastHomePage").attr("data-gid")
+          }
+          if (tabName == "ogcalendar") {
+            oldNid = $("#kt_calendar").attr("data-gid")
+          }
+          if (tabName == "ogkanban") {
+            oldNid = $("#gofastKanban").attr("data-gid")
+          }
+          if (tabName == "gofastSpaceMembers") {
+            oldNid = $("#gofastSpaceMembersTable").attr("data-gid")
+          }
+          if (tabName == "ogconversation") {
+            oldNid = $("#gf_conversation").attr("data-gid")
+          }
+          return oldNid
+        }
+        //Initialize the click event on the tabs to load them only on click
+        const initFileBrowserTabsEventHandlers = function (nid) {
+          $('#gofastBrowserContentPanel > .tab-pane').each((i, el) => {
+            let tabContent = $(el)
+            let navTab = $('[aria-controls=' + tabContent.attr('id') + ']')
+
+            navTab.removeClass('processedTab');
+            //Event triggered when clicking on a file browser tab
+            let clickEvent = async function () {
+              if (!navTab.hasClass('processedTab')) {
+                navTab.addClass('processedTab');
+                history.pushState({}, "", window.location.origin + window.location.pathname + window.location.search + "#" + tabContent.attr("id"));
+                if (tabContent.attr('id') !== "ogdocuments") {
+                  let tabContent = $(location.hash);
+                  let oldNid = getTabContentOldNid(tabContent);
+                  if (nid != oldNid) {
+                    tabContent.html("")
+                    loadTab(tabContent, nid)
+                  }
+              }
+            }
+          }
+          //Remove and add a new click event to update the nid
+            navTab.off("click")
+            navTab.on("click", this, clickEvent);
+
+            if(navTab.attr("id") === "ogtab_home"){
+              navTab.on("click", () => {
+                $("#nav_mobile_file_browser_wiki_container").click()
+                Gofast.selectCurrentWikiArticle()
+              })
+            }
+          })
+        }
+                    
+        var currentSpacePath = Gofast.get("space");
+        if (currentSpacePath) {
+          $.get(location.origin + "/ajax/getnidfromhref?href=" + Gofast.ITHit.getSpacePath(currentSpacePath)).done((nid) => {
+            let isRootFolder = false;
+            if (pathTab[pathTab.length - 2] == "Sites" && pathTab[pathTab.length - 1].substring(0, 1) != "_") {
+              isRootFolder = true;
+            }
+            if (!nid && !isRootFolder) {
+              return;
+            }
+            Gofast.ITHit.disableFileBrowserTabs(nid, isRootFolder)
+            //When navigating, reload actual tab if the nid is changed
+            if (location.hash != "#ogdocuments") {
+              let tabContent = $(location.hash);
+              let oldNid = getTabContentOldNid(tabContent);
+              if (nid != oldNid) {
+                loadTab(tabContent, nid, oldNid)
+              }
+            }
+            initFileBrowserTabsEventHandlers(nid)
+          })
+        }
+
+        //Maximum number of path show in the select
+        var maxHistoryItem = 5;
+        if(window.sessionStorage.getItem('browserHistoryOptions_'+Gofast.get('user').uid) != null && (eventType == "load" || eventType == "backgroundNavigation") && $("#fileBrowserSelect > option").length == 1){
+
+              let options = (window.sessionStorage.getItem('browserHistoryOptions_'+Gofast.get('user').uid)).split(':')
+
+              options = options.reverse()
+
+              options.forEach((path)=>{
+
+            $('#fileBrowserSelect > option[value=""]').after(new Option(path, "/alfresco/webdav/Sites"+path))
+          })
+        }
+            if(path == "/alfresco/webdav/Sites/"){ // Prevent adding empty path to the history bar
+              return;
+            }
+            var index = path.split("/", 4).join("/").length;
+            var selectPath = index == -1 ? "" : path.substring(index)
+            selectPath = decodeURIComponent(selectPath);
+            $('#fileBrowserSelect').children().first().html(selectPath)
+            $('#fileBrowserSelect').children().first().data('path', selectPath)
+            
+            //Add new option for the last path
+            if(window.sessionStorage.getItem("browserHistory_"+Gofast.get("user").uid) != null && eventType != "expand" && window.sessionStorage.getItem("browserHistory_"+Gofast.get('user').uid) != selectPath && eventType != "load") {
+              $('#fileBrowserSelect > option[value=""]').after(new Option(window.sessionStorage.getItem("browserHistory_"+Gofast.get('user').uid), window.sessionStorage.getItem("browserHistoryFullPath_"+Gofast.get('user').uid)))
+            }
+            
+            //check if the actual path is already in the history prevent adding it to the list
+            $('#fileBrowserSelect').children().each((i,opt)=>{
+              if(i != 0){
+                if(opt.innerText == $('#fileBrowserSelect').children().first().data('path')){
+                  opt.remove()
+                }
+              }
+            })
+            
+            
+            if($('#fileBrowserSelect').children().length >= maxHistoryItem+2){
+              $('#fileBrowserSelect').children().last().remove()
+            }
+            
+            $("#fileBrowserSelect").select2({
+              minimumResultsForSearch: Infinity,
+              width: 'resolve',
+              dropdownCssClass: "dropdownEssentialHistory"
+          });
+
+          var navigationIndex = 0
+          var navigationList = ""
+
+          if(window.sessionStorage.getItem("browserNavigationHistoryIndex_"+Gofast.get('user').uid)){
+            navigationIndex = parseInt(window.sessionStorage.getItem("browserNavigationHistoryIndex_"+Gofast.get('user').uid))
+          }
+          if(window.sessionStorage.getItem("browserFullNavigationHistory_"+Gofast.get('user').uid)){
+            navigationList = window.sessionStorage.getItem("browserFullNavigationHistory_"+Gofast.get('user').uid)
+          }
+            
+            var newNavigationList = navigationList.split(':')
+            if(eventType == 'click'){
+              if(navigationIndex+1 < newNavigationList.length){
+                navigationList = newNavigationList.slice(0,navigationIndex+1).join(":")
+              }
+            }
+
+            if(eventType != 'back' && eventType != 'next' && window.sessionStorage.getItem("browserHistory_"+Gofast.get('user').uid) != selectPath){
+
+              if(window.sessionStorage.getItem("browserNavigationHistoryIndex_"+Gofast.get('user').uid) && eventType != "load"){
+                window.sessionStorage.setItem("browserNavigationHistoryIndex_"+Gofast.get('user').uid, navigationIndex+1)
+
+              } else {
+                window.sessionStorage.setItem("browserNavigationHistoryIndex_"+Gofast.get('user').uid, 0)
+              }
+              
+              if(window.sessionStorage.getItem("browserFullNavigationHistory_"+Gofast.get('user').uid) && eventType != "load"){
+
+                window.sessionStorage.setItem("browserFullNavigationHistory_"+Gofast.get('user').uid, navigationList+':'+path)
+              } else {
+                window.sessionStorage.setItem("browserFullNavigationHistory_"+Gofast.get('user').uid, path)
+              }
+            }
+            
+          window.sessionStorage.setItem("browserHistory_"+Gofast.get('user').uid, selectPath)
+          window.sessionStorage.setItem("browserHistoryFullPath_"+Gofast.get('user').uid, path)
+
+            let allOptions = ""
+            $('#fileBrowserSelect').children().each((i,opt)=>{
+              if(i != 0){
+
+                if(i == $('#fileBrowserSelect').children().length-1){
+                  
+                  allOptions += opt.innerText
+
+                } else {
+                  
+                  allOptions += opt.innerText+":"
+
+                }
+              }
+              })
+            if(allOptions != ""){
+              window.sessionStorage.setItem("browserHistoryOptions_"+Gofast.get('user').uid, window.sessionStorage.getItem("browserHistory_"+Gofast.get('user').uid)+":"+allOptions)
+
+            }
+          }
+    },
+    //Disable unaccessible tab on given space
+    disableFileBrowserTabs: function(nid, isRootFolder = false){
+      if(nid == ""){
+        nid = null
+      }
+      //Return list of tabs that need to be disabled
+      $.post("/ajax_file_browser/get_disabled_tabs/"+nid, {isRootFolder: isRootFolder}).done(result => {
+        let hideDropdownLinks = result.hidden_dropdown_links;
+        //We unhide all dropdown links
+        $("#gofastBrowserNavTabs .dropdown-item").removeClass("d-none");
+        //And then hide only those we need to hide in the current context
+        for (const dropdownLinkId of hideDropdownLinks) {
+          $("#gofastBrowserNavTabs .dropdown-item#" + dropdownLinkId).addClass("d-none");
+        }
+        let disableTab = Object.keys(result.disabled_tabs)
+        let tabsContent = $('#gofastBrowserContentPanel > .tab-pane')
+        tabsContent.each((i, el) => {
+          let tab = $(el)
+          let navTab = $('[aria-controls='+tab.attr('id')+']')
+          let tab_members_hover = ""
+          if(disableTab.some(name => tab.attr("id").includes(name))){
+            //If user was on tab that is now disabled, go to "Documents" tab
+            if(disableTab.some(name => location.hash.includes(name))){
+              $('#ogtab_documents').click()
+              setTimeout(()=>{
+                Gofast.ITHit.reset_full_browser_size()
+              },200)
+            }
+            tab_members_hover = result.disabled_tabs[tab.attr("id")]
+            navTab.parent().addClass('disabled')
+            navTab.addClass('disabled')
+          } else {
+            if(navTab.attr('id') == "tab_ogmembers_disabled"){
+              navTab.attr('id',"gofastSpaceMembersLink")
+              navTab.css('pointer-events', '')
+            }
+            navTab.parent().removeClass('disabled')
+            navTab.removeClass('disabled')
+          }
+          
+          $("#"+navTab.attr("id")).parent().attr("data-animation", "true")
+            .attr("data-triggger", "hover")
+            .attr("data-placement", "top")
+            .attr("data-boundary", "window")
+
+          $("#"+navTab.attr("id")).parent().tooltip().attr("data-original-title", tab_members_hover)
+        })
+        // tab autoclick must occur after the disabled tabs have been toggled
+        const excludedHashes = ["#users_stats", "#documents_stats", "#ogaudit"];
+        if (!excludedHashes.includes(location.hash)) {
+          $("#gofastBrowserNavTabs a[href="+location.hash+"]").click();
+        }
+        $(document).trigger("refresh-breadcrumb");
+      })
+    },
+    storeAllContentsEssential: function() {
+      var allContents = ""
+      var allContentsObj = {}
+      var items = Gofast.ITHit.sort(Gofast.ITHit.lastProcessedResources);
+      items.forEach((e,i) => {
+        let nid = e.Nid;
+        if (!nid) {
+          allContentsObj[e.Href] = null
+          return;
+        }
+        allContentsObj[e.Href] = nid
+      })
+      let allContentsArray = Object.entries(allContentsObj);
+      allContentsObj = Object.fromEntries(allContentsArray);
+      allContents = JSON.stringify(allContentsObj)
+      window.sessionStorage.setItem("allContents"+Gofast.get('user').uid, allContents)
+    },
+    /*
+     * Returns the space path of a node with its href
+     */
+    getSpacePath: function(href){
+      var pathArray = href.split("/");
+        if(pathArray[pathArray.length-1].startsWith("_")){
+          return href;
+        }
+        var pathArrayReverse = href.split("/").reverse()
+        var parentSpace
+        var isFolder = false;
+        //iterate until the first space parent is find
+        pathArrayReverse.forEach((e,i)=>{
+          if(isFolder){
+            return;
+          }
+          //if the node is a space, stop the loop and go to this space node
+          if(e.startsWith("_")){
+            isFolder = true;
+            parentSpace = href.slice(0,href.indexOf("/"+pathArray[pathArray.length-i]))
+          }
+        })
+        return parentSpace;
+     },
     /*
      * Sort items
      */
@@ -2069,10 +3043,14 @@
         tdNameSize = "35%;";
       }
       
-      itemHTML += "<tr draggable='true' ondragstart='Gofast.ITHit.moveDragStart(event)' class='file_browser_full_files_element " + HTMLClass + "' style='" + trStyle + " display: block;white-space: nowrap;'>";
+      if(item.ResourceType == "Folder" && typeof item.Visibility != 'undefined' && item.Visibility.length > 1){
+        itemHTML += "<tr draggable='false' class='file_browser_full_files_element " + HTMLClass + "' style='" + trStyle + " display: block;white-space: nowrap;'>";
+      }else{
+        itemHTML += "<tr draggable='true' ondragstart='Gofast.ITHit.moveDragStart(event)' class='file_browser_full_files_element " + HTMLClass + "' style='" + trStyle + " display: block;white-space: nowrap;'>";
+      }
       
       //checkbox to select multiple
-      itemHTML += "<td style='width:5%'><input id='cbxSelect' class='gfb-cbx' type='checkbox'></td>"
+      itemHTML += "<td style='width:5%' class='pl-0'><input id='cbxSelect' class='gfb-cbx' type='checkbox'></td>"
       //Icon
       itemHTML += "<td title='" + item.DisplayName + "' style='width:" + tdIconSize + "; height:75px;' class='item-icon'>";
       if (item.ResourceType == "Folder") { //It's a folder
@@ -2085,6 +3063,8 @@
         if (icon === "TEMPLATE") {
           icon = "fa-folder";
           var color = "#F0685A";
+        } else if (item.DisplayName === "Wikis") {
+          var color = "#20c997";
         } else {
           var color = "#3498db";
         }
@@ -2182,7 +3162,19 @@
       itemHTML += "<td class='item-path' style='display:none;'>";
       itemHTML += item.Href;
       itemHTML += "</td>";
+      
+      //NodeRef - The alfresco node reference of the reource.
+      itemHTML += "<td class='item-nodeRef' style='display:none;'>";
+      itemHTML += item.NodeRef;
+      itemHTML += "</td>";
 
+      //Store the nid of the item
+      if(item.Nid != undefined){
+        itemHTML += "<td class='item-nid' style='display:none;'>";
+        itemHTML += item.Nid;
+        itemHTML += "</td>";
+      }
+      
       itemHTML += "</tr>";
       return itemHTML;
     },
@@ -2376,8 +3368,8 @@
      * Called in the item processing phase
      */
     _attachEvents: function (item, processedItem, path) {
-      if (typeof item !== "undefined" && item !== null) {
-        if (Gofast._settings.isMobile) {
+      if (typeof item !== "undefined" && item !== null) {      
+        if (Gofast.isTablet() || Gofast.isMobile()){
           //Disable resize on double tap
           processedItem.on('touchend', function (e) {
             e.preventDefault();
@@ -2397,21 +3389,29 @@
         //Folder navigation triggering at double click
         if (item.ResourceType === "Folder") {
           processedItem.dblclick(function () {
+            let itemPath = item.Href
+            
+            //Remove trailing slash at the end
+            if(itemPath.slice(-1) == "/"){
+              itemPath = itemPath.slice(0,-1);
+            }
+            
             var rename_form = $("#rename-form");
             if (processedItem.find(rename_form).length === 0) {
-              Gofast.ITHit.navigate(item.Href);
+              Gofast.ITHit.navigate(itemPath, false, true, null, null, null, "click");
             }
           });
         }
-        if (item.ResourceType === "Resource") {
+        if (item.ResourceType === "Resource") {      
           //Go to node in ajax triggering at double click
           processedItem.dblclick(function () {
             var rename_form = $("#rename-form");
             if (processedItem.find(rename_form).length === 0) {
-              if (!Gofast._settings.isMobile) {
+              if (!Gofast._settings.isEssential) {
                 Gofast.addLoading();
               }
-              Gofast.ITHit.goToNode(item.Href, false, item.DisplayName);
+              Gofast.ITHit.goToNode(item.Href, false, item.DisplayName, item.Nid);
+                             
               clearTimeout(Gofast.willRenameElement);
             }
           });
@@ -2424,7 +3424,7 @@
         }
 
         //Allow to select items
-        processedItem.find("td>input[type=checkbox]").on('mousedown touchstart', function (e) {
+        processedItem.find("td>input[type=checkbox]").on('mousedown touchstart tap', function (e) {
           e.stopPropagation();
           e.stopImmediatePropagation();
           e.preventDefault();
@@ -2450,11 +3450,10 @@
             $('#file_browser_tooolbar_cart_button').prop('disabled', false);
             //Enable contextual actions
             $('#file_browser_tooolbar_contextual_actions').prop('disabled', false);
-
-            if (Gofast.isTablet() || Gofast.isMobile()){
-             //Check the box
-              $(this).prop("checked", true);
-            }
+          }
+          if (Gofast.isTablet() || Gofast.isMobile()){
+            //Check the box
+            $(this).prop("checked", !$(this).prop("checked"));
           }
         });
         processedItem.find("td>input[type=checkbox]").on('mouseup touchend', function (e) {
@@ -2478,40 +3477,65 @@
           } else {
             if ($('.gfb-cbx:checked').length > 0) {
               $('.gfb-cbx:checked').each(function () {
-                if ($(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Folder" || $(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Group" || $(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Organisations" || $(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Templates folder" || $(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Extranet" || $(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Public space") {
-                  $('#file_browser_full_container #file_browser_tooolbar_manage').addClass("disabled").removeClass("btn-white").attr("data-toggle", "tooltip").tooltip();
+                if ($(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Group" || $(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Organisations"||  $(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Templates folder" || $(this).parents('.file_browser_full_files_element').find('.item-name').text() === "TEMPLATES" || $(this).parents('.file_browser_full_files_element').find('.item-name').text() === 'WIKIS' || $(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Extranet" || $(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Public space") { $('#file_browser_full_container #file_browser_tooolbar_manage').addClass("disabled").removeClass("btn-white").attr("data-toggle", "tooltip").tooltip();
                   return false;
                 } else {
                   $('#file_browser_full_container #file_browser_tooolbar_manage').removeClass("disabled").addClass("btn-white").attr("data-toggle", "dropdown").tooltip("dispose");
                 }
+                if($(this).parents('.file_browser_full_files_element').find('.item-real-type').text() === "Folder" ){
+                  $('#taxonomy_open_span').parent().attr('style', 'display:none');
+                  $('#publications_open_span').parent().attr('style', 'display:none');
+                  $('#linksharing_open_span').parent().attr('style', 'display:none');
+                }else{
+                  $('#compress_files').parent().attr('style', 'display:none');
+                  $('#taxonomy_open_span').parent().attr('style', 'display:block');
+                  $('#linksharing_open_span').parent().attr('style', 'display:block');
+                  $('#publications_open_span').parent().attr('style', 'display:block');
+                }
               });
             } else {
-              $('#file_browser_full_container #file_browser_tooolbar_manage').addClass("disabled").removeClass("btn-white").attr("data-toggle", "dropdown").tooltip("dispose");
+            $('#file_browser_full_container #file_browser_tooolbar_manage').addClass("disabled").removeClass("btn-white").attr("data-toggle", "dropdown").tooltip("dispose");
             }
           }
         });
-        processedItem.on('mousedown touchstart', function (e) {
+        function processedItemCallback(e) {
           //Remove class disabled on copy and cut options
           $('#file_browser_tooolbar_copy').prop('disabled', false);
           $('#file_browser_tooolbar_cut').prop('disabled', false);
           $('#file_browser_tooolbar_cart_button').prop('disabled', false);
           //Enable contextual actions
           $('#file_browser_tooolbar_contextual_actions').prop('disabled', false);
+          let selectedItems = $("#file_browser_full_files .selected").not('.search-hidden');
           if (e.shiftKey) {
-            if ($(".selected").length > 0) {
+            if ($("#file_browser_full_files .selected").length > 0) {
+              // Don't unselect if shift + click on a selected item
               if (processedItem.hasClass('selected')) {
 
-              } else if ($(".selected").first().position().top > processedItem.position().top || $(".selected").first().position().left > processedItem.position().left) {
-                processedItem.nextUntil($(".selected").first(), "tr").not('.search-hidden').find("td>input[type=checkbox]").prop('checked', true);
-                processedItem.nextUntil($(".selected").first(), "tr").not('.search-hidden').addClass('selected');
+              // If the processedItem is between two selected item then select all from the first to the processedItem
+              } else if(selectedItems.first().position().top < processedItem.position().top 
+                        && selectedItems.last().position().top > processedItem.position().top) {
+                let closestItemFromTop = selectedItems.first();
+                selectedItems.each((index, item) => {
+                  item = $(item);
+                  if(item.position().top < processedItem.position().top && item.position().top > closestItemFromTop.position().top) {
+                    closestItemFromTop = item
+                  }
+                })
+                closestItemFromTop.nextUntil(processedItem, "tr").find("td>input[type=checkbox]").prop('checked', true);
+                closestItemFromTop.nextUntil(processedItem, "tr").addClass('selected');
+              // If the processedItem is on top of selectedItems then select all items from processItem to the first selected item
+              } else if (selectedItems.first().position().top > processedItem.position().top) {
+                processedItem.nextUntil($("#file_browser_full_files .selected").first(), "tr").not('.search-hidden').find("td>input[type=checkbox]").prop('checked', true);
+                processedItem.nextUntil($("#file_browser_full_files .selected").first(), "tr").not('.search-hidden').addClass('selected');
+              // If the processedItem is under the last selected item then select all items from last selected item to processedItem
               } else {
-                $(".selected").not('.search-hidden').last().nextUntil(processedItem, "tr").find("td>input[type=checkbox]").prop('checked', true);
-                $(".selected").last().nextUntil(processedItem, "tr").not('.search-hidden').addClass('selected');
+                selectedItems.last().nextUntil(processedItem, "tr").find("td>input[type=checkbox]").prop('checked', true);
+                selectedItems.last().nextUntil(processedItem, "tr").addClass('selected');
               }
               processedItem.addClass('selected');
               processedItem.find("td>input[type=checkbox]").prop('checked', true); 
             } else {
-              $(".selected").removeClass("selected");
+              $("#file_browser_full_files .selected").removeClass("selected");
               processedItem.addClass('selected');
             }
           } else if (e.ctrlKey) {
@@ -2524,7 +3548,7 @@
             }
           } else {
             if (!processedItem.hasClass('selected')) {
-              $(".selected").removeClass("selected");
+              $("#file_browser_full_files .selected").removeClass("selected");
               processedItem.addClass('selected');
               $("td>input[type=checkbox]:checked").prop('checked', false);
               processedItem.find("td>input[type=checkbox]").prop('checked', true);
@@ -2532,10 +3556,31 @@
           }
           processedItem.find("td>input[type=checkbox]").trigger('change'); // will enable the manage button by triggering the "change" event
           //Enable cart button if no folder are selected, else disable it
-          if ($('.selected').filter(function (k, i) { return $(i).find('.item-real-type').text() === "Folder"; }).length === 0) {
+          if ($('#file_browser_full_files .selected').filter(function (k, i) { return $(i).find('.item-real-type').text() === "Folder"; }).length === 0) {
             $('#file_browser_tooolbar_cart_button').prop('disabled', false);
           } else {
             $('#file_browser_tooolbar_cart_button').prop('disabled', true);
+          }
+        }
+        let processedItemTimeout;
+        let originalItemTouchX;
+        let originalItemTouchY;
+        processedItem.on('mousedown touchstart', function (e) {
+          if (e.type == "mousedown") {
+            processedItemCallback(e);
+          } else {
+            var touch = e.touches[0];
+            [originalItemTouchX, originalItemTouchY] = [touch.clientX, touch.clientY];
+            clearTimeout(processedItemTimeout);
+            processedItemTimeout = setTimeout(() => processedItemCallback(e), 250);
+          }
+        });
+        processedItem.on('touchmove', function (e) {
+          var touch = e.touches[0];
+          var [touchX, touchY] = [touch.clientX, touch.clientY];
+          // Check if touch has moved beyond threshold
+          if (Math.abs(touchX - originalItemTouchX) || Math.abs(touchY - originalItemTouchY)) {
+            clearTimeout(processedItemTimeout);
           }
         });
         processedItem.on('mouseup touchend', function (e) {
@@ -2547,14 +3592,14 @@
             return;
           }
           if (!e.shiftKey && !e.ctrlKey && e.button === 0) {
-            $(".selected").removeClass("selected");
+            $("#file_browser_full_files .selected").removeClass("selected");
             processedItem.addClass('selected');
             $("td>input[type=checkbox]:checked").prop('checked', false);
             processedItem.find("td>input[type=checkbox]").prop('checked', true);
           }
 
           //Enable cart button if no folder are selected, else disable it
-          if ($('.selected').filter(function (k, i) { return $(i).find('.item-real-type').text() === "Folder"; }).length === 0) {
+          if ($('#file_browser_full_files .selected').filter(function (k, i) { return $(i).find('.item-real-type').text() === "Folder"; }).length === 0) {
             $('#file_browser_tooolbar_cart_button').prop('disabled', false);
           } else {
             $('#file_browser_tooolbar_cart_button').prop('disabled', true);
@@ -2598,9 +3643,16 @@
       //Folder navigation triggering at double click
       if (item.ResourceType === "Folder") {
         processedItem.dblclick(function () {
+          let itemPath = item.Href
+          
+          //Remove trailing slash at the end
+          if(itemPath.slice(-1) == "/"){
+            itemPath = itemPath.slice(0,-1);
+          }
+          
           var rename_form = $("#rename-form");
           if (processedItem.find(rename_form).length === 0) {
-            Gofast.ITHit.navigate(item.Href);
+            Gofast.ITHit.navigate(itemPath, false, true, null, null, null, "click");
           }
         });
       }
@@ -2609,7 +3661,7 @@
         processedItem.dblclick(function () {
           var rename_form = $("#rename-form");
           if (processedItem.find(rename_form).length === 0) {
-            if (!Gofast._settings.isMobile) {
+            if (!Gofast._settings.isEssential) {
               Gofast.addLoading();
             }
             Gofast.ITHit.goToNode(item.Href, false, item.DisplayName);
@@ -2642,15 +3694,22 @@
       if (node == null && typeof node == 'object') {
         return;
       }
-      //If another menu is open, destroy it
-      if ($("#file_browser_full_files").find('.gofast-node-actions').is('.open') !== false) {
-        $("#file_browser_full_files").find('.gofast-node-actions').remove();
-      }
 
+      var menuParent = ""
+      if(Gofast._settings.isEssential){
+        menuParent = $("#gofast_file_browser_side_content")
+      } else {
+        menuParent = $("#gofastBrowserContentPanel")
+      }
+      //If another menu is open, destroy it
+      if (menuParent.find('.gofast-node-actions').is('.open') !== false) {
+        menuParent.find('.gofast-node-actions').remove();
+      }
+      
       //Display the loader, waiting the ajax request to get the menu and positioning
       //dynamically the menu
-      var menu = $('<div class="gofast-node-actions"><div class="dropdown-menu dropdown-menu-md py-5" aria-labelledby="dropdown-"><ul class="navi navi-hover navi-link-rounded-lg px-1"><li><div class="loader-activity-menu-active"></div></li></ul></div></div>').appendTo("#file_browser_full_files");
-
+      var menu = $('<div class="gofast-node-actions"><div class="dropdown-menu dropdown-menu-md py-5" aria-labelledby="dropdown-"><ul class="navi navi-hover navi-link-rounded-lg px-1"><li><div class="loader-activity-menu-active"></div></li></ul></div></div>').appendTo(menuParent);
+      
       //Show the menu and position it
       menu.addClass('open');
       menu.css('position', 'fixed');
@@ -2658,9 +3717,14 @@
         e.clientX = $("#file_browser_tooolbar_contextual_actions").offset().left;
         e.clientY = $("#file_browser_tooolbar_contextual_actions").offset().top - window.scrollY;
       }
+      
+      // Set the position of the menu
       menu.css('left', e.clientX);
       menu.css('top', e.clientY);
 
+      var menuElement = menuParent.find("> div.gofast-node-actions.open > div");
+      Gofast.ITHit.handleOverflowPosition(menuElement);
+    
       //Add event to destroy the menu when clicking outside
       $('body').click(function (e) {
         if ($(e.target).hasClass("fa-bars") || $(e.target).attr('id') === "file_browser_tooolbar_contextual_actions") {
@@ -2671,6 +3735,7 @@
 
         //Remove the item
         menu.remove();
+        $(".tooltip").remove()
       });
       
       //Get the selected elements
@@ -2679,17 +3744,23 @@
       if (typeof node === "undefined") { //From files
         
         // Get elements with the checkbox checked
-        var selected = $('.gfb-cbx:checked').parents('.file_browser_full_files_element').find('.item-path');
+        var selected = $('.gfb-cbx:checked').parents('.file_browser_full_files_element');
         $.each(selected, function (k, elem) {
-          data.push(elem.innerText);
+          let elementPath = $(elem).find(".item-path").html();
+          let elementType = $(elem).find(".item-real-type").html();
+          let elementData = {path: elementPath, type: elementType};
+          data.push(elementData);
         });
       } else { //From tree
-        data.push(node.path);
+        let elementPath = node.path;
+        let elementType = node.type;
+        let elementData = {path: elementPath, type: elementType};
+        data.push(elementData);
         fromTree = 1;
       }
 
       //AJAX request to get the menu
-      $.post(location.origin + "/gofast/node-actions/filebrowser", { selected: data, fromTree: fromTree }, function (data) {
+      $.post(location.origin + "/gofast/node-actions/filebrowser", { selected: JSON.stringify(data), fromTree: fromTree, fromBrowser: 1 }, function (data) {
         if ($(data).find('ul').length == 0) { //Empty menu
           menu.remove();
           return;
@@ -2711,9 +3782,23 @@
       });
     },
     /*
+     * Correct the elements that overlap into the edge of the window.
+     * If this can be done in pure css or bootsrap consider removing this method.
+    */
+    handleOverflowPosition: function (menuElement) {
+        var elementWidth = menuElement.outerWidth();
+        var windowWidth = $(window).width();
+        var elementRightPosition = menuElement.offset().left + elementWidth;
+        var overflowAmount = elementRightPosition - windowWidth;
+        if (overflowAmount > 0) {
+            var newRightPosition = menuElement.offset().left - (overflowAmount + 10); // Adjust 10 pixels for breathing space
+            menuElement.offset({ left: newRightPosition });
+        }
+    },
+    /*
      * Implements an little input form to rename the document/folder
      */
-    rename: function (href) {
+    rename: function (href, item_type = "folder") {
       //Search and get the line we are editing
 
       var element = $('#file_browser_full_files_table').find('td:contains("' + href + '")');
@@ -2743,10 +3828,7 @@
         name_element.find('input').on('keyup', function (e) {
           if (e.keyCode == 13) { //Enter pressed
             var new_name = name_element.find('input').val();
-
-            //Prevent users to rename contents with a name starting with '_'
-            if (new_name.substr(0, 1) === "_") {
-              Gofast.toast(Drupal.t("You can't rename a content with a name starting with '_'"), "warning");
+            if(!validateItemName(new_name, item_type)){
               return;
             }
 
@@ -2765,9 +3847,7 @@
           //delete spaces at the beginning and end of the name
           new_name = new_name.trim();
 
-          //Prevent users to rename contents with a name starting with '_'
-          if (new_name.substr(0, 1) === "_") {
-            Gofast.toast(Drupal.t("You can't rename a content with a name starting with '_'"), "warning");
+          if(!validateItemName(new_name, item_type)){
             return;
           }
 
@@ -2787,7 +3867,7 @@
     /*
      * Implements an little input form to rename the document/folder
      */
-    renameTree: function (href) {
+    renameTree: function (href, item_type = "folder") {
       //Search and get the ztree element we are editing
       var zElement = Gofast.ITHit.tree.getNodeByParam("path", href);
 
@@ -2799,7 +3879,7 @@
 
         //Display the input field
         $("#rename-popup").remove();
-        var input_group = $('#file_browser_full_tree').prepend('<div id="rename-popup"><input id="rename-form" class="form-control form-text" value="' + name + '" style="line-height:0px;height:20px;"><div class="btn-group" role="group"><button style="height:20px;padding-left:5px;padding-right:5px;padding-top:0px;padding-bottom:0px;" type="button" class="btn btn-success"><i class="fa fa-check"></i></button><button type="button" style="height:20px;padding-left:5px;padding-right:5px;padding-top:0px;padding-bottom:0px;" class="btn btn-danger"><i class="fa fa-times"></i></button></div>');
+        $('#file_browser_full_tree').prepend('<div id="rename-popup"><input id="rename-form" class="form-control form-text" value="' + name + '" style="line-height:0px;height:20px;"><div class="btn-group d-flex" role="group"><button style="height:20px;padding-left:5px;padding-right:5px;padding-top:0px;padding-bottom:0px;" type="button" class="btn btn-success"><i class="fa fa-check"></i></button><button type="button" style="height:20px;padding-left:5px;padding-right:5px;padding-top:0px;padding-bottom:0px;" class="btn btn-danger"><i class="fa fa-times"></i></button></div>');
         var name_element = $("#rename-popup");
 
         name_element.css('width', $("#file_browser_full_tree_element").width());
@@ -2815,9 +3895,7 @@
             //delete spaces at the beginning and end of the name
             new_name = new_name.trim();
 
-            //Prevent users to rename contents with a name starting with '_'
-            if (new_name.substr(0, 1) === "_") {
-              Gofast.toast(Drupal.t("You can't rename a content with a name starting with '_'"), "warning");
+            if(!validateItemName(new_name, item_type)){
               return;
             }
 
@@ -2832,6 +3910,10 @@
 
           //delete spaces at the beginning and end of the name
           new_name = new_name.trim();
+
+          if(!validateItemName(new_name, item_type)){
+            return;
+          }
 
           //Process rename
           $("#rename-popup").remove();
@@ -2973,7 +4055,8 @@
                   Gofast.ITHit.tree.refresh();
                   Gofast.ITHit.tree.selectNode(selectedNode);
                 }
-                //Attach again click evennt with the proper path
+                var items = items || [];
+                //Attach again click event with the proper path
                 var rtype_items = items.filter(function (i) {
                   return i.Href === folder.Href + encodeURIComponent(old_name).replace(/[!'()*]/g, escape);
                 });
@@ -2983,12 +4066,15 @@
                 } else {
                   rtype = "Folder";
                 }
+                // refresh wiki panel if a wiki article has been renamed
+                if (folder.Href.includes("/Wikis")) {
+                  Gofast.refreshWikiPanel();
+                }
                 var fakeItem = {
                   ResourceType: rtype,
                   DisplayName: new_name,
                   Href: folder.Href + encodeURIComponent(new_name).replace(/[!'()*]/g, escape)
                 };
-                console.log(fakeItem.Href);
                 Gofast.ITHit._attachEventsAgain(fakeItem, name_element.parent());
                 //We also need to edit the item-path hidden attribute for technical reasons
                 var item_path = folder.Href + encodeURIComponent(new_name).replace(/[!'()*]/g, escape);
@@ -3003,10 +4089,16 @@
     /*
      * Display confirmation modal to process a deletion
      */
-    delete: function (data, process) {
+    delete: function (data, process, e) {
       if (process) {
+        //Stop propagation of events to prevent multiple submit
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        
         Gofast.closeModal();
         var items = JSON.parse(data);
+        var folders = [];
 
         //Queue items for deletion
         items.forEach(function (path) {
@@ -3017,16 +4109,6 @@
           }
           fileName = fileName.split('/');
           fileName = decodeURIComponent(fileName.pop());
-          $.post(location.origin + "/gofast/audit/delete/folder", { folder: path }, function (data) {
-            console.log('Delete folder successful');
-          });
-          $.post(location.origin + "/gofast/browser/check_favorite_folders", { folder: path }, function (data) {
-            if (data == 1) {
-              console.log('Favorites was remove');
-            } else {
-              console.log('There was no favorites');
-            }
-          });
           var displayNamePath = fileName + ' (' + decodeURIComponent(path).replace('/alfresco/webdav/Sites/', '') + ')';
 
           var operation = "delete";
@@ -3041,7 +4123,23 @@
             progression: 0,
             status: 0
           });
+
+          //Finally check if the item is a folder
+          if ($(".item-path:contains("+ path +")").parent().find(".item-real-type").text() == "Folder") {
+            folders.push(path);
+          }
         });
+
+        //Delete from audit and favorites
+        if (folders.length) {
+          $.post(location.origin + "/gofast/audit/delete/folder", { folders });
+          $.post(location.origin + "/gofast/browser/check_favorite_folders", { folders }, function (data) {
+            if (data != 1) {
+              console.log('There were no favorites to remove');
+            }
+          });
+        }
+
         //Disable copy and cut buttons
         $('#file_browser_tooolbar_copy').prop('disabled', true);
         $('#file_browser_tooolbar_cut').prop('disabled', true);
@@ -3055,58 +4153,18 @@
       } else {
         //Retrieve back items
         var items = JSON.parse(data);
-
         var title = Drupal.t("Delete files", {}, { context: "gofast:ajax_file_browser" });
-
-        var html = "<div class='alert alert-custom alert-notice alert-light-warning fade show' role='alert'>"
-          html += "<div class='alert-icon'><i class='flaticon-warning'></i></div>"
-          html += "<div class='alert-text'>"
-            html += "<ul>"
-              html += "<li>" + Drupal.t("These files will also be removed from all their locations.", {}, { context: 'gofast' }) + "</li>"
-              html += "<li>" + Drupal.t("Files with ", {}, { context: 'gofast' }) + '<i class="fa fa-question-circle"></i>' + Drupal.t(" have more than one emplacements", {}, { context: 'gofast' }) + "</li>"
-            html += "</ul>"
-          html += "</div>"
-        html += "</div>"
-        html += "<h4>" + Drupal.t("Are you sure you want to delete?", {}, { context: "gofast:ajax_file_browser" }) + "</h4>";
-        html += "<br /><ul style='max-height: 320px;overflow-y: scroll;'>";
-        var int = 0;
-        items.forEach(function (path) {
-          path = decodeURIComponent(path);
-          var drupalPath = path.replace('/alfresco/webdav', '');
-          path = path.replace('/alfresco/webdav/Sites/', '');
-          $.get(location.origin + "/ajax_file_browser/folder/get_documents", { folder_path: drupalPath, int: int },
-            function (data) {
-              var result = JSON.parse(data);
-              var data = result.theme_list_documents;
-              var int = result.int;
-              $('.delete-loader-actions-' + int).replaceWith(data);
-              $("body").tooltip({ selector: '[data-toggle=tooltip]', trigger: 'hover' });
-            }
-          );
-          $.get(location.origin + "/ajax_file_browser/get_icon", { folder_path: drupalPath, int: int },
-            function (data) {
-              var result = JSON.parse(data);
-              var icon = result.icon;
-              var int = result.int;
-              $('.delete-locations-' + int + ' span').replaceWith(icon);
-            }
-          );
-          html += '<li class="delete-locations-' + int + '">';
-          html += '<span></span>';
-          html += path;
-          html += '<i></i>';
-          html += '</li>';
-          int += 1;
+        var html = "";
+        Gofast.addLoading();
+        $.post(location.origin + "/ajax_file_browser/0/get_delete_modal_content", {
+          items: items
+        }, function(res) {
+          html = res;
+          data = data.replace(/"/g, '&quot;');
+          html += '<button id="deleteButton" class="btn btn-danger btn-sm icon-before" onClick="Gofast.ITHit.delete(\'' + data + '\', true, event)"><span class="icon glyphicon glyphicon-trash"></span>' + ' ' + Drupal.t('Delete') + '</button>';
+          Gofast.modal(html, title);
+          Gofast.removeLoading();
         });
-        html += "</ul>";
-        // html += '<i class="fa fa-exclamation-triangle" style="color:red;"></i> ' + Drupal.t("These files will also be removed from all their locations.", {}, { context: 'gofast' });
-        // html += "<br />";
-        // html += '<i class="fa fa-exclamation-triangle" style="color:red;"></i> ' + Drupal.t("Files with ", {}, { context: 'gofast' }) + '<i class="fa fa-question-circle"></i>' + Drupal.t(" have more than one emplacements", {}, { context: 'gofast' });
-        // html += "<br /><br />";
-        data = data.replace(/"/g, '&quot;');
-        html += '<button id="deleteButton" class="btn btn-danger btn-sm icon-before" type="submit" onClick="Gofast.ITHit.delete(\'' + data + '\', true)"><span class="icon glyphicon glyphicon-trash"></span>' + ' ' + Drupal.t('Delete') + '</button>';
-
-        Gofast.modal(html, title);
       }
     },
     /*
@@ -3196,36 +4254,328 @@
     /*
      * Download selected items
      */
-    downloadSelected: function () {
-      //Get selected items
+    downloadSelected: async function () {
       var selected = $('#file_browser_full_files_table').find('.selected');
-
-      //Push them to queue
+      let files = [];
+      var filesWithoutNodeRefs = [];
       $.each(selected, function (k, elem) {
-        var path = $(elem).find('.item-path').text();
-        var fileName = $(elem).find('.item-name').text();
+        var nodeRef = $(elem).find('.item-nodeRef').text();
+        if (nodeRef === "undefined") {
+          filesWithoutNodeRefs.push($(elem).find('.item-path').text());
+        } else {
+          files.push({'nodeRef': nodeRef});
+        }
+      })
+      if(filesWithoutNodeRefs.length > 0) {
+        nodeRefs = await Gofast.ITHit.getReference(filesWithoutNodeRefs, function (references) {
+          references.map((reference) => {
+            files.push({nodeRef: reference});
+          });
+        })
+      }
+      Gofast.ITHit.downloadFiles(files);
+    },
+    /**
+     * Download list of files
+     * format : [{nodeRef: 'xxx'}, {nodeRef: 'xxx'}]
+     */
+    downloadFiles(files){
+      // Check if there are any completed download items in the queue.
+      const hasCompletedItems = Gofast.ITHit.queue.some(item => item.status === 4);
 
-        if($(elem).find('.item-real-type').text() !== 'Resource'){
-          Gofast.toast(Drupal.t("Can't download ", {}, {context: 'gofast:ajax_file_browser'}) + " " + fileName, "warning");
-        }else{
+      // Create a new download item object.
+      const newItem = {
+        uuid: Gofast.ITHit.generate_uuid(),
+        files: files,
+        displayNamePath: Drupal.t('Mass file download', {}, { context: 'gofast:ajax_file_browser' }) + ' ('+files.length+')',
+        fileName: Drupal.t('Downloading Files', {}, { context: 'gofast:ajax_file_browser' }),
+        operation: 'download_selected',
+        displayOperation: Drupal.t('Download', {}, { context: 'gofast:ajax_file_browser' }),
+        progression: 0,
+        status: 0
+      };
 
-          totalPath = decodeURIComponent(path).replace('/alfresco/webdav/Sites/', '');
+      // If there are completed items in the queue, find the index of the last completed item.
+      if (hasCompletedItems) {
+        const index = Gofast.ITHit.queue.findIndex(item => item.status === 4);
 
-          // audit
-          Gofast.auditAction.downloadSelected(totalPath);
+        // Insert the new item before the last completed item.
+        Gofast.ITHit.queue.splice(index, 0, newItem);
+      } else {
+        // If there are no completed items, push the new item to the end of the queue.
+        Gofast.ITHit.queue.push(newItem);
+      }
+    },
+    /*
+    * Display confirmation modal to process an unzipping
+    */
+    unzip: function (data, process) {
+      if (process) {
+        Gofast.closeModal();
+        let items = JSON.parse(data);
 
-          Gofast.ITHit.queue.push({
+        //Queue items for unzipping
+        items.forEach(function (path) {
+          //Get the name of the element from the path
+          let fileName = path;
+          if (path.substr(-1, 1) === "/") {
+            fileName = path.substring(0, path.length - 1);
+          }
+          fileName = fileName.split("/");
+          fileName = decodeURIComponent(fileName.pop());
+          let displayNamePath = fileName + " (" + decodeURIComponent(path).replace("/alfresco/webdav/Sites/", "") + ")";
+
+          let operation = "unzip";
+          let displayOperation = Drupal.t(
+              "Extracting",
+              {},
+              { context: "gofast:ajax_file_browser" }
+          );
+
+          // Initialize the queue if it's not already initialized
+          if (!Gofast.ITHit.queue) {
+            Gofast.ITHit.queue = [];
+          }
+          // Push to queue
+          let queue_contents = Gofast.ITHit.queue;
+
+          // Only add the item to the queue if it's not already in it (to avoid duplicates)
+          if (!queue_contents.some(item => item.path === path)) {
+            const newItem = {
+              uuid: Gofast.ITHit.generate_uuid(),
+              path: path,
+              displayNamePath: displayNamePath,
+              fileName: fileName,
+              operation: operation,
+              displayOperation: displayOperation,
+              progression: 25,
+              status: 1,
+            };
+
+            // Get the index of the newly added item in the queue
+            const item_index = Gofast.ITHit.queue.push(newItem) - 1;
+
+            Gofast.ITHit._increaseFileProgressionInQueue(1, 70, item_index);
+          }
+        
+        $.post(location.origin + "/ajax_file_browser/unzip_file",
+            { item: path, fileName: fileName },
+            function (res) {
+              if(res.overallSuccess === true && res.failureCount === 0) {
+                Gofast.toast(Drupal.t("Your files  have been extracted" +
+                    " successfully.", {}, {context: "gofast:ajax_file_browser"}), "success", '', '');
+                Gofast.ITHit.queue = [];
+                let queue_contents = Gofast.ITHit.queue;
+                queue_contents.forEach(function (item) {
+                  item.progression = 100;
+                  item.status = 4;
+                });
+
+                setTimeout(function () {
+                  Gofast.ITHit.queue = [];
+                  Gofast.ITHit.reload();
+                }, 1000);
+              }
+              else {
+                Gofast.toast(Drupal.t(
+                    "Some files may already exists in this space.", {}, {context: "gofast:ajax_file_browser"}), "info", 
+                    Drupal.t('Please note', {}, {context:'ajax_file_browser'}), '');
+                Gofast.ITHit.queue = [];
+                let queue_contents = Gofast.ITHit.queue;
+                queue_contents.forEach(function (item) {
+                  item.progression = 100;
+                  item.status = 3;
+                });
+                setTimeout(function () {
+                  Gofast.ITHit.queue = [];
+                  Gofast.ITHit.reload();
+                }, 5000);
+              }
+            }
+        );
+      });
+          
+        //Disable copy and cut buttons
+        $("#file_browser_tooolbar_copy").prop("disabled", true);
+        $("#file_browser_tooolbar_cut").prop("disabled", true);
+        $("#file_browser_tooolbar_cart_button").prop("disabled", true);
+        //Disable manage button
+        $("#file_browser_full_container #file_browser_tooolbar_manage")
+            .addClass("disabled")
+            .removeClass("btn-white")
+            .attr("data-toggle", "tooltip")
+            .tooltip(); //Disable cart button
+        $("#file_browser_tooolbar_cart_button").prop("disabled", true);
+        //Disable contextual actions
+        $("#file_browser_tooolbar_contextual_actions").prop("disabled", true);
+      } else {
+        //Retrieve back items
+        items = JSON.parse(data);
+        const title = Drupal.t("Extract File", {}, {context: "gofast:ajax_file_browser"});
+        let html = "";
+        Gofast.addLoading();
+
+        $.post(location.origin + "/ajax_file_browser/get_unzip_modal_content",
+            {items: items,},
+            function (res) {
+              html = res;
+              data = data.replace(/"/g, "&quot;");
+              html +=
+                  '<button id="extractButton" class="btn btn-warning btn-sm' +
+                  ' icon-before' +
+                  ' not-form" onmousedown="Gofast.ITHit.unzip(\'' +
+                  data +
+                  '\', true)"><span class="icon glyphicon glyphicon-archive"></span>' +
+                  " " +
+                  Drupal.t("Extract", {}, {context: "gofast:ajax_file_browser"}) +
+                  "</button>";
+              Gofast.modal(html, title);
+              Gofast.removeLoading();
+            }
+        );
+      }
+    },
+    /*
+    * Section UnZip selected items
+    */
+    unzipSelected: function (e, selection) {
+      if (typeof selection !== "undefined") {
+        const data = JSON.stringify([selection]);
+        Gofast.ITHit.unzip(data);
+      }
+    },
+    /*
+    * Display confirmation modal to process a compression
+    */
+    compress: function (data, process) {
+      let items;
+      if (process) {
+          Gofast.closeModal();
+          items = JSON.parse(data) 
+          // Create a new compress item object for the queue
+          const newItem = {
             uuid: Gofast.ITHit.generate_uuid(),
-            path : path,
-            displayNamePath: fileName + ' (' + totalPath + ')',
-            fileName: fileName,
-            operation: 'download',
-            displayOperation: Drupal.t('Download', {}, { context: 'gofast:ajax_file_browser' }),
+            displayNamePath: Drupal.t('Mass file compression', {}, { context: 'gofast:ajax_file_browser' }) + ' ('+items.length+')',
+            fileName: Drupal.t('Compressing Files', {}, { context: 'gofast:ajax_file_browser' }),
+            operation: 'compress_selected',
+            displayOperation: Drupal.t('Compress', {}, { context: 'gofast:ajax_file_browser' }),
             progression: 0,
             status: 0
-          });
+         };        
+         
+         //Set the new item on the top of processes that have completed
+         const hasCompletedItems = Gofast.ITHit.queue.some(item => item.status === 4);
+        // If there are completed items in the queue, find the index of the last completed item.
+        if (hasCompletedItems) {
+          const index = Gofast.ITHit.queue.findIndex(item => item.status === 4);
+          // Insert the new item before the last completed item.
+          Gofast.ITHit.queue.splice(index, 0, newItem);
+        } else {
+          // If there are no completed items, push the new item to the end of the queue.
+          Gofast.ITHit.queue.push(newItem);
         }
-      });
+
+      //Disable copy and cut buttons
+      $("#file_browser_tooolbar_copy").prop("disabled", true);
+      $("#file_browser_tooolbar_cut").prop("disabled", true);
+      $("#file_browser_tooolbar_cart_button").prop("disabled", true);
+      //Disable manage button
+      $("#file_browser_full_container #file_browser_tooolbar_manage")
+          .addClass("disabled")
+          .removeClass("btn-white")
+          .attr("data-toggle", "tooltip")
+          .tooltip(); //Disable cart button
+      $("#file_browser_tooolbar_cart_button").prop("disabled", true);
+      //Disable contextual actions
+      $("#file_browser_tooolbar_contextual_actions").prop("disabled", true);
+    }
+    else {
+      items = data
+      //Retrieve back items
+      const title = Drupal.t("Compress",{}, {context: "gofast:ajax_file_browser"});
+      let html = "";
+      Gofast.addLoading();
+      $.post(location.origin + "/ajax_file_browser/get_compress_modal_content",
+          {items: items},
+          function (res) {
+            html = res;
+            data = data.replace(/"/g, "&quot;");
+            html +=
+              '<button id="compressButton" class="btn btn-warning btn-sm' +
+              ' icon-before not-form" onmousedown="Gofast.ITHit.compress(\'' +
+              data + '\', true)">' +
+              '<span class="icon glyphicon glyphicon-archive"></span>' +
+              " " +
+              Drupal.t('Compress', {}, { context: 'gofast:ajax_file_browser' }) +
+              "</button>";
+            Gofast.modal(html, title);
+            Gofast.removeLoading();
+            }
+        );
+        $('#gofast_basicModal').click();
+        
+      }
+    },
+    
+    /*
+     * Process an unzip operation on an item in the queue
+     */
+    _processUnzip: function (index) {
+      let numberOfTries = 0;
+      async function subscribe(isProgressionComplete = false) {
+        let url = location.origin + "/ajax_file_browser/unzip_file/check_status?isProgressionComplete="+isProgressionComplete;
+        $.get(
+            url,
+            async function (response) {
+              if (Gofast.ITHit.queue.length) {
+                if (response.status === 0) {
+                  Gofast.ITHit.queue[0].progression = response.progression;
+                  Gofast.ITHit.queue[0].status = response.progression === 100 ? 4 : 1;
+                  console.log(0);
+                  await subscribe(true);
+                }
+                else if (response.status === 4) {
+                  updateQueue(response);
+                  Gofast.ITHit.queue.pop();
+                  setTimeout( function(){
+                    Gofast.ITHit.queue.pop();
+                    Gofast.toast(response.message, response.state, response.title, []);
+                    Gofast.ITHit.reload();
+                  }, 3000);
+                }
+                else if (response.status === 2) {
+                  updateQueue(response);
+                  // Reconnect in one second
+                  await new Promise((resolve) => setTimeout(resolve, 1000));
+                  await subscribe();
+                }
+                else if (response.status === 1) {
+                  updateQueue(response);
+                  setTimeout( function(){
+                    Gofast.ITHit.queue.pop();
+                    Gofast.toast(response.message, response.state, response.title, []);
+                    Gofast.ITHit.reload();
+                  }, 3000);
+                }
+                else if (numberOfTries < 10) {
+                  // Reconnect in one second
+                  await new Promise((resolve) => setTimeout(resolve, 1000));
+                  numberOfTries++;
+                  await subscribe();
+                }
+                else {
+                  Gofast.toast(response.message, "error", Drupal.t("Something went wrong!"), []);
+                  Gofast.ITHit.reload();
+                }
+              }
+            }
+        );
+      }
+      function updateQueue(response){
+        Gofast.ITHit.queue[index].status = response.status;
+        Gofast.ITHit.queue[index].progression = response.progression;
+      }
+      subscribe();
     },
     /*
      * Process a delete operation on a item in the queue
@@ -3263,8 +4613,16 @@
                 var element = $('td:contains("' + path + '")');
                 if (element.length !== 0) {
                   element.parent().remove();
-                  var elementLeft = $('a[title|="' + fileName + '"]');
-                  elementLeft.parent().remove();
+                }
+                const ztreeElement = Gofast.ITHit.tree.getNodeByParam("path", decodeURIComponent(path));
+                // Remove item from ztree
+                if(ztreeElement){
+                  Gofast.ITHit.tree.removeNode(ztreeElement);
+                }
+                // If we are in the deleted folder, navigate to it's parent
+                if(Gofast.ITHit.currentPath == decodeURIComponent(path)){
+                  const parentPath = path.split("/").slice(0, -1).join("/")
+                  Gofast.ITHit.navigate(parentPath)
                 }
               } else {
                 Gofast.toast("<u>" + fileName + "</u><br /><br />" + Drupal.t("Please verify that you are allowed to do that.  If you think this is an error, please contact your administrator.", {}, { context: 'gofast:ajax_file_browser' }), "warning", Drupal.t("This element cannot be deleted", {}, { context: 'gofast:ajax_file_browser' }));
@@ -3295,6 +4653,13 @@
       //Prevent move of a space
       if (fileName.substr(0, 1) === "_") {
         Gofast.toast(Drupal.t("You can only move a space from it's page.", {}, { context: 'gofast:ajax_file_browser' }), "warning");
+        Gofast.ITHit.queue[index] = null;
+        return;
+      }
+
+      const targetFolderName = destination.split("/").slice(-2)[0]; // since it's a target folder it ends with a "/" so the last item after the split is an empty string hence the slice
+      if (targetFolderName == "Wikis") {
+        Gofast.toast(Drupal.t("You can't move documents inside a \"Wikis\" folder, only articles.", {}, { context: 'gofast:ajax_file_browser' }), "warning");
         Gofast.ITHit.queue[index] = null;
         return;
       }
@@ -3334,22 +4699,49 @@
               if (destination === Gofast.ITHit.currentPath) {
                 Gofast.ITHit.reload();
               }
-            } else if (oAsyncResult.Error instanceof ITHit.WebDAV.Client.Exceptions.PreconditionFailedException || oAsyncResult.Status.Code == 412) {
-              Gofast.toast(Drupal.t("Can't move", {}, { context: 'gofast:ajax_file_browser' }) + " " + fileName + " " + Drupal.t("because this item already exists in the destination folder.", {}, { context: 'gofast:ajax_file_browser' }), "warning");
+            }
+            else if (oAsyncResult.Error instanceof ITHit.WebDAV.Client.Exceptions.PreconditionFailedException || oAsyncResult.Status.Code === 412) {
+              Gofast.toast(Drupal.t('Cannot move this file or directory because it already exists in the destination folder', {}, {context: 'gofast:ajax_file_browser'}), "warning", Drupal.t('Your file cannot be moved', {}, {context: 'gofast:ajax_file_browser'}), []);
               Gofast.ITHit.queue[index] = null;
-              return;
-            } else if (destination == '/alfresco/webdav/Sites/_Groups' || destination == '/alfresco/webdav/Sites/_Organisations' || destination == '/alfresco/webdav/Sites/_Public' || destination == '/alfresco/webdav/Sites/_Extranet') {
-              Gofast.toast(Drupal.t("You can not upload files in root spaces (Groups, Organizations, Public, Extranet). Please, upload your files in sub-spaces or create them. ", {}, { context: 'gofast:ajax_file_browser' }), 'warning');
+
+            }
+            else if (destination === '/alfresco/webdav/Sites/_Groups' || destination === '/alfresco/webdav/Sites/_Organisations' || destination === '/alfresco/webdav/Sites/_Public' || destination === '/alfresco/webdav/Sites/_Extranet') {
+              Gofast.toast(Drupal.t('You can not upload files in root spaces (Groups, Organizations, Public, Extranet). Please, upload your files in sub-spaces or create them.', {}, {context: 'gofast:ajax_file_browser'}), "warning", Drupal.t('Your file cannot be moved', {}, {context: 'gofast:ajax_file_browser'}), []);
               Gofast.ITHit.queue[index] = null;
-              return;
-            } else if (item.ResourceType === "Folder") {
-              Gofast.toast(Drupal.t("You are not the creator of the directory or the creator of some files in the directory.", {}, { context: 'gofast:ajax_file_browser' }), "warning", Drupal.t("Your folder cannot be moved", {}, { context: 'gofast:ajax_file_browser' }));
+            }
+            else if (oAsyncResult.Error instanceof ITHit.WebDAV.Client.Exceptions.ForbiddenException || oAsyncResult.Status.Code === 403) {
+
+              Gofast.toast(Drupal.t('You do not have the permission to move this item to this destination.',
+                      {context: 'gofast:ajax_file_browser'}),
+                  "warning", Drupal.t("Your file cannot be moved", {}, {context: 'gofast:ajax_file_browser'}),
+                  []
+              );
               Gofast.ITHit.queue[index] = null;
-              return;
-            } else {
-              Gofast.toast(Drupal.t("You are not the creator of the file.", {}, { context: 'gofast:ajax_file_browser' }), "warning", Drupal.t("Your file cannot be moved", {}, { context: 'gofast:ajax_file_browser' }));
+            }
+            else if (oAsyncResult.Error instanceof ITHit.WebDAV.Client.Exceptions.LockedException || oAsyncResult.Status.Code === 423) {
+              Gofast.toast(Drupal.t('This file or directory  is currently locked. Please try again later.',
+                      {context: 'gofast:ajax_file_browser'}),
+                  "warning", Drupal.t("Your file cannot be moved", {}, {context: 'gofast:ajax_file_browser'}),
+                  []
+              );
               Gofast.ITHit.queue[index] = null;
-              return;
+            }
+            else if (oAsyncResult.Error instanceof ITHit.WebDAV.Client.Exceptions.NotFoundException || oAsyncResult.Status.Code === 404) {
+              Gofast.toast(Drupal.t('This file or directory may have been recently deleted, please kindly refresh this browser tab.',
+                      {context: 'gofast:ajax_file_browser'}),
+                  "warning", Drupal.t("Your file cannot be moved", {}, {context: 'gofast:ajax_file_browser'}),
+                  []
+              );
+              Gofast.ITHit.queue[index] = null;
+            }
+            else {
+              Gofast.toast(Drupal.t('This file or directory cannot be moved, please make sure it is not locked or that you are authorised to move it.',
+                      {context: 'gofast:ajax_file_browser'}),
+                  "warning", Drupal.t('Your file cannot be moved', {}, {context: 'gofast:ajax_file_browser'}),
+                  []
+              );
+              Gofast.ITHit.queue[index] = null;
+
             }
           });
         });
@@ -3416,10 +4808,93 @@
       });
     },
     /*
+     * Process an upload operation in the queue
+     * This handler won't actually handle the upload, only check for user interaction if needed
+     */
+    _processUpload: function (index) {
+      if(!Gofast.ITHit.queue[index].toValidate || $("#gofast_basicModal").hasClass("show")){
+        //Nothing to do
+        return;
+      }
+      
+      const destination = Gofast.ITHit.queue[index].path;
+      const targetFolderName = destination.split("/").slice(-2)[0];
+      if (targetFolderName == "Wikis") {
+        Gofast.toast(Drupal.t("You can't upload documents inside a \"Wikis\" folder.", {}, { context: 'gofast:ajax_file_browser' }), "warning");
+        Gofast.ITHit.queue[index] = null;
+        return;
+      }
+      
+      //Check if a default op is already saved
+      if(Gofast.ITHit.rememberUploadOp != null){
+        Gofast.ITHit._processUploadSubmit(Gofast.ITHit.queue[index].uuid, Gofast.ITHit.rememberUploadOp);
+      }else{
+        //Retrieve HTML content of the modal and display user interaction
+        var html = Gofast.ITHit._processUploadGenerateHTML(Gofast.ITHit.queue[index]);
+        Gofast.modal(html, Drupal.t("Overwrite this document ?", {}, {context: "gofast:gofast_ajax_file_browser"}));
+      }
+    },
+    /*
+     * Generate HTML for user interraction in an upload process
+     */
+    _processUploadGenerateHTML: function (item) {
+      var path = item.path;
+      var fileName = item.fileName;
+      var uuid = item.uuid;
+      
+      path = decodeURIComponent(path.split("alfresco/webdav/Sites/")[1]);
+      
+      var html = "";
+      html += Drupal.t("This document already exists in the destination : ", {}, {context: "gofast:gofast_ajax_file_browser"});
+      
+      html += "<ul>";
+      html += "<li>" + fileName + " ( " + path + " )" + "</li>";
+      html += "</ul>";
+      
+      html += '<div class="form-item form-type-checkbox checkbox align-items-start d-flex flex-column mb-5">';
+      html += ' <label class="checkbox mr-3 switch switch-icon switch-sm gofast-switch-icon" for="rememberUploadOp">';
+      html += '   <input type="checkbox" id="rememberUploadOp">';
+      html += '     <span class="mr-2"></span>';
+      
+      html += Drupal.t("Remember my choice for the current queue", {}, {context: "gofast:gofast_ajax_file_browser"});
+      
+      html += ' </label>';
+      html += '</div>';
+      
+      html += '<button id="overwriteButton" class="btn btn-warning btn-sm icon-before" onclick="Gofast.ITHit._processUploadSubmit(\'' + uuid + '\', 1)">Ecraser</button>';
+      html += '<button id="cancelButton" class="btn btn-danger btn-sm icon-before" onclick="Gofast.ITHit._processUploadSubmit(\'' + uuid + '\', 0)">Annuler</button>';
+      
+      return html;
+    },
+    /*
+     * Get the user interraction and process it
+     * OP 0 - Cancel; OP 1 - Overwrite
+     */
+    _processUploadSubmit: function (uuid, op){
+      var item_index = Gofast.ITHit.queue.findIndex(function (e) {
+        return e !== null && e.uuid === uuid;
+      });
+      
+      if(Gofast.ITHit.queue[item_index] == null){return;}
+      
+      Gofast.ITHit.queue[item_index].toValidate = 0;
+      Gofast.closeModal();
+      
+      //Check for remember setting
+      if($("#rememberUploadOp").length && $("#rememberUploadOp")[0].checked){
+        Gofast.ITHit.rememberUploadOp = op;
+      }
+      
+      if(op == 1){
+        Gofast.ITHit.queue[item_index].beforeUploadEvent.Upload();
+      }else{
+        Gofast.ITHit.cancelUpload(uuid);
+      }
+    },
+    /*
      * Process a download operation on a item in the queue
      */
     _processDownload: function (index, process) {
-
       //Prevent overload
       if (!process) {
         setTimeout(function () {
@@ -3471,6 +4946,211 @@
       }
     },
     /*
+     * Process a download operation on a item in the queue
+     */
+    _processDownloadSelected: function (index) {
+        const files = Gofast.ITHit.queue[index]?.files || [];
+        if (files.length) {  
+          Gofast.ITHit._increaseFileProgressionInQueue(files.length, 90, index);
+          //Send request to the server to initiate a new download op of the selected files
+          try {
+             $.post(location.origin + "/ajax_file_browser/download_selected_files", { 'files': files }).done(downloadObject => {
+              if (downloadObject.status === 'download_processing' && Gofast.ITHit.queue[index]) {
+                // Begin to check download status
+                Gofast.ITHit._checkDownloadStatus(downloadObject, index);
+              }
+            });
+          } catch (error) {
+            console.error('Failed to register download: ', error);
+          }
+        }
+    },
+    /*
+    * Process a compression operation on items in the queue
+    */
+    _processCompress: function (index) {
+      let nodeRefs = [];
+      Gofast.ITHit.getSelectNodeRefs().map((nodeRef)=>{
+        nodeRefs.push({'nodeRef':nodeRef})
+      });
+      if (nodeRefs.length) {
+        Gofast.ITHit._increaseFileProgressionInQueue(nodeRefs.length, 80, index);
+        //Send request to the server to initiate a new download op of the selected files
+        try {
+           // initiate the compression
+          $.post(location.origin + "/ajax_file_browser/compress_files", { 'nodeRefs': nodeRefs }
+          ).done(async ()=> {
+            await Gofast.ITHit._checkCompressionStatus(index);
+          })
+        } catch (error) {
+          console.error('Failed to initiate compression: ', error);
+        }
+      }
+    },
+    
+    /**
+     * A faker that increases the file operation progression in the queue.
+     * Increases file progression in the queue 
+     * Updates the progression based on the number of files to download,
+     * aiming for targetProgression (%) completion. 
+     * The increment rate is calculated as the targetProgression
+     * divided by the expected duration in seconds
+     * to complete the operation. It ensures the progression doesn't
+     * exceed the targetProgression.
+     *
+     * The progression is updated in the queue.
+     *
+     * @param {number} filesLength - The number of files in the operation
+     * @param {Integer} targetProgression - The target progression to be achieved.
+     * @param {Integer} index - The Queue index the queue item.
+     */
+    _increaseFileProgressionInQueue : function (filesLength, targetProgression, index) {
+        let currentProgression = Gofast.ITHit.queue[index].progression;
+      let incrementRate = targetProgression / filesLength;
+        incrementRate = Math.round(incrementRate);
+      if (currentProgression < targetProgression) {
+        currentProgression += incrementRate;
+        // Ensure currentProgression is not greater than targetProgression
+        if (Gofast.ITHit.queue[index] !== null) {
+          if (currentProgression > targetProgression) {
+            currentProgression = targetProgression;
+          }
+          Gofast.ITHit.queue[index].progression = currentProgression;
+          setTimeout(() => {
+            if(Gofast.ITHit.queue[index].status !== 3){ 
+              Gofast.ITHit._increaseFileProgressionInQueue(filesLength, targetProgression, index);
+            }
+          }, 2000);
+        }
+      }
+    },
+       
+    /**
+     * Check download status and start download once the server is ready with the download file.
+     * 
+     * @param {Object} downloadObject - The download object of the download batch.
+     * @param {Integer} index - The Queue index of the download request.
+    */
+    _completedDownloads: [],
+    _checkDownloadStatus: async function (downloadObject, index = null, browser = true) {
+      try {
+        const data = await $.get(
+          location.origin + "/ajax_file_browser/check_file_download_status?download_id=" + downloadObject.id
+        );
+        
+        if (data.status === "COMPLETE") {
+          if (browser && index !== null) {
+            Gofast.ITHit.queue[index].progression = 100;
+            Gofast.ITHit.queue[index].status = 4;
+          }
+          Gofast.ITHit._startDownload(data);
+          if (browser) {
+            Gofast.ITHit._handleFileDownloadErrors(data);  // Handles any download errors if present
+            Gofast.ITHit._completedDownloads.push(downloadObject.id);
+            Gofast.auditAction.downloadSelected(downloadObject?.files);   // Audit selected files during download
+          }
+        } else if(data.status === "FAILED") {
+          if (browser && index !== null) {
+            Gofast.ITHit.queue[index].progression = 0;
+            Gofast.ITHit.queue[index].status = 3;
+          }
+          Gofast.ITHit._handleFileDownloadErrors(data); // Handles any download errors if present
+        }
+        else { 
+          // Check if downloadObject is still defined before making the recursive call
+          if (downloadObject) {
+            setTimeout(async ()=>{
+              await Gofast.ITHit._checkDownloadStatus(downloadObject, index, browser)
+            }, 2000)
+          }
+        }
+       }
+        catch (error) {
+        Gofast.ITHit._handleFileDownloadErrors({status:"FAILED", failedFiles:[]}); // Handles any download errors if present
+      }
+    },
+    
+    /**
+     * Check download status and start download once the server is ready with the download file.
+     * 
+     * @param {Object} downloadObject - The download object of the download batch.
+     * @param {Integer} index - The Queue index of the download request.
+    */
+    _checkCompressionStatus: async function (index) {
+        const res = await $.get(location.origin + "/ajax_file_browser/compress_files/check_status");
+        if (res.status === "DONE") {
+            Gofast.ITHit.queue[index].progression = Math.round(res.done / res.total * 100);
+            Gofast.ITHit.queue[index].status = 4;
+            setTimeout(function () {
+              Gofast.toast(Drupal.t("Your files have been compressed successfully.",
+              {},{ context: "gofast:ajax_file_browser" }), "success");
+            }, 2000);    
+            setTimeout(function () {
+              Gofast.ITHit.reload()
+            }, 4000);
+        }
+        else if (res.status === "PENDING") {
+            Gofast.ITHit.queue[index].progression = 25;
+            Gofast.ITHit.queue[index].status = 2;
+            setTimeout(async () => {
+              await Gofast.ITHit._checkCompressionStatus(index)
+            }, 2000)
+        }
+        else if (res.status === "IN_PROGRESS") {
+            Gofast.ITHit.queue[index].progression = Math.round(res.done / res.total * 100);
+            Gofast.ITHit.queue[index].status = 4;
+            setTimeout(async () => {
+              await Gofast.ITHit._checkCompressionStatus(index)
+            }, 2000)
+        }
+        else if (res.status === "ERROR") {
+          Gofast.ITHit.queue[index].progression = 45;
+          Gofast.ITHit.queue[index].status = 3;
+          Gofast.toast(Drupal.t("An error occured while compressing your files.",
+          {},{ context: "gofast:ajax_file_browser" }), "success");
+        }
+        else {
+          setTimeout(async () => {
+            await Gofast.ITHit._checkCompressionStatus(index)
+          }, 2000)
+        }
+    },
+    
+    /**
+    *  Send file to browser to start download
+    *  
+    * @param {Object} data - The data object of the downlaod request to be downloaded.
+    * 
+    */
+    _startDownload:  function (data) {
+      Gofast.toast(Drupal.t('Download started successfully', {}, { context: 'gofast:ajax_file_browser' }), 'success', []);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = location.origin + data.file;
+      downloadLink.target = '_blank';
+      downloadLink.download = '';
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    },
+  
+    /**
+     *  Handles any download errors if present alering the user.
+     *  @param {Object} data - The data object of the downlaod request to be downloaded.
+     */
+    _handleFileDownloadErrors :  function (data){
+      if(data && data.failedFiles && data.failedFiles.length === 1) {
+        if(data.failedFiles[0].isConfidential && !data.failedFiles[0].isInternal ){
+            Gofast.toast(data.failedFiles[0].title + ' ' + Drupal.t('could not be included in the download because it is or contains a confidential document.', { context: 'gofast:ajax_file_browser' }), 'warning', []);
+        }
+        else if(data.failedFiles[0].isInternal && !data.failedFiles[0].isConfidential){
+            Gofast.toast(data.failedFiles[0].title + ' ' +  Drupal.t('could not included in the download because it is an internal document.', { context: 'gofast:ajax_file_browser' }), 'warning', []);
+        }
+        else{
+            Gofast.toast(Drupal.t('A file could not be included in the download because it is an internal document.', { context: 'gofast:ajax_file_browser' }), 'warning', []);
+        }
+      }
+    },
+    /*
     * Process a duplicate operation on an item in the queue
     */
     _processDuplicate: function (index) {
@@ -3485,9 +5165,9 @@
     /*
      * Ask Drupal for an Alfresco reference
      */
-    getReference: function (path, callback) {
-      $.post(location.origin + "/ajax_file_browser/get_reference", { path: path }, function (data) {
-        callback(data);
+    getReference: async function (paths, callback) {
+      await $.post(location.origin + "/ajax_file_browser/get_reference", { paths: paths}, function (data) { 
+        callback(data); 
       });
     },
     /*
@@ -3526,10 +5206,45 @@
       }
     },
     /*
+     * Go to a node in essential version
+    */
+    goToNodeEssential: function(href, newtab, name, nid = null){
+      Gofast.addLoading();
+      const getNodeData = (nid) => {
+        $.get('/essential/get_node/'+nid).done((result)=>{
+          var node = Gofast.get("node")
+          let jsonData = JSON.parse(result)
+          if (node == false || node.id != jsonData.id){
+            Gofast.set("node", jsonData);
+          }
+          
+          //Get space path insteads of document path to put in URL
+          var spacePath = href.replace("/alfresco/webdav", "");
+          spacePath = spacePath.split("/")
+          spacePath.pop()
+          spacePath = spacePath.join("/")
+          
+          if(Gofast.get("node").type == "article"){
+            Gofast.Essential.processEssentialAjax("/node/"+nid)
+          } else {
+            // Give the space path to prevent make useless call to get the path
+            Gofast.Essential.goToNode(nid, "node", true, spacePath);
+          }
+        })
+      }
+      if(nid != null){
+        getNodeData(nid)
+      } else {
+        $.get(location.origin+'/ajax/getnidfromhref?href='+href).done((nid)=>{
+          getNodeData(nid)
+        })
+      }
+    },
+    /*
      * Go to a node from File Browser
      * /!\ Legacy ITHit function /!\
      */
-    goToNode: function (href, newtab, name) {
+    goToNode: function (href, newtab, name, nid = null) {
       var baseUrl = window.location.protocol + "//" + window.location.host;
       // Retrieve the document's nid.
       $.post(baseUrl + '/ajax/getnidfromhref', { href: href.replace(/\&/g, "%26").replace(/\+/g, "%2B") }, function (data) {
@@ -3564,7 +5279,9 @@
             if (newtab) {
               var win = window.open("/node/" + data, '_blank');
             } else {
-              if (typeof Gofast.processAjax !== "undefined") {
+              if(Gofast._settings.isEssential && typeof Gofast.ITHit.goToNodeEssential !== "undefined" && !Gofast.isMobile()){
+                Gofast.ITHit.goToNodeEssential(href, newtab, name, nid)
+              } else if(typeof Gofast.processAjax !== "undefined") {
                 Gofast.processAjax('/node/' + data);
               } else {
                 window.location.href = window.location.origin + "/node/" + data;
@@ -3575,10 +5292,14 @@
           if (newtab) {
             var win = window.open("/node/" + data, '_blank');
           } else {
-            Drupal.settings.title = name;
-            if (typeof Gofast.processAjax !== "undefined") {
+            if(Gofast._settings.isEssential && typeof Gofast.ITHit.goToNodeEssential !== "undefined" && !Gofast.isMobile()){
+              Drupal.settings.title = Drupal.settings.site_name || "GoFAST";
+              Gofast.ITHit.goToNodeEssential(href, newtab, name, nid)
+            } else if (typeof Gofast.processAjax !== "undefined") {
+              Drupal.settings.title = name;
               Gofast.processAjax('/node/' + data);
             } else {
+              Drupal.settings.title = name;
               window.location.href = window.location.origin + "/node/" + data;
             }
           }
@@ -3586,15 +5307,18 @@
       });
       return false;
     },
+    freezeQueue: function() {
+      clearInterval(Gofast.ITHit.intervals.queueLoop);
+    },
     /*
      * loop to refresh the current queue
      */
     refreshQueue: function () {
-      var queueLoop = setInterval(function () {
+      Gofast.ITHit.intervals.queueLoop = setInterval(function () {
         //Check if we need to stop the queue loop
         if ($("#file_browser_full_container").length === 0) {
           Gofast.ITHit.activeQueue = false;
-          clearInterval(queueLoop);
+          clearInterval(Gofast.ITHit.intervals.queueLoop);
           return;
         }
         Gofast.ITHit.activeQueue = true;
@@ -3674,7 +5398,7 @@
 
           }
         }
-        return e !== null && e.operation !== "upload";
+        return e !== null;
       });
 
       //Get the number of queued elements
@@ -3698,15 +5422,20 @@
         }
         while (active_count < max_count) { //Stop the processing when we reached this limit
           var item = pending_items.shift();
-
-          //Before anything, we update the status and progression of this item
-          //so we need to find the item index using integrated uuid
-          var item_uuid = item.uuid;
+          if (item === undefined) {
+            break;
+          }
+          var item_uuid = item?.uuid;
           var item_index = Gofast.ITHit.queue.findIndex(function (e) {
             return e !== null && e.uuid === item_uuid;
           });
-          Gofast.ITHit.queue[item_index].status = 1;
-          Gofast.ITHit.queue[item_index].progression = 25;
+          
+          if(Gofast.ITHit.queue[item_index].operation != 'upload'){
+            //Before anything, we update the status and progression of this item
+            //so we need to find the item index using integrated uuid
+            Gofast.ITHit.queue[item_index].status = 1;
+            Gofast.ITHit.queue[item_index].progression = 25;
+          }
 
           //Now, we can send the item to the proper processing function
           switch(Gofast.ITHit.queue[item_index].operation){
@@ -3722,12 +5451,28 @@
             case 'download':
               Gofast.ITHit._processDownload(item_index);
               break;
+            case 'download_selected':
+              Gofast.ITHit._processDownloadSelected(item_index);
+              break;
+            case 'compress_selected': 
+              Gofast.ITHit._processCompress(item_index);
+              break;
             case 'copy':
               Gofast.ITHit._processCopy(item_index);
+              break;
+            case 'unzip':
+              Gofast.ITHit._processUnzip(item_index);
+              break;
+            case 'upload':
+              //This will just check if a user interraction is needed, not actually process the upload as it is handeled by ITHit
+              Gofast.ITHit._processUpload(item_index);
               break;
           }
           active_count++;
         }
+      }else{
+        //Reset queue variables as the queue is cleared
+        Gofast.ITHit.rememberUploadOp = null;
       }
 
       setTimeout(function () { //Run again in 500ms
@@ -3934,11 +5679,12 @@
           data.push({ url: path, type: type });
         });
       }
-      data = JSON.stringify(data);
 
+      data = JSON.stringify(data);
+      
       //Send selected elements to Drupal
       var user_id = Gofast.get("user").uid;
-      $.post("/gofast/variable/set", { name: "ithit_bulk_" + user_id, value: data }).done(function (data) {
+      $.post("/gofast/variable/set", { name: "ithit_bulk_" + user_id, value: data }).done(function (response) {
         if ($(element[0]).hasClass('manage-taxonomy') || $(element[0]).parentsUntil('ul').hasClass('manage-taxonomy')) {
           $('.bulk_taxonomy').click();
         } else if ($(element[0]).hasClass('add-locations') || $(element[0]).parentsUntil('ul').hasClass('add-locations')) {
@@ -3949,13 +5695,29 @@
           $('.bulk_mail_sharing').click();
         } else if ($(element[0]).hasClass('bulk-archive') || $(element[0]).parentsUntil('ul').hasClass('bulk-archive')) {
           $('.bulk_archive').click();
-        } else {
+        } else if ($(element[0]).hasClass('compress-files') || $(element[0]).parentsUntil('ul').hasClass('compress-files')) {
+          Gofast.ITHit.compress(data)
+        } else if ($(element[0]).hasClass('download-folder') || $(element[0]).parentsUntil('ul').hasClass('download-folder')) {
+            Gofast.ITHit.downloadSelected(data);
+        }  else {
           $('.bulk_add_to_cart').click();
         }
       });
     },
+    getSelectNodeRefs: function () { // selectedNodeRefs (sne)
+      let selectedNodeRefs = []
+      let sne = $('.gfb-cbx:checked').parents('.file_browser_full_files_element').find('.item-nodeRef')
+      
+      if (sne.length === 0) {
+        sne = $('#file_browser_mobile_files_table').find('.selected').find('.item-nodeRef')
+      }
+      $.each(sne, function (k, elem) {
+        selectedNodeRefs.push(elem.innerText)
+      });
+      return selectedNodeRefs;
+    }, 
     linkToFolder: function (path,nid) {
-      Gofast.copyToClipboard(Gofast.get('baseUrl') + "/node/"+nid+"?path=" + path);
+      Gofast.copyToClipboard(Gofast.get('baseUrl') + "/node/"+nid+"?path=" + encodeURIComponent(path));
     },
     /*
      * Wait for the upload modal to be processed and then, tells to ITHit lib to
@@ -3984,7 +5746,7 @@
      * Remove a folder from bookmarks
      */
     unbookmarkFolder: function (path) {
-      $.post(location.origin + "/ajax_file_browser/unbookmark_folder", { href: path }, function () {
+      $.post(location.origin + "/ajax_file_browser/bookmark_folder", { href: path }, function () {
         Gofast.toast(Drupal.t("Folder removed from bookmarks"), "success");
         $(".block-bookmarks").data('forceRefresh', true);
         Gofast.block.loadIfNeeded($(".gofast-block"));
@@ -4021,8 +5783,7 @@
         event.preventDefault();
         event.stopPropagation();
         Gofast.addLoading();
-        var browser_location = window.location.href;
-        var browser_path = Gofast.getAllUrlParams(browser_location).path;
+        var browser_path = encodeURI(Gofast.ITHit.currentPath.replace("/alfresco/webdav", ""));
         $.post(location.origin + '/gofast/browser/path/get_rules' , {href:browser_path} ,function(data){
         if (data == 2){
             Gofast.removeLoading();
@@ -4045,30 +5806,92 @@
         return;
       }
       var size = window.innerHeight - 400;
-      if (document.URL.includes(Drupal.settings.mobile_prefix_url)) {
-        size += 80;
-      }
 
       // height
       $("#file_browser_tree_and_files").height(size);
       $("#file_browser_full_tree_container").height(size);
       $("#file_browser_full_tree_element").height(size);
-      $("#file_browser_full_files_container").height(size);
+      if(Gofast._settings.isEssential){
+        $("#mobile_file_browser_full_files_container").height(size);
+      } else {
+        $("#file_browser_full_files_container").height(size);
+      }
 
       // width
       $("#file_browser_full_tree_container").width("30%");
       $("#file_browser_full_files_container").width("70%");
       $("#file_browser_full_files_container table").width($("#file_browser_full_files_container").width() - 20);
       $("#file_browser_full_files_container").css("margin-left", "30%");
-      $('#name_header').width('35%');
+      $('#name_header').width('45%');
       $('#size_header').width('10%');
       $('#type_header').width('10%');
       $('#modified_header').width('10%');
 
       // columns
-      $('#name_header').trigger('resize');
-      $('#size_header').trigger('resize');
-      $('#type_header').trigger('resize');
+      $('#name_header').trigger('resize', ["fromResize"]);
+      $('#size_header').trigger('resize', ["fromResize"]);
+      $('#type_header').trigger('resize', ["fromResize"]);
+      // Round the KB size to the nearest integer in the file browser
+      let kbTds = $('#file_browser_full_files_table .item-size:contains("ko")');
+      kbTds.each(function() {  
+        let currentValue = $(this).text();
+        let size = currentValue.match(/\d+(\.\d+)?/)[0];
+        let roundedSize = Math.round(parseFloat(size));
+        let newValue = currentValue.replace(size, roundedSize.toString());
+        $(this).text(newValue);
+      });
+    },
+    initEssentialHistorySelector: function(){
+      $('#fileBrowserSelect').on('change', function(opt){
+        var navigatePath = $('option:selected',this).attr('value');
+        
+        if(navigatePath != ""){
+          Gofast.ITHit.navigate(navigatePath, false, true, null, null, null, "click")
+          $('#fileBrowserSelect').val("")
+        }
+      })
+    
+      $('#backHistory').on('click', function(){
+        var navigationArray = (window.sessionStorage.getItem("browserFullNavigationHistory_"+Gofast.get('user').uid)).split(':')
+        var navigationIndex = parseInt(window.sessionStorage.getItem("browserNavigationHistoryIndex_"+Gofast.get('user').uid))
+        
+        if(navigationIndex > 0) {
+          window.sessionStorage.setItem("browserNavigationHistoryIndex_"+Gofast.get('user').uid, navigationIndex-1)
+          Gofast.ITHit.navigate(navigationArray[navigationIndex-1], false, true, null, null, null, "back")
+        }
+      })
+    
+      $('#nextHistory').on('click', function(){
+        var navigationArray = (window.sessionStorage.getItem("browserFullNavigationHistory_"+Gofast.get('user').uid)).split(':')
+        var navigationIndex = parseInt(window.sessionStorage.getItem("browserNavigationHistoryIndex_"+Gofast.get('user').uid))
+        
+        if(navigationIndex+1 < navigationArray.length){
+          window.sessionStorage.setItem("browserNavigationHistoryIndex_"+Gofast.get('user').uid, navigationIndex+1)
+          Gofast.ITHit.navigate(navigationArray[navigationIndex+1], false, true, null, null, null, "next")
+        }
+      })
+    
+      $('#parentHistory').on('click', function(){
+        var navigationArray = (window.sessionStorage.getItem("browserFullNavigationHistory_"+Gofast.get('user').uid)).split(':')
+        var navigationIndex = parseInt(window.sessionStorage.getItem("browserNavigationHistoryIndex_"+Gofast.get('user').uid))
+        var currentPath = navigationArray[navigationIndex]
+    
+        //Check after /alfresco/webdav/_Sites/
+        if (currentPath.split("/").length > 5) {
+          var parentPath = currentPath.substring(0, currentPath.lastIndexOf("/"));
+          Gofast.ITHit.navigate(parentPath, false, true, null, null, null, "click")
+        }
+      })
+    
+      $('#select2-fileBrowserSelect-results').load(function(){
+        $('#select2-fileBrowserSelect-results').css('max-height', '300px')
+      })
+      
+      $("#fileBrowserSelect").select2({
+        minimumResultsForSearch: Infinity,
+        width: 'resolve',
+        dropdownCssClass: "dropdownEssentialHistory"
+      });
     },
 
     /*
@@ -4080,7 +5903,17 @@
       }
       Gofast.ITHit.Uploader.Inputs.AddById('file_browser_full_upload_table_file_input');
       $("#file_browser_full_upload_table_file_input").trigger('click');
-    }
+    },
+    /*
+     * Build search query string with the already existing search query and the given path 
+     */
+    buildSearchQueryStringWithPath: function(path){
+      path = path.replace("/alfresco/webdav", "")
+      let searchParams = new URLSearchParams(location.search);
+      searchParams.set("path", path)
+      searchParams.sort()
+      return decodeURIComponent("?"+searchParams.toString());
+    },
   };
   $(document).ready(function () {
     //Init File Browser
@@ -4117,6 +5950,41 @@
       var href = aContextMenuHierarchyItems[0].Href.replace("/alfresco/webdav", "").replace(encodeURI(aContextMenuHierarchyItems[0].DisplayName), "");
     }
     Gofast.copyToClipboard(Gofast.get('baseUrl') + "/gofast/browser?path=" + encodeURI(href));
+  }
+
+  function validateItemName(itemName, itemType = "folder"){
+    let isValid = true;
+    const regexPattern = /[\\/:*?"<>|]/;
+
+    if(itemType === "folder"){
+      //Prevent users to create folders starting with '_'
+      if (itemName.substr(0, 1) === "_") {
+        Gofast.toast(Drupal.t("You can't create a folder with a name starting with '_'"), "warning");
+        isValid = false
+      }
+      if (itemName === "Wikis") {
+        Gofast.toast(Drupal.t("\"Wikis\" is a reserved folder name"), "warning");
+        isValid = false
+      }
+      if(itemName.endsWith(".")) {
+        Gofast.toast(Drupal.t("You can't create a folder with a name ending with '.'"), "warning");
+        isValid = false
+      }
+    } else if(!["group", "organisation", "extranet", "public", "private_space"].includes(itemType)){
+      // Prevent users to rename contents with a name starting with '_'
+      if (itemName.substr(0, 1) === "_") {
+        Gofast.toast(Drupal.t("You can't rename a content with a name starting with '_'"), "warning");
+        isValid = false;
+      }
+    }
+
+    if(regexPattern.test(itemName)) {
+      const itemTypeName = Drupal.t(itemType, {}, {context: "gofast:gofast_ajax_file_browser"});
+      Gofast.toast(Drupal.t("You can't create a @itemType with one of these characters @characters", {"@itemType": itemTypeName, "@characters": "(\\ / : * ? \" < > |)"}, {context: "gofast:gofast_ajax_file_browser"}), "warning");
+      isValid = false
+    }
+
+    return isValid;
   }
 
   if (!Array.prototype.findIndex) {
@@ -4175,7 +6043,7 @@
   });
 
   $(document).ready(function () {
-    $(window).resize(function (e) {
+    $(window).resize(function (e, extraParameter = false) {
       if (typeof e === "undefined") {
         return;
       }
@@ -4183,7 +6051,9 @@
         return;
       }
 
-      Gofast.ITHit.reset_full_browser_size();
+      if (!extraParameter) {
+        Gofast.ITHit.reset_full_browser_size();
+      }
     });
 
     //Implements translations

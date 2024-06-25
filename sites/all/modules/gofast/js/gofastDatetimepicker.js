@@ -6,9 +6,6 @@
 
   Drupal.behaviors.gofastDatetimepickerInit = {
     attach: function(context, settings) {
-      if(typeof $.fn.datepicker.dates == "undefined") {
-        return;
-      }
       const getDatepickerOrientation = (elmt) => {
         elmt = elmt.closest(":visible");
         let widgetPositioning = { horizontal: 'right', vertical: 'top' };
@@ -26,6 +23,7 @@
         autoclose: true,
         format: window.GofastConvertDrupalDatePattern("bootstrapDate"),
         todayHighlight: true,
+        clearBtn: true,
         beforeShowDay: GofastWidgetsCallbacks.datePickerCallback,
       };
       // in case another datepicker erased the ln18 object
@@ -33,13 +31,18 @@
       $('.gofastDatepicker:not(.processed)').each(function(){
         $(this).addClass('processed');
         $(this).datepicker(datepicker_default_setting);
-        // prevent a bug in datepicker when the datepicker is too close of the right border
+        // prevent datepicker overflowing from the right of the window
         $(this).datepicker().on("show", function(e) {
           $(".datepicker:visible").css("z-index", 10000);
           e.target.style.display = "static";
-          const distanceFromRight = $(window).width() - ($(e.target).offset().left + $(e.target).width());
-          if (distanceFromRight < 150) {
-            $(".datepicker:visible").css("left", (parseInt($(".datepicker:visible").css("left")) + 144) + "px");
+          const windowWidth = $(window).width();
+          const originalElementLeftOffset = $(e.target).offset().left;
+          const datepickerWidth = $(".datepicker:visible").width();
+          const isOverflowing = (windowWidth - originalElementLeftOffset - datepickerWidth) < 0;
+          if (isOverflowing) {
+            // offset().right doesn't exist in jQuery so we use getBoundingClientRect().right instead
+            const originalElementRightOffset = Math.round(windowWidth - e.target.getBoundingClientRect().right);
+            $(".datepicker:visible").css("left", "auto").css("right", originalElementRightOffset + "px");
           }
         });
       });
@@ -53,7 +56,7 @@
         datetimepicker_default_setting.widgetPositioning = getDatepickerOrientation($(this));
         $(this).addClass('processed');
         $(this).datetimepicker(datetimepicker_default_setting)
-        $(this).on("show.datetimepicker update.datetimepicker", (e) => {
+        $(this).on("show.datetimepicker update.datetimepicker change.datetimepicker", (e) => {
           GofastWidgetsCallbacks.dateTimePickerCallback();
         });
         // we want the user to be able to select the time right after the date, so we set the blur event manually

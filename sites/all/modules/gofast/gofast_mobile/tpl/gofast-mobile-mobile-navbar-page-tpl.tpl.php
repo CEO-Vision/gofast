@@ -1,5 +1,11 @@
-<?php $front_page = "/home_page_navigation#navBrowser"; ?>
-<?php
+<?php $detect = new Mobile_Detect;?>
+<?php if(gofast_mobile_is_phone()): ?>
+    <?php $front_page = "/home_page_navigation#navBrowser"; ?>
+<?php else : ?>
+    <?php $front_page = variable_get("site_frontpage", "activity"); ?>
+<?php endif; ?>
+
+<?php 
 global $user;
 $gofast_url_doc = "https://gofast-docs.readthedocs.io/" . $user->language . "/4.0/docs-gofast-users/doc-gofast-guide-utilisateurs.html";
 
@@ -77,7 +83,7 @@ if ($iPod || $iPhone || $iPad) {
                         <?php if (drupal_valid_path('node/add/conference')) :  ?>
                             <li>
                                 <a href="/node/add/conference" class="center-block gofast_mobile_link sidebar-items" style='padding-left: 20px !important;'>
-                                    <div class="list-items-div"><i class="fa fa-video-camera" aria-hidden="true"></i></div>
+                                    <div class="list-items-div"><i class="fas fa-video" aria-hidden="true"></i></div>
                                     <p><?php print t('conference') ?></p>
                                 </a>
                             </li>

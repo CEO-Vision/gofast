@@ -59,6 +59,11 @@
             width: 100% !important;
             max-width: 100%;
         }
+
+        .mj-column-per-50 {
+            width: 50% !important;
+            max-width: 50%;
+        }
     }
 </style>
 <style media="screen and (min-width:480px)">
@@ -70,6 +75,11 @@
     .moz-text-html .mj-column-per-100 {
         width: 100% !important;
         max-width: 100%;
+    }
+
+    .moz-text-html .mj-column-per-50 {
+      width: 50% !important;
+      max-width: 50%;
     }
 </style>
 <style type="text/css">
@@ -112,7 +122,14 @@
                             <tbody>
                                 <tr>
                                     <td align="left" style="font-size:0px;padding:0;padding-bottom:5px;word-break:break-word;">
-                                        <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= t('here are your deadline on @date', array('@date' => $deadline), $l) ?></div>
+                                        <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:1;text-align:left;color:#000000;">
+                                        <?php
+                                            $count = 0;
+                                            foreach ($nodes as $node_array) $count += count($node_array);
+                                            $formatted_count = format_plural($count, '1 item', '@nb items', array('@nb' => $count), $l);
+                                            echo t('Here are your deadline on @date, including @formatted_count', array('@date' => $deadline, '@formatted_count' => $formatted_count), $l);
+                                        ?>
+                                        </div>
                                     </td>
                                 </tr>
                             </tbody>
@@ -136,13 +153,6 @@
                             <tbody>
                                 <tr>
                                     <td align="left" style="font-size:0px;padding:0;padding-bottom:5px;word-break:break-word;">
-                                        <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:1;text-align:left;color:#666666;">
-                                            <?php
-                                            $count = 0;
-                                            foreach ($nodes as $node_array) $count += count($node_array);
-                                            ?>
-                                            <?= format_plural($count, '1 item', '@nb items', array('@nb' => $count), $l) ?>
-                                        </div>
                                     </td>
                                 </tr>
                             </tbody>
@@ -226,31 +236,31 @@
             </tbody>
         </table>
     </div>
-    <!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
-    <div style="background:white;background-color:white;margin:0px auto;border-radius:0 0 10px 10px;max-width:992px;">
-        <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:white;background-color:white;width:100%;border-radius:0 0 10px 10px;">
-            <tbody>
-                <tr>
-                    <td style="direction:ltr;font-size:0px;padding:0;padding-top:5px;text-align:center;">
-                        <?php foreach ($node_array as $node) {
-                            $node_link = $base_url . '/node/' . $node->nid;
-                            $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
-                            $document_pic = gofast_mail_queue_fa_png($node_icon, "18");
-
-                            echo theme('gofast-notifications-node-deadline-element', array(
-                                'node_link' => $node_link,
-                                'node_icon' => $document_pic,
-                                'node_title' => gofast_mail_breadcrumb($node, $user),
-                                'item_label' => isset($node->item_label) ? $node->item_label : NULL,
-                                'l' => $l,
-                            ));
-                        } ?>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-    <!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="transparent" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+    <?php foreach ($node_array as $node) {
+        $last = next($node) === FALSE;
+        $node_link = $base_url . '/node/' . $node->nid;
+        $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
+        $document_pic = gofast_mail_queue_fa_png($node_icon, "18");
+        $item_labels = NULL;
+        if (!empty($node->items)) {
+            $labels = [];
+            foreach($node->items as $item) {
+                $labels[] = $item["item_label"];
+            }
+            $item_labels = implode(", ", $labels);
+            
+        }
+        echo theme('gofast-notifications-node-deadline-element', array(
+            'node_link' => $node_link,
+            'node_icon' => $document_pic,
+            'node_title' => $node->title,
+            'item_labels' => $item_labels,
+            'responsible' => isset($node->responsible) ? $node->responsible : NULL,
+            'parent_space' => isset($node->parent_space) ? $node->parent_space : t("None", array(), $l),
+            'last' => $last,
+            'l' => $l,
+        ));
+    } ?>
 <?php endforeach ?>
 <div style="background:transparent;background-color:transparent;margin:0px auto;max-width:992px;">
     <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:transparent;background-color:transparent;width:100%;">

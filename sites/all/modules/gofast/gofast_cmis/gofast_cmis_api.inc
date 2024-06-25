@@ -91,13 +91,16 @@ function gofast_cmis_api_post_node_content($params){
     if(empty($nid)){
         gofast_api_mandatory_parameter("nid");
     }
+    
+    if(isset($params['comment']) || isset($_FILES['comment'])){
+      $comment_message = $params['comment'] ?? file_get_contents($_FILES['comment']['tmp_name']);
+      $major_version = $params['major_version'] ?? file_get_contents($_FILES['major_version']['tmp_name']);
+    }
 
-    $comment_message = !empty($params['comment']) ? $params['comment'] : file_get_contents($_FILES['comment']['tmp_name']);
-    $major_version = !empty($params['major_version']) ? $params['major_version'] : file_get_contents($_FILES['major_version']['tmp_name']);
     $content = file_get_contents($_FILES['file']['tmp_name']);
 
     //If we don't have a file in the 'file' field, try to get it from another one
-    if(empty($content) && count($_FILES > 0)){
+    if(empty($content) && count($_FILES) > 0){
         $content = file_get_contents(reset($_FILES)['tmp_name']);
     }
 
@@ -285,8 +288,20 @@ function gofast_api_node_preview_link($params){
     }
 
     //Check node access
-    if(!node_access('view', $node)){
-       gofast_api_forbidden("You don't have the permission to view this node");
+    $has_permission = TRUE;
+    $as_admin = FALSE;
+    if(!node_access('view', $node) && !isset($_GET["caseId"])){
+       $has_permission = FALSE;
+    }
+    if(!node_access('view', $node) && isset($_GET["caseId"])){
+        // If the user doesn't normally have access to the document but the link is generated in the context of a workflow process instance:
+        // we check if the user is in the process instance and if that's the case we allow access
+        $case_id = gofast_xss_clean($_GET["caseId"]);
+        $has_permission = gofast_workflows_has_user_active_task_in_workflow($case_id, 0, $node->nid);
+        $as_admin = TRUE;
+    }
+    if (!$has_permission) {
+        gofast_api_forbidden("You don't have the permission to view this node");
     }
 
     //Check if this node has an Alfresco content linked
@@ -299,24 +314,40 @@ function gofast_api_node_preview_link($params){
       gofast_api_not_found("Alfresco content not found for an unpublished node");
     }
 
-    $url = gofast_cmis_node_get_pdf_link($node);
-    
+    $url = gofast_cmis_node_get_pdf_link($node, $as_admin);
+
     //Get the extension of the document and use it to know from where we should retrieve the document
     $extension = strtolower(gofast_cmis_node_get_extension($node));
-    
-    if(!in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'svg', 'bmp'])){
-        $url_object = json_decode(gofast_cmis_webservice_item_generate_onlyoffice_preview($node->nid));
 
-        if(isset($url_object->FileUrl)){
-            $url = "/sites/all/libraries/pdf/web/viewer_gofast.html?v=230&file=".$url_object->FileUrl . $zoom;
-        }else{
-            $url = "/sites/all/libraries/pdf/web/viewer_gofast.html?v=230&file=".$url . $zoom;
-        }
+    // Document is not previewable: don't show anything
+    if($extension != "pdf" && !in_array($extension, gofast_onlyoffice_previewable_document_extensions()) && !in_array($extension, gofast_manual_previewable_document_extensions()) && !in_array($extension, gofast_onlyoffice_convertible_document_extensions())) {
+        gofast_api_success(array('link' => ""));
+        return;
     }
-    
-     gofast_api_success(array(
-        'link' => $url,
-    ));
+
+    $url_object = json_decode(gofast_cmis_webservice_item_generate_onlyoffice_preview($node->nid, FALSE, $as_admin));
+    // We used the admin ticket to get the document: we have to obfuscate the ticket to the client
+    if ($as_admin) {
+        if(isset($url_object->FileUrl)) {
+            // File has been converted to pdf by OO: use the generated preview link directly
+            $inner_url = rawurlencode($url_object->FileUrl . "?caseId=" . $case_id);
+            $url = "/sites/all/libraries/pdf/web/viewer_gofast.html?v=252&file=".$inner_url;
+        }elseif ($extension == "pdf") {
+            // File could not be converted beacuse it's a .pdf: copy the file content in a temp location and use this link
+            $url = gofast_cmis_webservice_item_generate_notconverted_preview($node->nid, $url) . "?caseId=" . $case_id;
+        } else {
+            // If the file is not previewable despite the previous checks: don't show anything
+            $url = "";
+        }
+        gofast_api_success(array('link' => $url));
+        return;
+    }
+
+    // We didn't use the admin ticket: use an OO preview link, otherwise keep the original Alfresco link
+    if(isset($url_object->FileUrl)) {
+        $url = "/sites/all/libraries/pdf/web/viewer_gofast.html?v=252&file=".rawurlencode($url_object->FileUrl);
+    }
+    gofast_api_success(array('link' => $url));
 }
 
 /*
@@ -444,7 +475,7 @@ function gofast_cmis_api_set_node_delete_restore($params){
     if($restore === "true"){
         //TODO improve this to manage response from Alfresco
          $ret = gofast_cmis_restore_document_alfresco($node);
-        $response = json_decode(implode('', $ret));
+        // $response = json_decode(implode('', $ret));
         $node->status = 1;
         node_save($node);
     }else{
@@ -1000,6 +1031,7 @@ function gofast_cmis_api_set_node_publication($params){
           if($synchro_metadata  == "true"){
                 $publicated_node->field_category = $node->field_category;
                 $publicated_node->field_criticity = $node->field_criticity;
+                $publicated_node->field_classification = $node->field_classification;
                 $publicated_node->field_date = $node->field_date;
                 $publicated_node->field_tags = $node->field_tags;
 
@@ -1031,7 +1063,7 @@ function gofast_cmis_api_set_node_publication($params){
                 $file = gofast_cmis_item_get_content_publication($node, GOFAST_CMIS_PUBLICATION_TYPE_DEFAULT);
                 $extension = pathinfo($node->title, PATHINFO_EXTENSION);
                 $title_without_extension = str_replace("." . $extension, "", $node->title) . "_PUB";
-                $publication_title = $title_without_extension . $extension;
+                $publication_title = $title_without_extension . "." . $extension;
             }
 
             foreach($locations_final as $path){

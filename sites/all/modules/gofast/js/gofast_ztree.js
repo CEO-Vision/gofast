@@ -63,7 +63,8 @@
         // Replace the value in the container block
         var elements = $.parseJSON(data);
         var element_urls = [];
-        for (var i = 0 in elements) {
+        var i = 0;
+        for (i in elements) {
           element_urls[i] = elements[i].url;
         }
         var string_elements = element_urls.join('<br/>');
@@ -235,7 +236,16 @@
             // $('div.modal-body').find('.ztree-component').css('margin-bottom', '20px');
 
           }
-
+          if( Gofast._settings.isEssential && $("#alfresco-item-node-form:visible").length){
+            let pathParam = new URLSearchParams(window.location.search)
+            if(pathParam.get("path") != undefined && Gofast.get("node") != undefined){
+              $('#edit-field-emplacement-und').append($('<option>', {
+                value: Gofast.get("node").id,
+                text: Gofast.get("space").replace("/alfresco/webdav", "")
+              }));
+            }
+          }
+            
           //Update popup size.
           var in_modal = $('#' + treeId).parents('div#modalContent').length;
           if (in_modal === 1 && !$(".ztree-widget").hasClass("resize_processed")) {
@@ -247,7 +257,7 @@
           $('#modalContent .ui-resizable .ztree-widget').css({ "min-height": '200px', "max-height": '500px' });
 
           // hide useless items on ztree
-          var elements = $('.node_name');
+          var elements = $(".node_name:not([id^=file_browser_full_tree_element_])");
           if (elements !== undefined) {
             elements.each(function (elements, element) {
               var element = $(element);
@@ -268,18 +278,7 @@
               }
             });
           }
-
-
-          if ($("#ztree_component_locations").length > 0 && !$(".ztree-widget").hasClass("resize_processed")) {
-            if ($("#ztree_component_locations").get(0).scrollHeight > $("#ztree_component_locations").height()) {
-              $("#ztree_component_locations").mCustomScrollbar({
-                    theme: 'dark-thin'
-              }).css({
-            'width': '100%'
-            });
-            }
-          }
-
+          
           Drupal.attachBehaviors();
         }
 
@@ -288,17 +287,6 @@
 
           var in_modal = $('#' + treeId).parents('div#modalContent').length;
 
-          if ($("#ztree_component_locations").length > 0 && !$(".ztree-widget").hasClass("resize_processed")) {
-            if ($("#ztree_component_locations").get(0).scrollHeight > $("#ztree_component_locations").height()) {
-              $("#ztree_component_locations").mCustomScrollbar({
-                    theme: 'dark-thin'
-              }).css({
-            'width': '100%'
-            });
-            }
-          }
-
-          //Configure custom scrollbar to replace the legacy
           return true;
         };
 
@@ -632,12 +620,14 @@
                 
                 if($('#is-from-mirror').length == 1){deletable = false;}
                 if(deletable === false ){
-                    var ui_location_checkbox = "<div class='span_temp_emplacement' id='emplacement_tag" + get_clean_path(linkid) + "' data-deletable=" + deletable + " data-tid=" + node_tId + " title=''><input type='checkbox' checked disabled><span><i class='fa " + node_icone + "' style='margin-right:5px;'></i>" + unescape(id) + "</span></div>";
+                  var message = Drupal.t("You are not permitted to remove a location you do not have access to. ", {}, {'context': 'gofast'});
+                  var ui_location_checkbox = "<div title='"+message+"' class='span_temp_emplacement' id='emplacement_tag" + get_clean_path(linkid) + "' data-deletable=" + deletable + " data-tid=" + node_tId + " title=''><input type='checkbox' checked disabled><span><i class='fa " + node_icone + "' style='margin-right:5px;'></i>" + unescape(id) + "</span></div>";
                 }else{
                     var ui_location_checkbox = "<div class='span_temp_emplacement' id='emplacement_tag" + get_clean_path(linkid) + "' data-deletable=" + deletable + " data-tid=" + node_tId + " title=''><input type='checkbox' checked><span><i class='fa " + node_icone + "' style='margin-right:5px;'></i>" + unescape(id) + "</span></div>";
                 }
                 widget_locations.append(ui_location_checkbox);
               }
+             
               $('#edit-locations span[value="' + node_id + '"]').parent().attr('data-deletable', deletable).attr('data-tid', node_tId);
               $(".span_temp_emplacement[id='emplacement_tag" + get_clean_path(linkid) + "']").bind("click", function () {
                 html_remove_location($(this));
@@ -889,16 +879,6 @@
               }
             }
           }
-
-          if (typeof zTreeObj.setting.gofast != "undefined" && zTreeObj.setting.gofast.wiki == true) {
-              // this will need an additional check after wiki multifiling implementation
-              $(".ui-location-check-wiki").remove();
-              let selectedNodeTreeId = zTreeObj.getCheckedNodes()[0].tId;
-              if ($("#" + selectedNodeTreeId + "_switch").hasClass("center_close")) {
-                $("#" + selectedNodeTreeId + "_switch").click();
-              }
-              $("#" + selectedNodeTreeId + "_ul").prepend('<div class="ui-location-check-wiki ztree-fake-node d-flex"><span style="margin-right: 18px;" class=""></span><span class="button chk checkbox_true_full"></span><a class="curSelectedNode"><i class="fa fa-folder" style="color:#3498db" aria-hidden="true"></i>' + Drupal.t("Wikis") + '</a></div>');
-          }
         }
         ;
 
@@ -1014,7 +994,7 @@
             //Keep locations where Article belongs selected in ztree during edition, verifiy if doesnt create a problem
             if (ztree_component_id == "ztree_component_content") {
                 var node_id = window.location.pathname.split('/')[2];
-                url_async = (isNaN(+node_id)) ? url_async : url_async + "?node=" + node_id;
+                url_async = (isNaN(+node_id) || Gofast._settings.isEssential) ? url_async : url_async + "?node=" + node_id;
             }
             
             if (ztree_component_id == "ztree_component_content_templates"){
@@ -1368,7 +1348,7 @@
       });
       Drupal.behaviors.hide_ztree_elements = {
         attach: function (context, settings) {
-          var elements = $('.node_name');
+          var elements = $(".node_name:not([id^=file_browser_full_tree_element_])");
           if (elements !== undefined) {
             elements.each(function (elements, element) {
               var element = $(element);

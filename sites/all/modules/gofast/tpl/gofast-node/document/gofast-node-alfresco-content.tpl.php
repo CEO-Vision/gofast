@@ -1,7 +1,9 @@
-<div class="card card-custom card-stretch">
+<?php if(!$isAjax): ?>
+<div class="card card-custom card-stretch<?= gofast_essential_is_essential() ? " isStackedLayer" : "" ?>">
   <div class="card-header min-h-50px flex-nowrap px-3">
-      <?php print theme('gofast_menu_header_subheader', array('node' => $node)); ?>
+      <?php print theme('gofast_menu_header_subheader', array('node' => $node, "hasContext" => $hasContext)); ?>
   </div>
+<?php endif; ?>
   <div id="fullscreen-node" class="h-100 w-100 card-body overflow-auto p-0">
     <div id="node-<?php print $node->nid; ?>" class="<?php print $classes; ?> h-100 w-100" <?php print $attributes; ?>>
 
@@ -36,14 +38,7 @@
   <script type='text/javascript'>
     Drupal.behaviors.gofast_node_actions = {
       attach: function(context) {
-        if (jQuery(".breadcrumb-gofast").length !== 0 && !jQuery(".breadcrumb-gofast").hasClass('processed')) {
-          jQuery(".breadcrumb-gofast").append("<div class='loader-breadcrumb'></div>");
-          var options = {"only_title" : false, "only_first": false};
-            jQuery.get(location.origin + "/gofast/node-breadcrumb/" + Gofast.get('node').id + "?options=" + JSON.stringify(options), function(data) {
-              jQuery(".loader-breadcrumb").remove();
-              jQuery(".breadcrumb-gofast:not('.breadcrumb-gofast-full')").replaceWith(data);
-            });
-        }
+        Gofast.gofast_main_block_breadcrumb(true);
 
         if (jQuery("#contextual-actions-loading").length !== 0 && jQuery("#contextual-actions-loading").hasClass('not-processed')) {
           jQuery("#contextual-actions-loading").removeClass('not-processed');
@@ -54,13 +49,27 @@
               jQuery("li>a.on-node-lock-disable").addClass('disabled');
             }
           });
-          Drupal.behaviors.gofast_node_actions = null;
         }
+        Drupal.behaviors.gofast_node_actions = null;
       }
     };
 
+    // some content may have transparency: remove background spinner once content is loaded
+    if (typeof $contentFrame == "undefined") {
+      let $contentFrame;
+    }
+    $contentFrame = jQuery("#container_preview_element > *:first-child:not(.processed)");
+    if ($contentFrame.length) {
+      // this needs to be attached after content element has been inserted but before the whole DOM is ready since the load event may be triggered sooner than the ready event
+      $contentFrame.addClass("processed").load(function() {
+        jQuery(this).parent().addClass("no-spinner");
+      });
+    }
+
     jQuery(document).ready(function() {
         window.initDocumentEditableInputs();
+        if(!Gofast._settings.isEssential){return;}
+        Gofast.Essential.handleDocumentPage();
     });
 
     <?php
@@ -92,6 +101,29 @@
     }
     ?>
   </script>
-
+<?php if(!$isAjax): ?>
 </div>
+<?php endif; ?>
+
+<?php $detect = new Mobile_Detect(); ?>
+<?php if (gofast_essential_is_essential() && $node->type == "alfresco_item" && (!$detect->isMobile() || $detect->isTablet()) && !$isAjax) : ?>
+  <div id="fullscreenNavigationButtons" class="justify-content-between normal-screen" style="left: 85%; top: 0.5rem;  width: 100px; margin-right:15px;">
+    <div>
+      <a id="node-previous-content-button" class="btn <?= $hasContext ? "btn-primary" : "noContext"; ?> btn-icon btn-sm position-relative">
+        <i class="ki ki-bold-arrow-back text-white icon-nm"></i>
+      </a>
+    </div>
+    <div>
+      <a id="node-next-content-button" class="btn <?= $hasContext ? "btn-primary" : "noContext"; ?> btn-icon btn-sm position-relative">
+        <i class="ki ki-bold-arrow-next text-white icon-nm"></i>
+      </a>
+    </div>
+    <div>
+      <a id="node-normal-screen-button" class="btn btn-primary btn-icon btn-sm position-relative">
+        <i class="fa fa-compress text-white icon-nm"></i>
+      </a>
+    </div>
+  </div>
+<?php endif; ?>
+
 

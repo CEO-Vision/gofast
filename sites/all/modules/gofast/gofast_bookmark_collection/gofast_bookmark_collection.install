@@ -1,0 +1,217 @@
+<?php
+
+/**
+ * Implements hook_schema().
+ */
+function gofast_bookmark_collection_schema() {
+  $schema = array();
+
+  $schema['gofast_bookmark_collections__flagging'] = array(
+    'description' => 'The join table for the BookmarkCollection entity and flagging table',
+    'fields' => array(
+      'bcfid' => array(
+        'description' => 'Primary key of the join table',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'bcid' => array(
+        'description' => 'Primary key of the BookmarkCollection entity',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ),
+      'flagging_id' => array(
+        'description' => 'Primary key of the flagging table',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('bcfid'),
+    'foreign keys' => array(
+      'bcid' => array(
+        'table' => 'gofast_bookmark_collections',
+        'columns' => array('bcid' => 'bcid'),
+      ),
+      'flagging_id' => array(
+        'table' => 'flagging',
+        'columns' => array('flagging_id', 'flagging_id'),
+      )
+    )
+  );
+  $schema['gofast_bookmark_collections__bookmark_folder'] = array(
+    'description' => 'The join table for the BookmarkCollection entity and gofast_bookmark_folder table',
+    'fields' => array(
+      'bcbfid' => array(
+        'description' => 'Primary key of the join table',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'bcid' => array(
+        'description' => 'Primary key of the BookmarkCollection entity',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ),
+      'fbid' => array(
+        'description' => 'Primary key of the gofast_bookmark_folder table',
+        'type' => 'int',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('bcbfid'),
+    'foreign keys' => array(
+      'bcid' => array(
+        'table' => 'gofast_bookmark_collections',
+        'columns' => array('bcid' => 'bcid'),
+      ),
+      'fbid' => array(
+        'table' => 'gofast_bookmark_folder',
+        'columns' => array('fbid', 'fbid'),
+      )
+    )
+  );
+
+  $schema['gofast_bookmark_collections'] = array(
+    'description' => 'The base table for the BookmarkCollection entity',
+    'fields' => array(
+      'bcid' => array(
+        'description' => 'Primary key of the BookmarkCollection entity',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'name' => array(
+        'description' => 'BookmarkCollection name.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+      'parent_bcid' => array(
+        'description' => 'Primary key of the parent BookmarkCollection',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'default' => 0
+      ),
+      'uid' => array(
+        'description' => 'Primary key of the BookmarkCollection owner',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'default' => 0,
+      ),
+      'tree_id' => array(
+        'description' => 'Identifier for tree type',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      )
+    ),
+    'primary key' => array('bcid'),
+    'foreign keys' => array(
+      'parent_bcid' => array(
+        'table' => 'gofast_bookmark_collections',
+        'columns' => array('parent_bcid' => 'bcid'),
+      ),
+      'uid' => array(
+        'table' => 'users',
+        'columns' => array('uid', 'uid'),
+      )
+    )
+  );
+
+  return $schema;
+}
+
+function gofast_bookmark_collection_install(){
+
+  db_query("ALTER TABLE gofast_bookmark_collections
+            ADD CONSTRAINT fk_gofast_bookmark_collections_parent_bcid
+            FOREIGN KEY (parent_bcid)
+            REFERENCES gofast_bookmark_collections(bcid)
+            ON DELETE CASCADE;");
+
+  db_query("ALTER TABLE gofast_bookmark_collections__flagging
+            ADD CONSTRAINT fk_gofast_bookmark_collections__flagging_bcid
+            FOREIGN KEY (bcid)
+            REFERENCES gofast_bookmark_collections(bcid)
+            ON DELETE CASCADE;");
+
+  db_query("ALTER TABLE gofast_bookmark_collections__flagging
+            ADD CONSTRAINT fk_gofast_bookmark_collections__flagging_flagging_id
+            FOREIGN KEY (flagging_id)
+            REFERENCES flagging(flagging_id)
+            ON DELETE CASCADE;");
+
+  db_query("ALTER TABLE gofast_bookmark_collections__bookmark_folder
+            ADD CONSTRAINT fk_gofast_bookmark_collections__bookmark_folder_bcid
+            FOREIGN KEY (bcid)
+            REFERENCES gofast_bookmark_collections(bcid)
+            ON DELETE CASCADE;");
+
+  db_query("ALTER TABLE gofast_bookmark_collections__bookmark_folder
+            ADD CONSTRAINT fk_gofast_bookmark_collections__bookmark_folder_fbid
+            FOREIGN KEY (fbid)
+            REFERENCES gofast_bookmark_folder(fbid)
+            ON DELETE CASCADE;");
+
+  // Put all flagged contents in the new datatable
+  $flag = flag_get_flag("bookmarks");
+
+  $query = db_select("flagging", "f");
+  $query->leftJoin("gofast_bookmark_collections__flagging", "gbcf", "gbcf.flagging_id = f.flagging_id");
+  $query->fields("f", array("flagging_id"));
+  $query->isNull("gbcf.flagging_id");
+  $query->condition("f.fid", $flag->fid, "=");
+  $flagging_ids = $query->execute()
+                        ->fetchCol();
+  foreach($flagging_ids as $flagging_id){
+    db_insert("gofast_bookmark_collections__flagging")
+      ->fields(array(
+        'bcid' => null,
+        'flagging_id' => $flagging_id,
+      ))
+      ->execute();
+  }
+  
+  // Put all bookmarked folders in the new datatable
+  $query = db_select("gofast_bookmark_folder", "gbf");
+  $query->leftJoin("gofast_bookmark_collections__bookmark_folder", "gbcbf", "gbcbf.fbid = gbf.fbid");
+  $query->fields("gbf", array("fbid"));
+  $query->isNull("gbcbf.fbid");
+  $fbids = $query->execute()
+                  ->fetchCol();
+  foreach($fbids as $fbid){
+    db_insert("gofast_bookmark_collections__bookmark_folder")
+      ->fields(array(
+        'bcid' => null,
+        'fbid' => $fbid,
+      ))
+      ->execute();
+  }
+
+  $flagging_bookmark_query = db_select("flagging", "f")->condition("f.fid", $flag->id, "=");
+  $flagging_bookmark_count = $flagging_bookmark_query->countQuery()->execute()->fetchField();
+
+  $bookmark_collection_content_query = db_select("gofast_bookmark_collections__flagging");
+  $bookmark_collection_content_count = $bookmark_collection_content_query->countQuery()->execute()->fetchField();
+
+  if($bookmark_collection_content_count != $flagging_bookmark_count) {
+    watchdog("bookmark_collection", "Some bookmarked contents has not been migrated correctly");
+  }
+  
+  $folder_bookmark_query = db_select("gofast_bookmark_collections__bookmark_folder", "gbcbf");
+  $folder_bookmark_count = $folder_bookmark_query->countQuery()->execute()->fetchField();
+
+  $bookmark_collection_folder_query = db_select("gofast_bookmark_collections__bookmark_folder");
+  $bookmark_collection_folder_count = $bookmark_collection_folder_query->countQuery()->execute()->fetchField();
+
+  if($folder_bookmark_count != $bookmark_collection_folder_count) {
+    watchdog("bookmark_collection", "Some bookmarked folders has not been migrated correctly");
+  }
+}

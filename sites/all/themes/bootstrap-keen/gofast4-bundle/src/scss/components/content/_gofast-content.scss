@@ -8,10 +8,6 @@
     width: 100%;
     height: calc(100vh - 55px) !important;
 
-    & > div {
-        height: inherit;
-        width: 100%;
-    }
 
     &__node {
 
@@ -28,10 +24,7 @@
 
         & .sideContent {
             display: block;
-            grid-column: 2;
-            @media (max-width: 991px) {
-                grid-column: 1;
-            }
+            grid-column: 2 ;
             
             & .card{
                 & .card-body{
@@ -105,6 +98,28 @@
     height: inherit;
 }
 
+.GofastNode__header--xlarge .nav-icon {
+    width: 1.5rem!important;
+  }
+
+.side-content-container-essential {
+    padding-top: 55px;
+    width: 68px;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    height: 100% !important;
+    transition: right .5s;
+    z-index: 0;
+    #gofastSearchResultsFilter {
+        box-shadow: rgb(0 0 0 / 8%) -0.95px -0.95px 2.6px;
+    }
+}
+
+.articleContent > .side-content-container-essential {
+    z-index: 89;
+}
 @media (max-width: 991px) {
     .is-mobile {
         .gofast-content__node {
@@ -118,6 +133,21 @@
             max-width: 80%;
             top: 55px;
             transition: 1s;
+            &.side-content-container-essential {
+                right: 0;
+                top: 110px;
+                padding-top: 0;
+                width: 68px;
+            }
+        }
+        .sideContent {
+            position: fixed;
+            right: -80%;
+            width: 100%;
+            max-width: 80%;
+            top: 55px;
+            transition: visibility 0.5s, right 1s;
+            visibility: hidden;
         }
 
         &.open {
@@ -131,7 +161,12 @@
 
                 i {
                     transform: rotate(180deg);
+                    transition: transform 0.1s;
                 }
+            }
+            .sideContent {
+                right: 0;
+                visibility: visible;
             }
         }
 
@@ -167,4 +202,12 @@
             display: unset;
         }
     }
+}
+
+.gofast-content__node.GofastNode.articleContent {
+    grid-template-columns: 100%;
+}
+
+div:has(> div#node-tabsHeader){
+    overflow-x: visible !important;
 }

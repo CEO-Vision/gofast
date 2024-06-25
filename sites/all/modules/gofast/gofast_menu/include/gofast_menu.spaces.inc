@@ -89,12 +89,15 @@ function gofast_create_menu_subspaces($parent_gid = NULL, $fullDepth = FALSE) {
     return $submenus;
   }
 
-  $subspaces = gofast_og_get_space_children_by_user($parent_gid, $user, TRUE);
+  $subspaces = gofast_og_get_space_children_by_user($parent_gid, $user);
 
   if (count($subspaces) > 0) {
 
-    foreach ($subspaces as $nid => $space) {
-      
+    foreach ($subspaces as $nid) {
+      $space = new stdClass();
+      $space->title = gofast_get_node_title($nid);
+      $space->type = gofast_get_node_type($nid, TRUE);
+      $space->field_format['und'][0]['tid'] = reset(gofast_mobile_get_node_format((int) $nid));
       $icon = gofast_node_get_icon($space);
 
       $sub_subspaces = gofast_og_get_space_children_by_user($nid, $user);

@@ -27,8 +27,17 @@
             /* Retrieve message */
             var message = $(panel).find('#message').text();
 
+            /* Retrieve folder sharing title */
+            var folder_sharing_title = $(panel).find('#folder_sharing_title').text();
+            
             /* Process the request */ 
-            $.post(location.origin + "/linksharing/manage_linksharing/process", {process_uid : uid, process_nids : nids,process_subject:subject,process_message:message}).done(function(data) {       
+            $.post(location.origin + "/linksharing/manage_linksharing/process", {
+              process_uid : uid,
+              process_nids : nids,
+              process_subject:subject,
+              process_message:message, 
+              process_folder_sharing_title: folder_sharing_title
+            }).done(function(data) {       
               // update progress bar
               processedPanels++;
               const progressWidth = Math.round((100 / numberOfPanels) * processedPanels);

@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------
-// IT Hit WebDAV Ajax Library v5.20.5655.0
+// IT Hit WebDAV Ajax Library v5.21.5886.0
 // Copyright © 2020 IT Hit LTD. All rights reserved.
 // License: https://www.webdavsystem.com/ajax/
 // -----------------------------------------------------------------------
@@ -141,11 +141,14 @@ ITHit.Add('Declare',
 
 ITHit.Add('DetectOS',
 	function () {
+		var ipadOS = navigator.maxTouchPoints &&
+					  navigator.maxTouchPoints > 2 &&
+					  /MacIntel/.test(navigator.platform);
 	    var _plat = navigator.platform,
 		    detectOS = {
 		        Windows: (-1 != _plat.indexOf('Win')),
 		        MacOS: (-1 != _plat.indexOf('Mac')),
-		        IOS: (/iPad|iPhone|iPod/.test(_plat)),
+		        IOS: (/iPad|iPhone|iPod/.test(_plat)) || ipadOS,
 		        Linux: (-1 != _plat.indexOf('Linux')),
 		        UNIX: (-1 != _plat.indexOf('X11')),
 		        OS: null
@@ -155,12 +158,12 @@ ITHit.Add('DetectOS',
 	        detectOS.OS = 'Windows';
 	    } else if (detectOS.Linux) {
 	        detectOS.OS = 'Linux';
+	    } else if (detectOS.IOS) {
+	        detectOS.OS = 'IOS';
 	    } else if (detectOS.MacOS) {
 	        detectOS.OS = 'MacOS';
 	    } else if (detectOS.UNIX) {
 	        detectOS.OS = 'UNIX';
-	    } else if (detectOS.IOS) {
-	        detectOS.OS = 'IOS';
 	    }
 
 	    return detectOS;
@@ -175,7 +178,8 @@ ITHit.Add('DetectBrowser',
 			    FF: false,
 			    Chrome: false,
 			    Safari: false,
-			    Opera: false,
+				Opera: false,
+				Electron: false,
 			    Browser: null,
 			    Mac: false
 			},
@@ -197,7 +201,11 @@ ITHit.Add('DetectBrowser',
 			    FF: {
 			        Search: ['Firefox', 'FxiOS'],
 			        Browser: 'FF'
-			    },
+				},
+				Electron: {
+					Search: 'Electron',
+					Browser: 'Electron'
+				},
 			    Chrome: {
 			        Search: 'Chrome',
 			        Browser: 'Chrome'
@@ -213,9 +221,9 @@ ITHit.Add('DetectBrowser',
 			    Opera: {
 			        Search: 'Opera',
 			        Browser: 'Opera'
-			    }
+				}
 			};
-	 
+
 	    for (var check in browsers) {
 	        var pos = -1;    	        
 	        if (Array.isArray(browsers[check].Search)) {
@@ -956,6 +964,7 @@ ITHit.Add('Trim.Both',  'Both');
 
 /**
  * Base class for exceptions.
+ * @api
  * @class ITHit.Exception
  */
 ITHit.Add('Exception',
@@ -972,13 +981,17 @@ ITHit.Add('Exception',
 			
 			/**
 			 * Exception message.
+			 * @api
 			 * @property {String} ITHit.Exception.Message
+			 * @type {string}
 			 */
 			this.Message = sMessage;
 			
 			/**
 			 * Original exception that caused this exception.
+			 * @api
 			 * @property {ITHit.Exception}  ITHit.Exception.InnerException
+			 * @type {ITHit.Exception}
 			 */
 			this.InnerException = oInnerException;
 			
@@ -3646,8 +3659,9 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PropertyName', null, /** @lends ITHit.Web
 
 	/**
 	 * Initializes new instance of PropertyName.
-	 * @classdesc WebDAV property name.
+	 * @classdesc Represents name of property.
 	 * @constructs
+	 * @api
 	 * @param {string} sName Name of the property.
 	 * @param {string} sNamespaceUri Namespace of the property.
 	 * @throws ITHit.Exceptions.ArgumentNullException
@@ -4342,11 +4356,13 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.HttpMethod', null, /** @lends ITH
 		},
 
 		/**
+		 * @api
 		 * @type {number}
 		 */
 		Code: null,
 
 		/**
+		 * @api
 		 * @type {string}
 		 */
 		Description: null,
@@ -5234,6 +5250,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PropertyList', Array, /** @lends ITHit.We
  * Initializes a new instance of the WebDavException class with a specified error message.
  * @api
  * @class ITHit.WebDAV.Client.Exceptions.WebDavException
+ * @extends ITHit.Exception
  */
 ITHit.DefineClass('ITHit.WebDAV.Client.Exceptions.WebDavException', ITHit.Exception, /** @lends ITHit.WebDAV.Client.Exceptions.WebDavException.prototype */{
 
@@ -5983,7 +6000,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.LockScope', null, {
 		/**
 		 * Shared lock. It will be possible for another clients to get the shared locks.
 		 * @api
-		 * @property {string}
+		 * @type {string}
 		 */
 		Shared: 'Shared'
 
@@ -8052,7 +8069,8 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Report', ITHit.WebDAV.Client.Meth
 		 * lock other users will be able to set shared lock on the item.
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.Locks.CheckSupport.CheckLockSupport
-		 * @type {Array}
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.Locks.CheckSupport.CheckLockSupport
+		 * @type {Array.<string>}
 		 * @see ITHit.WebDAV.Client.LockScope
 		 */
 		SupportedLocks: null,
@@ -8060,8 +8078,9 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Report', ITHit.WebDAV.Client.Meth
 		/**
 		 * List of locks applied to this item.
 		 * @examplecode ITHit.WebDAV.Client.Tests.Locks.GetLocks.GetList
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.Locks.GetLocks.GetList
 		 * @api
-		 * @type {Array}
+		 * @type {Array.<ITHit.WebDAV.Client.LockInfo>}
 		 */
 		ActiveLocks: null,
 
@@ -8283,6 +8302,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Report', ITHit.WebDAV.Client.Meth
 		 * Refreshes item loading data from server.
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.Refresh.Refresh
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.Refresh.Refresh
 		 * @param {ITHit.WebDAV.Client.HierarchyItem~RefreshAsyncCallback} fCallback Function to call when operation is completed.
 		 * @returns {ITHit.WebDAV.Client.Request} Request object.
 		 */
@@ -8364,6 +8384,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Report', ITHit.WebDAV.Client.Meth
 		 * Copies this item to destination folder.
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.CopyMove.Copy
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.CopyMove.Copy
 		 * @param {ITHit.WebDAV.Client.Folder} oDestinationFolder Folder to move to.
 		 * @param {string} sDestinationName Name to assign to copied item.
 		 * @param {boolean} bDeep Indicates whether children of this item should be copied.
@@ -8441,7 +8462,8 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Report', ITHit.WebDAV.Client.Meth
 		 * Deletes this item.
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.Delete.Delete
-		 * @param {ITHit.WebDAV.Client.LockUriTokenPair} oLockTokens Lock tokens for this item or any locked child item.
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.Delete.Delete
+		 * @param {ITHit.WebDAV.Client.LockUriTokenPair | null} oLockTokens Lock tokens for this item or any locked child item.
 		 * @param {ITHit.WebDAV.Client.HierarchyItem~DeleteAsyncCallback} fCallback Function to call when operation is completed.
 		 * @returns {ITHit.WebDAV.Client.Request} Request object.
 		 */
@@ -8506,6 +8528,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Report', ITHit.WebDAV.Client.Meth
 		 * Returns names of all custom properties exposed by this item.
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.HierarchyProperties.GetProperties.GetPropertyNames
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyProperties.GetProperties.GetPropertyNames
 		 * @param {ITHit.WebDAV.Client.HierarchyItem~GetPropertyNamesAsyncCallback} fCallback Function to call when operation is completed.
 		 * @returns {ITHit.WebDAV.Client.Request} Request object.
 		 */
@@ -8583,6 +8606,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Report', ITHit.WebDAV.Client.Meth
 		 * Retrieves values of specific properties.
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.HierarchyProperties.GetProperties.GetPropertyValues
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyProperties.GetProperties.GetPropertyValues
 		 * @param {ITHit.WebDAV.Client.PropertyName[]} aNames
 		 * @param {ITHit.WebDAV.Client.HierarchyItem~GetPropertyValuesAsyncCallback} fCallback Function to call when operation is completed.
 		 * @returns {ITHit.WebDAV.Client.Request} Request object.
@@ -8642,6 +8666,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Report', ITHit.WebDAV.Client.Meth
 		 * Retrieves all custom properties exposed by the item.
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.HierarchyProperties.GetProperties.GetAllProperties
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyProperties.GetProperties.GetAllProperties
 		 * @param {ITHit.WebDAV.Client.HierarchyItem~GetAllPropertiesAsyncCallback} fCallback Function to call when operation is completed.
 		 * @returns {ITHit.WebDAV.Client.Request} Request object.
 		 */
@@ -8686,6 +8711,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Report', ITHit.WebDAV.Client.Meth
 		 * Retrieves parent hierarchy item of this item.
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.GetParent.GetParent
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.GetParent.GetParent
 		 * @param {ITHit.WebDAV.Client.PropertyName[]} aProperties Additional properties requested from server. Default is empty array.
 		 * @param {ITHit.WebDAV.Client.HierarchyItem~GetParentAsyncCallback} fCallback Function to call when operation is completed.
 		 * @returns {ITHit.WebDAV.Client.Request} Request object.
@@ -8826,6 +8852,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Report', ITHit.WebDAV.Client.Meth
 		 * may be different from the one requested by the client.
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.Locks.Lock.SetLock
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.Locks.Lock.SetLock
 		 * @param {string} sLockScope Scope of the lock. See LockScope Enumeration {@link ITHit.WebDAV.Client.LockScope}
 		 * @param {boolean} bDeep Whether to lock entire subtree.
 		 * @param {string} sOwner Owner of the lock.
@@ -8917,6 +8944,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Report', ITHit.WebDAV.Client.Meth
 		 * Moves this item to another location.
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.CopyMove.Move
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.CopyMove.Move
 		 * @param {ITHit.WebDAV.Client.Folder} oDestinationFolder Folder to move to.
 		 * @param {string} sDestinationName Name to assign to moved item.
 		 * @param {boolean} bOverwrite Whether existing destination item shall be overwritten.
@@ -9005,6 +9033,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Report', ITHit.WebDAV.Client.Meth
 		 * Prolongs the lock.
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.Locks.RefreshLock.RefreshLock
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.Locks.RefreshLock.RefreshLock
 		 * @param {string} sLockToken Identifies lock to be prolonged.
 		 * @param {number} iTimeout New timeout to set.
 		 * @param {ITHit.WebDAV.Client.HierarchyItem~RefreshLockAsyncCallback} fCallback Function to call when operation is completed.
@@ -9053,6 +9082,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Report', ITHit.WebDAV.Client.Meth
 		 * @private
 		 * @deprecated Use GetSupportedFeaturesAsync method
 		 * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.SupportedFeatures.SupportedFeatures
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.SupportedFeatures.SupportedFeatures
 		 * @param {ITHit.WebDAV.Client.HierarchyItem~GetSupportedFeaturesAsyncCallback} fCallback Function to call when operation is completed.
 		 * @returns {ITHit.WebDAV.Client.Request} Request object.
 		 */
@@ -9071,6 +9101,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Report', ITHit.WebDAV.Client.Meth
 		 * Gets features supported by this item, such as WebDAV class support.
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.SupportedFeatures.SupportedFeatures
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.SupportedFeatures.SupportedFeatures
 		 * @param {ITHit.WebDAV.Client.HierarchyItem~GetSupportedFeaturesAsyncCallback} fCallback Function to call when operation is completed.
 		 * @returns {ITHit.WebDAV.Client.Request} Request object.
 		 */
@@ -9131,6 +9162,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Report', ITHit.WebDAV.Client.Meth
 		 * Removes the lock.
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.Locks.Lock.SetUnLock
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.Locks.Lock.SetUnLock
 		 * @param {string} sLockToken Identifies lock to be prolonged.
 		 * @param {ITHit.WebDAV.Client.HierarchyItem~UnlockAsyncCallback} fCallback Function to call when operation is completed.
 		 * @returns {ITHit.WebDAV.Client.Request} Request object.
@@ -9222,6 +9254,8 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Report', ITHit.WebDAV.Client.Meth
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.HierarchyProperties.UpdateProperties.Update
 		 * @examplecode ITHit.WebDAV.Client.Tests.HierarchyProperties.UpdateProperties.Delete
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyProperties.UpdateProperties.Update
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyProperties.UpdateProperties.Delete
 		 * @param {ITHit.WebDAV.Client.Property[]} oPropertiesToAddOrUpdate Properties to be updated.
 		 * @param {ITHit.WebDAV.Client.PropertyName[]} oPropertiesToDelete Names of properties to be removed from this item.
 		 * @param {string} [sLockToken] Lock token.
@@ -9582,6 +9616,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.Get', ITHit.WebDAV.Client.Methods
  * @api
  * @class ITHit.WebDAV.Client.MsOfficeEditExtensions
  * @examplecode ITHit.WebDAV.Client.Tests.DocManager.MsOfficeEditExtensions.EditRtfDocumentWithWord
+ * @examplecode ITHit.WebDAV.Client.TSExamples.DocManager.MsOfficeEditExtensions.EditRtfDocumentWithWord
  */
 var self = ITHit.DefineClass('ITHit.WebDAV.Client.MsOfficeEditExtensions', null, /** @lends ITHit.WebDAV.Client.MsOfficeEditExtensions.prototype */{
 	__static: /** @lends ITHit.WebDAV.Client.MsOfficeEditExtensions */{
@@ -9623,7 +9658,7 @@ var self = ITHit.DefineClass('ITHit.WebDAV.Client.MsOfficeEditExtensions', null,
 		/**
 		 * Array of file extensions which are opened with Microsoft Access.
 		 * @api
-		 * @type {array}
+		 * @type {Array.<string>}
 		 */
 		Access: [
 			"accdb",
@@ -9633,7 +9668,7 @@ var self = ITHit.DefineClass('ITHit.WebDAV.Client.MsOfficeEditExtensions', null,
 		/**
 		 * Array of file extensions which are opened with Microsoft Infopath.
 		 * @api
-		 * @type {array}
+		 * @type {Array.<string>}
 		 */
 		Infopath: [
 			"xsn",
@@ -9643,7 +9678,7 @@ var self = ITHit.DefineClass('ITHit.WebDAV.Client.MsOfficeEditExtensions', null,
 		/**
 		 * Array of file extensions which are opened with Microsoft Excel.
 		 * @api
-		 * @type {array}
+		 * @type {Array.<string>}
 		 */
 		Excel: [
 			"xltx",
@@ -9662,7 +9697,7 @@ var self = ITHit.DefineClass('ITHit.WebDAV.Client.MsOfficeEditExtensions', null,
 		/**
 		 * Array of file extensions which are opened with Microsoft Powerpoint.
 		 * @api
-		 * @type {array}
+		 * @type {Array.<string>}
 		 */
 		Powerpoint: [
 			"pptx",
@@ -9682,7 +9717,7 @@ var self = ITHit.DefineClass('ITHit.WebDAV.Client.MsOfficeEditExtensions', null,
 		/**
 		 * Array of file extensions which are opened with Microsoft Project.
 		 * @api
-		 * @type {array}
+		 * @type {Array.<string>}
 		 */
 		Project: [
 			"mpp",
@@ -9692,7 +9727,7 @@ var self = ITHit.DefineClass('ITHit.WebDAV.Client.MsOfficeEditExtensions', null,
 		/**
 		 * Array of file extensions which are opened with Microsoft Publisher.
 		 * @api
-		 * @type {array}
+		 * @type {Array.<string>}
 		 */
 		Publisher: [
 			"pub"
@@ -9701,7 +9736,7 @@ var self = ITHit.DefineClass('ITHit.WebDAV.Client.MsOfficeEditExtensions', null,
 		/**
 		 * Array of file extensions which are opened with Microsoft Visio.
 		 * @api
-		 * @type {array}
+		 * @type {Array.<string>}
 		 */
 		Visio: [
 			"vstx",
@@ -9720,7 +9755,7 @@ var self = ITHit.DefineClass('ITHit.WebDAV.Client.MsOfficeEditExtensions', null,
 		/**
 		 * Array of file extensions which are opened with Microsoft Word.
 		 * @api
-		 * @type {array}
+		 * @type {Array.<string>}
 		 */
 		Word: [
 			"docx",
@@ -10136,6 +10171,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.GPreview', ITHit.WebDAV.Client.Me
 			 * @api
 			 * @type {ITHit.WebDAV.Client.MsOfficeEditExtensions}
 			 * @examplecode ITHit.WebDAV.Client.Tests.DocManager.MsOfficeEditExtensions.EditDocumentTest
+             * @examplecode ITHit.WebDAV.Client.TSExamples.DocManager.MsOfficeEditExtensions.EditDocumentTest
 			 */
             MsOfficeEditExtensions: ITHit.WebDAV.Client.MsOfficeEditExtensions,
 
@@ -10145,7 +10181,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.GPreview', ITHit.WebDAV.Client.Me
 			 * Used in Chrome / Internet Explorer / Safari if protocol application is not installed AND web browser protocol warning dialog is disabled AND EditDocument() / MicrosoftOfficeEditDocument() function is called (in case of Basic/Digest/Anonymous authentication).
 			 * NOT used in Firefox / Edge OR if DavProtocolEditDocument() is called OR if web browser protocol warning dialog is enabled.
 			 * @api
-			 * @type {ITHit.WebDAV.Client.ProtocolTimeoutMs}
+			 * @type {number}
 			 */
             ProtocolTimeoutMs: 3000,
 
@@ -10227,7 +10263,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.GPreview', ITHit.WebDAV.Client.Me
             /**
 			 * Gets file names of the protocol installer depending on OS.
 			 * @api
-             * @return {Array} An array with file names of the protocol installer.
+             * @return {Array.<string>} An array with file names of the protocol installer.
 			 */
             GetProtocolInstallFileNames: function () {
                 var fileName = "ITHitEditDocumentOpener";
@@ -10401,9 +10437,11 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.GPreview', ITHit.WebDAV.Client.Me
                     self.CallErrorCallback(errorCallback);
                 }
                 else {
+                    /* commented as users become confused of this message    
                     if (86 <= ITHit.DetectBrowser.Chrome || 82 <= ITHit.DetectBrowser.FF){
                         console.log('Function MicrosoftOfficeEditDocument() does not support errorCallback parameter');
                     }
+                    */
                     var command = (ITHit.DetectOS.OS == 'MacOS') ? encodeURIComponent('ofe|u|') : 'ofe|u|';
                     this.OpenProtocol(self.GetMsOfficeSchemaByExtension(ext) + ':' + command + sDocumentUrl, errorCallback);
                 }
@@ -10550,7 +10588,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.GPreview', ITHit.WebDAV.Client.Me
                             function _unlockFile() {
                                 if (!oEditorClosed) {
                                     oEditorClosed = true;
-                                    webDavSession.GUnlock(sDocumentUrl, oGEditInfo.LockToken.LockToken, oGEditInfo.GRevisionID);
+                                    webDavSession.GUnlockAsync(sDocumentUrl, oGEditInfo.LockToken.LockToken, oGEditInfo.GRevisionID);
                                 }
                             }
 
@@ -10817,7 +10855,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.GPreview', ITHit.WebDAV.Client.Me
 			 * &lt;/body&gt;
 			 * &lt;/html&gt;
 			 * @api
-			 * @param {string} sDocumentUrls Array of document URLs to be opened for editing from server. All documents must be located under the same mount URL (specified in <code>sMountUrl</code> parameter). Must be a full URL(s) including the domain name.
+			 * @param {string | string[]} sDocumentUrls Array of document URLs to be opened for editing from server. All documents must be located under the same mount URL (specified in <code>sMountUrl</code> parameter). Must be a full URL(s) including the domain name.
              * @param {string} [sMountUrl] URL to mount file system to before opening the folder. Usually this is your WebDAV server root folder. If this perameter is not specified file system will be mounted to the folder in which document is located.
 			 * @param {function} [errorCallback] Function to call if document opening failed. Typically you will request the protocol installation in this callback.
              * If not specified a default message offering protocol installation will be displayed.
@@ -10871,7 +10909,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.GPreview', ITHit.WebDAV.Client.Me
             
             CheckExtensionInstalledAndThrowErrorCallback: function(errorCallback){
                 //let Chrome error callback works when protocol on the site and the installed one do not match within the same major version. Because Chrome don't have a function to open url with error callback
-                if (!this.IsExtensionInstalled(!ITHit.DetectBrowser.Chrome) && !ITHit.DetectBrowser.Edge && !ITHit.DetectBrowser.IE) {
+                if (!this.IsExtensionInstalled(!ITHit.DetectBrowser.Chrome) && !ITHit.DetectBrowser.Edge && !ITHit.DetectBrowser.IE && !ITHit.DetectBrowser.Electron) {
                     self.CallErrorCallback(errorCallback);
                     return false;
                 }
@@ -11041,7 +11079,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.GPreview', ITHit.WebDAV.Client.Me
             },
 
 
-            OpenUriWithHiddenLink: function (uri, errorCallback) {
+            OpenUriWithHiddenLink: function (uri, errorCallback, targetAttribute) {
                 var timeout = setTimeout(function () {
                     self.CallErrorCallback(errorCallback);
                     handler.remove();
@@ -11050,6 +11088,10 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.GPreview', ITHit.WebDAV.Client.Me
                 var link = document.querySelector("#hiddenLink");
                 if (!link) {
                     link = this.CreateHiddenLink(document.body, "about:blank");
+                }
+
+                if (targetAttribute) {
+                    link.target = targetAttribute;
                 }
 
                 var handler = this.RegisterEvent(window, "blur", onBlur);
@@ -11223,6 +11265,8 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.GPreview', ITHit.WebDAV.Client.Me
                     }
                 } else if (ITHit.DetectBrowser.Chrome) {
                     this.OpenUriUsingChrome(uri, errorCallback);
+                } else if (ITHit.DetectBrowser.Electron) {
+                    this.OpenUriWithHiddenLink(uri, errorCallback, "_external");
                 } else if (ITHit.DetectBrowser.IE) {
                     if (uri.length > 2080 && ITHit.DetectOS.OS == "Windows") {
                         alert("URL is too long (" + uri.length + " characters). Internet Explorer does not support URLs longer than 2080 characters. Use Chrome, Firefox or Safari instead.");
@@ -11462,7 +11506,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.ResumableUpload', null, /** @lends ITHit.
 
 /**
  * Information about lock set on an item.
- * @private
+ * @api
  * @class ITHit.WebDAV.Client.GEditInfo
  */
 ITHit.DefineClass('ITHit.WebDAV.Client.GEditInfo', ITHit.WebDAV.Client.LockInfo, /** @lends ITHit.WebDAV.Client.GEditInfo.prototype */{
@@ -11818,7 +11862,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.GUnlock', ITHit.WebDAV.Client.Met
              * @api
              * @param {ITHit.WebDAV.Client.Request} oRequest Current WebDAV session.  
              * @param {string} sHref This item path on the server.
-             * @param {ITHit.WebDAV.Client.File~GEditAsync} fCallback Function to call when operation is completed.
+             * @param {ITHit.WebDAV.Client.File~GEditAsyncCallback} fCallback Function to call when operation is completed.
              * @returns {ITHit.WebDAV.Client.Request} Request object.
              */
 			GEditAsync: function (oRequest, sHref, iTimeout, fCallback) {
@@ -11990,6 +12034,8 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.GUnlock', ITHit.WebDAV.Client.Met
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.CreateFile.ReadContent
 		 * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.CreateFile.ReadContentRange
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.CreateFile.ReadContent
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.CreateFile.ReadContentRange
 		 * @param {number} iBytesFrom Start position to retrieve lBytesCount number of bytes from.
 		 * @param {number} iBytesCount Number of bytes to retrieve.
 		 * @param {ITHit.WebDAV.Client.File~ReadContentAsyncCallback} fCallback Function to call when operation is completed.
@@ -12067,6 +12113,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.GUnlock', ITHit.WebDAV.Client.Met
 		 * Writes file content.
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.CreateFile.OnlyWriteContent
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.CreateFile.OnlyWriteContent
 		 * @param {string} sContent File content.
 		 * @param {string} sLockToken Lock token.
 		 * @param {string} sMimeType File mime-type.
@@ -12151,6 +12198,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.GUnlock', ITHit.WebDAV.Client.Met
 		/**
 		 * Retrieves item versions.
 		 * @examplecode ITHit.WebDAV.Client.Tests.Versions.GetVersions.GetVersions
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.Versions.GetVersions.GetVersions
 		 * @api
 		 * @param {ITHit.WebDAV.Client.File~GetVersionsAsyncCallback} fCallback Function to call when operation is completed.
 		 * @returns {ITHit.WebDAV.Client.Request} Request object.
@@ -12215,6 +12263,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.GUnlock', ITHit.WebDAV.Client.Met
 		/**
 		 * Update to version.
 		 * @examplecode ITHit.WebDAV.Client.Tests.Versions.ManageVersions.UpdateToVersion
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.Versions.ManageVersions.UpdateToVersion
 		 * @api
 		 * @param {string|ITHit.WebDAV.Client.Version} mVersion Href to file with version attribute or {@link ITHit.WebDAV.Client.Version} instance.
 		 * @param {ITHit.WebDAV.Client.File~UpdateToVersionAsyncCallback} fCallback Function to call when operation is completed.
@@ -12310,6 +12359,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.Methods.GUnlock', ITHit.WebDAV.Client.Met
 		 * Enables / disables version control for this file.
 		 * @api
 		 * @examplecode ITHit.WebDAV.Client.Tests.Versions.PutUnderVersion.EnableVersion
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.Versions.PutUnderVersion.EnableVersion
 		 * @param {boolean} bEnable True to enable version-control, false - to disable.
 		 * @param {string} mLockToken Lock token for this item.
 		 * @param {ITHit.WebDAV.Client.File~PutUnderVersionControlAsyncCallback} fCallback Function to call when operation is completed.
@@ -13034,6 +13084,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PageResults', null, /** @lends ITHit.WebD
          * Creates a new folder with a specified name as child of this folder.
          * @api
          * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.CreateFolder.CreateFolder
+         * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.CreateFolder.CreateFolder
          * @param {string} sName Name of the new folder.
          * @param {string} [sLockTokens] Lock token for ITHit.WebDAV.Client.Folder folder.
 		 * @param {ITHit.WebDAV.Client.PropertyName[]} aProperties Additional properties requested from server. Default is empty array.
@@ -13135,6 +13186,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PageResults', null, /** @lends ITHit.WebD
          * Creates a new file with a specified name as a child of this folder.
          * @api
          * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.CreateFile.CreateAndWriteContent
+         * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.CreateFile.CreateAndWriteContent
          * @param {string} sName Name of the new file.
          * @param {string} sLockTokens Lock token for current folder.
          * @param {string} sContent File content.
@@ -13298,6 +13350,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PageResults', null, /** @lends ITHit.WebD
          * Gets specified number of children of this folder that correspond to requested offset and sorting. Use GetSupportedFeaturesAsync() function to detect if paging is supported.
          * @api      
          * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.GetFolderItems.GetPage
+         * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.GetFolderItems.GetPage
          * @param {ITHit.WebDAV.Client.PropertyName[]} [aProperties] Additional properties requested from server. If null is specified, only default properties are returned.      
          * @param {number} [nOffset] The number of items to skip before returning the remaining items.
          * @param {number} [nResults] The number of items to return.
@@ -13353,7 +13406,8 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PageResults', null, /** @lends ITHit.WebD
         /**
          * This method returns all items contained in the folder, which may be very large. To limit amount of items returned and get only a single results page use [GetPageAsync]{@link ITHit.WebDAV.Client.Folder#GetPageAsync} function instead.
          * @api
-         * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.GetFolderItems.GetChildrenAsync
+         * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.GetFolderItems.GetChildren
+         * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.GetFolderItems.GetChildren
          * @param {boolean} bRecursively Indicates if all subtree of children should be return. Default is false.
          * @param {ITHit.WebDAV.Client.PropertyName[]} aProperties Additional properties requested from server. If null is specified, only default properties are returned.
          * @param {ITHit.WebDAV.Client.Folder~GetChildrenAsyncCallback} fCallback Function to call when operation is completed.
@@ -13473,6 +13527,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PageResults', null, /** @lends ITHit.WebD
         /**
          * Gets the specified file from server.
          * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.GetItemByFolder.GetFile
+         * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.GetItemByFolder.GetFile
          * @api
          * @param {string} sName Name of the file.
          * @param {ITHit.WebDAV.Client.Folder~GetFileAsyncCallback} fCallback Function to call when operation is completed.
@@ -13627,6 +13682,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PageResults', null, /** @lends ITHit.WebD
          * Checks whether specified item exists in the folder.
          * @api
          * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.ItemExists.ItemExists
+         * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.ItemExists.ItemExists
          * @param {string} sName Name of the item.
          * @param {ITHit.WebDAV.Client.Folder~ItemExistsAsyncCallback} fCallback Function to call when operation is completed.
          * @returns {ITHit.WebDAV.Client.Request} Request object.
@@ -13717,6 +13773,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PageResults', null, /** @lends ITHit.WebD
          * This method returns all items found on the server, which may be very large. To limit amount of items returned and get only a single results page use [GetSearchPageByQueryAsync]{@link ITHit.WebDAV.Client.Folder#GetSearchPageByQueryAsync} function instead.
          * @api
          * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.Search.SearchByQuery
+         * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.Search.SearchByQuery
          * @param {ITHit.WebDAV.Client.SearchQuery} oSearchQuery Object with search query conditions.
          * @param {ITHit.WebDAV.Client.Folder~SearchByQueryAsyncCallback} fCallback Function to call when operation is completed.
          * @returns {ITHit.WebDAV.Client.Request} Request object.
@@ -13738,6 +13795,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PageResults', null, /** @lends ITHit.WebD
          * Searches folder by query. Returns specified number of search result items that correspond to requested offset and sorting. Use GetSupportedFeaturesAsync() function to detect if paging is supported.
          * @api
          * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.Search.GetSearchPageByQuery
+         * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.Search.GetSearchPageByQuery
          * @param {ITHit.WebDAV.Client.SearchQuery} oSearchQuery Object with search query conditions.
          * @param {number} [nOffset] The number of items to skip before returning the remaining items.
          * @param {number} [nResults] The number of items to return.
@@ -13802,6 +13860,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PageResults', null, /** @lends ITHit.WebD
          * Searches folder by search string. To limit amount of items returned and get only a single results page use [GetSearchPageAsync]{@link ITHit.WebDAV.Client.Folder#GetSearchPageAsync} function instead.
          * @api
          * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.Search.SearchByString
+         * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.Search.SearchByString
          * @param {string} sSearchQuery String of search query.
          * @param {ITHit.WebDAV.Client.PropertyName[]} [aProperties] Additional properties requested from server. If null is specified, only default properties are returned.
          * @param {ITHit.WebDAV.Client.Folder~SearchAsyncCallback} fCallback Function to call when operation is completed.
@@ -13825,6 +13884,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PageResults', null, /** @lends ITHit.WebD
          * Searches folder by search string. Returns specified number of search result items that correspond to requested offset and sorting. Use GetSupportedFeaturesAsync() function to detect if paging is supported.
          * @api
          * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.Search.GetSearchPageByString
+         * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.Search.GetSearchPageByString
          * @param {string} sSearchQuery String of search query.
          * @param {ITHit.WebDAV.Client.PropertyName[]} [aProperties] Additional properties requested from server. If null is specified, only default properties are returned.
          * @param {number} [nOffset] The number of items to skip before returning the remaining items.
@@ -13943,6 +14003,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PageResults', null, /** @lends ITHit.WebD
 
 	/**
 	 * Represents a version on a WebDAV server.
+	 * @api
 	 * @class ITHit.WebDAV.Client.Version
 	 * @extends ITHit.WebDAV.Client.File
 	 */
@@ -14109,13 +14170,13 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PageResults', null, /** @lends ITHit.WebD
 		VersionName: null,
 
 		/**
-		 *
+		 * @api
 		 * @type {string}
 		 */
 		CreatorDisplayName: null,
 
 		/**
-		 *
+		 * @api
 		 * @type {string}
 		 */
 		Comment: null,
@@ -14209,6 +14270,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PageResults', null, /** @lends ITHit.WebD
 		/**
 		 * Update file to current version.
 		 * @examplecode ITHit.WebDAV.Client.Tests.Versions.ManageVersions.UpdateToThis
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.Versions.ManageVersions.UpdateToThis
 		 * @api
 		 * @param {ITHit.WebDAV.Client.Version~UpdateToThisVersionAsync} fCallback Function to call when operation is completed.
 		 * @returns {ITHit.WebDAV.Client.Request} Request object.
@@ -14240,6 +14302,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PageResults', null, /** @lends ITHit.WebD
 		/**
 		 * Delete version by self href.
 		 * @api
+		 * @tshide
 		 * @param {ITHit.WebDAV.Client.Version~DeleteAsyncCallback} fCallback Function to call when operation is completed.
 		 * @returns {ITHit.WebDAV.Client.Request} Request object.
 		 */
@@ -14259,6 +14322,7 @@ ITHit.DefineClass('ITHit.WebDAV.Client.PageResults', null, /** @lends ITHit.WebD
 		 * First parameter is the starting byte (zero-based) at witch to start content download, the second – amount
 		 * of bytes to be downloaded. The library will add Range header to the request in this case.
 		 * @examplecode ITHit.WebDAV.Client.Tests.Versions.ReadContent.ReadContent
+		 * @examplecode ITHit.WebDAV.Client.TSExamples.Versions.ReadContent.ReadContent
 		 * @api
 		 * @param {number} iBytesFrom Start position to retrieve lBytesCount number of bytes from.
 		 * @param {number} iBytesCount Number of bytes to retrieve.
@@ -15203,6 +15267,7 @@ ITHit.Phrases.LoadJSON(ITHit.Temp.WebDAV_Phrases);
 	 * This class represents asynchronous request to WebDAV server. The instance of this class is returned from most
 	 * asynchronous methods of the library. You can use it to cancel the request calling Abort() method of this class
 	 * as well as to show progress attaching to Progress event.
+	 * @api
 	 * @class ITHit.WebDAV.Client.WebDavRequest
 	 */
 	var self = ITHit.DefineClass('ITHit.WebDAV.Client.WebDavRequest', null, /** @lends ITHit.WebDAV.Client.WebDavRequest.prototype */{
@@ -15768,6 +15833,7 @@ ITHit.Phrases.LoadJSON(ITHit.Temp.WebDAV_Phrases);
 			 * See {@link ITHit.WebDAV.Client.RequestProgress} for more information.
 			 * @api
 			 * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.Progress.Progress
+			* @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.Progress.Progress
 			 * @event ITHit.WebDAV.Client.Request#OnProgress
 			 * @property {ITHit.WebDAV.Client.RequestProgress} Progress Progress info instance
 			 * @property {ITHit.WebDAV.Client.Request} Request Current request
@@ -15880,7 +15946,7 @@ ITHit.Phrases.LoadJSON(ITHit.Temp.WebDAV_Phrases);
 		/**
 		 * @api
 		 * @param {string} sEventName
-		 * @param fCallback
+		 * @param {function} fCallback
 		 * @param {object} [oContext]
 		 */
 		AddListener: function(sEventName, fCallback, oContext) {
@@ -15902,7 +15968,7 @@ ITHit.Phrases.LoadJSON(ITHit.Temp.WebDAV_Phrases);
 		/**
 		 * @api
 		 * @param {string} sEventName
-		 * @param fCallback
+		 * @param {function} fCallback
 		 * @param {object} [oContext]
 		 */
 		RemoveListener: function(sEventName, fCallback, oContext) {
@@ -16137,7 +16203,7 @@ ITHit.Phrases.LoadJSON(ITHit.Temp.WebDAV_Phrases);
              * Version of AJAX Library
              * @api
              */
-            Version: '5.20.5655.0',
+            Version: '5.21.5886.0',
 
             /**
             * Protocol Version of AJAX Library
@@ -16150,6 +16216,7 @@ ITHit.Phrases.LoadJSON(ITHit.Temp.WebDAV_Phrases);
              * information that is used when creating the request such as URL, HTTP verb, headers and request body.
              * @api
              * @examplecode ITHit.WebDAV.Client.Tests.WebDavSession.Events.BeforeRequestSend
+             * @examplecode ITHit.WebDAV.Client.TSExamples.WebDavSession.Events.BeforeRequestSend
              * @event ITHit.WebDAV.Client.WebDavSession#OnBeforeRequestSend
              * @property {string} Method Request method
              * @property {string} Href Request absolute path
@@ -16163,6 +16230,7 @@ ITHit.Phrases.LoadJSON(ITHit.Temp.WebDAV_Phrases);
              * any data received from server.
              * @api
              * @examplecode ITHit.WebDAV.Client.Tests.WebDavSession.Events.Response
+             * @examplecode ITHit.WebDAV.Client.TSExamples.WebDavSession.Events.Response
              * @event ITHit.WebDAV.Client.WebDavSession#OnResponse
              * @property {number} Status Response status code
              * @property {string} StatusDescription Response status description
@@ -16234,7 +16302,7 @@ ITHit.Phrases.LoadJSON(ITHit.Temp.WebDAV_Phrases);
         /**
          * @api
          * @param {string} sEventName
-         * @param fCallback
+         * @param {function} fCallback
          * @param {object} [oContext]
          */
         AddListener: function(sEventName, fCallback, oContext) {
@@ -16254,7 +16322,7 @@ ITHit.Phrases.LoadJSON(ITHit.Temp.WebDAV_Phrases);
         /**
          * @api
          * @param {string} sEventName
-         * @param fCallback
+         * @param {function} fCallback
          * @param {object} [oContext]
          */
         RemoveListener: function(sEventName, fCallback, oContext) {
@@ -16380,6 +16448,7 @@ ITHit.Phrases.LoadJSON(ITHit.Temp.WebDAV_Phrases);
         /**
          * Returns Folder object corresponding to path.
          * @examplecode ITHit.WebDAV.Client.Tests.HierarchyItems.GetItemBySession.GetFolder
+         * @examplecode ITHit.WebDAV.Client.TSExamples.HierarchyItems.GetItemBySession.GetFolder
          * @api
          * @param {string} sPath Path to the folder.
 		 * @param {ITHit.WebDAV.Client.PropertyName[]} aProperties Additional properties requested from server. Default is empty array.
@@ -16646,47 +16715,55 @@ ITHit.Phrases.LoadJSON(ITHit.Temp.WebDAV_Phrases);
 
             /**
              * Upload in progress.
+             * @api
              * @type {string}
              */
             Uploading: 'Uploading',
 
             /**
              * Upload aborted.
+             * @api
              * @type {string}
              */
             Canceled: 'Canceled',
 
             /**
              * Upload paused.
+             * @api
              * @type {string}
              */
             Paused: 'Paused',
 
             /**
              * Upload queued for upload.
+             * @api
              * @type {string}
              */
             Queued: 'Queued',
 
             /**
              * Upload failed.
+             * @api
              * @type {string}
              */
             Failed: 'Failed',
 
             /**
              * Upload completed.
+             * @api
              * @type {string}
              */
             Completed: 'Completed',
             /**
              * Upload scheduled for retry.
+             * @api
              * @type {string}
              */
             Retrying: 'Retrying',
 
             /**
              * Upload skipped.
+             * @api
              * @type {string}
              */
             Skipped: 'Skipped'
@@ -16821,6 +16898,7 @@ ITHit.Phrases.LoadJSON(ITHit.Temp.WebDAV_Phrases);
 (function() {
     /**
      * This class provides state change event data;
+     * @api
      * @class ITHit.WebDAV.Client.Upload.Events.StateChanged
      * @extends ITHit.WebDAV.Client.Upload.Events.BaseEvent
      */
@@ -16830,12 +16908,14 @@ ITHit.Phrases.LoadJSON(ITHit.Temp.WebDAV_Phrases);
         {
             /**
              * Previous state.
+             * @api
              * @type {ITHit.WebDAV.Client.Upload.State}
              */
             OldState: null,
 
             /**
              * Actual state.
+             * @api
              * @type {ITHit.WebDAV.Client.Upload.State}
              */
             NewState: null,
@@ -16853,6 +16933,7 @@ ITHit.Phrases.LoadJSON(ITHit.Temp.WebDAV_Phrases);
 (function() {
     /**
      * This class provides state change event data;
+     * @api
      * @class ITHit.WebDAV.Client.Upload.Events.ProgressChanged
      * @extends ITHit.WebDAV.Client.Upload.Events.BaseEvent
      */
@@ -16862,12 +16943,14 @@ ITHit.Phrases.LoadJSON(ITHit.Temp.WebDAV_Phrases);
         {
             /**
              * Previous progress.
+             * @api
              * @type {ITHit.WebDAV.Client.Upload.Progress}
              */
             OldProgress: null,
 
             /**
              * Actual progress.
+             * @api
              * @type {ITHit.WebDAV.Client.Upload.Progress}
              */
             NewProgress: null,
@@ -18066,7 +18149,7 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
 
             /**
              * @public
-             * @return ITHit.WebDAV.Client.Upload.UploadItem[]
+             * @return {ITHit.WebDAV.Client.Upload.UploadItem[]}
              */
             GetItems: function(){
                return this._GroupItemMap.Get(this.IDString);
@@ -18102,7 +18185,10 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
 
 (function() {
     'use strict';
-
+    /**
+     * @public
+     * @class ITHit.WebDAV.Client.Upload.Groups.GroupManager
+     */
     ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.GroupManager',
         null,
         /** @lends ITHit.WebDAV.Client.Upload.Groups.GroupManager.prototype */
@@ -18120,7 +18206,6 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
             },
 
             /**
-             * @public
              * @return {ITHit.WebDAV.Client.Upload.Groups.Group}
              * @param {ITHit.WebDAV.Client.Upload.UploadItem[]} [oItems]
              */
@@ -18546,9 +18631,6 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
 
 /**
  * Event fired before {@link ITHit.WebDAV.Client.Upload.UploadItem} started upload.
- * @api
- * @event ITHit.WebDAV.Client.Upload.UploadItem#OnBeforeUploadStarted
- * @type {ITHit.WebDAV.Client.Upload.Events.BeforeUploadStarted}
  * You will validate item in this event and present user interface if user interaction is necessary.
  * In this event you can check if each item exists on the server and specify if item should be overwritten or skipped.
  * You can also validate file size, file extension, file upload path and file name.
@@ -18556,6 +18638,8 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
  * To continue upload the {@link ITHit.WebDAV.Client.Upload.Events.BeforeUploadStarted#Upload} function should be called.
  * To skip upload the {@link ITHit.WebDAV.Client.Upload.Events.BeforeUploadStarted#Skip} function should be called.
  * @api
+ * @event ITHit.WebDAV.Client.Upload.UploadItem#OnBeforeUploadStarted
+ * @type {ITHit.WebDAV.Client.Upload.Events.BeforeUploadStarted}
  * @example
  * /&#x002A&#x002A @typedef {ITHit.WebDAV.Client.Upload.UploadItem} oItem &#x002A/
  * var oItem = oUploader.Queue.GetByUrl(sSomeUrl);
@@ -18659,6 +18743,7 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
 
             /**
              * Check if upload item represents a folder item.
+             * @api
              * @return {boolean} True if item is a folder. Otherwise - false.
              */
             IsFolder: function() {
@@ -19033,7 +19118,7 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
 
             /**
              * @public
-             * @return ITHit.WebDAV.Client.Upload.Groups.GroupManager
+             * @return {ITHit.WebDAV.Client.Upload.Groups.GroupManager}
              */
             GetGroup: function(){
                 return this._GroupManager.GetGroupByItem(this);
@@ -19073,6 +19158,7 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
     'use strict';
 
     /**
+     * @api
      * @class ITHit.WebDAV.Client.Upload.Events.QueueChanged
      * @extends ITHit.WebDAV.Client.Upload.Events.BaseEvent
      */
@@ -19083,12 +19169,14 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
 
             /**
              * Added items.
+             * @api
              * @type {ITHit.WebDAV.Client.Upload.UploadItem[]}
              */
             AddedItems: [],
 
             /**
              * Removed items.
+             * @api
              * @type {ITHit.WebDAV.Client.Upload.UploadItem[]}
              */
             RemovedItems: [],
@@ -20068,9 +20156,8 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
                 var oRequest = this.CreateRequest(this.__className +
 
                     '.ReportAsync()');
-                var sHref = ITHit.WebDAV.Client.Encoder.Encode(sUrl);
-                var sHost = ITHit.WebDAV.Client.HierarchyItem.GetHost(sHref);
-                ITHit.WebDAV.Client.Methods.Report.GoAsync(oRequest, sHref, sHost, null, null, function(oAsyncResult) {
+                var sHost = ITHit.WebDAV.Client.HierarchyItem.GetHost(sUrl);
+                ITHit.WebDAV.Client.Methods.Report.GoAsync(oRequest, sUrl, sHost, null, null, function(oAsyncResult) {
                     oRequest.MarkFinish();
                     fCallback.call(thisArg, oAsyncResult);
                 });
@@ -20093,9 +20180,9 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
             CancelUploadAsync: function(sUrl, fCallback) {
                 var oRequest = this.CreateRequest(this.__className +
                     '.CancelUpload()');
-                var sHref = ITHit.WebDAV.Client.Encoder.Encode(sUrl);
-                var sHost = ITHit.WebDAV.Client.HierarchyItem.GetHost(sHref);
-                ITHit.WebDAV.Client.Methods.CancelUpload.GoAsync(oRequest, sHref, [], sHost, function(oAsyncResult) {
+
+                var sHost = ITHit.WebDAV.Client.HierarchyItem.GetHost(sUrl);
+                ITHit.WebDAV.Client.Methods.CancelUpload.GoAsync(oRequest, sUrl, [], sHost, function(oAsyncResult) {
                     oRequest.MarkFinish();
                     var oUploadCancelResult = new ITHit.WebDAV.Client.AsyncResult(true, true, null);
                     if (oAsyncResult.Error instanceof ITHit.WebDAV.Client.Exceptions.NotFoundException) {
@@ -20144,10 +20231,9 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
 
             DeleteAsync: function(sPath, oLockTokens, fCallback) {
                 oLockTokens = oLockTokens || null;
-                var sHref = ITHit.WebDAV.Client.Encoder.Encode(sPath);
-                var sHost = ITHit.WebDAV.Client.HierarchyItem.GetHost(sHref);
+                var sHost = ITHit.WebDAV.Client.HierarchyItem.GetHost(sPath);
                 var oRequest = this.CreateRequest(this.__className + '.DeleteAsync()');
-                ITHit.WebDAV.Client.Methods.Delete.GoAsync(oRequest, sHref, oLockTokens, sHost, function(oAsyncResult) {
+                ITHit.WebDAV.Client.Methods.Delete.GoAsync(oRequest, sPath, oLockTokens, sHost, function(oAsyncResult) {
                     if(!oAsyncResult.IsSuccess && oAsyncResult.Error instanceof ITHit.WebDAV.Client.Exceptions.NotFoundException) {
                         oAsyncResult = new ITHit.WebDAV.Client.AsyncResult(true, true, null);
                     }
@@ -20449,7 +20535,7 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
              * @extends ITHit.WebDAV.Client.Upload.Events.AsyncEvent
              * @constructs
              * @param {ITHit.WebDAV.Client.Upload.UploadItem} oSender
-             * @param oError
+             * @param {Error|ITHit.WebDAV.Client.Exceptions.WebDavException} oError
              * @param {ITHit.WebDAV.Client.Upload.Events.UploadError~ResultCallback} fCallback
              */
             constructor: function(oSender, oError, fCallback) {
@@ -21093,7 +21179,7 @@ var staticSelf = ITHit.DefineClass('ITHit.WebDAV.Client.Upload.Groups.Group',
             /**
              * Default queue state.
              * @api
-             * @type {(ITHit.WebDAV.Client.Upload.State.Queued | ITHit.WebDAV.Client.Upload.State.UploadItem|string)}
+             * @type {(ITHit.WebDAV.Client.Upload.State.Queued|string)}
              * @default ITHit.WebDAV.Client.Upload.State.Queued
              */
             State: ITHit.WebDAV.Client.Upload.State.Queued,

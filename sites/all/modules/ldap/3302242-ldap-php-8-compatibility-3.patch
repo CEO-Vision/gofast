@@ -1,0 +1,12 @@
+diff -ruN a/ldap_servers/ldap_servers.functions.inc b/ldap_servers/ldap_servers.functions.inc
+--- a/ldap_servers/ldap_servers.functions.inc	2022-10-26 14:27:49.022862647 +0200
++++ b/ldap_servers/ldap_servers.functions.inc	2022-10-26 14:17:12.000000000 +0200
+@@ -31,7 +31,7 @@
+   $len = drupal_strlen($new_password);
+   $new_pass = NULL;
+   for ($i = 0; $i < $len; $i++) {
+-    $new_pass .= "{$new_password{$i}}\000";
++    $new_pass .= "{$new_password[$i]}\000";
+   }
+ 
+   $status = ldap_mod_replace($ldap_server->connection, $userdn, array('unicodePwd' => $new_pass));

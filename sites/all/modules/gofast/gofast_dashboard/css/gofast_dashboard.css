@@ -173,7 +173,7 @@ ul.dashboard.cdel.list-group  {
     display: none;
 }
 
-#dashboard-favorite-contents > div > div > table > tbody > tr > td > .gofast-node-actions > ul{
+#dashboard_block_favorites_content > div > div > table > tbody > tr > td > .gofast-node-actions > ul{
     margin-left: -235px;
     z-index: 9999;
 }
@@ -203,3 +203,20 @@ ul.dashboard.cdel.list-group  {
   left: 50%;
 }
 
+#dashboard_block_favorites_spaces {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+#dashboard_block_favorites_folders {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+#dashboard_block_favorites_content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}

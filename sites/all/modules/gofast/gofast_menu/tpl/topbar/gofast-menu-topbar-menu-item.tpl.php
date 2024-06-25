@@ -1,5 +1,5 @@
 <?php $detect = new Mobile_Detect(); ?>
-<?php if (($detect->isMobile() || $detect->isTablet() || gofast_mobile_is_mobile_domain()) && $link['desktop_only']) : ?>
+<?php if (($detect->isMobile() || $detect->isTablet() || gofast_essential_is_essential()) && $link['desktop_only']) : ?>
 <?php else : ?>
   <?php if ($link['menu']) : ?>
     <?php if ($link['isSpace']) : ?>
@@ -41,7 +41,7 @@
         <?php endif; ?>
       </li>
     <?php else : ?>
-      <li class="menu-item menu-item-submenu menu-item-rel <?php echo $link['class'] ?>" data-menu-toggle="hover" aria-haspopup="true">
+      <li class="menu-item menu-item-submenu menu-item-rel <?php echo $link['class'] ?>" data-menu-toggle="hover" aria-haspopup="true" id="<?php echo $link['id'] ?>" <?= isset($link['onClick']) ? "onClick=\"" . $link['onClick'] . "\"" : "" ?>>
         <a <?php !isset($link['href']) || strlen($link['href']) == 0 ? '' : 'href="' . $link['href'] . '"' ?> class="btn btn-icon btn-clean btn-dropdown btn-lg">
           <?php if (isset($link['icon']) && !empty($link['icon'])) : ?>
             <i class="<?php echo $link['icon'] ?>"></i>
@@ -62,7 +62,11 @@
     <?php endif; ?>
   <?php else : ?>
     <li class="menu-item menu-item-submenu menu-item-rel gofast-block" aria-expanded="false" data-menu-toggle="hover" aria-haspopup="true" id="<?php print $link['id']; ?>" data-pinned="false" data-unread="<?php print $link['count']; ?>">
-      <a href="<?php print $link['href'] ??  "#" ?>" role="button" class="btn btn-icon btn-clean btn-dropdown btn-lg">
+      <?php if(!empty($link["href"])) : ?>
+      <a href="<?php echo $link["href"] ?? '#'?>" role="button" class="btn btn-icon btn-clean btn-dropdown btn-lg">
+      <?php else : ?>
+      <a role="button" class="btn btn-icon btn-clean btn-dropdown btn-lg">
+      <?php endif; ?>
         <?php if (isset($link['icon']) && !empty($link['icon'])) : ?>
           <i class="<?php echo $link['icon'] ?>"></i>
         <?php elseif (!empty($link['svg'])) : ?>

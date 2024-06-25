@@ -13,6 +13,11 @@
   /**
    * Init Gofast settings and globals
    */
+
+  if(location.hash.startsWith("#comment-")){
+    Gofast.focusComment = location.hash.slice(1)
+  }
+
   Gofast.global = Gofast.global || {};
   window.CKEDITOR_BASEPATH = "/sites/all/libraries/ckeditor/";
   Gofast.exclude_ajax_url = [];
@@ -20,21 +25,6 @@
 
     Drupal.behaviors.gofastBootstrapSwitchInit = {
     attach: function(context, settings){
-       var checked = $("#edit-prevent-notify-update").attr("checked");
-       if(checked == "checked"){
-           var state = true;
-       }else{
-           var state = false;
-       }
-
-        $("#edit-prevent-notify-update").bootstrapSwitch({'state' : state, 'handleWidth': 20, 'labelText' : "Notification" });
-        if(!$("#edit-prevent-notify-update").hasClass("bootstrap-switch-processed")){
-            $('#edit-prevent-notify-update').on("switchChange.bootstrapSwitch", function (event, state) {
-                Gofast.preventNotifyToggle();
-            });
-            $('#edit-prevent-notify-update').addClass("bootstrap-switch-processed");
-        }
-
         const strict_search_input = document.querySelector("[item='strict']");
 
         if (strict_search_input && !strict_search_input.classList.contains("handle-processed")) {
@@ -48,7 +38,7 @@
 
   Drupal.behaviors.hideNodeInfos = {
       attach: function(context, settings){
-        if(!Drupal.settings.isMobile){
+        if(!Drupal.settings.isEssential){
             $("#pdf_frame").contents().find("#gfPresentationMode").hide();
         }
     }
@@ -104,15 +94,25 @@
     jQuery("#panel-heading-title-edit").show();
   }
 
- Gofast.gofast_onlyoffice_show_warning = function (link, e) {
-             var link_display = link;
-             var html_message = "<h2>"+Drupal.t("Warning" , {}, {'context' : 'gofast'})+"</h2>";
-             html_message = html_message + "<div>"+Drupal.t("Use OnlyOffice on doc, xls or ppt (or equivalent in Open formats) files will automatically convert it into docx, xlsx or pptx, and this can alter the formatting of the document. If you do not want to transform the format, please use Word or LibreOffice by choosing <b>Edit from my PC</b>." , {}, {'context' : 'gofast'})+"</div>";
-             html_message = html_message + "<br /><div><a href=\""+link_display+"\" target=\"_blank\" class='gofast-callto'><button onClick='Gofast.closeModal();' class='btn btn-success'>"+Drupal.t("Continue" , {}, {'context' : 'gofast'})+"</button></a>";
-             //html_message = html_message + "<input style='margin-left:10px;margin-right:6px;' type='checkbox' id='onlyoffice_warning_display' value='onlyoffice_warning_display' />"+Drupal.t("Hide this warning in the futur" , {}, {'context' : 'gofast'});
-             html_message = html_message + "</div>";
-             Gofast.modal(html_message, Drupal.t("Edit with OnlyOffice" , {}, {'context' : 'gofast'}));
-             e.stopPropagation();
+  Gofast.gofast_onlyoffice_show_warning = function (link, nid, e) {
+    e.preventDefault();
+    $('.gofast-node-actions').css('display','none');
+    var html_message = "<h2>"+Drupal.t("Warning" , {}, {'context' : 'gofast'})+"</h2>";
+    html_message = html_message + "<div>"+Drupal.t("Use OnlyOffice on doc, xls or ppt (or equivalent in Open formats) files will automatically convert it into docx, xlsx or pptx, and this can alter the formatting of the document. If you do not want to transform the format, please use Word or LibreOffice by choosing <b>Edit from my PC</b>." , {}, {'context' : 'gofast'})+"</div>";
+    html_message = html_message + "<br /><div><a onClick='Gofast.gofast_onlyoffice_start_file_convert("+nid+",\""+link+"\");' class='btn btn-success gofast-callto'>"+Drupal.t("Continue" , {}, {'context' : 'gofast'})+"</a>";
+    //html_message = html_message + "<input style='margin-left:10px;margin-right:6px;' type='checkbox' id='onlyoffice_warning_display' value='onlyoffice_warning_display' />"+Drupal.t("Hide this warning in the futur" , {}, {'context' : 'gofast'});
+    html_message = html_message + "</div>";
+    Gofast.modal(html_message, Drupal.t("Edit with OnlyOffice" , {}, {'context' : 'gofast'}));
+    e.stopPropagation();
+  }
+
+  Gofast.gofast_onlyoffice_start_file_convert = function(nid, link) {
+    Gofast.addLoading()
+    $.post(`/gofast_cmis/convert_file_to_new_format/${nid}`, { fromAjax: true }).done(() => {
+      Gofast.closeModal();
+      window.open(link, "_blank");
+      Gofast.removeLoading()
+    });
   }
 
     Gofast.gofast_refresh_fast_actions_node = function (nid) {
@@ -142,14 +142,8 @@
 
   Drupal.behaviors.permalinkToClipBoard = {
     attach: function (context, settings) {
-      //$('.view-gofast-activity-feed a').addClass('ajax-link');
-
-      $('.forum-post-number a', context).once('permalink', function (e) {
-        $(this).attr({
-          'data-toggle': 'tooltip',
-          'data-placement': 'right',
-          'title': Drupal.t('Copy to clipboard', {}, {'context' : 'gofast'})
-        }).click(function (e) {
+      function attachPermalinkBehavior() {
+        $(context).find('.forum-post-number a').on('click', function (e) {
           e.preventDefault();
           // Make sure the permalink has an absolute url.
          /* var basePath = History.getBaseUrl() + Drupal.settings.basePath,
@@ -160,6 +154,24 @@
           $('body').click();
           return false;
         });
+
+        $(context).find('.permalink').on('click', function (e) {
+          e.preventDefault();
+          var url_relative = $(this).attr('href').replace(Gofast.get('baseUrl'), "");
+          Gofast.copyToClipboard(Gofast.get('baseUrl') + url_relative);
+          $('body').click();
+          return false;
+        }).attr({
+          'title': Drupal.t('Copy to clipboard', {}, {'context' : 'gofast'})
+        });
+      }
+
+      // Attach the behavior to the links when the page loads
+      attachPermalinkBehavior();
+
+      // Re-attach the behavior each time a modal is shown
+      $(document).on('shown.bs.modal', function () {
+        attachPermalinkBehavior();
       });
       // Attr title without tooltips bootstrap
       $('.permalink', context).once('permalink', function (e) {
@@ -175,7 +187,7 @@
       });
     }
   };
-  
+
   Drupal.behaviors.clipBoard = {
     attach: function (context, settings) {
       $('.clipboard:not(.clipboard-processed)').addClass('clipboard-processed').each(function () {
@@ -184,7 +196,7 @@
           console.info('Action:', e.action);
           console.info('Text:', e.text);
           console.info('Trigger:', e.trigger);
-          
+
           Gofast.toast(Drupal.t('Link copied to clipboard !', {}, {'context':'gofast:conference'}));
           e.clearSelection();
         });
@@ -196,6 +208,14 @@
     attach: function (context, settings) {
       Gofast.initializeCustomScrollbar();
     }
+  };
+
+  Gofast.customScrollbarResizeHandler = function (e, extraParameter = false) {
+    if (extraParameter) {
+      return;
+    }
+    $('.region-sidebar-second:not(#gofast_mobile_panel .region-sidebar-second)').css('height', $(window).height() - 100);
+    $('.region-sidebar-second:not(#gofast_mobile_panel .region-sidebar-second)').mCustomScrollbar('update');
   };
 
   Gofast.initializeCustomScrollbar = function () {
@@ -236,15 +256,13 @@
                 });
 
                 $('.region-sidebar-second:not(#gofast_mobile_panel .region-sidebar-second) .mCSB_draggerContainer').css('padding-bottom', 0);
-                $(window).resize(function () {
-                  $('.region-sidebar-second:not(#gofast_mobile_panel .region-sidebar-second)').css('height', $(window).height() - 100);
-                  $('.region-sidebar-second:not(#gofast_mobile_panel .region-sidebar-second)').mCustomScrollbar('update');
-                });
+                // important to attach the event only once otherwise duplicate events will be attached on each behaviors attach
+                $(window).off("resize", Gofast.customScrollbarResizeHandler).on('resize', Gofast.customScrollbarResizeHandler);
 
-              if (Gofast._settings.isMobile == true && Gofast.isMobile() == true){
+              if (Gofast._settings.isEssential == true && Gofast.isMobile() == true){
                   jQuery('.region-sidebar-second:not(#gofast_mobile_panel .region-sidebar-second)').css('max-width', '80%');
                   $('.region-sidebar-second:not(#gofast_mobile_panel .region-sidebar-second)').css('height', "95%");
-                } else if (Gofast._settings.isMobile == true && Gofast.isTablet() == true){
+                } else if (Gofast._settings.isEssential == true && Gofast.isTablet() == true){
                   $('.region-sidebar-second:not(#gofast_mobile_panel .region-sidebar-second)').css('height', "95%");
                 }
             }
@@ -355,8 +373,38 @@
     el.after(data);
   };
 
+  Gofast.removeCommentsBadge = function() {
+    $('a[href=#document__commentstab]').each(function() {
+      $(this).on("show.bs.tab", function() {
+        $("span#gofast-comment-notifiation").each(function() {
+          $(this).remove();
+          if($("#metadataSideButton > .red-dot").length){
+            $("#metadataSideButton > .red-dot").remove()
+          }
+        });
+      });
+    });
+  };
+
   Gofast.loadcomments = function (nid, noScroll = false) {
-    $("#gofast_over_content .text-center .pagination").html("<div class='loader-chat'></div>");
+  // In Essential it's possible to have two comment container in the same page (e.g. Document page on top of forum layer)
+  var commentContainers = $("[id=comments-container]:not(.processed)");
+  commentContainers.each((i, commentContainer) => {
+    commentContainer = $(commentContainer)
+    commentContainer.addClass("processed");
+    if(!Gofast._settings.isEssential){
+      $("#gofast_over_content .text-center .pagination").html("<div class='loader-chat'></div>");
+    }
+    var hash = ""
+    if (location.href.indexOf("#comment") != -1) {
+      hash = location.href.substring(location.href.indexOf("#") + 1);
+    }
+    if(Gofast.focusComment != undefined){
+      if(hash == ""){
+        hash = Gofast.focusComment
+      }
+      delete(Gofast.focusComment)
+    }
     Gofast.removeLoading();
     $.ajax({
       url: Drupal.settings.gofast.baseUrl + '/gofast/all_comments/render/' + nid,
@@ -364,57 +412,39 @@
       dataType: 'html',
       async: true,
       success: function (content) {
-        $("#comments-container").html(content);
-        $("#comments-container").css("height", "");
-        Drupal.attachBehaviors("#comments-container");
-        if (location.href.indexOf("#comment") != -1) {
-          var hash = location.href.substring(location.href.indexOf("#") + 1);
-          if (noScroll == false) {
-            Gofast.scrollToComment("#" + hash);
-          }
+        commentContainer.html(content);
+        commentContainer.css("height", "");
+        if (noScroll == false) {
+          Gofast.scrollToComment("#" + hash);
         }
         setTimeout(function () {
+          Drupal.attachBehaviors(commentContainer);
           Gofast.checkReply();
         }, 500);
+      },
+      error: function(){
+        commentContainer.removeClass("processed");
       }
     });
+  })
   };
 
   Gofast.loadtasks = function (nid) {
-      
     if($("#lightDashboardDocumentMy #bonita_form_process").hasClass('forcefully-loaded')){
         $("#lightDashboardDocumentMy #bonita_form_process").removeClass('forcefully-loaded');
         return;
     }
-          
     $.ajax({
       url: Drupal.settings.gofast.baseUrl + '/gofast/all_tasks/render/' + nid, // change it to taskes
       type: 'GET',
       dataType: 'html',
       async: true,
       success: function (content) {
-        if($("#document__tasktab").length && $("#document__tasktab").hasClass("active")){
-          var show_again = true;
-        }
-        
         $("#tasktab-container").html(content);
         Drupal.attachBehaviors("#tasktab-container");
-        
-        setTimeout(function(){  
-            $("#lightDashboardDocumentMy #bonita_form").contents().find("form").parent().next().css("display", "none");
-            $("#lightDashboardDocumentMy #bonita_form").contents().find("form").css("width", "99%");
-            $("#lightDashboardDocumentMy #bonita_form").contents().find(".col-xs-12.ng-scope.thumbnail").css("display", "none");
-            $("#bonita_form_container").css("display", "block");
-        }, 100);
-        
-        if(show_again){
-          $("#document__tasktab").addClass("active").addClass("show");
-          $("#lightDashboardDocumentMy").addClass("active").addClass("show");
-        }
       }
     });
   };
-
 
   Gofast.loadextrametadata = function (nid) {
     $.ajax({
@@ -423,7 +453,10 @@
       dataType: 'html',
       async: true,
       success: function (content) {
-        $("#extra-metadata-container").html(content);
+        content = JSON.parse(content);
+        $.each(content, function (indexInArray, extraMetadata) {
+          $("#" + extraMetadata.id + " #extra-metadata-container").html(extraMetadata.theme);
+        });
         Drupal.attachBehaviors("#extra-metadata-container");
       }
     });
@@ -434,6 +467,7 @@
     if ($("#historytab-container").hasClass("processed")) {
       return;
     }
+    $("#historytab-container").addClass("processed");
     $.ajax({
       url: Drupal.settings.gofast.baseUrl + '/gofast/history/render/' + nid,
       type: 'GET',
@@ -441,7 +475,6 @@
       async: true,
       success: function (content) {
         $("#historytab-container").html(content);
-        $("#historytab-container").addClass("processed");
         Drupal.attachBehaviors("#historytab-container");
       }
     });
@@ -449,11 +482,10 @@
 
   Gofast.handleActiveOnOGDropdownTabs = function () {
     if (window.location.hash == "#document__tasktab") {
-      $("#node-tabsHeader a ").removeClass("active");
-      $(".header_tasks_tab").addClass("active");
+      $("#lightDashboardDocumentMyParentTab").click();
     }
-    if (window.location.hash == "#document__infotab" || window.location.hash == "#document__extra_metadata_tab") {
-      $("#node-tabsHeader a ").removeClass("active");
+    if (window.location.hash == "#document__infotab" || window.location.hash.indexOf('#document__extra_metadata') !== -1 ) {
+      $("#node-tabsHeader a").removeClass("active");
       $(".header_info_tab").addClass("active");
     }
     if (window.location.hash.startsWith("#document__historytab")) {
@@ -464,30 +496,92 @@
     }
   }
 
-  Gofast.selectCurrentWikiArticle = function() {
+  // Reload the content of the wiki panel, even if there already is content in it
+  Gofast.refreshWikiPanel = function() {
+    const wikiContainer = Gofast._settings.isEssential ? $("#mobile_file_browser_wiki_container") : $("#wiki");
+    if (!wikiContainer.length) {
+      return;
+    }
+    $.get(window.origin + "/gofast/book/explorer")
+      .done(function(data){
+        wikiContainer.html(data);
+        // Highlight the current wiki article
+        Gofast.selectCurrentWikiArticle();
+      });
+  }
+
+  Gofast.selectCurrentWikiArticle = function(open = true) {
     if (!Drupal.settings.gofast_selected_book) {
+      Gofast.unselectWikiArticle()
       return;
     }
     const preselectBookInterval = setInterval(() => {
-      const $targetPageElement = $(".item-name[href$='" +  Drupal.settings.gofast_selected_book + "']").first();
-      const bookArrow = $targetPageElement.closest("tbody").find(".book-explorer-element-open");
-      $(".gofastHighlightedWikiArticle").removeClass("gofastHighlightedWikiArticle bg-secondary p-2 rounded");
-      if (!bookArrow.length && $targetPageElement.length) {
-        $targetPageElement.addClass("gofastHighlightedWikiArticle bg-secondary p-2 rounded");
+      let space_nid = $(".essentialFileBrowser").attr("data-nid");
+      // Don't highlight home page on root spaces
+      if(['4', '5', '6', '7'].includes(space_nid)){
+        Gofast.unselectWikiArticle()
+        clearInterval(preselectBookInterval);
+        return
+      }
+      const wikiSelector = Gofast._settings.isEssential ? "#mobile_file_browser_wiki_container" : "#wiki"
+      let $targetPageElement = $(wikiSelector + " .book-explorer-element[data-nid='" +  Drupal.settings.gofast_selected_book + "']");
+      // Show the wiki tree when navigating to a space when user is in the home tab
+      if(Gofast._settings.isEssential){
+        $("#nav_mobile_file_browser_wiki_container").click()
+      }
+      if (!$targetPageElement.length) {
+        // If the actual space don't have an home page wiki, add an highlighted item with the space name to give a feedback of the context to the user
+        Gofast.highlightEmptyHomePageItem()
+        clearInterval(preselectBookInterval);
         return;
       }
-      if (!bookArrow.length && !$targetPageElement.length) {
-        return;
-      }
-      $(".gofastHighlightedWikiArticle").removeClass("gofastHighlightedWikiArticle bg-secondary p-2 rounded");
-      if (bookArrow.hasClass("ki-bold-arrow-next")) {
-        bookArrow.click();
-      }
-      $targetPageElement.addClass("gofastHighlightedWikiArticle bg-secondary p-2 rounded");
+      Gofast.unselectWikiArticle()
+      $targetPageElement.find(".book-explorer-element-icon").removeClass("pt-3");
+      $targetPageElement.addClass("gofastHighlightedWikiArticle bg-primary text-white pr-2 rounded");
+
+      // Open parents if item is nested
+      Gofast.book.openItemSiblings($targetPageElement);
       $targetPageElement[0].scrollIntoView({behavior: "smooth", block: "center"});
+      // Open left panel if closed
+      if (open && !$("#explorer-toggle").hasClass("open")) {
+        $("#explorer-toggle").click();
+      }
+      // Show wiki panel tab content
+      if(!Gofast._settings.isEssential){
+        $("#explorer-wiki").click();
+      }
+      $(".explorer-main-container .nav.nav-tabs a.active:not('#explorer-wiki')").removeClass('active');
 
       clearInterval(preselectBookInterval);
     }, 100);
+  }
+  
+  Gofast.highlightEmptyHomePageItem = function(space_path = null){
+    if(space_path == null){
+      let searchParams = new URLSearchParams(location.search)
+      space_path = searchParams.get("path")
+    }
+    $("#empty-home-page-wiki").addClass("d-none")
+    let spaceId = $(".essentialFileBrowser").attr("data-nid");
+    let $targetPageElement = $("#mobile_file_browser_wiki_container .book-explorer-element[data-nid='" +  spaceId + "']");
+    if(Gofast._settings.isEssential && !$targetPageElement.length){
+      space_path = Gofast.ITHit.getSpacePath(space_path)
+      if(space_path != undefined){
+        let space_name = space_path.split("/").last().slice(1);
+        space_name = decodeURIComponent(space_name);
+        Gofast.unselectWikiArticle()
+        $("#empty-home-page-wiki .book-explorer-element-name > .item-name").html(space_name)
+        $("#empty-home-page-wiki").removeClass("d-none")
+        $("#empty-home-page-wiki > .book-explorer-element").addClass("gofastHighlightedWikiArticle bg-primary text-white pr-2 rounded");
+      }
+    }
+  }
+
+  Gofast.unselectWikiArticle = function() {
+    $(".wiki-tree-widget-item.active").removeClass("active")
+    $("#empty-home-page-wiki").addClass("d-none")
+    $(".gofastHighlightedWikiArticle").find(".book-explorer-element-icon").removeClass("pt-3");
+    $(".gofastHighlightedWikiArticle").removeClass("gofastHighlightedWikiArticle bg-primary text-white pr-2 rounded");
   }
 
   Gofast.checkReply = function(){
@@ -511,6 +605,71 @@
       });
     }
   }
+  
+  // if needed to set a new CKEditor profile, use the hook add_ckeditor_profiles() PHP-side
+  Gofast.parseCKEditorProfile = function(profile) {
+    if(profile.hasOwnProperty('extraPlugins')) {
+      if (profile.hasOwnProperty('mention')){
+        if(typeof window['ckeditorPluginMentionFeeds'] === 'function'){
+          profile.mention.feeds[0].feed = window['ckeditorPluginMentionFeeds']
+          profile.mention.feeds[0].itemRenderer = window['ckeditorPluginMentionFeedItemRenderer']
+        }
+      }
+      profile.extraPlugins = profile.extraPlugins.map(plugin => {
+        // Replace the string with the corresponding function, if it exists
+        if (typeof window[plugin] === 'function') {
+          return window[plugin];
+        }
+        return plugin; // If not, return the string as is
+    })
+  }
+  // XSS-filtering is done by our backend validation logic
+  profile.htmlSupport = {
+      allow: [
+          {
+              name: /.*/,
+              attributes: true,
+              classes: true,
+              styles: true
+          }
+      ]
+  };
+  return profile;
+}
+
+  // if param onlyIfIs is given, will remove only instances whose id contain the given string
+  Gofast.removeAllCKEditorInstances = function(onlyIfIs = false) {
+    let ck_keys = Object.keys(CKEDITOR.instances);
+    for (const key of ck_keys) {
+      let instance = CKEDITOR.instances[key];
+      let passesAllConditions = true;
+      if (onlyIfIs && !key.startsWith(onlyIfIs)) {
+        passesAllConditions = false;
+      }
+      if(instance && passesAllConditions){
+        CKEDITOR.remove(instance);
+      }
+    }
+  }
+
+  // prevent overflow of ckeditor tooltips
+  Gofast.setCKEditorTooltips = function(editor) {
+      editor.ui.view.toolbar.items.map(item => {
+        if (!item.tooltipView && !item.buttonView?.tooltipView) return;
+        // sometimes there is a dropdown in the ckeditor button and the tooltip is a bit more nested
+        const tooltipReference = item.tooltipView ? item : item.buttonView;
+        const tooltipRect = tooltipReference.tooltipView.element.getBoundingClientRect();
+        const parentRect = item.element.parentNode.getBoundingClientRect();
+        // show tooltip on the left if it overflows on the right
+        if (tooltipRect.right > parentRect.right) {
+          tooltipReference.tooltipPosition = 'w';
+        }
+        // show tooltip on the right if it overflows on the left
+        if (tooltipRect.left < parentRect.left) {
+          tooltipReference.tooltipPosition = 'e';
+        }
+      });
+  }
 
   Drupal.behaviors.ogTabs = {
     attach: function (context, settings) {
@@ -524,17 +683,79 @@
           $('html, body').scrollTop(0);
         }
         $('.gofast-og-page a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+          if (!$(e.target).attr('href')) {
+            return;
+          }
+          if($(e.target).attr("id") == "ogtab_documents"){
+            Gofast.ITHit.reset_full_browser_size()
+          }
+          if($(e.target).attr("id") == "tab_ogcalendar") {
+            if(Gofast.calendar != undefined) {
+              Gofast.calendar.initCalendar()
+            }
+          }
           var location_parts = $(e.target).attr('href').split('#');
-          return location.hash = location_parts[1];
+          if(!Gofast._settings.isEssential || Gofast.isMobile()){
+            return location.hash = location_parts[1];
+          }
         });
       });
     }
   };
 
+  function tryMakeEditorResizable($editorElement) {
+    // don't allow resizable editors in modals (GOFAST-11649)
+    if ($editorElement.parents(".modal").exists()) {
+      return;
+    }
+
+    $editorElement.resizable({
+      minHeight: 280,
+      maxHeight: 340,
+      minWidth: 280,
+    });
+    $editorElement.css("height", $editorElement.height() + "px");
+  }
+
+  Drupal.behaviors.initCKEditor = {
+    attach: function (context, settings) {
+      if (!$("[data-ckeditor]").length || !ClassicEditor) {
+        return;
+      }
+      $("[data-ckeditor]").each(async function() {
+        const profileName = $(this).attr("data-ckeditor");// Get the CKEditor profile name 
+        const profile = Gofast.parseCKEditorProfile(Drupal.settings.ckeditor.profiles[profileName]);
+        const contentLanguage = $("#document__infotab").attr("data-language");// Get the content language from the data-language attribute.
+        const $originalInput = $(this);
+        $originalInput.removeAttr("data-ckeditor");
+        if(contentLanguage){// Check if contentLanguage is defined .
+          profile.language ={
+            ui: Gofast.get("user").language,
+            content: contentLanguage  // Set the content language.
+          };
+        }
+        // Create the CKEditor instance.
+        const editor = await ClassicEditor.create($originalInput[0], profile);
+        const $editorElement = $(editor.ui.view.element);
+        tryMakeEditorResizable($editorElement);
+
+        Gofast.setCKEditorTooltips(editor);
+        if (!$originalInput.attr("id").startsWith("edit-body")) {
+          return;          
+        }
+        // Force set original input value after CKEditor value (only needed if textarea id starts with "edit-body")
+        editor.model.document.on("change:data", () => {
+          const editorData = editor.getData();
+          $originalInput.val(editorData);
+        });
+      });
+    }
+  }
+
   // @todo massive cleanup: as of GF4, most of the selectors and code below are dead
   // @warning there is still some essential stuff here, so be **really** careful while cleaning up
   $(document).ready(function () {
-    if (Gofast._settings.isMobile == false || typeof Gofast._settings.isMobile == 'undefined') {
+    if (typeof Gofast._settings == 'undefined' || typeof Gofast._settings.isEssential == 'undefined' || Gofast._settings.isEssential == false) {
       $('.menu.nav.navbar-nav > .last').before($('#block-search-form'));
     }
     $('#search-block-form .input-group-btn').html($('#dropdown-menu-page-search'));
@@ -579,18 +800,25 @@
     if (typeof Gofast.getQueryVariables('deadline') === 'string' && typeof Gofast.getQueryVariables('gid') === 'string') {
       $('h1.page-header').hide();
     }
-    
+
     // Make sur #id on url will load the good navTab
-    
+
     // Javascript to enable link to tab
     var hash = location.hash.replace(/^#/, '');  // ^ means starting, meaning only match the first hash
     if (hash) {
         $('.nav-tabs a[href="#' + hash + '"]').tab('show');
-    } 
+    }
 
     // Change hash for page-reload
     $('.nav-tabs a').on('shown.bs.tab', function (e) {
-        window.location.hash = e.target.hash;
+      if (e.target.hash) {
+
+        if(Gofast._settings.isEssential || !Gofast.isMobile()){
+          history.pushState({}, "", this.href)
+        } else {
+          window.location.hash = e.target.hash;
+        }
+      }
     })
 });
 
@@ -725,13 +953,13 @@
     attach: function (context, settings) {
       $(".gofast-node-actions").on("click", function(e){
         if(e.clientY > (3/5*$(window).height())){
-          $(".gofast-dropdown-menu:not(.dropdown-menu-right)").css("bottom", "100%").css("top", "inherit");
-          $(".gofast-dropdown-menu.dropdown-menu-right").css("top", "inherit").css("bottom", "0px");
+          $(".gofast-node-actions .gofast-dropdown-menu:not(.dropdown-menu-right)").css("bottom", "100%").css("top", "inherit");
+          $(".gofast-node-actions .gofast-dropdown-menu.dropdown-menu-right").css("top", "inherit").css("bottom", "0px");
           Gofast.last_menu_align = "down";
         }
         else{
-          $(".gofast-dropdown-menu:not(.dropdown-menu-right)").css("top", "100%").css("bottom", "inherit");
-          $(".gofast-dropdown-menu.dropdown-menu-right").css("top", "inherit").css("bottom", "0px");
+          $(".gofast-node-actions .gofast-dropdown-menu:not(.dropdown-menu-right)").css("top", "100%").css("bottom", "inherit");
+          $(".gofast-node-actions .gofast-dropdown-menu.dropdown-menu-right").css("top", "inherit").css("bottom", "0px");
           Gofast.last_menu_align = "up";
         }
       });
@@ -744,11 +972,57 @@
     attach: function(context, settings) {
       $("#gofast_breadcrumb_more:not(.gofast_breadcrumb_more-processed)").addClass('gofast_breadcrumb_more-processed').each(function () {
         $(this).click(function(){
-          $(this).parent().parent().find(".breadcrumb-transparent.gofast_breadcrumb_hidden_origine").toggleClass( "d-none");
-        if($(this).hasClass("fa-plus-circle")){
-          $(this).removeClass("fa-plus-circle").addClass("fa-minus-circle");
+          let breadcrumbAnimator = $(this).closest(".breadcrumb-gofast").find(".breadcrumbAnimator");
+          if(breadcrumbAnimator.length) {
+            breadcrumbAnimator = breadcrumbAnimator[0];
+            // we use maxHeight because height is not animatable, and numerical values because non-numerical values would not be animatable either
+            breadcrumbAnimator.classList.remove("d-none"); // remove d-none for scrollHeight to actually have a value
+            if (breadcrumbAnimator.style.maxHeight != "" && breadcrumbAnimator.style.maxHeight != "0px") {
+              breadcrumbAnimator.style.maxHeight = 0
+            } else {
+              breadcrumbAnimator.classList.remove("d-none"); // temporary removal of d-none for scrollHeight to have a value
+              breadcrumbAnimator.style.maxHeight = breadcrumbAnimator.scrollHeight + 16 + "px";
+              breadcrumbAnimator.classList.add("d-none");
+            }
+            // make sure the actual height matches the target size (minHeight is also mandatory for the animation to work backward...)
+            breadcrumbAnimator.style.height = breadcrumbAnimator.style.minHeight = breadcrumbAnimator.style.maxHeight;
+            // we have to wait a bit when adding d-none class to let time for the animation to happen
+            if (breadcrumbAnimator.classList.contains("d-none")) {
+              breadcrumbAnimator.classList.remove("d-none");
+            } else {
+              setTimeout(function() {
+                breadcrumbAnimator.classList.add("d-none");
+              }, 300);
+            }
+          } else {
+            $(this).closest(".breadcrumb-gofast").find(".breadcrumb-transparent.gofast_breadcrumb_hidden_origine").toggleClass( "d-none");
+          }
+          // if the toggle icon has data for preferred icons, we use them, otherwise we use default icons
+          let dataIcons = $(this).attr("data-icons") || "fa-chevron-down/fa-chevron-up";
+          dataIcons = dataIcons.split("/");
+        if($(this).hasClass(dataIcons[0])){
+          $(this).removeClass(dataIcons[0]).addClass(dataIcons[1]);
         }else{
-          $(this).removeClass("fa-minus-circle").addClass("fa-plus-circle");
+          $(this).removeClass(dataIcons[1]).addClass(dataIcons[0]);
+        }
+        });
+      });
+    }
+  }
+  
+  // Behaviors to toggle the arrow after the node title on a document page (hide and show the title metadata)
+  Drupal.behaviors.displayTitleMetadata = {
+    attach: function(context, settings) {
+      $('#gofast_title_metadata_more:not(.gofast_title_metadata_more-processed)').addClass('gofast_title_metadata_more-processed').each(function () {
+        $(this).click(function(){
+          $(".gofast-node-title-row").toggleClass("d-none");
+          // if the toggle icon has data for preferred icons, we use them, otherwise we use default icons
+          let dataIcons = $(this).attr("data-icons") || "fa-chevron-down/fa-chevron-up";
+          dataIcons = dataIcons.split("/");
+        if($(this).hasClass(dataIcons[0])){
+          $(this).removeClass(dataIcons[0]).addClass(dataIcons[1]);
+        }else{
+          $(this).removeClass(dataIcons[1]).addClass(dataIcons[0]);
         }
         });
       });
@@ -1077,10 +1351,10 @@
         $('#kt_aside_toggle').once('kt_aside_toggle', function () {
           $(this).click(function () {
             if (!$(this).hasClass('active')) {
-              $('.sideContent .gofastTab .nav-item .nav-link .nav-text').hide();
+              $(".sideContent").addClass("reduced")
             } else {
               if (!$('#explorer').hasClass('open')) {
-                $('.sideContent .gofastTab .nav-item .nav-link .nav-text').show();
+                $(".sideContent").removeClass("reduced")
               }
             }
           });
@@ -1095,10 +1369,10 @@
         $('#explorer').once('explorer', function () {
           $(this).click(function () {
             if ($(this).hasClass('open')) {
-              $('.sideContent .gofastTab .nav-item .nav-link .nav-text').hide();
-            } else {             
+              $(".sideContent").addClass("reduced")
+            } else {
               if ($('.sideContent .card-body').css("visibility") == "visible") {
-                $('.sideContent .gofastTab .nav-item .nav-link .nav-text').show();
+                $(".sideContent").removeClass("reduced")
               }
             }
           });
@@ -1146,76 +1420,134 @@
         if ($('#gofast-audit-container').length > 0){
           if (!$('#gofast-audit-container').hasClass('processed')){
             $('#gofast-audit-container').addClass('processed');
-                    if (Gofast.get('node') !== undefined){
-                        var nid = Gofast.get('node').id;
-                        $.post(location.origin + "/gofast/node/"+nid+"/get_audit_node").done(function(data){
-                              $('#gofast-audit-container').append(data);
-                                Gofast.auditPageBindPagination();
-                        });
-                    }
-                }
+            if (Gofast.get('node') !== undefined){
+              var nid = Gofast.get('node').id;
+              $.post(location.origin + "/gofast/node/"+nid+"/get_audit_node").done(function(data){
+                $('#gofast-audit-container').append(data);
+              });
             }
+          }
+        }
     };
 
-    Gofast.auditPageBindPagination = function () {
-      $('#gofast-audit-container .text-center ul li a').click(function(event){
-                event.preventDefault();
-                event.stopPropagation();
-                $.post(location.origin + $(this).attr("href")).done(function(data){
-                    $('.view-gofast-audit-node').remove();
-                    $('#audit_node_button').remove();
-                  $('#gofast-audit-container').append(data);
-                    Gofast.auditPageBindPagination();
-                });
-            });
-    };
-
-    Gofast.gofast_right_block_breadcrumb = function(manage_locations = false){
-      if($(".breadcrumb-gofast.breadcrumb-gofast-full").hasClass("processed")) {
+    Gofast.gofast_main_block_breadcrumb = function(isDocument = true, retry = false){
+      var $mainBreadcrumb = $(".breadcrumb-gofast:not('.breadcrumb-gofast-full')");
+      if(isDocument && Gofast._settings.isEssential){
+        $mainBreadcrumb = $("#nodeContainer .breadcrumb-gofast:not(.breadcrumb-gofast-full)");
+      }
+      if (!$mainBreadcrumb) {
+        //Retry - GOFAST-9096
+        if(!retry){
+          setTimeout(function(){
+            Gofast.gofast_main_block_breadcrumb(isDocument, true);
+          }, 700);
+        }
+        console.log("GOFAST-9096 : Breadcrumb Exit 1");
         return;
       }
-          
-      Gofast.processAjax(location.origin + "/gofast/node-info/" + Gofast.get('node').id, true);
-      Gofast.Poll.init();
-      
-      //Check locations of the node 
-      $.get(location.origin + "/gofast/check-locations/" + Gofast.get('node').id, function(data) { 
-        var response = JSON.parse(data);
-        if(response.response != "OK"){
-          Gofast.processAjax(location.origin + "/gofast/node-info/" + Gofast.get('node').id, true);
-          Gofast.Poll.init();
-        }    
-      //Locations are successfully checked, process the breadcrumb, the right block and the menu                
-      var options = {'show_title': false, "show_all_items": false, "show_tooltip": true};
-      if (JSON.parse(manage_locations)) {
-        options["manage_locations"] = true;
+      if ($mainBreadcrumb.hasClass('processing') || $mainBreadcrumb.hasClass('processed')) {
+        //Retry - GOFAST-9096
+        if(!retry){
+          setTimeout(function(){
+            Gofast.gofast_main_block_breadcrumb(isDocument, true);
+          }, 700);
+        }
+        console.log("GOFAST-9096 : Breadcrumb Exit 2");
+        return;
+      }
+      $mainBreadcrumb.addClass('processing');
+      $mainBreadcrumb.append("<div class='loader-breadcrumb'></div>");
+      var options = {"show_title": true};
+      if (isDocument) {
+        options.alt_theme = "gofast_document_breadcrumb";
       }
       $.get(location.origin + "/gofast/node-breadcrumb/" + Gofast.get('node').id + "?options=" + JSON.stringify(options), function(data) {
         $(".loader-breadcrumb").remove();
-        const waitForBreadcrumbinterval = setInterval(function() {
-          if (!$(".breadcrumb-gofast.breadcrumb-gofast-full").length) {
-            return;
-          }
-          clearInterval(waitForBreadcrumbinterval);
-          $(".breadcrumb-gofast.breadcrumb-gofast-full").replaceWith(data);
-          $(".breadcrumb-gofast.breadcrumb-gofast-full").addClass("processed");
-          Drupal.attachBehaviors();
-        }, 250);
-        });
+        $mainBreadcrumb.replaceWith(data);
+        $mainBreadcrumb.removeClass("processing");
       });
+    };
+
+    Gofast.gofast_right_block_breadcrumb = function(manage_locations = false){
+      var node = Gofast.get("node");
+
+      if(
+        node.type == 'group' ||
+        node.type == 'organisation' ||
+        node.type == 'extranet' ||
+        node.type == 'public' ||
+        node.type == 'private_space'
+      ){return;}
+      
+      var loadBreadcrumb = function(manage_locations, targetNid){
+        var options = {'show_title': false, "show_all_items": false, "show_tooltip": true};
+        if (JSON.parse(manage_locations)) {
+          options["manage_locations"] = true;
+        }
+        $.get(location.origin + "/gofast/node-breadcrumb/" + targetNid + "?options=" + JSON.stringify(options), function(data) {
+          $(".loader-breadcrumb").remove();
+          const waitForBreadcrumbinterval = setInterval(function() {
+            if (!$(".breadcrumb-gofast.breadcrumb-gofast-full").length) {
+              return;
+            }
+            clearInterval(waitForBreadcrumbinterval);
+            $(".breadcrumb-gofast.breadcrumb-gofast-full").replaceWith(data);
+            $(".breadcrumb-gofast.breadcrumb-gofast-full").removeClass("processing");
+            Drupal.attachBehaviors();
+          }, 250);
+        });
+      }
+      
+      if($(".breadcrumb-gofast.breadcrumb-gofast-full").hasClass("processing")) {
+        return;
+      }
+      $(".breadcrumb-gofast.breadcrumb-gofast-full").addClass('processing');
+      let targetNid = $("#document__infotab").attr("data-nid") || node.id;
+      Gofast.processAjax(location.origin + "/gofast/node-info/" + targetNid, true);
+      Gofast.Poll.init();
+      
+      if(node.type != "webform"){
+      //Check locations of the node 
+      $.get(location.origin + "/gofast/check-locations/" + targetNid, function(data) {
+        var response = JSON.parse(data);
+        if(response.response != "OK"){
+            if(response.response == "forbidden"){
+              Gofast.toast(Drupal.t("You do not have permissions to view this document.", {}, { context: 'gofast' }),"warning");
+              Gofast.processAjax("/error/403", true);
+            } else if(response.response == "full-reload"){
+              location.reload()
+            } else if (typeof response.message != "undefined") {
+              Gofast.toast(response.message, "warning");
+            } else {
+              Gofast.processAjax(location.origin + "/gofast/node-info/" + targetNid, true);
+              Gofast.Poll.init();
+            }
+        }   
+        //Locations are successfully checked, process the breadcrumb, the right block and the menu                
+        loadBreadcrumb(manage_locations, targetNid)
+      });
+      } else {
+        loadBreadcrumb(manage_locations, targetNid)
+      }
     };
 
   /*
    * Login page transitions
    */
-  $(document).ready(function(){
-    Gofast.block.load("gofast_workflows_light_dashboard", "gofast_workflows", "Workflow", $("#gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows .gofast-block-inner"),  "1", "1");
+  jQuery(function(){
+    const waitForGofastBlockLoadInterval = setInterval(() => {
+      if (typeof Gofast.block == "undefined" || typeof Gofast.block.load == "undefined") {
+        return;
+      }
+      clearInterval(waitForGofastBlockLoadInterval);
+      Gofast.block.load("gofast_workflows_light_dashboard", "gofast_workflows", "Workflow", $("#gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows .gofast-block-inner"),  "1", "1");
+    });
     window.onerror = function(message, url, lcount){
       //var user = Gofast.get("user");
       //$.post(location.origin + "/gofast/js-error", {useragent : navigator.userAgent, request : location.href, url : url, message : message, line : lcount});
     }
      if( $('#user-login-form').length ){
-      $('head').append('<link href="sites/all/themes/bootstrap-gofast/fonts/Roboto.css" rel="stylesheet">');
+      $('head').append('<link href="/sites/all/themes/bootstrap-gofast/fonts/Roboto.css" rel="stylesheet">');
       $('body').css('-webkit-perspective', '1200px');
       $('body').css('-ms-perspective', '1200px');
       $('body').wrapInner('<div class="pt-wrapper"></div>');
@@ -1232,6 +1564,19 @@
       $('.poweredbyGofast').append('<span class="text-version">Version:'+ Drupal.settings.gofast_version.replace('7.x-','') +'</span>');
     }
 
+    $("#setVersionPlusButton .btn").on('click',()=>{
+      $.post('/gofast/user/login/choose_version/Plus').done((link)=>{
+        window.location = "/"+link;
+        Gofast.addLoading()
+      })
+    })
+    $("#setVersionEssentialButton .btn").on('click',()=>{
+      $.post('/gofast/user/login/choose_version/Essential').done((link)=>{
+        window.location = "/"+link;
+        Gofast.addLoading()
+      })
+    })
+
     $.getScript('/sites/all/modules/flag/theme/flag.js', function() {
         Drupal.behaviors.flagLink.attach(document);
     });
@@ -1239,7 +1584,7 @@
     $('[data-toggle="tooltip"]').tooltip({
       trigger: 'hover'
     });
-    
+
     /* END minimized Riot LeftPanel */
 
     Gofast.callToasterMessages();
@@ -1256,6 +1601,17 @@
     }
 
     clearInterval(waitUserAvailable);
+
+    // If atatus field is empty, then we need to display the message
+    if(!Drupal.settings.gofast.user.atatus_set && Drupal.settings.gofast.user.uid != 0){
+      // Display the atatus banner
+      var waitForAtatusBanner = setInterval(function(){
+        if($('.atatus-banner').length){
+          $('.atatus-banner').removeClass('d-none');
+          clearInterval(waitForAtatusBanner);
+        }
+    }, 200);
+    }
 
     if(Drupal.settings.gofast.user.display_carousel){
         var waitForClass = setInterval(function(){
@@ -1313,6 +1669,28 @@
     console.error('Ajax error', message);
     return "<strong>" + Drupal.t("A network error has occurred.") + "</strong><br />" + Drupal.t("Please save your work and reload this page.");
   };
+
+  /**
+   * JS implementation for the gft translation helper used for technical chains
+   */
+  Drupal.gft = function(str, args, options) {
+    let referenceObject = Drupal.locale;
+    if (Gofast.get("user").language == "en") {
+      referenceObject = Drupal.technical_locale;
+    }
+    options = options || {};
+    options.context = options.context || '';
+
+    // Fetch the localized version of the string.
+    if (referenceObject.strings && referenceObject.strings[options.context] && referenceObject.strings[options.context][str]) {
+      str = referenceObject.strings[options.context][str];
+    }
+
+    if (args) {
+      str = Drupal.formatString(str, args);
+    }
+    return str;
+  }
 
   /**
    * Prevent redirect when clicking admin toolbar toogle.
@@ -1385,7 +1763,7 @@
    */
    Drupal.behaviors.overrideCKEditor = {
     attach: function (context) {
-      if (typeof CKEDITOR === "undefined") {
+      if (typeof CKEDITOR === "undefined" || typeof GofastLocal == "undefined") {
         return;
       }
       CKEDITOR.config.defaultLanguage = GofastLocale;
@@ -1402,6 +1780,7 @@
     }
   };
 
+
   $(document).bind('flagGlobalAfterLinkUpdate', function (event, data) { //Reformat tag display when AJAX subscribing to it
     const closestTable = $(data.link).closest("table");
     if (closestTable && closestTable.parent() && closestTable.parent().attr("id") && closestTable.parent().attr("id").includes("dashboard")) { // we're in a dashboard table
@@ -1417,6 +1796,10 @@
       flag.html(Drupal.getSubButtonHtml(data.contentId).responseText)
       flag.show();
     }
+    if (data.flagName === 'flag_public') { 
+      var gid = $('#gofastContainer div[data-gid]').data('gid'); //Get the gid of the current space
+      Gofast.og.getSpaceBookmarks(gid); //Refresh the bookmarks
+    }  
   });
   $(document).bind('flagGlobalBeforeLinkUpdate', function (event, data) {
     if (data.flagName === 'subscribe_term') {
@@ -1431,7 +1814,7 @@
 
   //some translation strings
   Drupal.t("The rss feed has been added", {}, {context: 'gofast:gofast_rssfeed'});
-  Drupal.t("The feed URL is invalid. Please enter a fully-qualified URL, such as<br /><br /><blockquote>http://fr.news.yahoo.com/?format=rss</blockquote>", {}, {context: 'gofast:gofast_rssfeed'});
+  Drupal.t("The feed URL is invalid. Please enter a fully-qualified URL, such as<br /><br /><blockquote>https://fr.news.yahoo.com/?format=rss</blockquote>", {}, {context: 'gofast:gofast_rssfeed'});
   Drupal.t("The rss feed has been edited", {}, {context: 'gofast:gofast_rssfeed'});
   Drupal.t("The rss feed has been deleted", {}, {context: 'gofast:gofast_rssfeed'});
   Drupal.t("The rss feed has not been deleted", {}, {context: 'gofast:gofast_rssfeed'});
@@ -1439,8 +1822,12 @@
   Drupal.t("Unable to reach the company directory. If the problem persists, please contact your IT department.", {}, {context: 'gofast:gofast_ldap'});
   Drupal.t("Webform successfully submitted", {}, {context: 'gofast:gofast_webform'});
   Drupal.t('Image successfully changed!');
-  Drupal.t('Awesome!');
   Drupal.t("An error occurred while refreshing the content of the page. Please refresh the page.", {}, {context: "gofast"});
+  Drupal.t("Retention action", {}, {context: "gofast:gofast_retention"})
+  Drupal.t("Retention period", {}, {context: "gofast:gofast_retention"})
+  Drupal.t("Download started...", {}, {context: 'gofast:gofast_link_sharing'});
+  Drupal.t("Download again", {}, {context: 'gofast:gofast_link_sharing'});
+  Drupal.t("Download completed", {}, {context: 'gofast:gofast_link_sharing'});
 
   //editableInputs placeholder and other dynamic-in-context translations
   const translatableFields = ["First name", "Last name", "Job position", "Your phone number", "Your email address", "Your organisation", "Your birthdate", "Your manager", "Description", "Your skills", "Your interests", "Your hobbies", "elements", "element"];
@@ -1458,5 +1845,15 @@
   }
 
   //Init hooks
-  Gofast.hooks = [];
+  Gofast.hooks = {};
+  Gofast.customHistoryBackOrBase = function(){
+    const baseURL = window.location.origin;
+    if (document.referrer.startsWith(baseURL)) {
+      history.back();
+    } else {
+      // The previous URL is external or there's no history to go back to.
+      // Navigate to the base URL of the current location.
+      window.location.href = baseURL;
+    }
+  }
 })(jQuery, Gofast, Drupal);

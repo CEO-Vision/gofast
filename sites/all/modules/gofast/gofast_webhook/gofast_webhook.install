@@ -1,0 +1,42 @@
+<?php
+
+/**
+ * Implements hook_install().
+ * @package gofast_webhook
+ */
+function gofast_webhook_install(): void {
+  gofast_webhook_set_default_config();
+}
+
+/**
+ * Sets the default configuration for the gofast_webhook method module.
+ * @return void
+ */
+function gofast_webhook_set_default_config(): void {
+
+  $config = [
+    "config_title" => "GoFast Webhook Configuration",
+    "config_description" => "Configure the GoFast Webhook service",
+    "api_services" => [
+      // Example service api.
+      [
+        'service_id' => 1,
+        'service_name' => 'EXAMPLE API SERVICE ',
+        'api_endpoint' => 'https://example.com/api/endpoint',
+        'is_secure' => TRUE,
+        'service_status' => t('DEFAULT', [], ['context' => 'gofast:gofast_webhook']), // DEFAULT, ACTIVE, INACTIVE
+        'events' => ['CREATE', 'UPDATE', 'DELETE'],
+        'method' => 'POST',
+        'api_auth' => [
+          'type' => 'Bearer', // Bearer, API_KEY, X-API-KEY etc
+          'value' => 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MTUsInVzZXJ....',
+          'in_header' => TRUE,
+        ],
+      ],
+      // Subsequent default services here ...
+    ],
+  ];
+
+  variable_set('gofast_webhook_config', json_encode($config));
+
+}

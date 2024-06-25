@@ -56,28 +56,45 @@
 global $user;
 global $base_url;
 $detect = new Mobile_Detect();
-$is_mobile = ($detect->isMobile() || $detect->isTablet() || $detect->is('iPad') || gofast_mobile_is_mobile_domain());
+$is_mobile = ($detect->isMobile() || $detect->isTablet() || $detect->is('iPad') || gofast_essential_is_essential());
 ?><!DOCTYPE html>
 <html<?php print $html_attributes;?><?php print $rdf_namespaces;?>>
 <head>
   <link rel="profile" href="<?php print $grddl_profile; ?>" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <?php print $head; ?>
-  <title><?php print $head_title; ?></title>
-  <link rel="stylesheet" href="<?php print $base_url;?>/sites/all/themes/bootstrap-keen/fonts/Poppins.css">
+  <title><?= gofast_essential_is_essential() ? variable_get("site_name", "GoFAST") : $head_title ?></title>
+  <link rel="preload" href="<?php print $base_url;?>/sites/all/themes/bootstrap-keen/fonts/Poppins.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="<?php print $base_url;?>/sites/all/themes/bootstrap-keen/fonts/SegoUI.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <?php print $styles; ?>
   <!-- HTML5 element support for IE6-8 -->
   <!--[if lt IE 9]>
     <script src="https://cdn.jsdelivr.net/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
   <![endif]-->
   <?php print $scripts; ?>
+  <style>
+    .loader-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100000;
+    }
+  </style>
 </head>
 <body id="kt_body" class="quick-panel-right demo-panel-right offcanvas-right header-fixed header-mobile-fixed subheader-enabled aside-enabled aside-fixed aside-minimize aside-minimize-hoverable page-loading <?php if ($user->login) : ?>user-logged<?php endif; ?><?php if ($is_mobile) : ?> is-mobile<?php endif; ?>">
   <div id="skip-link">
     <a href="#main-content" class="element-invisible element-focusable"><?php print t('Skip to main content'); ?></a>
   </div>
+  <div class="loader-overlay">
+  </div>
   <?php print $page_top; ?>
   <?php print $page; ?>
   <?php print $page_bottom; ?>
-</body>
+  </body>
 </html>

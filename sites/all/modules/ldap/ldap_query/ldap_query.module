@@ -112,7 +112,7 @@ function ldap_query_cache_clear() {
  * @return - array of server conf object keyed on sid
  *         - single server conf object (if flatten == TRUE)
  */
-function ldap_query_get_queries($qid = NULL, $type, $flatten = FALSE, $reset = FALSE) {
+function ldap_query_get_queries($qid = NULL, $type = 'all', $flatten = FALSE, $reset = FALSE) {
   ldap_servers_module_load_include('inc', 'ldap_query', 'ldap_query');
   if (variable_get('ldap_simpletest', FALSE)) {
     return _ldap_query_get_simpletest_queries($qid, $type, $flatten, $reset);

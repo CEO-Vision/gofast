@@ -1,0 +1,22 @@
+<?php
+
+/*
+ * Implements hook_install
+*/
+function gofast_onlyoffice_install(){
+  gofast_onlyoffice_configure_share();
+}
+
+/*
+ * Implements hook_update_N().
+*/
+function gofast_onlyoffice_update_7001(){
+  gofast_onlyoffice_configure_share();
+}
+
+/**
+ * Implements hook_update_N().
+ */
+function gofast_onlyoffice_update_7002() {
+  gofast_onlyoffice_configure_share();
+}

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * gofast_features_taxonomy.features.taxonomy.inc
@@ -18,6 +19,63 @@ function gofast_features_taxonomy_taxonomy_default_vocabularies() {
       'weight' => 0,
       'language' => 'und',
       'i18n_mode' => 1,
+      'base_i18n_mode' => 1,
+      'base_language' => 'und',
+      'rdf_mapping' => array(
+        'rdftype' => array(
+          0 => 'skos:ConceptScheme',
+        ),
+        'name' => array(
+          'predicates' => array(
+            0 => 'dc:title',
+          ),
+        ),
+        'description' => array(
+          'predicates' => array(
+            0 => 'rdfs:comment',
+          ),
+        ),
+      ),
+    ),
+    'classification' => array(
+      'name' => 'Classification',
+      'machine_name' => 'classification',
+      'description' => 'The classification of the node',
+      'hierarchy' => '0',
+      'module' => 'taxonomy',
+      'weight' => '0',
+      'language' => 'und',
+      'i18n_mode' => '1',
+      'base_i18n_mode' => '1',
+      'base_language' => 'und',
+      'rdf_mapping' => array(
+        'rdftype' => array(
+          0 => 'skos:ConceptScheme',
+        ),
+        'name' => array(
+          'predicates' => array(
+            0 => 'dc:title',
+          ),
+        ),
+        'description' => array(
+          'predicates' => array(
+            0 => 'rdfs:comment',
+          ),
+        ),
+      ),
+      'bc_entity_type' => 'taxonomy_term',
+    ),
+    'classification_type' => array(
+      'name' => 'Classification Types',
+      'machine_name' => 'classification_type',
+      'description' => 'Meant to classify each classification vocabulary term',
+      'hierarchy' => 0,
+      'module' => 'taxonomy',
+      'weight' => 0,
+      'language' => 'und',
+      'i18n_mode' => 1,
+      'base_i18n_mode' => 1,
+      'base_language' => 'und',
       'rdf_mapping' => array(
         'rdftype' => array(
           0 => 'skos:ConceptScheme',
@@ -43,6 +101,8 @@ function gofast_features_taxonomy_taxonomy_default_vocabularies() {
       'weight' => 0,
       'language' => 'und',
       'i18n_mode' => 1,
+      'base_i18n_mode' => 1,
+      'base_language' => 'und',
       'rdf_mapping' => array(
         'rdftype' => array(
           0 => 'skos:ConceptScheme',
@@ -68,6 +128,8 @@ function gofast_features_taxonomy_taxonomy_default_vocabularies() {
       'weight' => 0,
       'language' => 'und',
       'i18n_mode' => 1,
+      'base_i18n_mode' => 1,
+      'base_language' => 'und',
       'rdf_mapping' => array(
         'rdftype' => array(
           0 => 'skos:ConceptScheme',
@@ -93,6 +155,8 @@ function gofast_features_taxonomy_taxonomy_default_vocabularies() {
       'weight' => 0,
       'language' => 'und',
       'i18n_mode' => 1,
+      'base_i18n_mode' => 1,
+      'base_language' => 'und',
       'rdf_mapping' => array(
         'rdftype' => array(
           0 => 'skos:ConceptScheme',
@@ -118,6 +182,8 @@ function gofast_features_taxonomy_taxonomy_default_vocabularies() {
       'weight' => 0,
       'language' => 'und',
       'i18n_mode' => 1,
+      'base_i18n_mode' => 1,
+      'base_language' => 'und',
       'rdf_mapping' => array(
         'rdftype' => array(
           0 => 'skos:ConceptScheme',
@@ -143,6 +209,8 @@ function gofast_features_taxonomy_taxonomy_default_vocabularies() {
       'weight' => 0,
       'language' => 'und',
       'i18n_mode' => 1,
+      'base_i18n_mode' => 1,
+      'base_language' => 'und',
       'rdf_mapping' => array(
         'rdftype' => array(
           0 => 'skos:ConceptScheme',
@@ -168,6 +236,8 @@ function gofast_features_taxonomy_taxonomy_default_vocabularies() {
       'weight' => 0,
       'language' => 'und',
       'i18n_mode' => 1,
+      'base_i18n_mode' => 1,
+      'base_language' => 'und',
       'rdf_mapping' => array(
         'rdftype' => array(
           0 => 'skos:ConceptScheme',
@@ -193,6 +263,8 @@ function gofast_features_taxonomy_taxonomy_default_vocabularies() {
       'weight' => 0,
       'language' => 'und',
       'i18n_mode' => 1,
+      'base_i18n_mode' => 1,
+      'base_language' => 'und',
       'rdf_mapping' => array(
         'rdftype' => array(
           0 => 'skos:ConceptScheme',
@@ -218,6 +290,8 @@ function gofast_features_taxonomy_taxonomy_default_vocabularies() {
       'weight' => 0,
       'language' => 'und',
       'i18n_mode' => 0,
+      'base_i18n_mode' => 0,
+      'base_language' => 'und',
       'rdf_mapping' => array(
         'rdftype' => array(
           0 => 'skos:ConceptScheme',

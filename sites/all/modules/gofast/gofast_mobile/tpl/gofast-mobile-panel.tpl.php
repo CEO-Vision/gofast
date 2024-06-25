@@ -6,7 +6,7 @@
       <div class="region-sidebar-second">
         <aside role="complementary" class="Document Document__Simple">
         <?php endif ?>
-        <?php if (gofast_mobile_is_mobile_domain() && !$detect->isMobile() && !$detect->isTablet()) { ?>
+        <?php if (gofast_essential_is_essential() && !$detect->isMobile() && !$detect->isTablet()) { ?>
           <section id="block-gofast-cmis-gofast-cmis-fast-upload-file" class="block block-gofast-cmis contextual-links-region clearfix">
             <?php $block_cmis_upload = module_invoke('gofast_cmis', 'block_view', 'gofast_cmis_fast_upload_file');
             print $block_cmis_upload['content'];
@@ -16,7 +16,7 @@
 
         <?php if ($context === 'node') : ?>
           <div class="panel panel-info">
-            <?php if (gofast_mobile_is_mobile_domain() && $detect->isMobile()) : ?>
+            <?php if (gofast_essential_is_essential() && $detect->isMobile()) : ?>
               <div id="panel-heading-title" class="panel-heading">
                 <?php
                 if (node_access('update', $node)) {

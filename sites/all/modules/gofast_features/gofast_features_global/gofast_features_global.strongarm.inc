@@ -1848,6 +1848,10 @@ function gofast_features_global_strongarm() {
       0 => 'flagging',
       1 => 'flagging_id',
     ),
+    'bookmark_collection' => array(
+      0 => 'gofast_bookmark_collections',
+      1 => 'bcid',
+    ),
     'i18n_translation' => array(
       0 => 'i18n_translation_set',
       1 => 'tsid',
@@ -2967,7 +2971,7 @@ Please give your approval to sucessfully organize this event at [event_calendar:
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
   $strongarm->name = 'gofast_carousel_name';
-  $strongarm->value = 'gofast_4.0.0_r3';
+  $strongarm->value = 'gofast_4.2.0';
   $export['gofast_carousel_name'] = $strongarm;
 
   $strongarm = new stdClass();
@@ -4430,90 +4434,6 @@ Please give your approval to sucessfully organize this event at [event_calendar:
   $strongarm->name = 'preprocess_js';
   $strongarm->value = 1;
   $export['preprocess_js'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'print_html_display_comment_kanban';
-  $strongarm->value = 0;
-  $export['print_html_display_comment_kanban'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'print_html_display_comment_task';
-  $strongarm->value = 0;
-  $export['print_html_display_comment_task'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'print_html_display_kanban';
-  $strongarm->value = 1;
-  $export['print_html_display_kanban'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'print_html_display_task';
-  $strongarm->value = 1;
-  $export['print_html_display_task'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'print_html_display_urllist_kanban';
-  $strongarm->value = 1;
-  $export['print_html_display_urllist_kanban'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'print_html_display_urllist_task';
-  $strongarm->value = 1;
-  $export['print_html_display_urllist_task'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'print_mail_display_comment_kanban';
-  $strongarm->value = 0;
-  $export['print_mail_display_comment_kanban'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'print_mail_display_comment_task';
-  $strongarm->value = 0;
-  $export['print_mail_display_comment_task'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'print_mail_display_kanban';
-  $strongarm->value = 1;
-  $export['print_mail_display_kanban'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'print_mail_display_task';
-  $strongarm->value = 1;
-  $export['print_mail_display_task'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'print_mail_display_urllist_kanban';
-  $strongarm->value = 1;
-  $export['print_mail_display_urllist_kanban'] = $strongarm;
-
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'print_mail_display_urllist_task';
-  $strongarm->value = 1;
-  $export['print_mail_display_urllist_task'] = $strongarm;
 
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */

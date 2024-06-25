@@ -23,7 +23,7 @@ function gofast_features_ldap_default_ldap_servers() {
   $ldap_servers_conf->followrefs = FALSE;
   $ldap_servers_conf->bind_method = 1;
   $ldap_servers_conf->binddn = 'cn=manager,dc=ceo-vision,dc=com';
-  $ldap_servers_conf->bindpw = 'mandriva';
+  $ldap_servers_conf->bindpw = '';
   $ldap_servers_conf->basedn = array(
     0 => 'dc=ceo-vision,dc=com',
   );

@@ -1,10 +1,11 @@
 <?php
 
 /**
- * @file Includes any rules integration provided by the module.
+ * @file
+ * Includes any rules integration provided by the module.
  */
 
-/**
+/*
  * Load all module includes as soon as this file gets included, which is done
  * automatically by module_implements().
  */

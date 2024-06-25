@@ -53,6 +53,16 @@ function gofast_poll_info() {
       'selector' => NULL
     );
   }
+  
+  if(gofast_user_is_business_admin()){
+    $items['standby'] = array(
+      'label' => 'Check standby user count',
+      'description' => 'Check standby user count',
+      'interval' => 15,
+      'context' => TRUE,
+      'selector' => NULL
+    );
+  }
 
   return $items;
 }
@@ -66,12 +76,16 @@ function gofast_poll($poll_name, $poll_info, $context) {
   if ($poll_name === 'workflows') {
     $commands = gofast_poll_handle_workflows($commands, $poll_info, $context);
   }
+  
+  if ($poll_name === 'standby') {
+    $commands = gofast_poll_handle_standby($commands, $poll_info, $context);
+  }
 
   //Next pollings are only intended to run for nodes
   if (!isset($context['nid']) ) {
       return $commands;
   }
-
+  
   $node = node_load($context['nid'], NULL, TRUE);
   $old_node = (object) $context['entity'];
 
@@ -113,7 +127,9 @@ function gofast_poll_handle_metadata($commands, $poll_info, $context, $old_node,
   }else{
     $commands[] = ajax_command_replace('.breadcrumb-gofast-full', gofast_breadcrumb_display_breadcrumb($new_node->nid, ['return' => TRUE, 'only_title' => FALSE, 'show_title' => FALSE, 'manage_locations' => TRUE]));
   }
-  $commands[] = ajax_command_replace('.breadcrumb-gofast-show-title', gofast_breadcrumb_display_breadcrumb($new_node->nid, ['return' => TRUE, 'only_title' => FALSE, 'show_title' => TRUE]));
+  if(!gofast_og_is_space($new_node, TRUE)){
+    $commands[] = ajax_command_invoke('.breadcrumb-gofast-show-title', "replaceWith", [gofast_breadcrumb_display_breadcrumb($new_node->nid, ['return' => TRUE, 'only_title' => FALSE, 'show_title' => TRUE, 'alt_theme' => 'gofast_document_breadcrumb'])]);
+  }
   $commands[] = gofast_command_toast_message(t("Node metadata updated", array(), array('context' => 'gofast')));
 
   $node_contextual_actions = gofast_get_contextual_actions_node($node);
@@ -121,6 +137,42 @@ function gofast_poll_handle_metadata($commands, $poll_info, $context, $old_node,
 
   $history_tab = gofast_render_historyByNode_async($new_node, FALSE);
   $commands[] = ajax_command_invoke("#document__historytab", 'html', array($history_tab));
+  
+  // Specific metadata section
+  $have_extra_metadata = false;
+  foreach (module_implements("extra_metadata") as $module) {
+    
+    $old_category = $old_node->field_category[LANGUAGE_NONE]['0']['tid'];
+    $inbound_mail_taxonomy_term = taxonomy_get_term_by_name("Inbound (e)mail", 'category');
+    $inbound_mail_taxonomy_term_id = array_shift($inbound_mail_taxonomy_term)->tid;
+    $outbound_mail_taxonomy_term = taxonomy_get_term_by_name("Outbound (e)mail", 'category');
+    $outbound_mail_taxonomy_term_id = array_shift($outbound_mail_taxonomy_term)->tid;
+
+    
+    $metadata = call_user_func($module . "_extra_metadata", $node);
+    $extra_datas[] = $metadata;
+    if($metadata != null){
+      $have_extra_metadata = true;
+    }     
+  }
+  
+  if ($have_extra_metadata) {    
+    foreach($extra_datas as $extra_data){
+      
+      // Check if we need to create the specific metadata section
+      if($old_category != $inbound_mail_taxonomy_term_id && $old_category != $outbound_mail_taxonomy_term_id){
+        $commands[] = ajax_command_invoke('#document__infotab', "after",  ['<div class="tab-pane fade" id="' . $extra_data["id"] . '" role="tabpanel" aria-labelledby="extra-metadata-tab"></div>'] );
+      }
+      
+      // Insert mail metadata
+      $commands[] = ajax_command_html("#" . $extra_data['id'], $extra_data['theme']);
+    } 
+    $commands[] = ajax_command_replace('#node-tabsHeader', gofast_render_extraMetadataTabsByNode_async($node, TRUE));
+  }else{
+    $commands[] = ajax_command_replace('#node-tabsHeader', gofast_render_extraMetadataTabsByNode_async($node, TRUE));
+    $commands[] = ajax_command_invoke('[id^="document__extra_metadata"]', 'remove', []);
+  }
+  
   $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>jQuery('.tooltip').remove();</script>");
   return $commands;
 }
@@ -132,6 +184,9 @@ function gofast_poll_handle_title($commands, $poll_info, $context, $old_node, $n
       $commands[] = ajax_command_replace('.breadcrumb-gofast-full', gofast_breadcrumb_display_breadcrumb($new_node->nid, ['return' => TRUE, 'only_title' => FALSE, 'manage_locations' => TRUE]));
     }else{
       $commands[] = ajax_command_replace('.breadcrumb-gofast-full', gofast_breadcrumb_display_breadcrumb($new_node->nid, ['return' => TRUE, 'only_title' => FALSE, 'show_title' => FALSE, 'manage_locations' => TRUE]));
+    }
+    if(!gofast_og_is_space($new_node, TRUE)){
+      $commands[] = ajax_command_invoke('.breadcrumb-gofast-show-title', "replaceWith", [gofast_breadcrumb_display_breadcrumb($new_node->nid, ['return' => TRUE, 'only_title' => FALSE, 'show_title' => TRUE, 'alt_theme' => 'gofast_document_breadcrumb'])]);
     }
     if($node->type == "forum") {
       $commands[] = ajax_command_html('#forum-header-forum-title', $node->title);
@@ -155,8 +210,26 @@ function gofast_poll_handle_comments($commands, $poll_info, $context, $old_node,
     // Refreshing the comments content (under node)
     $comment_render = gofast_render_allCommentsByNode_async($new_node, TRUE);
     $commands[] = ajax_command_html('#comments-container', $comment_render);
+    $commands[] = ajax_command_html('#ctools-add-js',"<script type='text/javascript'>
+      Drupal.behaviors.ZZCToolsModal.attach();
+      </script>");
     $context['entity'] = $new_node;
     gofast_set_context($context);
+  } else {
+    //Don't check in database if the node have no comment
+    if($old_node->comment_count > 0){
+      //Check the database to see if the comment has been modified in the last 3 seconds to ensure that it was modified during the last poll.
+      $last_edited = db_query("SELECT 'X'
+                          FROM comment c
+                        JOIN field_data_field_comment_is_private fdfcip ON c.cid = fdfcip.entity_id 
+                                WHERE c.nid = :nid AND fdfcip.field_comment_is_private_value = 0 AND c.changed <> c.created AND c.changed >= :poll_interval
+                        ORDER BY changed DESC
+                                LIMIT 1", array(":nid" => $node->nid, ":poll_interval" => time()-5))->fetchCol();
+    if($last_edited != null){
+      $comment_render = gofast_render_allCommentsByNode_async($new_node, TRUE);
+        $commands[] = ajax_command_html('#comments-container', $comment_render);
+      }
+    }
   }
   return $commands;
 }
@@ -166,7 +239,7 @@ function gofast_poll_handle_workflows_document($commands, $poll_info, $context, 
   $node_workflow_action = gofast_get_workflow_action_node($node);
   $count = $node_workflow_action[0]['button-text'];
   if($count != $context['workflows_document']){
-    if($context['workflows_document'] !== null){
+    if($context['workflows_document'] !== null && $context['workflows_document'] != ""){
       $initial_loading = FALSE; //context already loaded once
     }else{
       $initial_loading = TRUE;
@@ -175,8 +248,13 @@ function gofast_poll_handle_workflows_document($commands, $poll_info, $context, 
     $old_count = $context['workflows_document'] ;
     $context['workflows_document'] = $count;
     gofast_set_context($context);
-    $commands[] = ajax_command_replace(".gofast-task-notifiation",  '<span id="gofast-task-notifiation" class="label label-danger ml-2 gofast-task-notifiation">'.$count.'</span>');
-    if( $initial_loading == FALSE && $old_count != $context['workflows_document'] ){  
+    if($count != 0){
+      $commands[] = ajax_command_replace("#node-tabsHeader .gofast-task-notifiation",  '<span id="gofast-task-notifiation" class="label label-danger ml-2 gofast-task-notifiation">'.$count.'</span>');
+      // different positioning for badge in collapse button
+      $commands[] = ajax_command_replace("#metadataSideButton .gofast-task-notifiation",  '<span style="display:block;margin-left:15px!important;margin-top:-35px!important;margin-bottom:18px!important;" class="label label-danger ml-2 gofast-task-notifiation">'.$count.'</span>');
+    }else{
+      $commands[] = ajax_command_replace(".gofast-task-notifiation",  '<span id="gofast-task-notifiation" class="label label-danger ml-2 gofast-task-notifiation d-none"></span>');
+    }    if( $initial_loading == FALSE && $old_count != $context['workflows_document'] ){  
         $commands[] = gofast_command_callback("Gofast.loadtasks", array($node->nid));
     }
   }
@@ -186,19 +264,32 @@ function gofast_poll_handle_workflows_document($commands, $poll_info, $context, 
 function gofast_poll_handle_lock($commands, $poll_info, $context, $old_node, $node){
   $current_lock = gofast_cmis_node_get_lock($node);
   //sometime, $old_node->cmis_lock_owner is equal to ["nolocked","nolocked"], I don't know why
-  if(count($old_node->cmis_lock_owner) > 1){
+  if(count((array) $old_node->cmis_lock_owner) > 1){
      $old_cmis_lock_owner = array_shift($old_node->cmis_lock_owner);
   }else{
     $old_cmis_lock_owner = $old_node->cmis_lock_owner;
   }
   if ($current_lock !== $old_cmis_lock_owner ) {
     $node_contextual_actions = gofast_get_contextual_actions_node($node);
-    if (gofast_mobile_is_mobile_domain()) { // poll du mobile pour les alfresco_item
+    $detect = new Mobile_Detect();
+    if (gofast_essential_is_essential() && gofast_mobile_is_phone()) { // poll du mobile pour les alfresco_item
       $commands[] = ajax_command_html('#gofast_mobile_node_info', gofast_mobile_get_node_info($node));
     } else {
       $commands[] = ajax_command_html('#document__infotab', gofast_metadata_get_node_infos($node));
-      if (count(module_implements("extra_metadata")) >= 1) {
-        $commands[] = ajax_command_html('#document__extra_metadata_tab', gofast_render_extraMetadataByNode_async($node,TRUE));
+      
+      $have_extra_metadata = false;
+      foreach (module_implements("extra_metadata") as $module) {
+        $metadata = call_user_func($module . "_extra_metadata", $node);
+        $extra_datas[] = $metadata;
+        if($metadata != null){
+          $have_extra_metadata = true;
+        }     
+      }
+     
+      if ($have_extra_metadata) {       
+        foreach($extra_datas as $extra_data){
+          $commands[] = ajax_command_html("#" . $extra_data['id'], $extra_data['theme']);
+        } 
         $commands[] = ajax_command_replace('#node-tabsHeader', gofast_render_extraMetadataTabsByNode_async($node, TRUE));
       }
     }
@@ -211,7 +302,9 @@ function gofast_poll_handle_lock($commands, $poll_info, $context, $old_node, $no
     }else{
       $commands[] = ajax_command_replace('.breadcrumb-gofast-full', gofast_breadcrumb_display_breadcrumb($node->nid, ['return' => TRUE, 'only_title' => FALSE, 'show_title' => FALSE, 'manage_locations' => TRUE]));
     }
-    $commands[] = ajax_command_replace('.breadcrumb-gofast-show-title', gofast_breadcrumb_display_breadcrumb($node->nid, ['return' => TRUE, 'only_title' => FALSE, 'show_title' => TRUE]));
+    if(!gofast_og_is_space($node, TRUE)){
+      $commands[] = ajax_command_invoke('.breadcrumb-gofast-show-title', "replaceWith", [gofast_breadcrumb_display_breadcrumb($node->nid, ['return' => TRUE, 'only_title' => FALSE, 'show_title' => TRUE, 'alt_theme' => 'gofast_document_breadcrumb'])]);
+    }
 
     $commands[] = gofast_command_toast_message(t("Node lock updated", array(), array('context' => 'gofast')));
     $node->cmis_lock_owner = $current_lock;
@@ -221,19 +314,61 @@ function gofast_poll_handle_lock($commands, $poll_info, $context, $old_node, $no
   return $commands;
 }
 
+function gofast_poll_handle_standby($commands, $poll_info, $context){
+  $old_count = $context['block_poll']['standby']['count'];
+  $new_count = gofast_user_get_standby_number();
+  
+  if($old_count !== $new_count){
+    gofast_poll_set_context('standby', 'count', $new_count);
+    
+    if($new_count == 0 && $old_count == ""){
+      // do nothing on the UI
+    }elseif($new_count == 0 && $old_count != ""){
+      // remove number
+      $commands[] = ajax_command_html('#ctools-add-js',"<script type='text/javascript'>
+        if(jQuery('#span_count_standby')){
+          jQuery('#span_count_standby').remove();
+        }
+      </script>");
+    }else{   
+      $commands[] = ajax_command_html('#ctools-add-js',"<script type='text/javascript'>
+        if(jQuery('#span_count_standby')){
+          jQuery('#span_count_standby').remove();
+        }
+        jQuery('#directories_menu .fa-address-book').after('<span title=\"".t("There are some standby users waiting for activation", array(), array("context" => "gofast:gofast_user"))."\" id=\"span_count_standby\" class=\"label label-sm font-weight-bold label-danger position-absolute\" style=\"top: 7px; right: 7px;\">".$new_count."</span>');
+      </script>");
+    }
+  }
+  
+  return $commands;
+}
+
+
 function gofast_poll_handle_workflows($commands, $poll_info, $context){
   $old_count = $context['block_poll']['workflows']['count'];
+  $previous_last_task_id = $context['block_poll']['workflows']['last_task_id'];
   $old_tasks = $context['block_poll']['workflows']['tasks_progress'];
 
  $count = 0;
- if(module_exists("gofast_workflows")){ // for the community
-    $count = gofast_workflows_get_number_pending_tasks();
-  }else{
+ $last_task_id = 0;
+ if(module_exists("gofast_workflows")){
+    $infos = gofast_workflows_get_infos_task_count_rest_api();
     global $user;
-    $count = count(gofast_kanban_get_user_tasks($user->uid, FALSE));
+    // we can't take the userlist tasks count from the bonita api since there is no search descriptor in bonita for activity instance variables
+    $userlist_tasks_count = gofast_workflows_get_userlist_tasks_count_for_user($user);
+    $count_kanban = gofast_kanban_get_user_tasks_count($user->uid);
+    $count = $infos["count"];
+    $count = $count + $userlist_tasks_count + $count_kanban;
+    $last_task_id = $infos["last_task_id"];
+  }else{ // For community edition
+    global $user;
+    $count = gofast_kanban_get_user_tasks_count($user->uid);
   }
 
-  if($count != $old_count){ //Count has changed, push this change
+  // count is still the same but the last task is not the same: something has changed
+  $alternative_condition = ($last_task_id > 0 && $count == $old_count && $last_task_id != $previous_last_task_id);
+
+  if($count != $old_count || $alternative_condition){ //Count has changed, push this change
     if($count > 0){
      $wf_badge = '<span class="label label-sm font-weight-bold label-danger position-absolute unread_notifications unread_count " style="top: 7px; right: 7px;">'.$count.'</span>';
     }else{
@@ -244,8 +379,8 @@ function gofast_poll_handle_workflows($commands, $poll_info, $context){
         unset($_SESSION['bonita_init_load']);
     }else{
         if($old_count != ""){
-            $commands[] = gofast_command_toast_message(t("Your assigned tasks has been changed."));
-            $commands[] = gofast_command_callback("Gofast.refreshDashboardTasksBlock");
+          $commands[] = gofast_command_toast_message(t("Your assigned tasks have been changed."));
+          $commands[] = gofast_command_callback("Gofast.refreshDashboardTasksBlock");
         }
 
         if(module_exists("gofast_workflows")){ // for the community
@@ -258,20 +393,22 @@ function gofast_poll_handle_workflows($commands, $poll_info, $context){
         }
     }
     gofast_poll_set_context('workflows', 'count', $count);
+    gofast_poll_set_context('workflows', 'last_task_id', $last_task_id);
   }else{
     global $user;
     $progress_changed = FALSE;
-    $tasks = gofast_kanban_get_user_tasks($user->uid, TRUE);
-    foreach($tasks as $task){
-       if($old_tasks["kanban-" . $task['nid']] != $task['progress']){
+    $tasks_count_with_progress = gofast_kanban_get_user_tasks_count($user->uid, TRUE);
+    foreach($tasks_count_with_progress as $count_with_progress){
+       $count_with_progress->progress = ($count_with_progress->checklist_done_items_count / $count_with_progress->checklist_items_count) * 100;
+       if($old_tasks["kanban-" . $count_with_progress->task_nid] != $count_with_progress->progress){
          $progress_changed = TRUE;
        }
-       $old_tasks["kanban-" . $task['nid']] = $task['progress'];
-   }
+       $old_tasks["kanban-" . $count_with_progress->task_nid] = $count_with_progress->progress;
+    }
 
    if($progress_changed){
       $commands[] = ajax_command_html($poll_info['selector'], array($count));
-      $commands[] = gofast_command_toast_message(t("Your assigned tasks has been changed."));
+      $commands[] = gofast_command_toast_message(t("Your assigned tasks have been changed."));
 
       if(module_exists("gofast_workflows")){ // for the community
        //refresh rapiddashboard
@@ -308,6 +445,6 @@ function gofast_poll_set_context($element = FALSE, $key = NULL, $value = NULL){
       )
     );
 
-  gofast_set_context($block_context);
+    gofast_set_context($block_context);
 
 }

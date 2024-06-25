@@ -1,0 +1,39 @@
+
+/* Table to Display API Services */
+#gofastWebhookServicesTable {
+  margin-top: 2rem;
+}
+
+#gofastWebhookServicesTable td{
+  padding-top: 1%;
+  padding-bottom: 2%;
+}
+
+/* Icon Styling */
+.text-info.fa.fas.fa-eye,
+.text-warning.fa.fas.fa-pencil,
+.text-danger.fa.fas.fa-trash {
+  font-size: 20px;
+}
+
+#webhookServicesLoader {
+  margin: 45% 45% auto!important;
+  display: block;
+  position: absolute;
+}
+
+#webhookServicesAddService {
+  margin-bottom: 3rem;
+  float: right;
+}
+
+#gofastWebhookServicesTableActionsTD{
+  border-bottom: 0;
+  display: flex; 
+  gap: 4px;
+  padding-top: 10% !important;
+}
+
+#gofastSettingsTabs .edit-webhook.active svg g {
+  fill: #fff;
+}

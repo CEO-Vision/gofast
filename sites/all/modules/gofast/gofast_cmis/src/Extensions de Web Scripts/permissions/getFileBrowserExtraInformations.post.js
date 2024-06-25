@@ -140,11 +140,15 @@ var currentfolder = requestparams[2].substr(15);
 var output_files_dates = [];
 var output_files_permissions = [];
 var output_files_visibility = [];
+var output_folders_alf_refs = [];
 
 var output_folders_visibility = [];
 var output_folders_permissions = [];
 
 var output_current_folder_permissions = [];
+
+var output_files_nids = [];
+var output_files_node_refs = [];
 
 //Retrieve my groups to compare them with content groups
 var user_groups_obj = people.getContainerGroups(person);
@@ -172,6 +176,22 @@ if (files !== null) {
             } catch (e) {
                 logger.log(e);
                 output_files_dates.push(null);
+            }
+
+            try {
+                //Retrieve gofast nid
+                var nid = node.properties['{gofast.model}nid'];
+                output_files_nids.push(nid);
+            } catch(e) {
+                output_files_nids.push(false);
+            }
+            
+            try {
+                var node_ref = node.id;
+                output_files_node_refs.push(node_ref);
+            } catch (e) {
+                logger(e)
+                output_files_node_refs.push(false)
             }
 
             try {
@@ -240,6 +260,13 @@ if (folders !== null) {
                 logger.log(e);
                 output_folders_visibility.push(null);
             }
+            
+            try {
+                var alfRef = node.id;
+                output_folders_alf_refs.push(alfRef);
+            } catch(e){
+                logger(e);
+            }
         }
     }
 }
@@ -268,11 +295,18 @@ var output = {
     files: {
         dates: output_files_dates,
         permissions: output_files_permissions,
-        visibility: output_files_visibility
+        visibility: output_files_visibility,
+        props: {
+            nids: output_files_nids,
+            nodeRefs: output_files_node_refs,
+        }
     },
     folders: {
         permissions: output_folders_permissions,
-        visibility: output_folders_visibility
+        visibility: output_folders_visibility, 
+        props: {
+            folderRefs: output_folders_alf_refs,
+        }
     },
     current_folder: {
         permissions: output_current_folder_permissions

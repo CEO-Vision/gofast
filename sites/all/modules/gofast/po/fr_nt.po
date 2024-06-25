@@ -4,22 +4,14 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
-"POT-Creation-Date: 2022-04-28 15:01+0100\n"
-"PO-Revision-Date: 2022-04-28 15:01+0100\n"
+"POT-Creation-Date: 2023-02-02 17:51+0000\n"
+"PO-Revision-Date: 2023-02-02 17:51+0000\n"
 "Last-Translator: NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n>1);\n"
-
-msgctxt "type:forum:description"
-msgid "A <em>forum topic</em> starts a new discussion thread within a forum."
-msgstr ""
-
-msgctxt "type:forum:name"
-msgid "Forum topic"
-msgstr ""
 
 #: node:type:alfresco_item:description
 msgctxt "type:alfresco_item:description"
@@ -33,7 +25,7 @@ msgstr "Document"
 
 #: node:type:alfresco_item:title_label
 msgctxt "type:alfresco_item:title_label"
-msgid "Titre"
+msgid "Title"
 msgstr "Titre"
 
 #: node:type:alfresco_item:title_label
@@ -48,6 +40,15 @@ msgstr "Titre"
 
 msgctxt "type:article:description"
 msgid ""
+"Use the <em>Wiki articles</em> for content with temporality such as "
+"news, press releases or blog posts."
+msgstr ""
+"Utilisez les <em>articles Wiki</em> pour les contenus à caractère "
+"temporel tels que les actualités, les communiqués de presse ou les "
+"articles de blog."
+
+msgctxt "type:article:description"
+msgid ""
 "Utilisez les <em>articles Wiki</em> pour les contenus à caractère "
 "temporel tels que les actualités, les communiqués de presse ou les "
 "articles de blog."
@@ -58,12 +59,17 @@ msgstr ""
 
 #: node:type:article:name
 msgctxt "type:article:name"
+msgid "Wiki article"
+msgstr "Page Interne"
+
+#: node:type:article:name
+msgctxt "type:article:name"
 msgid "Article wiki"
 msgstr "Page Interne"
 
 #: node:type:article:title_label
 msgctxt "type:article:title_label"
-msgid "Titre"
+msgid "Title"
 msgstr "Titre"
 
 #: node:type:article:title_label
@@ -78,7 +84,7 @@ msgstr "Titre"
 
 #: node:type:book:title_label
 msgctxt "type:book:title_label"
-msgid "Titre"
+msgid "Title"
 msgstr "Titre"
 
 #: node:type:book:title_label
@@ -93,7 +99,7 @@ msgstr "Titre"
 
 #: node:type:conference:name
 msgctxt "type:conference:name"
-msgid "Réunion"
+msgid "Conference"
 msgstr "Réunion"
 
 #: node:type:conference:name
@@ -113,7 +119,7 @@ msgstr "Réunion"
 
 #: node:type:conference:title_label
 msgctxt "type:conference:title_label"
-msgid "Titre"
+msgid "Title"
 msgstr "Titre"
 
 #: node:type:conference:title_label
@@ -157,7 +163,7 @@ msgstr "Description détaillée"
 
 #: node:type:extranet:title_label
 msgctxt "type:extranet:title_label"
-msgid "Nom"
+msgid "Name"
 msgstr "Nom"
 
 #: node:type:extranet:title_label
@@ -197,7 +203,7 @@ msgstr "Groupe"
 
 #: node:type:group:title_label
 msgctxt "type:group:title_label"
-msgid "Nom"
+msgid "Name"
 msgstr "Nom"
 
 #: node:type:group:title_label
@@ -243,7 +249,7 @@ msgstr "Description détaillée"
 
 #: node:type:organisation:title_label
 msgctxt "type:organisation:title_label"
-msgid "Nom"
+msgid "Name"
 msgstr "Nom"
 
 #: node:type:organisation:title_label
@@ -268,7 +274,7 @@ msgstr "Titre"
 
 #: node:type:private_space:title_label
 msgctxt "type:private_space:title_label"
-msgid "Nom"
+msgid "Name"
 msgstr "Nom"
 
 #: node:type:private_space:title_label
@@ -293,7 +299,7 @@ msgstr "Description détaillée"
 
 #: node:type:public:title_label
 msgctxt "type:public:title_label"
-msgid "Nom"
+msgid "Name"
 msgstr "Nom"
 
 #: node:type:public:title_label
@@ -313,7 +319,7 @@ msgstr "Kanban Task"
 
 #: node:type:task:name
 msgctxt "type:task:name"
-msgid "Tâche"
+msgid "Task"
 msgstr "Tâche"
 
 #: node:type:task:name
@@ -328,7 +334,7 @@ msgstr "Tâche"
 
 #: node:type:task:title_label
 msgctxt "type:task:title_label"
-msgid "Titre"
+msgid "Title"
 msgstr "Titre"
 
 #: node:type:task:title_label
@@ -353,7 +359,7 @@ msgstr "Liste d'utilisateurs"
 
 #: node:type:userlist:title_label
 msgctxt "type:userlist:title_label"
-msgid "Nom"
+msgid "Name"
 msgstr "Nom"
 
 #: node:type:userlist:title_label
@@ -400,7 +406,7 @@ msgstr "Formulaire"
 
 #: node:type:webform:title_label
 msgctxt "type:webform:title_label"
-msgid "Titre"
+msgid "Title"
 msgstr "Titre du Formulaire"
 
 #: node:type:webform:title_label

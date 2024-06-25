@@ -164,6 +164,7 @@ jQuery(document).ready(function () {
   triggerMobileNavigation();
 
   //Override bootstrap popover destroy function as it breaks ajaxifying
+  Drupal.behaviors.bootstrapPopovers = Drupal.behaviors.bootstrapPopovers || {};
   Drupal.behaviors.bootstrapPopovers.detach = function(context, settings) {
     return;
   };

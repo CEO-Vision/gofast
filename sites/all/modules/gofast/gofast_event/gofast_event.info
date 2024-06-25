@@ -6,4 +6,4 @@ dependencies[] = gofast
 ;dependencies[] = notifications
 ;dependencies[] = notifications_scheduler
 configure=admin/config/gofast/event
-version = "7.x-4.0.0_r3"
+version = "7.x-4.2.0"

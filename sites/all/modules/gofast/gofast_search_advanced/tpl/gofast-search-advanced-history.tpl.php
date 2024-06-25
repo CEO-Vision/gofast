@@ -1,0 +1,1 @@
+<div id="gofastAdvancedSearchHistory" class="datatable datatable-bordered datatable-head-custom h-100 p-2" data-columns='<?php echo $columns ?>'></div>

@@ -5,6 +5,7 @@ function gofast_workflows_api_edit_deadline(){
     //on recupere le taskId en parametre
     $taskId = $_GET["taskId"];
     $task = gofast_workflows_get_task_object($taskId);
+    $output = "";
 
     //Seul l'auteur de la tache (ou du process parent) peut changer la deadline
     global $user;
@@ -39,6 +40,7 @@ function gofast_workflows_api_edit_deadline(){
 
 function gofast_workflows_api_edit_deadline_validate(){
      $data = $_POST;
+     $output = "";
 
     //je recupere le taskId
     $taskId = $_POST["task_id"];
@@ -199,9 +201,50 @@ function gofast_workflows_api_get_node_from_url(){
 
 }
 
+function gofast_workflows_api_validate_access_path() {
+    if (empty($_GET["path"]) || empty($_GET["uids"]) || empty($_GET["valuetype"])){
+        print 0;
+        exit;
+    }
+    $path = urldecode(gofast_xss_clean($_GET["path"]));
+    $value_type = gofast_xss_clean($_GET["valuetype"]);
+    $uids = explode("/", urldecode(gofast_xss_clean($_GET["uids"])));
+    $gid = gofast_og_get_group_id_from_title_without_cmis($path, TRUE);
+    if (!$gid) {
+        print "Group matching path \"{$path}\" was not found";
+        exit();
+    }
+    $group = node_load($gid);
+    foreach ($uids as $uid) {
+        $uid = trim($uid);
+        if ($value_type == "uname") {
+            $account = user_load_by_name($uid);
+        } else {
+            $account = user_load($uid);
+        }
+        if (!$account) {
+            print "User matching id \"{$uid}\" was not found";
+            exit();
+        }
+        $is_member = og_get_membership("node", $gid, "user", $account->uid);
+        if (!$is_member) {
+            $is_member = gofast_userlist_og_is_user_member_of_space($gid, $account);
+        }
+        if (!$is_member) {
+            $is_member = gofast_userlist_og_is_user_admin_of_space($gid, $account->uid);
+        }
+        if (!$is_member) {
+            $display_name = $account->ldap_user_displayname['und'][0]['value'];
+            print "{$display_name} has no access to group {$group->title}";
+            exit();
+        }
+    }
+    print 0;
+    exit;
+}
+
 
 function gofast_workflows_api_validate_access_document(){
-    watchdog("debug access document", "debug");
     $return = array("node_access" => "false");
 
     if(isset($_GET["reference"]) && isset($_GET["uid"])){
@@ -244,13 +287,17 @@ function gofast_workflows_api_validate_access_document(){
             foreach($array_uids as $uid){
                 if($uid != ""){
                     $account = user_load_by_name(trim($uid));
+                    //if no account is found, make sure no success ("0") value is returned to Bonita
+                    if (!$account) {
+                        print ""; exit;
+                    }
                     if(is_array($nid)){
                         foreach($nid as $mynid){
                             $node = node_load(trim($mynid));
                             if(node_access('view', $node, $account)){
                                 $return = array("node_access" => "true");
                             }else{
-                                $return = "Le document ".$node->title." n'est pas accessible par l'utilisateur ".$account->ldap_user_givenname[LANGUAGE_NONE][0]["value"]." ".$account->ldap_user_sn[LANGUAGE_NONE][0]["value"];
+                                $return = t("The @title document is not available for @username. If the user were to view the document, the document would be made exceptionally available to the user for the duration of the task. Please be sure to know what you're doing before submitting.", ["@title" => $node->title, "@username" => ($account->ldap_user_givenname[LANGUAGE_NONE][0]["value"] . " " . $account->ldap_user_sn[LANGUAGE_NONE][0]["value"])], ["context" => "gofast:gofast_workflows"]);
                                   print $return;
                                  exit;
                             }
@@ -261,7 +308,7 @@ function gofast_workflows_api_validate_access_document(){
                             if(node_access('view', $node, $account)){
                                 $return = array("node_access" => "true");
                             }else{
-                                $return = "Le document ".$node->title." n'est pas accessible par l'utilisateur ".$account->ldap_user_givenname[LANGUAGE_NONE][0]["value"]." ".$account->ldap_user_sn[LANGUAGE_NONE][0]["value"];
+                                $return = t("The @title document is not available for @username. If the user were to view the document, the document would be made exceptionally available to the user for the duration of the task. Please be sure to know what you're doing before submitting.", ["@title" => $node->title, "@username" => ($account->ldap_user_givenname[LANGUAGE_NONE][0]["value"] . " " . $account->ldap_user_sn[LANGUAGE_NONE][0]["value"])], ["context" => "gofast:gofast_workflows"]);
                                  print $return;
                                  exit;
                             }
@@ -294,6 +341,8 @@ function gofast_workflows_api_sendmail(){
     //$data = '{"caseId":"4046", "login":"elavault", "message":"Coucou le Workflow est fini!!!"}';
     ## GOFAST-5599 : Update display of message (\n doesn't work)
     $data = str_replace('\n','</br>',$data);
+    $data = str_replace("\x09", "", $data);
+
     $array_data = json_decode($data, true);
 
     //ensuite on determine a qui on va envoyer ce mail (tous les acteurs du WF)
@@ -417,14 +466,11 @@ function gofast_workflows_api_sendmail_taskdone(){
         exit;
     }
     gofast_workflows_get_cookie(true);
-    $cookie_name = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
-    $bonita_user_id = true;
 
     $caseObject = gofast_workflows_api_get_case_object($_GET["caseId"], true);
    
     $title_process = $_GET["title"];
     $step = $_GET["step"];
-    $started_by = $caseObject["started_by"];      
     if($step !== "end_process"){
          print('OK');
         fastcgi_finish_request();
@@ -441,75 +487,127 @@ function gofast_workflows_api_sendmail_taskdone(){
    }else{
     $liste_destinataires = explode(",",str_replace(array("[", "]"), array("", ""),$case_variables["list_all"]["value"]));
    }
-   foreach($liste_destinataires as $destinataire){
-      $destinataire_object = user_load_by_name(trim($destinataire));
-      $_POST['langcode'] = $destinataire_object->language;
-      $recpt = array(array('recpt' => $destinataire_object->uid,
-                            'method' => 'to'));
-      
-        switch($step){
-            case "task_done":
-                $subject = "[{{Workflow}} " . variable_get('site_name') . "] {{Document broadcast}} : {{A user finished a task}} " .$title_process;
-                break;
-            case "task_assigned":
-                $subject = "[{{Workflow}} " . variable_get('site_name') . "] {{Document broadcast}} : {{You have been assigned on a task}} " .$title_process;
-                break;
-            case "remind_task_assigned":
-                 $subject = "[{{Workflow}} " . variable_get('site_name') . "] {{Document broadcast}} : {{Process deadline tomorrow}} ";
-                break;
-            case "end_process":
-                $subject = "[{{Workflow}} " . variable_get('site_name') . "] {{Document broadcast}} : {{process finished}} " .$title_process;
-                break;
-            default:
-               $subject = "[{{Workflow}} " . variable_get('site_name') . "] {{Document broadcast}} : {{A user finished a task}} " .$title_process;
-               break;
+   //loop over all recipients to get userlist members if there are any
+   $final_liste_destinataires = [];
+   foreach($liste_destinataires as $destinataire) {
+    if (str_starts_with($destinataire, "ul_")) {
+        $userlist_members = gofast_userlist_get_members_without_entity_load(str_replace("ul_", "", $destinataire), FALSE);
+        foreach($userlist_members as $member){
+            $username = $member->username;
+            $final_liste_destinataires[$username] = $username;
         }
-   
-      //now this function must be contextual to the step ( see "subject" previous ).
-      $message = gofast_workflow_api_sendmail_taskdone_build_body($caseObject, $destinataire_object->name, $step);
-
-      //on remplace certains "masques" du contenu (par exemple le nom de domaine).
-      $subject = gofast_workflows_replace_email_masks($subject, $caseObject);
-
-      // $generic_message = gofast_workflows_api_sendmail_gettext_linkdashboard($caseObject["rootCaseId"]);
-    
-    
-    $mail = array(
-        'body' => $message,
-        'title' => t("Workflow", array(), array('context' => "gofast:gofast_workflows")),
-        'subject' => $subject,
-        'footer' =>  t('Workflow powered by GoFAST', array(), array('context' => 'gofast:gofast_workflows')),
-    );
-    gofast_mail_queue_api_queue_ext($mail,  $recpt, time());
-
+    } else {
+        //we also use the value as a key to easily avoid duplicate values
+        $destinataire = trim($destinataire);
+        $final_liste_destinataires[$destinataire] = $destinataire;
+    }
    }
-   
+   foreach($final_liste_destinataires as $destinataire){
+    gofast_workflow_api_sendmail_taskdone_send($destinataire, $step, $title_process, $caseObject);
+   }
+
     if($step == "end_process"){
           print('OK');
           exit;
     }
 }
 
-function gofast_workflow_api_sendmail_taskdone_build_body($caseObject, $login, $step){
-    $assignee = user_load_by_name($login);
+/**
+ * Send a workflow notification for given:
+ * @param string destinataire the target username
+ * @param string step the step name (task_done, task_assigned, remind_task_assigned, end_process)
+ * @param string title_process the name of the process instance
+ * @param array caseObject the process instance data as retrieved by gofast_workflows_api_get_case_object
+ */
+function gofast_workflow_api_sendmail_taskdone_send($destinataire, $step, $title_process, $caseObject) {
+    $destinataire_object = user_load_by_name(trim($destinataire));
+    $_POST['langcode'] = $destinataire_object->language;
+    $recpt = array(array('recpt' => $destinataire_object->uid, 'method' => 'to'));
+    $processHistory = gofast_workflows_get_processhistory_from_pid($caseObject["rootCaseId"]);
+    // In case mail has been sent from a context where processCurrent is unavailable
+    if (strlen($title_process) == 0) {
+        $title_process = $processHistory[0]->TITLE;
+    }
+    
+    switch($step){
+        case "task_done":
+            $subject = "[{{Workflow}} " . variable_get('site_name') . "] {{Document broadcast}} : {{A user finished a task}} " .$title_process;
+            break;
+        case "task_assigned":
+            $subject = "[{{Workflow}} " . variable_get('site_name') . "] {{Document broadcast}} : {{You have been assigned on a task}} " .$title_process;
+            break;
+        case "remind_task_assigned":
+            $subject = "[{{Workflow}} " . variable_get('site_name') . "] {{Document broadcast}} : {{Process deadline tomorrow}} ";
+            break;
+        case "document_already_certified":
+            $subject = "[{{Workflow}} " . variable_get('site_name') . "] {{Document broadcast}} : {{A document can not be signed}}";
+            break;
+        case "end_process":
+            $subject = "[{{Workflow}} " . variable_get('site_name') . "] {{Document broadcast}} : {{process finished}} " .$title_process;
+            break;
+        default:
+            $subject = "[{{Workflow}} " . variable_get('site_name') . "] {{Document broadcast}} : {{A user finished a task}} " .$title_process;
+            break;
+    }
+
+    $assignee = user_load_by_name($destinataire_object->name);
+    //now this function must be contextual to the step ( see "subject" previous ).
+    $message = gofast_workflow_api_sendmail_taskdone_build_body($caseObject, $assignee, $step, $processHistory);
+
+    //on remplace certains "masques" du contenu (par exemple le nom de domaine).
+    $subject = gofast_workflows_replace_email_masks($subject, $caseObject);
+  
+    $mail = array(
+        'body' => $message,
+        'title' => t("Workflow", array(), array('langcode' => $assignee->language, 'context' => "gofast:gofast_workflows")),
+        'subject' => $subject,
+        'footer' =>  t('Workflow powered by GoFAST', array(), array('langcode' => $assignee->language, 'context' => 'gofast:gofast_workflows')),
+    );
+    
+    gofast_mail_queue_api_queue_ext($mail,  $recpt, time());
+}
+
+function gofast_workflow_api_get_intermediate_step() {
+    return ["document_already_certified"];
+}
+
+function gofast_workflow_api_sendmail_taskdone_build_body($caseObject, $assignee, $step, $processHistory){
     $bonita_assignee_id =  gofast_workflows_get_user_id($assignee);
     $my_author =  gofast_workflows_get_drupalid_from_bonitaid($caseObject["started_by"], true);
 
-    //we get all pending "human tasks" for this case
+    //we get all pending "human tasks" for this case, using permissions of the recipient to filter tasks accordingly
+    usurp($assignee->uid);
     $tasks_from_pid = gofast_workflows_get_list_actives_tasks(false, $caseObject["rootCaseId"], false, false, true);
+    usurp(FALSE);
     
     $list_tasks = array();
     $list_tasks_assigned_user = array();
-    if(count($tasks_from_pid) > 0){
+    // An intermediate step is a step triggered while no new task has been done yet: in this case there is no new task to execute so we just skip this section
+    if(!in_array($step, gofast_workflow_api_get_intermediate_step()) && count($tasks_from_pid) > 0){
         foreach($tasks_from_pid as $task){
+            $group_assignee = [];
+            $group_assignee = gofast_workflows_get_task_variable_from_db($task["id"], "assignee");
+            if (!empty($group_assignee) && str_starts_with($group_assignee[0], "ul_")) {
+                $userlist = entity_load_single("userlist", str_replace("ul_", "", $group_assignee[0]));
+                $task["assignedDisplayName"] = $userlist->name;
+                $task["assignedDisplayType"] ??= "fas fa-users";
+                $members = array_map(fn($el) => $el["value"], $userlist->field_userlist_members[LANGUAGE_NONE]);
+                if(in_array($assignee->uid, $members)) {
+                    array_push($list_tasks_assigned_user, $task);
+                    continue;
+                }
+            }
             if($task["assigned_id"] == $bonita_assignee_id){
+                $task["assignedDisplayName"] ??= gofast_user_display_name($assignee);
+                $task["assignedDisplayType"] ??= "fas fa-single-user";
                 array_push($list_tasks_assigned_user, $task);
                 continue;
             }
             if($task["name"] == "Etape faite" || $task["name"] == "Acceptation Refus" || $task["name"] == "Signature Yousign"){
-                $assigned = gofast_workflows_get_drupalid_from_bonitaid($task["assigned_id"], true);
-                $assignedDisplayName = gofast_user_display_name($assigned);
-                array_push($list_tasks, array("name" => $task["name"], "displayName" => $task["displayName"], "assignedDisplayName" => $assignedDisplayName, "login" => $assigned->name, "dueDate" => $task["assigned_date"]));
+                $assigned = $task["assigned_id"] ? gofast_workflows_get_drupalid_from_bonitaid($task["assigned_id"], true) : null;
+                $task["assignedDisplayName"] ??= gofast_user_display_name($assigned); // set assignedDisplayName only if not already set
+                $task["assignedDisplayType"] ??= "fas fa-user-single"; // set assignedDisplayType only if no already set
+                array_push($list_tasks, array("name" => $task["name"], "displayName" => $task["displayName"], "assignedDisplayName" => $task["assignedDisplayName"], "assignedDisplayType" => $task["assignedDisplayType"], "dueDate" => $task["assigned_date"]));
             }
         }
     }
@@ -525,7 +623,6 @@ function gofast_workflow_api_sendmail_taskdone_build_body($caseObject, $login, $
         }
     }
 
-    $processHistory = gofast_workflows_get_processhistory_from_pid($caseObject["rootCaseId"]);
     foreach ($processHistory as $index => $historyItem) {
         $query = "select * from CONTENTHISTORY WHERE persistenceId=(SELECT MAX(CONTENTHISTORY_PID) FROM LINEHISTORY_CONTENTS WHERE  LINEHISTORY_PID = ".$historyItem->LINEHISTORY_PID.");";
         $results =  ceo_vision_workflow_execute_bonita_query_bdm($query);
@@ -536,8 +633,6 @@ function gofast_workflow_api_sendmail_taskdone_build_body($caseObject, $login, $
             }
         }
     }
-    // $processHistoryInfos = gofast_workflows_get_processhistory_infos_from_pid($caseObject["rootCaseId"]);
-    // $case_variables = gofast_workflows_get_case_variables_from_id($caseObject["rootCaseId"]);
     
     //Fetch into history (connector)
     $history = array_reverse(array_map(function ($item) {
@@ -550,7 +645,7 @@ function gofast_workflow_api_sendmail_taskdone_build_body($caseObject, $login, $
     $documents_info = array();
     foreach($process_current as $process_current_item){
         if($process_current_item->TYPE == "node"){
-            $documents_info[] = $process_current_item->CONTENT_VALUE;
+            $documents_info[] = trim($process_current_item->CONTENT_VALUE);
         }
     }
 
@@ -578,7 +673,6 @@ function gofast_workflow_api_sendmail_taskdone_build_body($caseObject, $login, $
 
 
 function gofast_workflows_replace_email_masks($message, $rootcaseObject){
-    usurp(1);
     //liste des masks que l'on recherche et que l'on remplace
     $masks = array("%domain_name%");
 
@@ -641,7 +735,6 @@ function gofast_workflows_replace_email_masks($message, $rootcaseObject){
         return variable_get('site_name');
     }, $message);
 
-    usurp(FALSE);
     return $message;
 }
 
@@ -762,6 +855,8 @@ function gofast_workflows_api_liste_emplacements(){
         exit;
     }
 
+    $output = "";
+
     //on recupere le parametre du chemin racine
     $root_path = $_GET["root_path"];
 
@@ -818,7 +913,7 @@ function gofast_workflows_api_move_document(){
 
     if(!$document_node){
 
-        drupal_json(array("return_code" => "Bad document node"));
+        drupal_json_output(array("return_code" => "Bad document node"));
         exit;
     }
 
@@ -829,13 +924,13 @@ function gofast_workflows_api_move_document(){
     $repositoryId = gofast_cmis_get_repository();
     $cmis_object = cmisapi_getObject($repositoryId, $reference);
     if(!isset($cmis_object->properties['cmis:objectId'])){
-       drupal_json(array("return_code" => "Bad document reference"));
+       drupal_json_output(array("return_code" => "Bad document reference"));
        exit;
     }
 
     //on fait quelques verifications sur le chemin
     if($full_path == "-"){
-         drupal_json(array("return_code" => "Bad path"));
+         drupal_json_output(array("return_code" => "Bad path"));
           exit;
     }
 
@@ -855,7 +950,7 @@ function gofast_workflows_api_move_document(){
                 }
 
                 if(!$root_group){
-                    drupal_json(array("return_code" => "Bad root group"));
+                    drupal_json_output(array("return_code" => "Bad root group"));
                     exit;
                 }
             }else{
@@ -864,7 +959,7 @@ function gofast_workflows_api_move_document(){
                  $root_group = node_load($root_group_nid);
 
                 if(!$root_group){
-                    drupal_json(array("return_code" => "Bad root group"));
+                    drupal_json_output(array("return_code" => "Bad root group"));
                     exit;
                 }
 
@@ -897,7 +992,7 @@ function gofast_workflows_api_move_document(){
       $reference_destination_folder = $destination_object->properties["cmis:objectId"];
      watchdog("debug move",rawurlencode($path_destination ));
       if($reference_destination_folder == ""){
-           drupal_json(array("return_code" => "Bad destination folder".$path_destination));
+           drupal_json_output(array("return_code" => "Bad destination folder".$path_destination));
            exit;
       }
       watchdog("debug root move",$reference_destination_folder);
@@ -1091,7 +1186,7 @@ function gofast_workflows_insert_detail_rows($case_object, $history_variable_nam
 
          $count = db_query('SELECT COUNT(*) as count FROM {ceo_vision_wf_history_detail} WHERE pid = '.$case_object["id"].' AND row = '.$key.'')->fetchObject();
          if ($count->count == 0) {
-            if(count($row_array > 0)){
+            if(count($row_array ) > 0){
                 foreach($row_array as $detail){
                     $detail_array = explode("=", $detail);
                     $detail_array[1] = gofast_workflows_replace_history_masks($detail_array[1], $variables);
@@ -1107,7 +1202,215 @@ function gofast_workflows_insert_detail_rows($case_object, $history_variable_nam
 
 }
 
+function gofast_api_workflows_insert_line_to_history($params) {
+    extract($params);
+    if (!isset($current_user) || !isset($case_id) || !isset($user_object) || !isset($line_date) || !isset($task_id) || !isset($task_object)) {
+        gofast_api_mandatory_parameter();
+    }
 
+    $case_id = gofast_xss_clean($case_id);
+    $current_uid = gofast_user_get_uid_by_login(gofast_xss_clean($current_user));
+    $is_in_process = gofast_workflows_has_user_active_task_in_workflow($case_id, $current_uid);
+    if (!$is_in_process) {
+        gofast_api_not_authorized("You must have active tasks in the process instance to be able to add lines to its history");
+    }
+    // History insertion
+    $user_object = gofast_xss_clean($user_object);
+    $line_date = gofast_xss_clean($line_date);
+    $task_id = gofast_xss_clean($task_id);
+    $task_object = gofast_xss_clean($task_object);
+    gofast_workflows_insert_line_to_history($case_id, $user_object, $line_date, $task_id, $task_object);
+    // Send notification if needed
+    $task_object = json_decode($task_object);
+    $user_object = json_decode($user_object);
+    if (isset($task_object->step)) {
+        $destinataire = $user_object->username;
+        $step = $task_object->step;
+        $caseObject = gofast_workflows_api_get_case_object($case_id, TRUE);
+        $title_process = "";
+        gofast_workflow_api_sendmail_taskdone_send($destinataire, $step, $title_process, $caseObject);
+    }
+    gofast_api_success("OK");
+}
+
+/**
+ * Given a Drupal account object, returns the user object expected by the Bonita BDM history
+ */
+function gofast_workflows_format_history_user_object($account) {
+    $user_object = new stdClass();
+    $user_object->username = $account->name;
+    $user_object->displayname = gofast_user_display_name($account);
+    return $user_object;
+}
+
+/**
+ * Given a Drupal account object, a name, and a description, returns in an associative array the following items as expected by the Bonita BDM history:
+ * $user_object
+ * $line_date
+ * $task_object
+ */
+function gofast_workflows_format_history_task_object($account, $name, $description) {
+    $user_object = gofast_workflows_format_history_user_object($account);
+    $line_date = time() * 1000;
+    $task_object = new stdClass;
+    $task_object->id = 0;
+    $task_object->type = "userTask";
+    $task_object->name = $name;
+    $task_object->description = $description;
+    $task_object->actor_displayname = $user_object->displayname;
+    $task_object->actor_login = $account->name;
+    $task_object->date = $line_date;
+    return [$user_object, $line_date, $task_object];
+}
+
+/**
+ * Add a document to a Bonita BDM history line, mainly intended to be called by gofast_workflows_insert_line_to_history.
+ * @param int $line_persistence_id the history line id
+ * @param stdClass $document the Drupal node
+ * @param int $index must be incremented for each document added to the history line
+ */
+function gofast_workflows_add_document_to_history_line($line_persistence_id, $document, $index) {
+    // Format document history line
+    $document_object = new stdClass();
+    $document_object->nid = $document->nid;
+    $document_object->title = $document->title;
+    $document_object_string = json_encode($document_object);
+
+    // Insert history line content for document and get its id
+    $content_history_name = "Document";
+    $content_history_type = "node";
+    db_insert("CONTENTHISTORY", array("target" => "bonita_bdm"))
+        ->fields(array(
+            'CONTENT_VALUE' => $document_object_string,
+            'NAME' => $content_history_name,
+            'persistenceVersion' => 1,
+            'TYPE' => $content_history_type,
+        ))->execute();
+    $content_persistence_id = db_select("CONTENTHISTORY", "ch", array("target" => "bonita_bdm"))
+        ->fields("ch", ["persistenceId"])
+        ->condition("CONTENT_VALUE", $document_object_string)
+        ->orderBy("persistenceId", "DESC")
+        ->range(0, 1)
+        ->execute()->fetchCol();
+    if (empty($content_persistence_id)) {
+        return FALSE;
+    }
+    $content_persistence_id = reset($content_persistence_id);
+
+    // Link history content to history line
+    db_insert("LINEHISTORY_CONTENTS", array("target" => "bonita_bdm"))
+    ->fields(array(
+        'LINEHISTORY_PID' => $line_persistence_id,
+        'CONTENTHISTORY_PID' => $content_persistence_id,
+        'contents_ORDER' => $index,
+    ))->execute();
+}
+
+/**
+ * Insert a line to the process instance history among bonita business data instances
+ * Inserts directly into the database since Bonita Java API forbids it
+ * @param string $case_id the process instance id
+ * @param string $user_object a stringified json to display the "actor" field of the history line
+ * @param string $line_data timestamp of the history line
+ * @param string $task_id the user task id
+ * @param string $task_object a stringified json formatted as the processHistory Bonita widget would expect it to be
+ * 
+ */
+function gofast_workflows_insert_line_to_history($case_id, $user_object, $line_date, $task_id, $task_object, $documents = []) {
+    gofast_workflows_activate_bonita_connection(TRUE);
+    $transaction = db_transaction(NULL, array("target" => "bonita_bdm"));
+    // Get ID of target processHistory business data instance
+    $persistence_id = db_select("PROCESSHISTORY", "ph", array("target" => "bonita_bdm"))
+        ->fields("ph", ["persistenceId"])
+        ->condition("PID", $case_id)
+        ->execute()->fetchCol();
+    if (empty($persistence_id)) {
+        return FALSE;
+    }
+    $persistence_id = reset($persistence_id);
+
+    // Insert history line content for user and get its id
+    $content_history_name = "User";
+    $content_history_type = "user";
+    if (str_contains($user_object, "ul_")) {
+        $content_history_name = "Group";
+        $content_history_type = "group";
+    }
+    db_insert("CONTENTHISTORY", array("target" => "bonita_bdm"))
+        ->fields(array(
+            'CONTENT_VALUE' => $user_object,
+            'NAME' => $content_history_name,
+            'persistenceVersion' => 0,
+            'TYPE' => $content_history_type,
+        ))->execute();
+    $content_persistence_id = db_select("CONTENTHISTORY", "ch", array("target" => "bonita_bdm"))
+        ->fields("ch", ["persistenceId"])
+        ->condition("CONTENT_VALUE", $user_object)
+        ->orderBy("persistenceId", "DESC")
+        ->range(0, 1)
+        ->execute()->fetchCol();
+    if (empty($content_persistence_id)) {
+        $transaction->rollback();
+        return FALSE;
+    }
+    $content_persistence_id = reset($content_persistence_id);
+
+    // Insert history line and get its id
+    db_insert("LINEHISTORY", array("target" => "bonita_bdm"))
+        ->fields(array(
+            'LINE_DATE' => $line_date,
+            'persistenceVersion' => 0,
+            'TASK_ID' => $task_id,
+            'TASK_OBJECT' => $task_object,
+        ))->execute();
+    $line_persistence_id = db_select("LINEHISTORY", "lh", array("target" => "bonita_bdm"))
+        ->fields("lh", ["persistenceId"])
+        ->condition("TASK_OBJECT", $task_object)
+        ->orderBy("persistenceId", "DESC")
+        ->range(0, 1)
+        ->execute()->fetchCol();
+    if (empty($line_persistence_id)) {
+        $transaction->rollback();
+        return FALSE;
+    }
+    $line_persistence_id = reset($line_persistence_id);
+
+    // Link history line to history line content for user
+    db_insert("LINEHISTORY_CONTENTS", array("target" => "bonita_bdm"))
+        ->fields(array(
+            'LINEHISTORY_PID' => $line_persistence_id,
+            'CONTENTHISTORY_PID' => $content_persistence_id,
+            'contents_ORDER' => 0,
+        ))->execute();
+
+    // Handle documents if given
+    if (!empty($documents)) {
+        foreach ($documents as $index => $document) {
+            $index++;
+            gofast_workflows_add_document_to_history_line($line_persistence_id, $document, $index);
+        }
+    }
+
+    // Link processHistory to history line
+    $previous_line = db_select("PROCESSHISTORY_LINES", "phl", array("target" => "bonita_bdm"))
+            ->fields("phl", ["lines_ORDER"])
+            ->condition("PROCESSHISTORY_PID", $persistence_id)
+            ->orderBy("lines_ORDER", "DESC")
+            ->range(0, 1)
+            ->execute()->fetchCol();
+    if (empty($previous_line)) {
+        $transaction->rollback();
+        return FALSE;
+    }
+    $previous_line = (int) reset($previous_line);
+    $target_line = $previous_line + 1;
+    db_insert("PROCESSHISTORY_LINES", array("target" => "bonita_bdm"))
+        ->fields(array(
+            'PROCESSHISTORY_PID' => $persistence_id,
+            'LINEHISTORY_PID' => $line_persistence_id,
+            'lines_ORDER' => $target_line,
+        ))->execute();
+}
 
 function gofast_workflows_replace_history_masks($value, $variables){
     watchdog("debug value history", $value);
@@ -1160,6 +1463,7 @@ function gofast_api_get_workflow_profil($params){
   $result[] = array(
     'id' =>    $profil->id,
     'name' =>    $profil->name,
+    'spaces' =>  $profil->spaces,
     'value' =>    $profil->value,
     'type_wf' => $profil->type_wf,
     'version_wf' => $profil->version_wf,
@@ -1183,6 +1487,7 @@ function gofast_api_get_workflow_profil($params){
             $result[] = array(
               'id' =>    $profil->id,
               'name' =>    $profil->name,
+              'spaces' =>  $profil->spaces,
               'value' =>    $profil->value,
               'type_wf' => $profil->type_wf,
               'version_wf' => $profil->version_wf,
@@ -1241,29 +1546,20 @@ function gofast_api_patch_workflow_profil($params){
   $id =  $params['id'];
   $name =  $params['name'];
   $value = $params['value'];
+  $gids = array_map(fn($el) => $el["value"], $params['spaces']);
+  $gids = implode(",", $gids);
   $type_wf =  rawurldecode($params['type_wf']);
   $version_wf = $params['version_wf'];
- $result[] = array(
-              'id' => $id,
-              'name' => $name,
-              'value' => $value,
-              'type_wf' => $type_wf,
-              'version_wf' => $version_wf,
-              'uid' => $user->uid
-              );
-  /*gofast_api_success($result);
-  watchdog("debug workflow", "put");
-  exit;*/
- $profil = gofast_workflows_profil_edit($id,$name,json_encode($value),$type_wf,$version_wf);
-
-    $result[] = array(
-              'id' =>    $profil->id,
-              'name' =>    $profil->name,
-              'value' =>    $profil->value,
-              'type_wf' => $profil->type_wf,
-              'version_wf' => $profil->version_wf,
-              'uid' => $profil->uid
-              );
+  $result[] = array(
+    'id' =>      "id",
+    'name' =>    $name,
+    'gids' =>  $gids,
+    'value' =>   $value,
+    'type_wf' => $type_wf,
+    'version_wf' => $version_wf,
+    'uid' => $user->uid
+    );
+  gofast_workflows_profil_edit($id, $name, json_encode($value), $type_wf, $version_wf, $gids);
   gofast_api_success($result);
 }
 
@@ -1301,29 +1597,20 @@ function gofast_api_put_workflow_profil($params){
 
   $name =  $params['name'];
   $value = $params['value'];
+  $gids = array_map(fn($el) => $el["value"], $params['spaces']);
+  $gids = implode(",", $gids);
   $type_wf =  rawurldecode($params['type_wf']);
   $version_wf = $params['version_wf'];
- $result[] = array(
-              'id' =>    "id",
+  $result[] = array(
+              'id' =>      "id",
               'name' =>    $name,
-              'value' =>    $value,
+              'gids' =>  $gids,
+              'value' =>   $value,
               'type_wf' => $type_wf,
               'version_wf' => $version_wf,
               'uid' => $user->uid
               );
-  /*gofast_api_success($result);
-  watchdog("debug workflow", "put");
-  exit;*/
- $profil = gofast_workflows_profil_create($name,json_encode($value),$type_wf,$version_wf);
-
-    $result[] = array(
-              'id' =>    $profil->id,
-              'name' =>    $profil->name,
-              'value' =>    $profil->value,
-              'type_wf' => $profil->type_wf,
-              'version_wf' => $profil->version_wf,
-              'uid' => $profil->uid
-              );
+  gofast_workflows_profil_create($name, json_encode($value), $type_wf, $version_wf, $gids);
   gofast_api_success($result);
 }
 

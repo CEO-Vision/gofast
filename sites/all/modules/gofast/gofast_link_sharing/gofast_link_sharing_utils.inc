@@ -50,7 +50,7 @@ function gofast_link_sharing_usr_has_access($node, $curr_user=NULL){
 /**
  * Return the encrypted URL to access the document
  * 
- * @param int $nid
+ * @param int|int[] $nid
  *    NodeID of the document to share
  * @param int $version (optional)
  *    Specific version number of the document to share. If not provided, 
@@ -64,52 +64,58 @@ function gofast_link_sharing_usr_has_access($node, $curr_user=NULL){
  * @return string 
  *    The encrypted URL
  */
-function gofast_link_sharing_build_link($nid, $dest_id= NULL  , $emetteur= NULL , $version = NULL,  $exp_date = TRUE, $multi = FALSE,$nid_unique=NULL){
+function gofast_link_sharing_build_link($nid, $dest_id= NULL, $transmitter=NULL, $version=NULL, $exp_date=TRUE, $multi=FALSE, $nid_unique=NULL, $is_folder = FALSE){
   global $base_url;
-  if ($multi){
-      foreach($nid as $id){
-          $node = node_load($nid);
-          $is_internal = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Internal Distribution";
-          $is_confidential = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Confidential Data";
-      
-          $params .= ($is_confidential || $is_internal) ? : '+' . $id;
+  $params = "";
+
+  if (!$is_folder) {
+    if ($multi) {
+      foreach ($nid as $id) {
+        $node = node_load($id);
+        $is_internal = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Internal Distribution";
+        $is_confidential = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Confidential Data";
+        $params .= ($is_confidential || $is_internal) ?: '+' . $id;
       }
-  }else{
+    }
+    else {
       $node = node_load($nid);
       $is_internal = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Internal Distribution";
       $is_confidential = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Confidential Data";
-      $params = ($is_confidential || $is_internal) ? : $nid;
-  }
-  if($params == "") {
-      return;
-  }
-  
-  if(isset($dest_id) && ! empty($dest_id)){
-    $params.=','.$dest_id;
-  }
-  
-    if(isset($emetteur) && ! empty($emetteur)){
-    $params.=','.$emetteur;
-  }
-  
-  if(isset($version) && ! empty($version)){
-        $params.=','.$version;
+      $params = ($is_confidential || $is_internal) ?: "nids=".$nid;
     }
-  
-  if(isset($nid_unique) && ! empty($nid_unique)){
-    $params.=','.$nid_unique;
   }
-  
-  if($exp_date == TRUE){
-    $params.='#'.gofast_link_sharing_get_expiry_timestamp();
+
+  if (isset($dest_id) && !empty($dest_id)) {
+    $params = $params == "" ? 'dest_id='.$dest_id : $params .= ',dest_id=' . $dest_id;
+    if (isset($transmitter) && !empty($transmitter)) {
+      $params .= ',transmitter=' . $transmitter;
+    }
+
+    if (isset($version) && !empty($version)) {
+      $params .= ',version=' . $version;
+    }
+    if (isset($nid_unique) && !empty($nid_unique)) {
+      $params .= ',nid_unique=' . $nid_unique;
+    }
+    if($exp_date == TRUE){
+      $params.='#'.gofast_link_sharing_get_expiry_timestamp();
+    }
   }
-  if ($multi){
-      return $base_url.'/public/multi_sharing?hash='.urlencode(gofast_encrypt(CIPHER_KEY, $params));
-  }else{
-      return $base_url.'/public/sharing?hash='.urlencode(gofast_encrypt(CIPHER_KEY, $params));
+
+  if (!$is_folder) {
+    if ($multi) {
+      return $base_url . '/public/multi_sharing?hash=' . urlencode(gofast_encrypt(CIPHER_KEY, $params));
+    }
+    else {
+      return $base_url . '/public/sharing?hash=' . urlencode(gofast_encrypt(CIPHER_KEY, $params));
+    }
+  }
+  else{
+    $folder_item_id = $nid->id;
+    return $base_url . '/public/multi_sharing?hash=' . urlencode(gofast_encrypt
+      (CIPHER_KEY, $params)).'&workspace='.$folder_item_id;
   }
 }
-
 
 /**
  * Return the timestamp of the given expiry date (or of the DEFAULT_EXPIRY_PERIOD)
@@ -147,7 +153,7 @@ function gofast_link_sharing_link_decrypt($hash){
   $hash =  gofast_decrypt(CIPHER_KEY,  $hash);
   $nid ='';
   $dest_id='';
-  $emetteur = '';
+  $transmitter = '';
   $version ='';
   $exp_date = '';
   //get expiry date if one set
@@ -156,32 +162,32 @@ function gofast_link_sharing_link_decrypt($hash){
   if(count($tmp) > 1){
     $exp_date = $tmp[1];
   }
-   
-  //get file informations (file nid and version if set)
+
+  //get file information (file nid and version if set)
   $tmp = explode(',', $file_info);
-  $nid=$tmp[0];
-  if(count($tmp)>3){
-    $dest_id=$tmp[1];
-    $emetteur=$tmp[2];
-    $version = $tmp[3];
-    if(isset($tmp[4])){
-        $nid_unique=$tmp[4];
+
+  $output = [];
+  foreach($tmp as $key => $value){
+    $tmp = explode('=', $value);
+    $tmp[1] = str_replace(',', '', $tmp[1]);
+    $output[$tmp[0]] = $tmp[1];
+  }
+
+  $tmp = explode('+', array_keys($output)[0]);
+  foreach($tmp as $key => $value){
+    if($key > 0){
+      $output['nids'][] = $value;
     }
   }
-  $dest_id=$tmp[1];
-  $emetteur=$tmp[2];
 
-  $result = array(
-    'nid' => $nid,
-    'dest_id' => $dest_id,
-    'emetteur' => $emetteur,
-    'version' => $version,
-    'nid_unique' => $nid_unique,
-    'exp_date' => $exp_date,
-  );
-  return $result ;
+  if(strpos(array_keys($output)[0], '+') === 0){
+    unset($output[array_keys($output)[0]]);
+  }
+
+  $output['exp_date'] = $exp_date;
+
+  return $output;
 }
-
 /**
  * Return if the Document can be shared with external
  * 

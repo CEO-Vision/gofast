@@ -75,6 +75,19 @@ function gofast_features_global_locale_default_languages() {
     'prefix' => 'fr',
     'weight' => 0,
   );
+  // Exported language: gfen.
+  $languages['gfen'] = array(
+    'language' => 'gfen',
+    'name' => 'GoFAST English',
+    'native' => 'GoFAST English',
+    'direction' => 0,
+    'enabled' => 1,
+    'plurals' => 0,
+    'formula' => '',
+    'domain' => 'gfen',
+    'prefix' => 'gfen',
+    'weight' => 0,
+  );
   // Exported language: it.
   $languages['it'] = array(
     'language' => 'it',

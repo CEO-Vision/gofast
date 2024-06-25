@@ -9,12 +9,12 @@
     }
 
 ?>
-<div class="h-100 w-100">
+<div class="h-100 w-100 <?= gofast_essential_is_essential() ? 'overflow-auto' : ''; ?>">
     <div class="card card-custom" id="forum_breadcrumb">
         <div class="card-header min-h-50px flex-nowrap px-3">
             <?php print theme('gofast_menu_header_subheader', ['node' => $node]); ?>
+        </div>
     </div>
-</div>
 
 <div class="forum-node-wrapper pb-5">
     <div id="forum-container">
@@ -22,12 +22,11 @@
     </div>
 
     <?php // comments are loaded by the sidebar template ?>
-    <div id="comments-container" class="card card-custom card-stretch mt-4 pt-4" style="height: 15rem !important;">
+    <div id="comments-container" class="card card-custom card-stretch pt-4" style="height: 15rem !important;">
         <div class="spinner spinner-track spinner-primary gofast-spinner-xxl mx-auto"></div>
-        </div>
     </div>
 </div>
-
+</div>
 <script>
     Drupal.behaviors.gofast_node_actions = {
       attach: function(context) {
@@ -41,11 +40,34 @@
         }
       }
     };
-    setTimeout(function() {
-        $("#explorer-forum").click();
+    jQuery(document).ready(async function() {
+        <?php if (gofast_essential_is_essential()) : ?>
+            $("#nav_mobile_file_browser_forum_container").click();
+        <?php endif; ?>
+        if (window.location.hash.startsWith("#comment-")) {
+            // we wan't be sure the comment exists in the page before the comments have been loaded
+            await new Promise(function(resolve) {
+                const waitForCommentsContainerInterval = setInterval(function() {
+                    const hasSpinner = document.querySelector("#comments-container .spinner");
+                    if (hasSpinner) {
+                        return;
+                    }
+                    clearInterval(waitForCommentsContainerInterval);
+                    resolve();
+                }, 250)
+            });
+            // do we have the comment on the page?
+            if (!$(window.location.hash).length) {
+                return;
+            }
+            // wait a bit to make sure element position props have been calculated
+            await new Promise((resolve) => setTimeout(() => resolve(), 1000));
+            $(window.location.hash)[0].scrollIntoView({ behavior: 'smooth' });
+        }
+        $("#explorer-forum").tab("show");
         $(".explorer-main-container .nav.nav-tabs a.active:not('#explorer-forum')").removeClass('active');
         if (!$("#explorer-toggle").hasClass("open")) {
             $("#explorer-toggle").click();
         }
-    }, 2000);
+    });
 </script>

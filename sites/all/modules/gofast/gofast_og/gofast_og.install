@@ -119,6 +119,14 @@ function gofast_og_update_7300(){
   }
 }
 
+/*
+ * Implements hook_update
+ * Fix platform unset roles
+ */
+function gofast_og_update_7301(){
+  gofast_og_fix_unset_roles();
+}
+
 /**
  * Implements hook_update
  * Should fix perms on root_space for users and userlist
@@ -193,6 +201,73 @@ function gofast_og_update_7400(){
   
   watchdog('gofast_og', '%name() --- END --', array('%name' => __FUNCTION__));
   
+}
+
+function gofast_og_update_7401(){
+  // GOFAST-5912
+  $template_name = 'TEMPLATES';
+  gofast_cmis_item_folder_insert($template_name,gofast_ajax_file_browser_get_reference_from_href('/Sites/_Public'));
+  $folder_template_reference = gofast_ajax_file_browser_get_reference_from_href('/Sites/_Public/'.$template_name);
+  $node = node_load(GOFAST_CMIS_LOCATIONS_FIELD_PUBLIC_GID);
+  $group_type = $node->type;
+  $unique_name = rawurlencode(str_replace("\,", ",", gofast_ldap_space_cn($node)));
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_HEADER, 0);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_USERPWD, 'admin:' . gofast_get_admin_pwd());
+  $url = "http://localhost:8080/alfresco/service/set/subfolder/permission/?nodeRef=" . $folder_template_reference  . "&unique_name=" . $unique_name . "&node_type=" . $group_type;
+  curl_setopt($ch, CURLOPT_URL, $url);
+  curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+  $buffer = curl_exec($ch);
+  $buf = strip_tags($buffer);
+  $result = json_decode($buf);
+}
+
+function gofast_og_update_7403(){
+    usurp(1);
+    // GOFAST-9654
+    // Get all private spaces
+    $node_type = "private_space";
+    $result = db_query("SELECT nid FROM node WHERE type = :nodeType ", array(':nodeType'=>$node_type)); 
+    $template_name = 'TEMPLATES';
+    foreach ($result as $obj) {  
+      $node = node_load($obj->nid);
+      //get alfresco reference for TEMPLATES folder inside each private space
+      $template_reference = gofast_ajax_file_browser_get_reference_from_href('/Sites/_'.$node->name.'/'.$template_name);
+     if($template_reference !== null){
+          $url = 'http://localhost:8080/alfresco/service/set/node/workflow/permission/?reference=' . rawurlencode($template_reference) . '&validators=&inverse=true';
+          $ch = curl_init();
+          curl_setopt($ch, CURLOPT_HEADER, 0);
+          curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+          curl_setopt($ch, CURLOPT_USERPWD, "admin:" . gofast_get_admin_pwd());
+          curl_setopt($ch, CURLOPT_URL, $url);
+          curl_exec($ch);
+      }
+    }
+}
+
+/**
+ *  Allow bigger text size in space description
+ */
+function gofast_og_update_7404() {
+  // Change the size of the field in the db
+  $tables = ["field_data_field_description", "field_revision_field_description"];
+  foreach ($tables as $table) {
+    db_change_field($table, 'field_description_value', 'field_description_value', [
+      'type' => 'varchar',
+      'length' => '16383',
+    ]);
+  }
+  // Update the field max length to match new field max length
+  $query = db_select("field_config", "fg")->fields("fg",array("data"))->condition("fg.field_name", "field_description", "=");
+  $field_description_data_blob = $query->execute()->fetchCol()[0];
+  $field_description_data = unserialize($field_description_data_blob);
+  $field_description_data["settings"]["max_length"] = 16383;
+  $field_description_data_blob = serialize($field_description_data);
+  db_update("field_config")
+    ->fields(array("data" => $field_description_data_blob))
+    ->condition("field_name", "field_description", "=")
+    ->execute();
 }
 
 function gofast_og_uninstall() {

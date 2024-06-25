@@ -58,82 +58,116 @@ function getDocument(node_document) {
   }
 }
 
-function getFolder(node_folder, isGroup) {
-
-  var currentPath = origine;
-  // Remove '/Sites/' from the path (in origine there isn't '/webdav/')
-  currentPath = currentPath.substr(currentPath.indexOf("/Sites/") + "/Sites/".length - 1);
+function getFolder(node_folder, isGroup, parentFolder) {
 
   var currentNode = node_folder.webdavUrl;
   // Remove '/webdav/Sites/' from the path
   currentNode = currentNode.substr(currentNode.indexOf("/webdav/Sites/") + "/webdav/Sites/".length - 1);
 
+  // if webdavUrl exist
+  if (parentFolder != null) {
+    currentParent = parentFolder.webdavUrl;
+    // Remove '/webdav/Sites/' from the path if the path is not '/webdav/Sites'
+    if (currentParent != null && currentParent != "/webdav/Sites"){
+      currentParent = currentParent.substr(currentParent.indexOf("/webdav/Sites/") + "/webdav/Sites/".length - 1);
+    }else{
+      currentParent = "";
+    }    
+  }else{
+    currentParent = "";
+  }
+
+  // If origin != /Sites/ then remove /Sites/ from the path
+  originPath = origine;
+  if (origine != "/Sites/") {
+    originPath = origine.substr(origine.indexOf("/Sites/") + "/Sites/".length - 1);
+  }
+
   var element = [];
-  var arrayNode = [];
   var webdavUrl = node_folder.webdavUrl;
 
   // In case of first getDescendants call (where origine is /Sites/), if there is a mirror whith a wrong path (if main emplacement is a space instead of private space) then we will fix it
   if (isGroup && origine == "/Sites/") {
-    // Split currentNode and get last element
+
+    // Get first element of the currentNode Path
     var arrayCurrentNode = currentNode.split("/");
-    var lastElement = arrayCurrentNode[arrayCurrentNode.length - 1];
-    var groups = ["_Groups", "_Extranet", "_Public", "_Organization", "FOLDERS%20TEMPLATES"];
-    if (groups.includes(lastElement) == false) {
+    var firstElement = arrayCurrentNode[1];
+    var groups = ["_Groups", "_Extranet", "_Public", "_Organisations"];
+    if (groups.includes(firstElement) == false) {
       // Keep actual private space path
       privateSpacePath = currentNode;
     }
   }
 
 
-  if (node_folder.isContainer && !isGroup && node_folder.hasPermission("Write") == true) {
+  if (node_folder.isContainer && !isGroup && node_folder.hasPermission("Write") == true) {    
 
-    // Check if element webdav url begin with the node webdav url
-    if (currentNode.indexOf(currentPath) === -1 || currentPath == "/") {
-      arrayNode = currentNode.split('/');
-      currentPath = currentPath.split('/');
-
-      // Check if we need to fix the folder path (if main emplacement is a space instead of private space)
-      var fixPrivateSpace = false;
-      var goodPath = "";
-      if (origine == "/Sites/" && "/" + arrayNode[1] != privateSpacePath) {
-        fixPrivateSpace = true;
-        goodPath = "/Sites" + privateSpacePath;
-      }
-      
-      // Remove space from the path to get the mirror path
-      if (currentPath != "," || fixPrivateSpace) {
-        // Remove each element begin by "_"
-        for (var i = 0; i < arrayNode.length; i++) {
-          if (nodeIsGroup(arrayNode[i])) {
-            arrayNode.splice(i, 1);
-            i--;
-          }
-        }
-
-        // Remove each element begin by "_"
-        for (var i = 0; i < currentPath.length; i++) {
-          if (nodeIsGroup(currentPath[i])) {
-            currentPath.splice(i, 1);
-            i--;
-          }
-        }
-      }
-
-      arrayNode = arrayNode.join('/');
-      currentPath = currentPath.join('/');
-
-
-      // Remove path already visited
-      arrayNode = decodeURIComponent(arrayNode).replace(decodeURIComponent(currentPath), '');
-      
-      
-      // Fix webdavUrl
-      if (fixPrivateSpace) {
-        webdavUrl = "/webdav" + goodPath + "/" + arrayNode;
-      } else {
-        webdavUrl = "/webdav" + origine + arrayNode;
+    // Don't return the folder if it's a mirrored folder and we don't have write access on the targeted parent
+    if(node_folder.getParents().length > 1 && parentFolder){
+      if(!parentFolder.hasPermission("Write")){
+        return;
       }
     }
+    // If parentFolder not begin by the origin, then replace it by the origin
+    if (encodeURIComponent(decodeURIComponent(currentParent)).indexOf(encodeURIComponent(decodeURIComponent(originPath))) === -1 && origine != "/Sites/") {
+      // Split the originPath path
+      var arrayOriginPath = originPath.split("/");
+      // Get the last element of the array
+      var lastElementOrigin = arrayOriginPath[arrayOriginPath.length - 1];
+      
+      // Split the currentParent path
+      var arrayCurrentParent = currentParent.split("/");
+      
+      // Reach all element of the array
+      var findFolder = false;
+      for (var i = 0; i < arrayCurrentParent.length; i++) {
+        // If the element equal the last element of the originPath
+        if (arrayCurrentParent[i] == lastElementOrigin) {
+          findFolder = true;
+          // Remove the current element from arrayCurrentParent and all previous elements
+          arrayCurrentParent.splice(0, i+1);
+          break;
+        }
+      }
+      if (findFolder == false) {
+        // If we didn't find the last element of the originPath, we remove all spaces (element begin by '_') from the array
+        finalPath = [];
+        for (var i = 0; i < arrayCurrentParent.length; i++) {
+          if (!arrayCurrentParent[i].startsWith("_")) {
+            finalPath.push(arrayCurrentParent[i]);
+          }
+        }
+        arrayCurrentParent = finalPath;
+      }
+      // Join the array to create the new currentParent
+      currentParent = arrayCurrentParent.join("/");
+        
+      // Add originePath before the currentParent
+      currentParent = originPath +  currentParent;
+    }
+
+    // for safe comparison with special charsæ
+    var currentNode = decodeURIComponent(currentNode);
+    if(currentParent != ""){
+      var currentParent = decodeURIComponent(currentParent);
+    }
+
+
+    // Check if currentNode begins with the currentParent
+    if ((currentNode.indexOf(currentParent) === -1 || currentParent == "/")) {
+      // Get the last element of the array
+      var arrayCurrentNode = currentNode.split("/");
+      var lastElement = arrayCurrentNode[arrayCurrentNode.length - 1];
+
+
+      // Add it to the currentParent
+      webdavUrl = "/webdav/Sites" + currentParent + "/" + lastElement;
+
+      // Encode the new webdavUrl without '/'
+      webdavUrl = encodeURI(webdavUrl);
+      webdavUrl = webdavUrl.replace(/%2F/g, "/");
+    }
+    
     element["url"] = webdavUrl;
     element['name'] = node_folder.properties["cm:name"];
     element['id'] = node_folder.nodeRef;
@@ -191,7 +225,7 @@ function getDescendants(node, recursion) {
       } else if (document_type === "groups") {
         getGroup(child, isGroup);
       } else if (document_type === "groupsfolders") {
-        getFolder(child, isGroup);
+        getFolder(child, isGroup, node);
         getGroup(child, isGroup);
       } else if (document_type === "templates") {
         if (child.name.equals("TEMPLATES")) {
@@ -199,7 +233,7 @@ function getDescendants(node, recursion) {
         }
       } else {
         getDocument(child);
-        getFolder(child, isGroup);
+        getFolder(child, isGroup, node);
         getGroup(child, isGroup);
       }
       if (restrictdepth == "true") {

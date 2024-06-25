@@ -24,7 +24,7 @@ function gofast_community_init(){
     // It is for the onlyOffice module
     // must have this function, otherwise huge error pop-up when you accessing a document
     function gofast_onlyoffice_editable_document_extensions() {
-      $editable_extensions = array("docx", "doc", "docm", "odt", "xlsx", "xlsm", "xls", "ods", "csv", "pptx", "ppt", "ppsx", "rtf", "mht", "html", "htm");
+      $editable_extensions = array("docx", "docxf", "dotx", "doc", "docm", "odt", "xlsx", "xlsm", "xls", "ods", "csv", "pptx", "ppt", "ppsx", "rtf", "mht", "html", "htm");
     return $editable_extensions;
     }
     function gofast_onlyoffice_is_mimetype_must_convert($current_mimetype){

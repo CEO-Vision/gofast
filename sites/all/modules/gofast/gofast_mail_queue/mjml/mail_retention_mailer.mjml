@@ -1,0 +1,110 @@
+<mjml>
+  <mj-head>
+    <mj-style>
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 400;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-Regular.otf") format("opentype");
+      }
+
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 600;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-SemiBold.otf") format("opentype");
+      }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#EAF1F7" width="992px">
+    <mj-raw>
+      <!-- SubHeader -->
+    </mj-raw>
+    <mj-section padding-left="10px" padding-top="10px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%">
+        <mj-text padding-left="0" font-size="18px" font-weight="600">
+          Hello Allan ,
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-raw>
+      <!-- User Account Creation-->
+    </mj-raw>
+    <mj-section padding-left="10px" padding-top="0px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%" background-color="#de6502" border-radius="5px">
+        <mj-text color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/exclamation-triangle-solid-white.png" alt="Information Icon" width="18" />
+                </td>
+                <td><span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;Retention</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-left="10px" padding-top="0px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%" vertical-align="middle">
+        <mj-text font-size="18px" font-weight="400">
+              The retention date for those documents is tomorrow.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-left="10px" padding-top="0px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%" background-color="#337ab7" border-radius="5px">
+        <mj-text color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/info-circle-solid-white.png" alt="Information Icon" width="18" />
+                </td>
+                <td><span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;Documents</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+      <!-- A list of documents to expire with their node links -->
+      <mj-column width="90%">
+        <mj-text>
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <i class="fas fa-file" alt="Information Icon" width="18"></i>
+                </td>
+                <td><span style="color: #000; font-size: 14px; font-weight: 600;">&nbsp;Document 1</span></td>
+              </tr><tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/file-alt-solid-white.png" alt="Information Icon" width="18" />
+                </td>
+                <td><span style="color: #000; font-size: 14px; font-weight: 600;">&nbsp;Document 1</span></td>
+              </tr><tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/file-alt-solid-white.png" alt="Information Icon" width="18" />
+                </td>
+                <td><span style="color: #000; font-size: 14px; font-weight: 600;">&nbsp;Document 1</span></td>
+              </tr><tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/file-alt-solid-white.png" alt="Information Icon" width="18" />
+                </td>
+                <td><span style="color: #000; font-size: 14px; font-weight: 600;">&nbsp;Document 1</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+      <tr>
+        <td>
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/file-alt-solid-white.png" alt="Information Icon" width="18" />
+        </td>
+        <td><span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;Document 1</span></td>
+      </tr>
+    </mj-section>
+    
+  </mj-body>
+</mjml>

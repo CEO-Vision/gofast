@@ -23,12 +23,7 @@
     },
 
     attach: function (context) {
-        console.log("attach");
-      // $('.gofast-og-page:not(.gofast-og-page-processed)').addClass('gofast-og-page-processed').each(function () {
-      $('a[data-toggle="popover"]:not(.xeditable_processed),button[data-toggle="popover"]:not(.xeditable_processed)').addClass("xeditable_processed").click(function (e) {
-        return false;
-        e.preventDefault();
-      });
+      $("[data-toggle='tooltip']:not(.hide-tooltip-processed)").addClass("hide-tooltip-processed").on('show.bs.tooltip', Gofast.hideTooltipsOnTooltipShowCallback);
 
       var divPopupManual = $('div[class="xeditable-trigger-1"]');
       if (divPopupManual !== null && divPopupManual.size() > 0) {
@@ -87,12 +82,10 @@
 
 
       $('[data-toggle="popover"]:not(.popup-ztree-browser-processed)').addClass('popup-ztree-browser-processed').on('shown.bs.popover', function () {
+        if (typeof Drupal.behaviors.gofast_ztree == "undefined") {
+          return;
+        }
         Drupal.behaviors.gofast_ztree.attach($(this));
-
-
-        var caller_button = $(this);
-        //TODO : replace the arrow of the popup depending the wanted placement
-        //$('.arrow').css('left', caller_button.offset().left + (caller_button.width() / 2));
       });
     }
   };

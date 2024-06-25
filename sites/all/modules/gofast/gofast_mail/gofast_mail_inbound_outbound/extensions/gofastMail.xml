@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<model xmlns="http://www.alfresco.org/model/dictionary/1.0" name="gofastMail:gfmail">
+    <author>VANHOVE Alexis</author>
+    <imports>
+        <import uri="http://www.alfresco.org/model/dictionary/1.0" prefix="d"/>
+    </imports>
+    <namespaces>
+        <namespace uri="gofast_mail" prefix="gofastMail"/>
+    </namespaces>
+    <data-types/>
+    <constraints/>
+    <types/>
+    <aspects>
+        <aspect name="gofastMail:mail">
+            <title>mail</title>
+            <properties>
+                <property name="gofastMail:mailInstruction">
+                    <title>Mail Instruction</title>
+                    <description>Mail Instruction</description>
+                    <type>d:text</type>
+                    <mandatory>false</mandatory>
+                    <index enabled="true">
+                        <tokenised>TRUE</tokenised>
+                        <facetable>false</facetable>
+                    </index>
+                </property>
+                <property name="gofastMail:mailObject">
+                    <title>Mail Object</title>
+                    <description>Mail Object</description>
+                    <type>d:text</type>
+                    <mandatory>false</mandatory>
+                    <index enabled="true">
+                        <tokenised>TRUE</tokenised>
+                        <facetable>false</facetable>
+                    </index>
+                </property>
+                <property name="gofastMail:mailRid">
+                    <title>Mail reference ID</title>
+                    <description>Mail reference ID</description>
+                    <type>d:text</type>
+                    <mandatory>false</mandatory>
+                    <index enabled="true">
+                        <tokenised>TRUE</tokenised>
+                        <facetable>false</facetable>
+                    </index>
+                </property>
+                <property name="gofastMail:arrivalDepartureDate">
+                    <title>Arrival / Departure date</title>
+                    <description>Date and time of arrival/departure of the mail</description>
+                    <type>d:text</type>
+                    <mandatory>false</mandatory>
+                    <index enabled="true">
+                        <tokenised>TRUE</tokenised>
+                        <facetable>false</facetable>
+                    </index>
+                </property>
+                <property name="gofastMail:mailSender">
+                    <title>Mail sender</title>
+                    <description>Mail sender</description>
+                    <type>d:text</type>
+                    <mandatory>false</mandatory>
+                    <index enabled="true">
+                        <tokenised>TRUE</tokenised>
+                        <facetable>false</facetable>
+                    </index>
+                </property>
+                <property name="gofastMail:serviceRecipient">
+                    <title>Service recipient</title>
+                    <description>Service recipient</description>
+                    <type>d:text</type>
+                    <mandatory>false</mandatory>
+                    <index enabled="true">
+                        <tokenised>TRUE</tokenised>
+                        <facetable>false</facetable>
+                    </index>
+                </property>
+                <property name="gofastMail:userRecipient">
+                    <title>User recipient</title>
+                    <description>User recipient</description>
+                    <type>d:text</type>
+                    <mandatory>false</mandatory>
+                    <index enabled="true">
+                        <tokenised>TRUE</tokenised>
+                        <facetable>false</facetable>
+                    </index>
+                </property>
+                <property name="gofastMail:imputeTo">
+                    <title>Impute to</title>
+                    <description>Impute to</description>
+                    <type>d:text</type>
+                    <mandatory>false</mandatory>
+                    <index enabled="true">
+                        <tokenised>TRUE</tokenised>
+                        <facetable>false</facetable>
+                    </index>
+                </property>
+                <property name="gofastMail:mailState">
+                    <title>Mail state</title>
+                    <description>Mail State</description>
+                    <type>d:text</type>
+                    <mandatory>false</mandatory>
+                    <index enabled="true">
+                        <tokenised>TRUE</tokenised>
+                        <facetable>false</facetable>
+                    </index>
+                </property>
+                <property name="gofastMail:mandatoryAnswer">
+                    <title>Mandatory answer</title>
+                    <description>Mandatory answer</description>
+                    <type>d:text</type>
+                    <mandatory>false</mandatory>
+                    <index enabled="true">
+                        <tokenised>TRUE</tokenised>
+                        <facetable>false</facetable>
+                    </index>
+                </property>
+                <property name="gofastMail:arrivalDepartureLink">
+                    <title>Arrival / Departure Link</title>
+                    <description>Arrival Departure Link</description>
+                    <type>d:text</type>
+                    <mandatory>false</mandatory>
+                    <index enabled="true">
+                        <tokenised>TRUE</tokenised>
+                        <facetable>false</facetable>
+                    </index>
+                </property>
+            </properties>
+            <associations/>
+            <overrides/>
+            <mandatory-aspects/>
+        </aspect>
+    </aspects>
+</model>

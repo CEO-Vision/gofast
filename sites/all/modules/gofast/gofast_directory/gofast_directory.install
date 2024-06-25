@@ -11,13 +11,14 @@ function gofast_directory_install(){
 
     db_query("CREATE VIEW `d7`.`userlist_members_count` AS SELECT  `d7`.`field_data_field_userlist_members`.`entity_id` AS `userlist_id`, COUNT(`d7`.`field_data_field_userlist_members`.`field_userlist_members_value`) AS `nb_members` FROM `d7`.`field_data_field_userlist_members` GROUP BY `d7`.`field_data_field_userlist_members`.`entity_id`");   
     
-    db_query("CREATE VIEW `d7`.`userlist_og_count` AS SELECT  `d7`.`og_membership`.`etid` AS `userlist_id`, COUNT(`d7`.`og_membership`.`gid`) AS `nb_og` FROM `d7`.`og_membership` WHERE ((`d7`.`og_membership`.`entity_type` = 'userlist') AND (`d7`.`og_membership`.`gid` NOT IN (4 , 5, 6, 7))) GROUP BY `d7`.`og_membership`.`etid`");   
+    db_query("CREATE VIEW `d7`.`userlist_og_count` AS SELECT  `d7`.`og_membership`.`etid` AS `userlist_id`, COUNT(`d7`.`og_membership`.`gid`) AS `nb_og` FROM `d7`.`og_membership` WHERE ((`d7`.`og_membership`.`entity_type` = 'userlist') AND (`d7`.`og_membership`.`gid` NOT IN (:groups, :organisations, :extranet, :public))) GROUP BY `d7`.`og_membership`.`etid`", array(":groups" => GOFAST_CMIS_LOCATIONS_FIELD_GROUPS_GID, ":organisations" => GOFAST_CMIS_LOCATIONS_FIELD_ORGANISATIONS_GID, ":extranet" => GOFAST_CMIS_LOCATIONS_FIELD_EXTRANET_GID, ":public" => GOFAST_CMIS_LOCATIONS_FIELD_PUBLIC_GID)); 
     
-    db_query("CREATE VIEW userlist_directory_detail AS SELECT gu.ulid AS ulid , gu.nid AS `nid`, gu.name AS `name`, uoc.nb_og AS `nb_og`, umc.nb_members AS `nb_members`, n.uid AS `creator_id`, n.created AS `created`, `n`.`changed` AS `modified`, n.status AS `status`, uac.nb_admins AS `nb_admins` FROM ((((`d7`.`gofast_userlists` `gu` LEFT JOIN `d7`.`userlist_og_count` `uoc` ON ((`uoc`.`userlist_id` = `gu`.`ulid`))) LEFT JOIN `d7`.`userlist_members_count` `umc` ON ((`umc`.`userlist_id` = `gu`.`ulid`))) LEFT JOIN `d7`.`node` `n` ON ((`n`.`nid` = `gu`.`nid`))) LEFT JOIN `d7`.`userlist_admins_count` `uac` ON ((`uac`.`userlist_id` = `gu`.`nid`)))");
+    db_query("CREATE VIEW userlist_directory_detail AS SELECT gu.ulid AS ulid , gu.nid AS `nid`, gu.name AS `name`, uoc.nb_og AS `nb_og`, umc.nb_members AS `nb_members`, n.uid AS `creator_id`, n.created AS `created`, `n`.`changed` AS `modified`, n.status AS `status`, uac.nb_admins AS `nb_admins` FROM ((((`d7`.`gofast_userlists` `gu` LEFT JOIN `d7`.`userlist_og_count` `uoc` ON ((`uoc`.`userlist_id` = `gu`.`ulid`))) LEFT JOIN `d7`.`userlist_members_count` `umc` ON ((`umc`.`userlist_id` = `gu`.`ulid`))) LEFT JOIN `d7`.`node` `n` ON ((`n`.`nid` = `gu`.`nid`))) LEFT JOIN `d7`.`userlist_admins_count` `uac` ON ((`uac`.`userlist_id` = `gu`.`nid`))) WHERE `status` = 1");
 
     db_query("CREATE VIEW `d7`.`users_directory_detail` AS
     SELECT
         `u`.`uid` AS `uid`,
+        `u`.`access` AS `access`,
         `u`.`name` AS `username`,
         `u`.`mail` AS `mail`,
         `u`.`created` AS `created`,
@@ -35,8 +36,8 @@ function gofast_directory_install(){
         `frfl`.`field_left_value` AS `left`,
         `extr`.`is_extranet_value` AS `is_extranet`,
         (CASE
-            WHEN ((`u`.`status` = 0) AND (`frfl`.`field_left_value` = 0)) THEN 0
-            WHEN (`u`.`status` = 0) THEN 1
+            WHEN (`u`.`status` = 0) AND (`frfl`.`field_left_value` = 1) THEN 1
+            WHEN (`u`.`status` = 0) THEN 0
             ELSE 2
         END) AS `total_status`
     FROM
@@ -304,4 +305,115 @@ function gofast_directory_update_7002(){
     db_query("CREATE VIEW userlist_admins_count AS SELECT og_membership.gid AS userlist_id, COUNT(og_membership.gid) AS nb_admins FROM og_membership WHERE
 	`og_membership`.`etid` != 1 GROUP BY og_membership.gid");
     db_query("CREATE VIEW userlist_directory_detail AS SELECT gu.ulid AS ulid , gu.nid AS `nid`, gu.name AS `name`, uoc.nb_og AS `nb_og`, umc.nb_members AS `nb_members`, n.uid AS `creator_id`, n.created AS `created`, `n`.`changed` AS `modified`, n.status AS `status`, uac.nb_admins AS `nb_admins` FROM ((((`d7`.`gofast_userlists` `gu` LEFT JOIN `d7`.`userlist_og_count` `uoc` ON ((`uoc`.`userlist_id` = `gu`.`ulid`))) LEFT JOIN `d7`.`userlist_members_count` `umc` ON ((`umc`.`userlist_id` = `gu`.`ulid`))) LEFT JOIN `d7`.`node` `n` ON ((`n`.`nid` = `gu`.`nid`))) LEFT JOIN `d7`.`userlist_admins_count` `uac` ON ((`uac`.`userlist_id` = `gu`.`nid`)))");
+}
+
+/**
+ * Implements hook_update_9 : dynamic root space gid
+ */
+function gofast_directory_update_7003(){
+    db_query("DROP VIEW `d7`.`userlist_og_count`");
+    db_query("CREATE VIEW `d7`.`userlist_og_count` AS SELECT  `d7`.`og_membership`.`etid` AS `userlist_id`, COUNT(`d7`.`og_membership`.`gid`) AS `nb_og` FROM `d7`.`og_membership` WHERE ((`d7`.`og_membership`.`entity_type` = 'userlist') AND (`d7`.`og_membership`.`gid` NOT IN (:groups, :organisations, :extranet, :public))) GROUP BY `d7`.`og_membership`.`etid`", array(":groups" => GOFAST_CMIS_LOCATIONS_FIELD_GROUPS_GID, ":organisations" => GOFAST_CMIS_LOCATIONS_FIELD_ORGANISATIONS_GID, ":extranet" => GOFAST_CMIS_LOCATIONS_FIELD_EXTRANET_GID, ":public" => GOFAST_CMIS_LOCATIONS_FIELD_PUBLIC_GID));
+}
+
+function gofast_directory_update_7004() {
+    db_query("DROP VIEW `d7`.`userlist_directory_detail`");
+    db_query("CREATE VIEW userlist_directory_detail AS SELECT gu.ulid AS ulid , gu.nid AS `nid`, gu.name AS `name`, uoc.nb_og AS `nb_og`, umc.nb_members AS `nb_members`, n.uid AS `creator_id`, n.created AS `created`, `n`.`changed` AS `modified`, n.status AS `status`, uac.nb_admins AS `nb_admins` FROM ((((`d7`.`gofast_userlists` `gu` LEFT JOIN `d7`.`userlist_og_count` `uoc` ON ((`uoc`.`userlist_id` = `gu`.`ulid`))) LEFT JOIN `d7`.`userlist_members_count` `umc` ON ((`umc`.`userlist_id` = `gu`.`ulid`))) LEFT JOIN `d7`.`node` `n` ON ((`n`.`nid` = `gu`.`nid`))) LEFT JOIN `d7`.`userlist_admins_count` `uac` ON ((`uac`.`userlist_id` = `gu`.`nid`))) WHERE `status` = 1");
+}
+
+function gofast_directory_update_7005() {
+    db_query("DROP VIEW `d7`.`users_directory_detail`");
+    db_query("CREATE VIEW d7.users_directory_detail AS
+    SELECT
+        u.uid AS 'uid',
+        u.name AS 'username',
+        u.mail AS 'mail',
+        u.created AS 'created',
+        u.login AS 'login',
+        u.status AS 'status',
+        u.language AS 'language',
+        u.timezone AS 'timezone',
+        u.picture AS 'picture',
+        frlug.ldap_user_givenname_value AS 'firstname',
+        frlus.ldap_user_sn_value AS 'lastname',
+        frluo.ldap_user_o_value AS 'entity',
+        up.points AS 'points',
+        GROUP_CONCAT(ur.rid SEPARATOR ',') AS 'role_id',
+        GROUP_CONCAT(r.name SEPARATOR ',') AS 'role_name',
+        frfl.field_left_value AS 'left',
+        extr.is_extranet_value AS 'is_extranet',
+        (CASE
+            WHEN u.status = 0 AND frfl.field_left_value = 1 THEN 1
+            WHEN u.status = 0 THEN 0
+            ELSE 2
+        END) AS 'total_status'
+    FROM users u
+    LEFT JOIN field_revision_ldap_user_givenname frlug ON frlug.entity_id = u.uid
+    LEFT JOIN field_revision_ldap_user_sn frlus ON frlus.entity_id = u.uid
+    LEFT JOIN field_revision_ldap_user_o frluo ON frluo.entity_id = u.uid
+    LEFT JOIN userpoints up ON up.uid = u.uid
+    LEFT JOIN users_roles ur ON u.uid = ur.uid
+    LEFT JOIN role r ON ur.rid = r.rid
+    LEFT JOIN field_revision_field_left frfl ON frfl.entity_id = u.uid
+    LEFT JOIN field_revision_is_extranet extr ON extr.entity_id = u.uid
+    WHERE u.uid NOT IN (0, 1)
+    GROUP BY u.uid, frlug.ldap_user_givenname_value, frlus.ldap_user_sn_value, frluo.ldap_user_o_value, up.points, frfl.field_left_value, extr.is_extranet_value");
+}
+
+/** Update users directory SQL view to retrieve the "access" column as well */
+function gofast_directory_update_7006() {
+    db_query("DROP VIEW `d7`.`users_directory_detail`");
+    db_query("CREATE VIEW d7.users_directory_detail AS
+    SELECT
+        u.uid AS 'uid',
+        u.access AS 'access',
+        u.name AS 'username',
+        u.mail AS 'mail',
+        u.created AS 'created',
+        u.login AS 'login',
+        u.status AS 'status',
+        u.language AS 'language',
+        u.timezone AS 'timezone',
+        u.picture AS 'picture',
+        frlug.ldap_user_givenname_value AS 'firstname',
+        frlus.ldap_user_sn_value AS 'lastname',
+        frluo.ldap_user_o_value AS 'entity',
+        up.points AS 'points',
+        GROUP_CONCAT(ur.rid SEPARATOR ',') AS 'role_id',
+        GROUP_CONCAT(r.name SEPARATOR ',') AS 'role_name',
+        frfl.field_left_value AS 'left',
+        extr.is_extranet_value AS 'is_extranet',
+        (CASE
+            WHEN u.status = 0 AND frfl.field_left_value = 1 THEN 1
+            WHEN u.status = 0 THEN 0
+            ELSE 2
+        END) AS 'total_status'
+    FROM users u
+    LEFT JOIN field_revision_ldap_user_givenname frlug ON frlug.entity_id = u.uid
+    LEFT JOIN field_revision_ldap_user_sn frlus ON frlus.entity_id = u.uid
+    LEFT JOIN field_revision_ldap_user_o frluo ON frluo.entity_id = u.uid
+    LEFT JOIN userpoints up ON up.uid = u.uid
+    LEFT JOIN users_roles ur ON u.uid = ur.uid
+    LEFT JOIN role r ON ur.rid = r.rid
+    LEFT JOIN field_revision_field_left frfl ON frfl.entity_id = u.uid
+    LEFT JOIN field_revision_is_extranet extr ON extr.entity_id = u.uid
+    WHERE u.uid NOT IN (0, 1)
+    GROUP BY u.uid, frlug.ldap_user_givenname_value, frlus.ldap_user_sn_value, frluo.ldap_user_o_value, up.points, frfl.field_left_value, extr.is_extranet_value");
+
+    // Fix potentially empty node titles for all contacts
+    $contact_nids = db_select("node", "n")
+        ->fields("n", ["nid"])
+        ->condition("type", "contact")
+        ->execute()->fetchCol();
+    
+    foreach ($contact_nids as $contact_nid) {
+        $contact_node = node_load($contact_nid);
+        $contact_node->title = $contact_node->field_contact_firstname[LANGUAGE_NONE][0]["value"] . " " . $contact_node->field_contact_name[LANGUAGE_NONE][0]["value"];
+        $contact_node = gofast_prepare_node_save_technically($contact_node);
+        $ruid = $contact_node->revision_uid;
+        node_save($contact_node);
+        db_update('node_revision')
+        ->fields(array('uid' => $ruid))
+          ->condition('nid', $contact_node->nid)
+          ->execute();
+    }
 }

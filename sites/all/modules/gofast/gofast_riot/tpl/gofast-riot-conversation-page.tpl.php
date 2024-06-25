@@ -34,11 +34,16 @@
         // Attaching the event listener function to window's resize event
         window.addEventListener("resize", riotIframeHeightSize);
         riotIframeHeightSize();
-        setTimeout(function(){
+        const waitForConversationPageLoadInterval = setInterval(() => {
+            if (!Gofast.Riot || !document.querySelector("#IframeRiot") || !document.querySelector("#IframeRiot").contentWindow.document.querySelector(".mx_MatrixChat")) {
+                return;
+            }
+            clearInterval(waitForConversationPageLoadInterval);
             jQuery("#gofast_over_content").removeClass("col-lg-8");
             jQuery("#gofast_over_content").addClass("col-lg-12");
             Gofast.Riot.initFetchEvent('#IframeRiot');
-        }, 200);
+            Gofast.Riot.showUserMenu("#IframeRiot");
+        }, 100);
     });
 </script>
 

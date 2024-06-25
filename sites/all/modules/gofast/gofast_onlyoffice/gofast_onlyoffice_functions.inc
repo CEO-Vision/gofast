@@ -3,18 +3,27 @@
 module_load_include('inc', 'gofast_onlyoffice', 'gofast_onlyoffice_config');
 module_load_include('inc', 'gofast_onlyoffice', 'gofast_onlyoffice_common');
 
+/**
+ * @deprecated
+ */
 function servConvGetKey() {
   if (defined('ServiceConverterTenantId'))
     return ServiceConverterTenantId;
   return "Gofast3";
 }
 
+/**
+ * @deprecated
+ */
 function servConvGetSKey() {
   if (defined('ServiceConverterKey'))
     return ServiceConverterKey;
   return "ONLYOFFICE";
 }
 
+/**
+ * @deprecated
+ */
 function get_mime_type($file) {
   //List of mime types
   $mime_types = array(
@@ -53,6 +62,9 @@ function get_mime_type($file) {
   return (array_key_exists($extension, $mime_types) ? $mime_types[$extension] : $mime_types["txt"]);
 }
 
+/**
+ * @deprecated
+ */
 function GetExternalFileUri($local_uri) {
     $externalUri = '';
 
@@ -101,8 +113,9 @@ function GetExternalFileUri($local_uri) {
     return $local_uri;
 }
 
-
-
+/**
+ * @deprecated
+ */
 function generateUrlToConverter($document_uri, $from_extension, $to_extension, $title, $document_revision_id, $validateKey, $is_async) {
   $urlToConverterParams = array(
     "url" => $document_uri,
@@ -120,6 +133,9 @@ function generateUrlToConverter($document_uri, $from_extension, $to_extension, $
   return $urlToConverter;
 }
 
+/**
+ * @deprecated
+ */
 function generateUrlToStorage($document_uri, $from_extension, $to_extension, $title, $key, $validateKey) {
 
   return DOC_SERV_STORAGE_URL . "?" . http_build_query(
@@ -234,14 +250,7 @@ function GenerateRevisionId($expected_key) {
 }
 
 /**
- *  Generate validate key for editor by documentId
- *
- * LFJ7 or "http://helpcenter.onlyoffice.com/content/GettingStarted.pdf"
- *
- * @param string $document_revision_id     Key for caching on service, whose used in editor
- * @param bool   $add_host_for_validate    Add host address to the key
- *
- * @return Validation key
+ * @deprecated
  */
 function GenerateValidateKey($document_revision_id, $add_host_for_validate = true) {
   if (empty($document_revision_id))
@@ -271,15 +280,7 @@ function GenerateValidateKey($document_revision_id, $add_host_for_validate = tru
 }
 
 /**
- * Request for conversion to a service
- *
- * @param string $document_uri            Uri for the document to convert
- * @param string $from_extension          Document extension
- * @param string $to_extension            Extension to which to convert
- * @param string $document_revision_id    Key for caching on service
- * @param bool   $is_async                Perform conversions asynchronously
- *
- * @return Xml document request result of conversion
+ * @deprecated
  */
 function SendRequestToConvertService($document_uri, $from_extension, $to_extension, $document_revision_id, $is_async) {
   if (empty($from_extension)) {
@@ -301,7 +302,7 @@ function SendRequestToConvertService($document_uri, $from_extension, $to_extensi
 
   $urlToConverter = generateUrlToConverter($document_uri, $from_extension, $to_extension, $title, $document_revision_id, $validateKey, $is_async);
 
-  $response_xml_data;
+  $response_xml_data = NULL;
   $countTry = 0;
 
   $opts = array('http' => array(
@@ -341,20 +342,7 @@ function SendRequestToConvertService($document_uri, $from_extension, $to_extensi
 }
 
 /**
- * The method is to convert the file to the required format
- *
- * Example:
- * string convertedDocumentUri;
- * GetConvertedUri("http://helpcenter.onlyoffice.com/content/GettingStarted.pdf", ".pdf", ".docx", "http://helpcenter.onlyoffice.com/content/GettingStarted.pdf", false, out convertedDocumentUri);
- * 
- * @param string $document_uri            Uri for the document to convert
- * @param string $from_extension          Document extension
- * @param string $to_extension            Extension to which to convert
- * @param string $document_revision_id    Key for caching on service
- * @param bool   $is_async                Perform conversions asynchronously
- * @param string $converted_document_uri  Uri to the converted document
- *
- * @return The percentage of completion of conversion
+ * @deprecated
  */
 function GetConvertedUri($document_uri, $from_extension, $to_extension, $document_revision_id, $is_async, &$converted_document_uri) {
   $converted_document_uri = "";
@@ -378,12 +366,7 @@ function GetConvertedUri($document_uri, $from_extension, $to_extension, $documen
 }
 
 /**
- * Processing document received from the editing service.
- *
- * @param string $x_document_response   The resulting xml from editing service
- * @param string $response_uri          Uri to the converted document
- *
- * @return The percentage of completion of conversion
+ * @deprecated
  */
 function GetResponseUri($x_document_response, &$response_uri) {
     $response_uri = "";
@@ -428,7 +411,7 @@ function GetResponseUri($x_document_response, &$response_uri) {
     return $resultPercent;
 }
 
-function gofast_onlyoffice_is_edition_disabed($node){
+function gofast_onlyoffice_is_edition_disabled($node){
     $tags = taxonomy_get_term_by_name('NO-COEDITION', 'tags');
     $tid_template = array_keys($tags);
 

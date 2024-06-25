@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>FolderHasFiles</shortname>
+    <description>Get nodes using a specific metadata field from a folder.</description>
+    <url>/get/get_folder_has_files_with_metadata_field?&amp;nodeRef={nodeRef}&amp;propertyName={propertyName}&amp;</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

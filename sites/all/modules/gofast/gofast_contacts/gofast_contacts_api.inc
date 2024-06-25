@@ -37,8 +37,8 @@ function gofast_contacts_get_contact_autocomplete($params){
 
     $options_ac_contact = array(
         'bundle' => array('contact'),
-        'format_key_callback' => 'gofast_contacts_api_autocomplete_format_key',
-        'format_value_callback' => 'gofast_contacts_api_autocomplete_format_value'
+        'format_key_callback' => 'gofast_contact_api_autocomplete_format_key',
+        'format_value_callback' => 'gofast_contact_api_autocomplete_format_value'
     );
 
     $output = gofast_ac_query($str, 'node', $options_ac_contact);
@@ -46,12 +46,13 @@ function gofast_contacts_get_contact_autocomplete($params){
     gofast_api_success($output);
 }
 
-
-function gofast_contacts_api_autocomplete_format_key($entity_type, $entity) {
+// for reusability, format callback should use the bundle name, so "contact" instead of "contacts"
+function gofast_contact_api_autocomplete_format_key($entity_type, $entity) {
     return $entity->nid;
 }
 
-function gofast_contacts_api_autocomplete_format_value($entity_type, $entity) {
+// for reusability, format callback should use the bundle name, so "contact" instead of "contacts"
+function gofast_contact_api_autocomplete_format_value($entity_type, $entity) {
     $name = $entity->field_contact_name[LANGUAGE_NONE][0]['value'];
     $firstname = $entity->field_contact_firstname[LANGUAGE_NONE][0]['value'];
     $displayname = $name." ".$firstname;
@@ -59,6 +60,13 @@ function gofast_contacts_api_autocomplete_format_value($entity_type, $entity) {
     $society = $entity->field_contact_entity[LANGUAGE_NONE][0]['value'];
     $mail = $entity->field_contact_email[LANGUAGE_NONE][0]['value'];
     return array('nid' => $entity->nid, 'name' => $name, 'firstname' => $firstname, 'displayname' => $displayname , 'email' => $mail, 'entity' => $society, 'mobile' => $phone);
+}
+
+function gofast_contact_api_autocomplete_format_jitsi_value($entity_type, $entity) {
+    $name = $entity->field_contact_name[LANGUAGE_NONE][0]['value'];
+    $firstname = $entity->field_contact_firstname[LANGUAGE_NONE][0]['value'];
+    $displayname = $name." ".$firstname;
+    return array('id' => "contact_" . $entity->nid, 'name' => $displayname, 'avatar' => gofast_get_url_picture_by_id(0), 'type' => 'user');
 }
 
 function gofast_contacts_query_first_and_last_name_alter(QueryAlterableInterface $query) {

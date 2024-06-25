@@ -1,0 +1,7 @@
+<webscript>
+    <shortname>Check and repair permissions for the private space folder</shortname>
+    <description>Loop over all private spaces to check if permissions are set, repair permissions if data is inconsistent</description>
+    <url>/checkprivatespacefolder</url>
+    <format default="html"/>
+    <authentication>admin</authentication>
+</webscript>

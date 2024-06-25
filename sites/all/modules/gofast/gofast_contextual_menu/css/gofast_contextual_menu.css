@@ -2,7 +2,17 @@
   padding: 0.7rem 1.3rem !important;
 }
 
-.navi .navi-item .navi-link.disabled {
+.navi .navi-item:not(.disabled) .navi-link.disabled {
   opacity: 0.4 !important;
+  cursor: not-allowed;
+}
+
+/* in order to combine cursor not allowed and pointer events none, pointer events must be wrapped inside cursor */
+.navi .navi-item.disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed;
+}
+
+.navi .navi-item.disabled .navi-link {
   pointer-events: none;
 }

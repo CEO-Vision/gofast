@@ -31,8 +31,6 @@ See https://github.com/adobe-type-tools/cmap-resources
 
     <link rel="stylesheet" href="viewer.css?v=2266"/>
 
-    <script src="compatibility.js?v=2266"></script>
-
     <!-- GOFAST addons : annotator -->
     <script src="/sites/all/modules/jquery_update/replace/jquery/3.1/jquery.js?v=2266"></script>
     <script src="/sites/all/libraries/annotator/annotator-full.min.js?v=2266"></script>
@@ -92,82 +90,86 @@ is_no_print = function () {
       var timer_show_annotations_again_delete_variable = null;
       var prevent_bind_change = true;
 
-      //Viever's language is the same as the one of the platform
-      (function($) {
-        $(function() {
-          var gfLanguage = parent.Drupal.settings.gofast.language;
-          PDFJS.locale = gfLanguage;
-        });
-      })($);
-
       function bind_annotate_iframe() {
-        var waitViewer = setInterval(function(){
+        var bindAnnotateInterval = setInterval(function(){
+          if(typeof $('body').find('#current_user').data('key') === null){
+            return;
+          }
+          // Wait for the content to be fully shown
+          if($("body > .spinner").css("opacity") != 0){
+            return
+          }
+          if(is_no_print()){
+              //Hide print button
+              $(".toolbarButton.print").hide();
+              //prevent right click
+              document.addEventListener('contextmenu', event => event.preventDefault());
+              //Prevent CTRL+P
+              jQuery("body").append('<style type="text/css" media="print">* { display: none; }</style>');
+          }
 
-            if($("#viewer").find("div").length > 0 && typeof $('body').find('#current_user').data('key') !== null){
-                if(is_no_print()){
-                    //Hide print button
-                    $(".toolbarButton.print").hide();
+          //WKrnd GOFAST-4705
+          $(".viewer-wkrnd-placeholder").remove();
+          $("#viewer").find("div > .textLayer > div").after('<div style="display: none;" class="viewer-wkrnd-placeholder"></div>');
+          let iframe = $(window.parent.document).find("#pdf_frame");
+          // GOFAST-7719: if context is inside the iframe, we go through the original parent context
+          if (iframe.length === 0) {
+            iframe = $(window.parent.document).find("#pdf_frame");
+          }
+          // GOFAST-10446: we may also be in a bonita context where #pdf_frame doesn't exist in the parent context and we don't need to load annotations
+          if (iframe.length === 0) {
+            return;
+          }
+          const iframeContents = iframe.contents();
+          const jsonKey = decodeURIComponent(iframeContents.find('#current_user').data('key'));
+          if (jsonKey == "undefined") {
+            return;
+          }
+          current_user = JSON.parse(jsonKey);
+          if(current_user === null){
+              return;
+          }
+          nid = JSON.parse(iframeContents.find('#nid').data('key'));
 
-                    //prevent right click
-                    document.addEventListener('contextmenu', event => event.preventDefault());
-
-                    //Prevent CTRL+P
-                    jQuery("body").append('<style type="text/css" media="print">* { display: none; }</style>');
-                }
-
-                //WKrnd GOFAST-4705
-                $(".viewer-wkrnd-placeholder").remove();
-                $("#viewer").find("div > .textLayer > div").after('<div style="display: none;" class="viewer-wkrnd-placeholder"></div>');
-                var iframe = $('#pdf_frame');
-                // GOFAST-7719: if context is intrinsic, we go through the original GF context
-                if (iframe.length === 0) {
-                  iframe = $(window.parent.document).find("#pdf_frame");
-                }
-                if (iframe.length === 0) {
-                  return;
-                }
-                var iframeContents = iframe.contents();
-                current_user = JSON.parse(decodeURIComponent(iframeContents.find('#current_user').data('key')));
-                if(current_user === null){
-                    return;
-                }
-                nid = JSON.parse(iframeContents.find('#nid').data('key'));
-
-                pdf_frame = $("#viewer");
-                pdf_frame.annotator();
-                pdf_frame.annotator("addPlugin", "Permissions", {
-                  user: current_user.name,
-                  showViewPermissionsCheckbox: false,
-                  language: parent.Drupal.settings.gofast.language,
-                  privateOnly: parent.Drupal.settings.gofast.user.privateComment,
-                });
-                pdf_frame.annotator("addPlugin", "Store", {
-                  // The endpoint of the store on your server.
-                  prefix: "/annotation/endpoints",
-                  // Attach the uri of the current page to all annotations to allow search.
-                  annotationData: {
-                    "uri": "' . $base_url . '/node/' " + nid,
-                    "currentPage": getPDFJsCurrentPage()
-                  },
-                  urls: {
-                    create: "/create_annotation/node/" + nid,
-                    read: "/get_annotations/node/" + nid,
-                    update: "/update_annotation/node/" + nid,
-                    destroy: "/delete_annotation/node/" + nid + "/id/:id",
-                    search: "/search_annotation/node/" + nid
-                  }
-                });
-
-                if(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)){
-                  pdf_frame.annotator("addPlugin", "Touch", {force: true});
-                }
-                // GOFAST-6584
-                var params = getQueryVariables();
-                if ('search' in params && !PDFViewerApplication.findBar.opened) {
-                  searchPDF(params['search']);
-                }
-                clearInterval(waitViewer);
+          pdf_frame = $("#viewer");
+          // Because reloadAnnotations don't work, we destroy annotator before re-instantiating it.
+          if (typeof $("#viewer").annotator().data("annotator") !== "undefined") {
+            $("#viewer").annotator().data("annotator").destroy();
+          }
+          pdf_frame.annotator();
+          pdf_frame.annotator("addPlugin", "Permissions", {
+            user: current_user.name,
+            showViewPermissionsCheckbox: false,
+            language: parent.Drupal.settings.gofast.language,
+            privateOnly: parent.Drupal.settings.gofast.user.privateComment,
+          });
+          pdf_frame.annotator("addPlugin", "Store", {
+            // The endpoint of the store on your server.
+            prefix: "/annotation/endpoints",
+            // Attach the uri of the current page to all annotations to allow search.
+            annotationData: {
+              "uri": "' . $base_url . '/node/' " + nid,
+              "currentPage": getPDFJsCurrentPage()
+            },
+            urls: {
+              create: "/create_annotation/node/" + nid,
+              read: "/get_annotations/node/" + nid,
+              update: "/update_annotation/node/" + nid,
+              destroy: "/delete_annotation/node/" + nid + "/id/:id",
+              search: "/search_annotation/node/" + nid
             }
+          });
+
+          if(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)){
+            pdf_frame.annotator("addPlugin", "Touch", {force: true});
+            document.querySelector("#viewerContainer").style.overflow = "unset";
+          }
+          // GOFAST-6584
+          var params = getQueryVariables();
+          if ('search' in params && !PDFViewerApplication.findBar.opened) {
+            searchPDF(params['search']);
+          }
+          clearInterval(bindAnnotateInterval);
         }, 100);
       };
 
@@ -175,11 +177,6 @@ is_no_print = function () {
         $('.viewchoice').removeClass("active");
         var hilites = $('.annotator-hl');
         hilites.contents().unwrap();
-
-        // Because reloadAnnotations don't work, we destroy annotator and re-instanciate it.
-        if (typeof $("#viewer").annotator().data("annotator") !== "undefined") {
-          $("#viewer").annotator().data("annotator").destroy();//.plugins.Store.loadAnnotations();
-        }
         bind_annotate_iframe();
       };
 
@@ -188,25 +185,39 @@ is_no_print = function () {
       }
 
       const interval = setInterval(function() {
-        if (typeof PDFViewerApplication.eventBus !== "undefined" && PDFViewerApplication.eventBus !== null) {
+        if (typeof PDFViewerApplication !== "undefined" && typeof PDFViewerApplication.eventBus !== "undefined" && PDFViewerApplication.eventBus !== null) {
           PDFViewerApplication.eventBus.on('textlayerrendered', function () {
             $("#outerContainer").css("opacity", "100");
             $(".spinner").css("opacity", "0");
-            clearInterval(interval);
           });
+          if(window.parent.Gofast.isMobile() || window.parent.Gofast.isTablet()){
+            var observer = new MutationObserver(() => {
+              show_again_annotation()
+              let parentContainer = $(window.parent.document).find(".gofast-content__node__essential").parent()
+              if($("#pdf_frame").hasClass("mode-gf-full")){
+                parentContainer.css("z-index", "")
+              } else {
+                parentContainer.css("z-index", 999)
+              }
+            });
+            var target = $(window.parent.document).find("#pdf_frame").get(0)
+            observer.observe(target, {
+              attributes: true,
+              attributeFilter: ["class"]
+            })
+          }
+          let delayCall
+          PDFViewerApplication.eventBus.on("pagechanging",()=>{
+            clearTimeout(delayCall);
+            // Load annotations if we don't change page in 2 seconds
+            delayCall = setTimeout(()=>{
+              show_again_annotation()
+            }, 2000)
+          })
+          show_again_annotation();
+          clearInterval(interval);
         }
       }, 100);
-      window.addEventListener("resized", function(event) {
-        show_again_annotation();
-      });
-      var resize_timeout;
-      window.addEventListener("resize", function(event) {
-        // timeout is to trigger only on last resize event (not on each resize in a row)
-        clearTimeout(resize_timeout);
-        resize_timeout = setTimeout(function(){
-          window.dispatchEvent(new Event('resized'));
-        }, 100);
-      });
     </script>
 
     <style type="text/css">
@@ -218,7 +229,6 @@ is_no_print = function () {
 <!-- This snippet is used in production (included from viewer.html) -->
 <link rel="resource" type="application/l10n" href="locale/locale.properties">
 <script src="../build/pdf.js?v=247"></script>
-<script src="l10n.js"></script>
 
   <script src="debugger.js?v=247"></script>
   <script src="viewer.js?v=2276"></script>
@@ -285,6 +295,13 @@ is_no_print = function () {
 
   #outerContainer {
     transition: opacity .5s; }
+
+  .findbar {
+    top: 0px !important;
+  }
+  .findbar > * {
+    clear: none !important;
+  }
 </style>
 
   </head>
@@ -652,45 +669,45 @@ is_no_print = function () {
 
     </div> <!-- outerContainer -->
     <div id="printContainer"></div>
-    <div id="annotateTemplateDone" class="annotator-touch-widget annotator-touch-controls" style="visibility: hidden;">
-    <a class="annotator-button" onclick="return screenModeClick('hide', event)"> I'm Done </a>
-</div>
+    <div id="annotateTemplateDone" class="annotator-touch-widget annotator-touch-controls" style="display: none;">
+      <a class="annotator-button" onclick="return screenModeClick('hide', event)"> I'm Done </a>
+    </div>
 </body>
 
 <script>
-function screenModeClick(mode, e){
-e.preventDefault();
-e.stopPropagation();
-e.stopImmediatePropagation();
+  function screenModeClick(mode, e){
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
 
-window.parent.window.scrollTo(0, 0);
-$(window.parent.document).find("#pdf_frame").toggleClass("mode-gf-full");
-if(mode == "hide"){
-$("#annotateTemplateDone").hide();
-$("#gfPresentationMode").show();
-}else if(mode == "show") {
-$("#annotateTemplateDone").show();
-$("#gfPresentationMode").hide();
-}
+  window.parent.window.scrollTo(0, 0);
+  $(window.parent.document).find("#pdf_frame").toggleClass("mode-gf-full");
+  if(mode == "hide"){
+    $("#annotateTemplateDone").hide();
+    $("#gfPresentationMode").show();
+  }else if(mode == "show") {
+    $("#annotateTemplateDone").show();
+    $("#gfPresentationMode").hide();
+  }
 
-if ($(window.parent.document).find("#pdf_frame").hasClass("mode-gf-full")) {
-$("#gfPresentationMode").addClass("mode-full-active");
-$("#gfPresentationMode").css("background", "#373737");
-$("#gfPresentationMode").css("color", "#ffffff");
-} else {
-$("#gfPresentationMode").removeClass("mode-full-active");
-$("#gfPresentationMode").css("background", "inherit");
-$("#gfPresentationMode").css("color", "#000000");
-}
-setTimeout(show_again_annotation, 10);
+  if ($(window.parent.document).find("#pdf_frame").hasClass("mode-gf-full")) {
+    $("#gfPresentationMode").addClass("mode-full-active");
+    $("#gfPresentationMode").css("background", "#373737");
+    $("#gfPresentationMode").css("color", "#ffffff");
+  } else {
+    $("#gfPresentationMode").removeClass("mode-full-active");
+    $("#gfPresentationMode").css("background", "inherit");
+    $("#gfPresentationMode").css("color", "#000000");
+  }
+  setTimeout(show_again_annotation, 10);
 };
 
 $("#zoomOut").mouseup(function (e) {
- setTimeout(show_again_annotation, 10);
+  setTimeout(show_again_annotation, 10);
 });
 
 $("#zoomIn").mouseup(function (e) {
-setTimeout(show_again_annotation, 10);
+  setTimeout(show_again_annotation, 10);
 });
 </script>
 

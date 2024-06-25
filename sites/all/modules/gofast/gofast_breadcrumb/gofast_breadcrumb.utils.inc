@@ -11,6 +11,7 @@ function gofast_breadcrumb_options($options){
   }
 
   $options = $options + $get_options + [
+    "alt_theme" => FALSE, //Set to a string named after the target theme to use another theme than "gofast_global_breadcrumb"
     "show_title" => TRUE, //Should we show the node title at the end or not
     "show_tooltip" => FALSE, //Should we show the tooltip or not
     "from_tooltip" => FALSE, //Is the breadcrumb displayed inside a tooltip or not
@@ -106,7 +107,7 @@ function gofast_breadcrumb_generate_crumbs_from_location($parts, $options = []){
   if($folder){
     // Check mirroring
       $reference = gofast_cmis_item_get_by_path("/Sites/" . implode('/', $parts))->properties['alfcmis:nodeRef'];
-      $folder_parents = gofast_cmis_webservice_get_node_parents($reference);
+      $folder_parents = (array) gofast_cmis_webservice_get_node_parents($reference);
 
       $nb_parents = count($folder_parents);
       if($nb_parents > 1){
@@ -127,9 +128,6 @@ function gofast_breadcrumb_generate_crumbs_from_location($parts, $options = []){
     }
 
   $href = "/node/".$gid;
-  if(gofast_mobile_is_mobile_domain()) {
-    $href = "/home_page_navigation?&path=" . rawurlencode($full_path)."#navBrowser";
-  }
 
   $space = node_load($gid);
 
@@ -164,23 +162,37 @@ function gofast_breadcrumb_generate_crumbs_from_location($parts, $options = []){
  * The title can be editable or not, depending on the options
 */
 function gofast_breadcrumb_insert_title($crumbs, $node, $options = []){
+  
+  // If the node is a private space, don't take the title in the db because it can't be translated
+  $name = "";
+  $is_private_space = false;
+  if($node->type == "private_space") {
+    $is_private_space = true;
+    $name = t("Personal space", array(), array("context" => "gofast:gofast_breadcrumb"));
+  } else {
+    $name = "<b>$node->title</b>";
+  }
   foreach($crumbs as &$crumb){ //Parse all crumbs
-    if($options['editable']){ //Need ability to edit the title
+    $title = is_string($options["editable"]) ? $options["editable"] : "";
+    if($options['editable'] && !$is_private_space){ //Need ability to edit the title
       $crumb[] = [
-        'name' => "<b>$node->title</b>",
+        'name' => "<b>$name</b>",
         'text' => TRUE,
+        'title' => $title,
       ];
     }else{ //Put the title at the end
       if($options['title_link']){
         $crumb[] = [
           'icon' => gofast_node_get_icon($node),
-          'name' => $node->title,
+          'name' => $name,
           'gid' => $node->nid,
+          'title' => $title,
         ];
       }else{
         $crumb[] = [
-          'name' => $node->title,
+          'name' => $name,
           'text' => TRUE,
+          'title' => $title,
         ];
       }
     }
@@ -193,6 +205,9 @@ function gofast_breadcrumb_insert_title($crumbs, $node, $options = []){
  * Remove all parts, except the title
 */
 function gofast_breadcrumb_only_title($crumbs, $node, $options = []){
+  $title = is_string($options["editable"]) ? $options["editable"] : "";
+  $crumbs[0]["title"] = $title;
+
   $only_title_crumb[][] = end($crumbs[0]);
   return $only_title_crumb;
 }

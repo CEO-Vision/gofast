@@ -21,6 +21,10 @@ function gofast_riot_schema() {
         'type' => 'text',
         'not null' => TRUE,
       ),
+      'device_riot' => array(
+        'description' => 'Reference to the device',
+        'type' => 'text',
+      ),
       'uid' => array(
         'description' => 'References the user ID target {user}',
         'type' => 'text',
@@ -194,4 +198,15 @@ function gofast_riot_install(){
             }
         }
     }
+}
+
+function gofast_riot_update_7000() {
+    if (db_field_exists("gofast_riot_token", "device_riot")) {
+        return;
+    }
+    $device_riot_field = array(
+        'description' => 'Reference to the device',
+        'type' => 'text',
+      );
+    db_add_field("gofast_riot_token", "device_riot", $device_riot_field);
 }

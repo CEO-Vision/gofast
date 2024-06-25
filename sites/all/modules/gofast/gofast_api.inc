@@ -100,13 +100,26 @@ function gofast_api($ressource = null, $action = null){
     $LdapServer = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
     $LdapServer->connectAndBindIfNotAlready();
     
-    if($LdapServer->bind(gofast_ldap_user_dn($user_check), $password, FALSE) == LDAP_SUCCESS){ //Authentify against drupal
+    if($LdapServer->bind(gofast_ldap_user_dn($user_check), $password, FALSE) == LDAP_SUCCESS && $user_check->status == 1){ //Authentify against drupal
       //Authentication successfull
       gofast_cmis_retrieve_and_store_ticket($user);
       $LdapServer->disconnect();
       $LdapServer->connectAndBindIfNotAlready();
+      
+      //Register successful authrntication
+      flood_register_event('failed_login_attempt_ip');
+      flood_clear_event('failed_login_attempt_user', $params['auth']['localpart']);
+      _login_security_remove_events($login);
     }else{ //Authentication failed
       usurp(FALSE);
+      
+      //Register failed authentication
+      flood_register_event('failed_login_attempt_ip', variable_get('user_failed_login_ip_window', 3600));
+      flood_register_event('failed_login_attempt_user', variable_get('user_failed_login_user_window', 21600), $login);
+      _login_security_add_event($login, ip_address());
+      $track = [ 'values' => [ 'name' => $login ] ];
+      login_security_validate(null, $track);
+      
       $output = gofast_api_forbidden("Bad authentication method provided");
       gofast_api_output($output);
     }

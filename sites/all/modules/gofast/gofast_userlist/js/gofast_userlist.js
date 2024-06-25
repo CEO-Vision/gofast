@@ -2,7 +2,66 @@
   "use strict";
 
   Gofast.userlist = Gofast.userlist || {};
+  Gofast.userlist.refreshKeenDatatable = function () {
+    if (typeof window.datatable !== "undefined") {
+      window.datatable.reload();
+    }
+  };
 
+  Gofast.userlist.acceptMember = function (uid, id){
+    let url = window.origin + "/userlist/accept_member/" + uid;
+    $.ajax({
+      url: url,
+      'type': "POST",
+      'dataType': "json",
+      'data': {nid: id, uid : uid},
+      'success': function (response) {
+        if(response.success === true){
+          Gofast.toast(Drupal.t("Member accepted", {}, {'context' : 'gofast:gofast_userlist'}), "success");
+          //refresh keen datatable to update the list
+          Gofast.userlist.refreshKeenDatatable();
+        }
+        else{
+          Gofast.userlist.refreshKeenDatatable();
+          Gofast.toast(response.message, "error");
+        }
+      },
+      });
+    }
+
+    Gofast.userlist.removeMember = function (uid, id){
+      let url = window.origin + "/userlist/remove_member/" + uid;
+      $.ajax({
+        url: url,
+        'type': "POST",
+        'dataType': "json",
+        'data': {nid: id, uid : uid},
+        'success': function (response) {
+          if(response.success === true){
+            Gofast.toast(response.message, "success");
+            //refresh keen datatable to update the list
+            Gofast.userlist.refreshKeenDatatable();
+          }
+          else{
+            Gofast.userlist.refreshKeenDatatable();
+            Gofast.toast(response.message, "error");
+          }
+        },
+        });
+    }
+    
+    Gofast.userlist.handleAcceptRefuseButton = function(button, uid, datasetId, action) {
+      var spinner = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+      button.innerHTML = spinner;
+      button.disabled = true;
+  
+      // Perform the desired action (accept or refuse member)
+      if (action === 'accept') {
+          Gofast.userlist.acceptMember(uid, datasetId);
+      } else if (action === 'refuse') {
+          Gofast.userlist.removeMember(uid, datasetId);
+      }
+    }
   Gofast.userlist.showPopup = function (elt) {
     Gofast.userlist.overPopup = true;
 

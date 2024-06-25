@@ -1032,7 +1032,7 @@ class LdapUserConf {
    *
    */
 
-  public function provisionDrupalAccount($account = FALSE, &$user_edit, $ldap_user = NULL, $save = TRUE) {
+  public function provisionDrupalAccount($account = NULL, &$user_edit = [], $ldap_user = NULL, $save = TRUE) {
 
     $watchdog_tokens = array();
     /**

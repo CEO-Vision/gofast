@@ -1,0 +1,8 @@
+<?php
+
+/**
+ * @file
+ * Code for the GoFAST Features Mail feature.
+ */
+
+include_once 'gofast_features_mail.features.inc';

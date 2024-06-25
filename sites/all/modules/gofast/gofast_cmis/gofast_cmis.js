@@ -3,6 +3,7 @@
 
   Drupal.gofast_cmis = Drupal.gofast_cmis || {};
 
+    
   $(document).ready(function () {
 
     $(document).on('change', '#gofast-cmis-alfresco-file-form #edit-reference', function(e) {
@@ -17,7 +18,7 @@
 
     $(document).on('click', '.alfresco_download_edit_url', function (e) {
       e.preventDefault();
-      var link = $(this);
+      var link = $(this).attr("href").trim();
       $.ajax({
         'url': '/gofast/document/onlineedit',
         'type': 'POST',
@@ -37,10 +38,10 @@
         if (result.isEditable != 1) {
           Gofast.toast(Drupal.t('This document is being opened by OnlyOffice', {}, {'context' : 'gofast:gofast_cmis'}), 'warning');
         } else {
-            var href = $.trim(link.attr("href"));
+            var href = link;
             var extension = href.substring(href.lastIndexOf('.')+1, href.length) || href;
             var documents_settings = Gofast._settings.gofast_cmis.documents_form_defaults;
-           if(documents_settings.ticket && href.length < documents_settings.ticket_path_length){
+            if(documents_settings.ticket && href.length < documents_settings.ticket_path_length){
                 href = href.replace("alfresco/webdav", Drupal.settings.ticket + "/alfresco/webdav");
             }
 
@@ -194,7 +195,7 @@
     function uploadFile(file) {
       //Escape unwanted char in the title
       var filename = file.name;
-      filename = encodeURIComponent(filename).replace("'", "%27").replace("!", "%21").replace("(", "%28").replace(")", "%29");
+      filename = encodeURIComponent(filename).replaceAll("'", "%27").replaceAll("!", "%21").replaceAll("(", "%28").replaceAll(")", "%29");
       
       var upload = new tus.Upload(file, {
         endpoint: "/gofast/dragdrop/upload",
@@ -517,17 +518,38 @@
 //    }
 //  };
 
+Drupal.behaviors.checkDocumentRetrievability = {
+  attach: function(context) {
+    if (!$('#container_preview_element').length || $('#container_preview_element').hasClass("processed")) {
+      return;
+    }
+    $('#container_preview_element').addClass("processed");
+    let embedUrl = $('#container_preview_element').children().attr('src');
+    $.ajax({
+      'type': 'GET',
+      'url': embedUrl,
+      'data': {},
+      responseOperations: function () {
+        let baseUrl = window.location.protocol + "//" + window.location.host;
+        $('#container_preview_element').children().remove();
+        $('#container_preview_element').css("background", "unset");
+        $('#container_preview_element').append('<h2><center>' + Drupal.t("No preview available for this file extension", {}, {context: 'gofast:document_preview'}) + '</center></h2>');
+        $('#container_preview_element').append('<h3><center>' + Drupal.t("You can download the file from the contextual menu on the top right corner of this pop-up.", {}, {context: 'gofast:document_preview'}) + '</center></h3>');
+        $('#container_preview_element').append('<center><img src="' + baseUrl + '/sites/default/files/contextual_menu_icon.png" style="width: 40px;"/></center>');
+      }, 'success': function(data){
+        if(data === "" || data === null ){
+          this.responseOperations();
+        }
+      },
+      'error': function(){
+        this.responseOperations();
+      }
+    });
+  }
+};
+
 Drupal.behaviors.loadTemplate = {
   attach: function (context) {
-
-    //Fold node templates
-    function foldZtreeNodes(ztree){
-       var nodes = ztree.getNodesByParam("name", "TEMPLATES");
-       nodes.forEach(function(node){
-         ztree.expandNode(node, false, true);
-       });
-    }
-
     //Fold node folder templates
     function foldZtreeFolderNodes(ztree){
        var nodes = ztree.getNodesByParam("name", "FOLDERS TEMPLATES")[0].children;
@@ -548,7 +570,9 @@ Drupal.behaviors.loadTemplate = {
       .done(function( ztree ) {
         templates_params.replaceWith(ztree);
         $('#ztree_component_content_templates').append('<div class="spinner"></div>');
-        Drupal.behaviors.gofast_ztree.attach();
+        if (typeof Drupal.behaviors.gofast_ztree != "undefined") {
+          Drupal.behaviors.gofast_ztree.attach();
+        }
 
         //close all "TEMPLATE" ztree nodes
         var ztree = $.fn.zTree.getZTreeObj("ztree_component_content_templates");
@@ -584,7 +608,9 @@ Drupal.behaviors.loadTemplate = {
       $.post( "/ztree/templates/async", { arr_values_combine: arr_values_combine, ztree_options: ztree_options, paths_options: paths_options })
       .done(function( ztree ) {
         templates_folder_params.replaceWith(ztree);
-        Drupal.behaviors.gofast_ztree.attach();
+        if (typeof Drupal.behaviors.gofast_ztree != "undefined") {
+          Drupal.behaviors.gofast_ztree.attach();
+        }
 
         //close all "FOLDER TEMPLATES" ztree nodes
         var ztree = $.fn.zTree.getZTreeObj("ztree_component_content_templates_folders");
@@ -681,7 +707,7 @@ Drupal.behaviors.loadTemplate = {
     if (navigator.userAgent.indexOf("X11")!=-1) extension="deb";
     if (navigator.userAgent.indexOf("Linux")!=-1) extension="deb";
     var title = Drupal.t("Open a non Office document", {}, {context : 'gofast'});
-    var html = "<span style='display:inline-block;padding-top:10px;'>" + '<strong>' + Drupal.t("Step 1: Please download and install this software to open this document from your PC.", {}, {context: 'gofast'}) + '</strong>' + '</span><br><a class="mt-2 btn btn-info no-footer" onClick="window.open(\'' + location.origin + "/sites/all/libraries/ajax_file_browser/Plugins/ITHitEditDocumentOpener."+extension+"'" + ', \'_blank\')"><i class="fa fa-download" aria-hidden="true"></i> ITHitEditDocumentOpener.'+extension+'</button></a>';
+    var html = "<span style='display:inline-block;padding-top:10px;'>" + '<strong>' + Drupal.t("Step 1: Please download and install this software to open this document from your PC.", {}, {context: 'gofast'}) + '</strong>' + '</span><br><a class="mt-2 btn btn-info no-footer" onClick="window.open(\'' + location.origin + "/sites/all/libraries/ajax_file_browser/Plugins/ITHitEditDocumentOpener."+extension+"'" + ', \'_blank\')"><i class="fa fa-download" aria-hidden="true"></i> ITHitEditDocumentOpener.'+extension+'</button></a><br>';
     html += "<span style='display:inline-block;padding-top:10px;'>";
     html += '<strong>' + Drupal.t('Step 2: Install the extension in your browser:',{}, {context: 'gofast-ithit-help'}) + '</strong>';
     html += "<ul style='list-style-type: none;'>";

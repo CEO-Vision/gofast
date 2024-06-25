@@ -2,7 +2,7 @@
   'use strict';
 
   Gofast.blurDropdown = function() {
-    $(".dropdown-menu").hide();
+    Gofast.hideOthersDropdown();
     $(document).off("click", Gofast.blurDropdown);
   }
 
@@ -11,35 +11,37 @@
     e.stopImmediatePropagation();
     e.stopPropagation();
 
-    const dropdown = e.relatedTarget;
+    const dropdown = e.currentTarget;
     const $dropdownMenus = $(dropdown).parent().find(".dropdown-menu");
-
-    // for the menu element to actually have a size
-    $dropdownMenus[0].style.display = "initial";
-
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent); // true if mobile, false if desktop
+    const isLandscape = window.matchMedia("(orientation: landscape)").matches; // true if landscape, false if portrait
+    // add show class to the first dropdown menu
+    $($dropdownMenus[0]).addClass("show");
+    
     let { x: dropdownX, y: dropdownY } = dropdown.getBoundingClientRect();
     let dropdownWidth = $dropdownMenus[0].clientWidth;
     let dropdownHeight = $dropdownMenus[0].clientHeight;
 
-    $(".dropdown-menu").hide();
+    Gofast.hideOthersDropdown();
 
     const mustBePositionedLeft = (dropdownX > (3/5 * window.innerWidth));
 
     // defaults to middle position
     let verticalPosition = Math.floor(dropdownY - (dropdownHeight / 2));
-    // if overflows top or is about to overflow top, put it 10px below window top
-    if (verticalPosition <= 10) {
-      verticalPosition = 10;
+    // if overflows top or is about to overflow top, put it 65px below window top
+    if (verticalPosition <= 65) {
+      verticalPosition = 65;
     }
-    // if overflows bottom or is about to overflow bottom, put it 10px above window bottom
-    if ((dropdownY + dropdownHeight) >= (window.innerHeight - 10)) {
-      verticalPosition = (window.innerHeight - dropdownHeight - 10);
+    // if overflows bottom or is about to overflow bottom, put it 65px above window bottom
+    if ((dropdownY + dropdownHeight) >= (window.innerHeight - 65)) {
+      verticalPosition = (window.innerHeight - dropdownHeight - 65);
     }
 
     const originalBottomPosition = window.innerHeight - (verticalPosition + dropdownHeight);
 
     for (let i = 0; i < $dropdownMenus.length; i++) {
-      $dropdownMenus[i].style.display = "initial";
+      // Add show class to the dropdown menu
+      $($dropdownMenus[0]).addClass("show");
       // we admit there are no sub-submenus and sub-menus links are stacked in top of each other, so horizontalFactor is at level 0 or 1 while verticalFactor is incremental
       const horizontalFactor = i > 0 ? 1 : 0;
       const verticalFactor = $dropdownMenus.length - i - 1;
@@ -50,8 +52,22 @@
         verticalPositionString = "bottom:" + (originalBottomPosition + subpanelYOffset) + "px !important;";
         subpanelXOffset += mustBePositionedLeft ? 5 : -5; // slight overlap to avoid a gap triggering a mouseleave event
       }
-      $($dropdownMenus[i]).css("cssText",
-      (i === 0 ? "display: block; " : "") + "position: fixed; height: max-content; " + verticalPositionString + " left: " + Math.floor(dropdownX + subpanelXOffset) + "px;");
+      let horizontalPosition= Math.floor(dropdownX + subpanelXOffset);
+      if (i == 0 && isMobile == true && !isLandscape ) {// if it's the first dropdown menu and it's mobile, we need to adjust the position
+        subpanelXOffset =  15;
+        horizontalPosition = subpanelXOffset;
+      }
+      //When is mobile and landscape, we need to adjust the position
+      if(isLandscape && isMobile == true) {
+        let maxHeight = window.innerHeight + (verticalPosition * 2); // we need to set the max-height to the window height on landscape mode
+        let verticalPositionString = "top:" + 200 + "px !important;";
+        $($dropdownMenus[i]).css("cssText",
+        "position: fixed; max-height:" + maxHeight + "px; overflow-y:auto; " + verticalPositionString + " left: " + horizontalPosition + "px !important;");
+      }else{
+        //Other case 
+        $($dropdownMenus[i]).css("cssText",
+      "position: fixed; height: max-content; " + verticalPositionString + " left: " + horizontalPosition + "px !important;");
+      }      
     }
     $(document).on("click", Gofast.blurDropdown);
   }
@@ -59,39 +75,36 @@
   Drupal.behaviors.gofastReloadMenu = {
     attach: function(context, settings){
       //Polling
-      if($("#activity-feed-container").length || $(".apachesolr_search-results").length || $("#gofastDirectorySpacesTable").length){
+      if($("#activity-feed-container").length || $(".apachesolr_search-results").length || $("#gofastDirectorySpacesTable").length || $("#activityFeedLayer").length){
         //Load menu asyncly
-        $(".dropdown-placeholder").not(".dropdown-processed").addClass("dropdown-processed").click(function(){
-          if(! $(this).hasClass("dropdown-processing")){
-            var nid = this.id.substring(21);
-            if($(this).parents('#gofast-node-actions-microblogging').length > 0){
-              var microblogging = true;
-            }
-            var div = $(this).parent();
-            var container = div.parent();
+        $(".dropdown-placeholder:not('.dropdown-processed')").addClass("dropdown-processed").on("click", function(e){
+          Gofast.hideOthersDropdown();
+          let dropdown_menu = $(this).find("> .dropdown-menu")
+          // Prevent clicking on dropdown item triggering again
+          if(e.target == dropdown_menu.get(0) || dropdown_menu.find($(e.target)).length) {
+            return;
+          }
+          var nid = this.id.substring(21);
+          if($(this).parents('#gofast-node-actions-microblogging').length > 0){
+            var microblogging = true;
+          }
 
-            //Animation
-            $(this).addClass("dropdown-processing");
-
-            $("#dropdownactive-placeholder-" + nid).show();
-            if(microblogging === true){
-              $.post(location.origin+"/activity/ajax/microblogging/menu/"+nid,).done(function(data){
-                const newDropdown = $(div.replaceWithPush(data)).closest(".dropdown");
-                newDropdown.off("click");
-                newDropdown.on("show.bs.dropdown", Gofast.fixDropdownPosition);
-                Drupal.attachBehaviors();
-                container.find(".gofast-node-actions > a").click();
-              });
-            } else {
-              //Load menu
-              $.post(location.origin+"/activity/ajax/menu/"+nid, {isFromActivityFeed: true}).done(function(data){
-                const newDropdown = $(div.replaceWithPush(data)).closest(".dropdown");
-                newDropdown.off("click");
-                newDropdown.on("show.bs.dropdown", Gofast.fixDropdownPosition);;
-                Drupal.attachBehaviors();
-                container.find(".gofast-node-actions > a").click();
-              });
-            }
+          dropdown_menu.html('<div class="loader-activity-menu-active"></div>').attr("style", "").show();
+          if(microblogging === true){
+            $.post(location.origin+"/activity/ajax/microblogging/menu/"+nid,).done((data) => {
+              dropdown_menu.remove()
+              $(this).after($(data).find("> .dropdown-menu"));
+              Gofast.fixDropdownPosition(e)
+              Drupal.attachBehaviors();
+            });
+          } else {
+            //Load menu
+            $.post(location.origin+"/activity/ajax/menu/"+nid, {isFromActivityFeed: true}).done((data) => {
+              dropdown_menu.remove()
+              $(this).after($(data).find("> .dropdown-menu"));
+              Gofast.fixDropdownPosition(e)
+              Drupal.attachBehaviors();
+            });
           }
         });
 
@@ -102,9 +115,13 @@
           Gofast.ActivityPolling = true;
           activityPolling();
         }   
-        if(!$("#activity-feed-container").hasClass("processed") && $("#activity-feed-container").length){
+        if($("#activity-feed-container").length && !$("#activity-feed-container").hasClass("processed") ){
           getPagination();
           $("#activity-feed-container").addClass("processed");
+        }
+        if($("#activityFeedLayer").length && !$("#activityFeedLayer").hasClass("processed")){
+          getPagination();
+          $("#activityFeedLayer").addClass("processed")
         }
         $("#block-gofast-views-activity-stream-filters").not("processed").on("filters_updated", function(e){
           loadPage("filter");
@@ -135,14 +152,16 @@
     }
   };
 
-  function loadPage(e, fromPoll = false){  
+  function loadPage(e, fromPoll = false){
     if (!fromPoll) {
       //Remove all <tr> elements from the table except the table header
-      $("#activity-feed-container").find("tr").not(":first").remove();
+      if(Gofast._settings.isEssential){
+        $("#activityFeedLayer").find("tr").not(":first").remove();
+      } else {
+        $("#activity-feed-container").find("tr").not(":first").remove();
+      }
 
-      // Insert spinner after #activity-feed 
-    // Insert spinner after #activity-feed 
-      // Insert spinner after #activity-feed 
+      // Insert spinner after #activity-feed
       $(".GofastActivityFeed__table").after('<div class="GofastActivityFeed__loader"><div class="spinner spinner-track spinner-primary d-inline-flex gofast-spinner-xxl"></div></div>');
     }
 
@@ -212,12 +231,14 @@
         types = JSON.stringify(type_filters);
       }
     }
-    if(Gofast._settings.isMobile == false || typeof Gofast._settings.isMobile == 'undefined'){
+    if(Gofast._settings.isEssential == false || typeof Gofast._settings.isEssential == 'undefined'){
       var mobile = 0;
     }else{
       var mobile = 1;
     }
     $('.gofast__popover').popover('dispose');
+    var activity_feed_scroll_position = $('#activity-feed > .GofastActivityFeed__table').scrollTop();
+    $(".GofastActivityFeed__loader").addClass("is-ajax-calling");
     //Push the ajax request
     $.ajax({
       url : Drupal.settings.gofast.baseUrl+'/activity/page',
@@ -235,10 +256,12 @@
         'mobile' : mobile
       },
       success : function(content, status){
+        $("#activity-feed-page").remove();
         $("#activity-feed").replaceWith(content);
         $(".GofastActivityFeed__loader").remove();
-        getPagination(spaces, states, types /*, users*/);
+        getPagination(spaces, states, types, actors);
         $('.gofast__popover').popover();
+        $('#activity-feed > .GofastActivityFeed__table').scrollTop(activity_feed_scroll_position);
         Drupal.attachBehaviors();
 
         //remove tooltip
@@ -247,6 +270,7 @@
         });
       },
       fail : function(){
+        $(".GofastActivityFeed__loader").removeClass("is-ajax-calling");
         console.log('Activity feed AJAX error');
       }
     });
@@ -258,11 +282,14 @@
   }
 
   Gofast.reload_activity_feed = function() {
+    if ($(".GofastActivityFeed__loader.is-ajax-calling").length) {
+      return;
+    }
     loadPage("filter");
     console.log('############# Reload Activity');
   }
 
-  function getPagination(spaces, states, types/*, users*/){
+  function getPagination(spaces, states, types, actors){
     //Retrieve the current page
     var param = Gofast.getAllUrlParams(document.location.href).page;
     var currentPage = 1;
@@ -282,10 +309,12 @@
         'spaces' : spaces,
         'states' : states,
         'page' : currentPage,
-        //'users' : users,
-        'types' : types
+        'actors' : actors,
+        'types' : types,
+        'essential': true
       },
       success : function(content, status){
+        
         var count = content;
         var paginate = Drupal.settings.activity_feed.items_per_page;
         var pages = Math.ceil(count/paginate);
@@ -349,9 +378,9 @@
 	return;
     }
 
-    if($("#activity-feed-container").length){
+    if($("#activity-feed-container").length || $('#activityFeedLayer:visible').length){
         if(document.hidden == false){
-              if(Gofast._settings.isMobile == false || typeof Gofast._settings.isMobile == 'undefined'){
+              if(Gofast._settings.isEssential == false || typeof Gofast._settings.isEssential == 'undefined'){
                 var mobile = 0;
               }else{
                 var mobile = 1;
@@ -376,11 +405,4 @@
         }
     }
   }
-
-  $(document).ready(function(){
-    if($('.breadcrumb-gofast').size() > 1){
-      $('.breadcrumb-gofast').first().remove();
-    }
-  });
-
 })(jQuery, Gofast, Drupal);

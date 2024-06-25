@@ -37,19 +37,19 @@ function gofast_retention_poll($poll_name, $poll_info, $context) {
       if ($node->type === 'alfresco_item') {
 
         if($node->field_retention_end[LANGUAGE_NONE][0]['value'] != $old_retention_date ){
-          if (!gofast_mobile_is_mobile_domain()) {
+          if (!gofast_essential_is_essential()) {
             $node_contextual_actions = gofast_get_contextual_actions_node($node);
             $contextual_actions = '';
             $contextual_actions .= theme('contextual_links', array('btn_group_id' => 'breadcrumb-alt-actions', 'buttons' => $node_contextual_actions));
           }
 
           if( $node->field_retention_end[LANGUAGE_NONE][0]['value'] === NULL){
-            if (!gofast_mobile_is_mobile_domain()) {
+            if (!gofast_essential_is_essential()) {
               $commands[] = ajax_command_invoke('#breadcrumb-alt-actions', 'replaceWith', array($contextual_actions));
               $commands[] = ajax_command_invoke('.drop-area', 'css', array('display', ''));
             }
           }else{
-            if (!gofast_mobile_is_mobile_domain()) {
+            if (!gofast_essential_is_essential()) {
               $commands[] = ajax_command_invoke('#breadcrumb-alt-actions', 'replaceWith', array($contextual_actions) );
               $commands[] = ajax_command_invoke('.drop-area', 'css', array('display', 'none'));
             }

@@ -49,27 +49,8 @@ function gofast_search_autocomplete_settings() {
       'weight' => 2,
       'data' => array(
         'wt' => 'json',
-//        'rows' => 0, //used only with suggester component
       )
     ) + $headers_param,
-//    'parallel' => array(
-//      'requests' => array(
-//        'node' => array(
-//          'type' => 'GET',
-//          'dataType' => 'json',
-//          'url' => 'gofast-search/node-autocomplete',
-//          'callback' => 'Gofast.search.altAC',
-//          'weight' => 0,
-//        ),
-//        'user' => array(
-//          'type' => 'GET',
-//          'dataType' => 'json',
-//          'url' => 'gofast-search/user-autocomplete',
-//          'callback' => 'Gofast.search.altAC',
-//          'weight' => 1,
-//        )
-//      )
-//    )
   );
 }
 
@@ -302,13 +283,15 @@ function gofast_search_autocomplete_query_alter(DrupalSolrQueryInterface $query)
   global $user;
   $account = user_load($user->uid);
 
-  $query->replaceParam('qf', ['suggest_label^1.0']);
+  //Boost when it's exact match
+  $query->replaceParam('qf', ['suggest_label^1.0','tws_label^10.0']);
   
   $query->replaceParam('fl', [
     'id',
     'bundle',     
     'entity_id',
     'entity_type',
+    'tws_label',
     'suggest_label',
     'im_field_format'
   ]);
@@ -335,7 +318,7 @@ function gofast_search_autocomplete_query_alter(DrupalSolrQueryInterface $query)
   // Search options 
   gofast_search_query_alter_from_options($query);
   
-  // Boost functions. 
+  // Boost functions: since there are no other boost functions to balance these we can't push them too far
   $query->replaceParam('bf', [
     'sqrt(ps_popularity)^20.0',
     'recip(ms(NOW,ds_changed),3.16e-11,1,1)^100.0'
@@ -364,7 +347,7 @@ function gofast_search_solr_autocomplete($arg = NULL){
   // We also remove any remaining leading {! since that causes a parse
   // error in Solr.
   $params['q'] = preg_replace('/^(?:{![^}]*}\s*)*(?:{!\s*)*/',' ', $params['q']);
-    
+
   $name = 'apachesolr';
   $solrsort = '';
   $base_path = '';
@@ -385,12 +368,6 @@ function gofast_search_solr_autocomplete($arg = NULL){
 
     // Let modules modify the query object for access filtering. 
     drupal_alter('apachesolr_query', $query);
-
-    $queryInfos = array(
-      'searcher' => $query->getSearcher(),
-      'queryParams' => $query->getParams(),
-      'queryFilters' => $query->getFilters()
-    );
 
     $keys = $query->getParam('q');
 
@@ -420,14 +397,29 @@ function gofast_search_solr_autocomplete($arg = NULL){
   $output = [];
 
   foreach ($docs as $doc) {
-    if (empty($response->highlighting->{$doc->id}->suggest_label[0]))
-      continue; // @TODO other hl.fl (taxo)
-    
-    $hl = $response->highlighting->{$doc->id}->suggest_label[0];
-    $hl = gofast_search_autocomplete_fix_highlight($hl, $keys);
+    $hl = $doc->tus_label;
+    $q = $_REQUEST['suggest_q'];
     $hl = htmlspecialchars_decode($hl, ENT_NOQUOTES); // 1st pass &amp;  => &
     $hl = htmlspecialchars_decode($hl, ENT_QUOTES);   // 2nd pass &#039; => '
-    
+    // Create a character map for accent-insensitive matching
+    $character_map = [
+      'a' => '[aáàâä]',
+      'e' => '[eéèêë]',
+      'i' => '[iíìîï]',
+      'o' => '[oóòôö]',
+      'u' => '[uúùûü]',
+      'c' => '[cç]',
+    ];
+    // Create a regex pattern for the search query
+    $q_pattern = '';
+    for ($i = 0; $i < strlen($q); $i++) {
+      $char = strtolower($q[$i]);
+      $q_pattern .= isset($character_map[$char]) ? $character_map[$char] : preg_quote($q[$i], '/');
+    }
+    // Highlighting (case-insensitive match)
+    $hl = preg_replace_callback('/' . $q_pattern. '/iu', function($match) {
+      return "<strong>{$match[0]}</strong>";
+    }, $hl);
     switch ($doc->entity_type) {
       case 'node':
       case 'user':

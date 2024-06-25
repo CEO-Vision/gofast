@@ -1,0 +1,20 @@
+--- LdapTestCase.class.php
++++ LdapTestCase.class.php
+@@ -161,7 +161,7 @@ public function removeUserFromGroup(&$test_data, $user_dn, $group_dn, $domain =
+     if (!empty($test_data['search_results'][$filter][$domain]) &&
+             in_array($group_dn, $test_data['search_results'][$filter][$domain])) {
+       $test_data['search_results'][$filter][$domain] = array_diff($test_data['search_results'][$filter][$domain], [$group_dn]);
+-      $test_data['search_results'][$filter][$domain]['count'] = count($test_data['search_results'][$filter][$domain] - 1);
++      $test_data['search_results'][$filter][$domain]['count'] = count($test_data['search_results'][$filter][$domain]) - 1;
+     }
+ 
+     if (!empty($test_data['users'][$user_dn]['attr']['memberof']) && in_array($group_dn, $test_data['users'][$user_dn]['attr']['memberof'])) {
+@@ -177,7 +177,7 @@ public function removeUserFromGroup(&$test_data, $user_dn, $group_dn, $domain =
+     if (!empty($test_data['groups'][$group_dn]['attr']['member']) && in_array($group_dn, $test_data['groups'][$group_dn]['attr']['member'])) {
+       $members = array_diff($test_data['groups'][$group_dn]['attr']['member'], [$group_dn]);
+       $test_data['groups'][$group_dn]['attr']['member'] = $members;
+-      $test_data['groups'][$group_dn]['attr']['member'][$i]['count'] = count($members - 1);
++      $test_data['groups'][$group_dn]['attr']['member']['count'] = count($members) - 1;
+     }
+   }
+ 

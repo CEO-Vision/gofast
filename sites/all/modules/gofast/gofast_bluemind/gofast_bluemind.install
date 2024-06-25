@@ -1,0 +1,265 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function gofast_bluemind_install() {
+  // Define user_email_field
+  $user_email_field = array(
+    'field_name' => 'gofast_bluemind_user_email',
+      'type' => 'text',
+      'module' => 'text',
+      'active' => '1',
+      'locked' => '0',
+      'cardinality' => '1',
+      'deleted' => '0',
+      'columns' => array(
+        'value' => array(
+          'type' => 'varchar',
+          'length' => '255',
+          'not null' => FALSE,
+        ),
+        'format' => array(
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => FALSE,
+        ),
+      ),
+      'bundles' => array(
+        'user' => array(
+          0 => 'user',
+        ),
+      ),
+  );
+
+  field_create_field($user_email_field);
+
+  // Define user_email_instance
+  $user_email_instance = array(
+    'label' => 'Bluemind User Email Address',
+    'widget' => array(
+      'weight' => '52',
+      'type' => 'text_textfield',
+      'module' => 'text',
+      'active' => 1,
+      'settings' => array(
+        'size' => '60',
+      ),
+    ),
+    'settings' => array(
+      'text_processing' => '0',
+      'user_register_form' => 0,
+    ),
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'type' => 'text_default',
+        'settings' => array(),
+        'module' => 'text',
+        'weight' => 50,
+      ),
+      'search_index' => array(
+        'type' => 'hidden',
+        'label' => 'above',
+        'settings' => array(),
+        'weight' => 0,
+      ),
+    ),
+    'required' => 0,
+    'description' => '',
+    'default_value' => NULL,
+    'field_name' => 'gofast_bluemind_user_email',
+    'entity_type' => 'user',
+    'bundle' => 'user',
+    'deleted' => '0',
+  ); 
+
+  field_create_instance($user_email_instance);
+
+  // Define user_password_field  
+  $user_password_field = array(
+    'field_name' => 'gofast_bluemind_user_password',
+    'type' => 'text',
+    'module' => 'text',
+    'active' => '1',
+    'locked' => '0',
+    'cardinality' => '1',
+    'deleted' => '0',
+    'columns' => array(
+      'value' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+      ),
+      'format' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+    ),
+    'bundles' => array(
+      'user' => array(
+        0 => 'user',
+      ),
+    ),
+  ); 
+
+  field_create_field($user_password_field);
+
+  // Define user_password_instance 
+  $user_password_instance = array(
+    'label' => 'Bluemind User Password',
+    'widget' => array(
+      'weight' => '53',
+      'type' => 'text_textfield',
+      'module' => 'text',
+      'active' => 1,
+      'settings' => array(
+        'size' => '60',
+      ),
+    ),
+    'settings' => array(
+      'text_processing' => '0',
+      'user_register_form' => 0,
+    ),
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'type' => 'text_default',
+        'settings' => array(),
+        'module' => 'text',
+        'weight' => 51,
+      ),
+      'search_index' => array(
+        'type' => 'hidden',
+        'label' => 'above',
+        'settings' => array(),
+        'weight' => 0,
+      ),
+    ),
+    'required' => 0,
+    'description' => '',
+    'default_value' => NULL,
+    'field_name' => 'gofast_bluemind_user_password',
+    'entity_type' => 'user',
+    'bundle' => 'user',
+    'deleted' => '0',
+  ); 
+
+  field_create_instance($user_password_instance); 
+
+  // Define is_sync_active field.
+  $is_sync_active_field = array(
+    'field_name' => 'gofast_bluemind_user_active_sync',
+    'type' => 'list_boolean',
+    'module' => 'list',
+    'active' => '1',
+    'locked' => '0',
+    'cardinality' => '1',
+    'deleted' => '0',
+    'columns' => array(
+      'value' => array(
+        'type' => 'int',
+        'not null' => FALSE,
+      ),
+    ),
+    'bundles' => array(
+      'user' => array(
+        0 => 'user',
+      ),
+    ),
+  );
+
+  // Create is_sync_active field.
+  field_create_field($is_sync_active_field);
+
+  // Attach is_sync_active field to the user entity.
+  $is_sync_active_instance = array(
+    'label' => 'Bluemind Active Sync',
+    'widget' => array(
+      'weight' => '51',
+      'type' => 'options_buttons',
+      'module' => 'options',
+      'active' => 1,
+      'settings' => array(),
+    ),
+    'settings' => array(
+      'user_register_form' => 1,
+    ),
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'type' => 'list_default',
+        'settings' => array(),
+        'module' => 'list',
+        'weight' => 49,
+      ),
+      'search_index' => array(
+        'type' => 'hidden',
+        'label' => 'above',
+        'settings' => array(),
+        'weight' => 0,
+      ),
+    ),
+    'required' => 0,
+    'description' => '',
+    'default_value' => array(
+      0 => array(
+        'value' => '0',
+      ),
+    ),
+    'field_name' => 'gofast_bluemind_user_active_sync',
+    'entity_type' => 'user',
+    'bundle' => 'user',
+    'deleted' => '0',
+  );
+
+  field_create_instance($is_sync_active_instance);
+  
+  $last_calendar_sync_field = array(
+    'field_name' => 'gofast_bluemind_last_sync',
+    'type' => 'datestamp',
+    'settings' => array(
+      'default_value' => 0,
+    ),
+  );
+  field_create_field($last_calendar_sync_field);
+
+  // Define the instance
+  $last_calendar_sync_instance = array(
+    'field_name' => 'gofast_bluemind_last_sync',
+    'entity_type' => 'user',
+    'bundle' => 'user',
+    'label' => 'Bluemind Last Sync',
+    'description' => 'The last time the cron ran and synced the user\'s calendar',
+    'widget' => array(
+      'type' => 'datestamp',
+    ),
+    'display' => array(
+      'default' => array(
+        'type' => 'hidden',
+      ),
+      'teaser' => array(
+        'type' => 'hidden',
+      ),
+    ),
+  );
+  field_create_instance($last_calendar_sync_instance);
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function gofast_bluemind_uninstall() {
+  // Delete email field on the user entity.
+  field_delete_field('gofast_bluemind_user_email');
+
+  // Delete user active sync field on the user entity.
+  field_delete_field('gofast_bluemind_user_active_sync');
+
+  // Delete password field on the user entity.
+  field_delete_field('gofast_bluemind_user_password');
+  
+  // Delete last_calendar_sync field on the user entity.
+  field_delete_field('gofast_bluemind_last_sync');
+}

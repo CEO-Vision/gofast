@@ -246,6 +246,9 @@ function bootstrap_keen_facetapi_title($variables) {
  */
 function bootstrap_keen_apachesolr_sort_list($variables) {
   foreach ($variables['items'] as $key => &$item) {
+    if(gofast_essential_is_essential()){
+      $item = str_replace('search/solr', 'essential/get_node_content_part/search/all',$item);
+    }
     $item = array(
       'data' => $item,
       'class' => array('gofast-inline-list')
@@ -411,7 +414,7 @@ function bootstrap_keen_image_style($variables) {
   $variables['height'] = $dimensions['height'];
 
   // Determine the URL for the styled image.
-  $variables['path'] = image_style_url($variables['style_name'], $variables['path']);
+  $variables['path'] = gofast_image_style_url($variables['style_name'], $variables['path']);
   return theme('image', $variables);
 }
 
@@ -569,7 +572,7 @@ function bootstrap_keen_theme_registry_alter(&$theme_registry) {
  }
 
 function bootstrap_keen_facetapi_deactivate_widget($variables) {
-  $button_delete_search = '<span class="btn btn-icon btn-light-danger btn-circle btn-sm" style="width: 20px; height: 20px;"><i class="fas fa-trash" style="font-size: 15px;" title="'.t("Remove this search filter",  array(), array('context' => 'gofast:search')) . '"></i></span>';
+  $button_delete_search = '<span><i class="fa fa-times facetapi-icon" aria-hidden="true"'.t("Remove this search filter",  array(), array('context' => 'gofast:search')) . '"></i></span>'; 
 
   return $button_delete_search;
 }
@@ -644,7 +647,7 @@ function bootstrap_keen_form_element(&$variables){
     $wrapper_attributes['class'][] = drupal_html_class($type);
     $wrapper_attributes['class'][] = 'align-items-start d-flex flex-column';
     if($checkbox) $wrapper_attributes['class'][] = 'mb-5';
-    if(!in_array('gofast_display_none',$element['#attributes']['class'])){
+    if(!in_array('gofast_display_none', (array) $element['#attributes']['class'])){
         $element['#children'] = $element['#children'] . '<span class="mr-2"></span>';
     }
   } else if ($file) {
@@ -881,6 +884,78 @@ function bootstrap_keen_preprocess_user_picture(&$variables) {
       }
     }
   }
+}
 
-  // $variables['user_picture'] = '<div class="symbol symbol-45"></div>';
+/** Override theme_file_upload_help to properly display the file upload popover */
+function bootstrap_keen_file_upload_help(array $variables) {
+  // If popover's are disabled, just theme this normally.
+  if (!bootstrap_setting('popover_enabled')) {
+    return theme_file_upload_help($variables);
+  }
+
+  $build = array();
+  if (!empty($variables['description'])) {
+    $build['description'] = array(
+      '#markup' => $variables['description'] . '<br>',
+    );
+  }
+
+  $descriptions = array();
+  $upload_validators = $variables['upload_validators'];
+  if (isset($upload_validators['file_validate_size'])) {
+    $descriptions[] = t('Files must be less than !size.', array('!size' => '<strong>' . format_size($upload_validators['file_validate_size'][0]) . '</strong>'));
+  }
+  if (isset($upload_validators['file_validate_extensions'])) {
+    $descriptions[] = t('Allowed file types: !extensions.', array('!extensions' => '<strong>' . check_plain($upload_validators['file_validate_extensions'][0]) . '</strong>'));
+  }
+  if (isset($upload_validators['file_validate_image_resolution'])) {
+    $max = $upload_validators['file_validate_image_resolution'][0];
+    $min = $upload_validators['file_validate_image_resolution'][1];
+    if ($min && $max && $min == $max) {
+      $descriptions[] = t('Images must be exactly !size pixels.', array('!size' => '<strong>' . $max . '</strong>'));
+    }
+    elseif ($min && $max) {
+      $descriptions[] = t('Images must be between !min and !max pixels.', array('!min' => '<strong>' . $min . '</strong>', '!max' => '<strong>' . $max . '</strong>'));
+    }
+    elseif ($min) {
+      $descriptions[] = t('Images must be larger than !min pixels.', array('!min' => '<strong>' . $min . '</strong>'));
+    }
+    elseif ($max) {
+      $descriptions[] = t('Images must be smaller than !max pixels.', array('!max' => '<strong>' . $max . '</strong>'));
+    }
+  }
+
+  if ($descriptions) {
+    $id = drupal_html_id('upload-instructions');
+    $build['instructions'] = array(
+      '#theme' => 'link__file_upload_requirements',
+      // @todo remove space between icon/text and fix via styling.
+      '#text' => '<button class="btn btn-xs btn-icon btn-light-primary"><i class="fas fa-question"></i></button> ' . t('More information'),
+      '#path' => '#',
+      '#options' => array(
+        'attributes' => array(
+          'data-toggle' => 'popover',
+          'data-target' => "#$id",
+          'data-html' => "true",
+          'data-placement' => 'bottom',
+          'data-title' => t('File requirements'),
+        ),
+        'html' => TRUE,
+        'external' => TRUE,
+      ),
+    );
+    $build['requirements'] = array(
+      '#theme_wrappers' => array('container__file_upload_requirements'),
+      '#attributes' => array(
+        'id' => $id,
+        'class' => array('element-invisible', 'help-block'),
+      ),
+    );
+    $build['requirements']['validators'] = array(
+      '#theme' => 'item_list__file_upload_requirements',
+      '#items' => $descriptions,
+    );
+  }
+
+  return drupal_render($build);
 }

@@ -269,6 +269,7 @@ function gofast_features_global_field_group_info() {
     'children' => array(
       0 => 'field_external_page_url',
       1 => 'field_target_link',
+      2 => 'field_external_link_custom_data',
     ),
     'format_type' => 'tab',
     'format_settings' => array(
@@ -298,6 +299,7 @@ function gofast_features_global_field_group_info() {
     'children' => array(
       0 => 'field_external_page_url',
       1 => 'field_target_link',
+      2 => 'field_external_link_custom_data',
     ),
     'format_type' => 'tab',
     'format_settings' => array(
@@ -326,6 +328,7 @@ function gofast_features_global_field_group_info() {
     'weight' => '15',
     'children' => array(
       0 => 'field_external_page_url',
+      1 => 'field_external_link_custom_data',
     ),
     'format_type' => 'tab',
     'format_settings' => array(
@@ -354,6 +357,7 @@ function gofast_features_global_field_group_info() {
     'children' => array(
       0 => 'field_external_page_url',
       1 => 'field_target_link',
+      2 => 'field_external_link_custom_data',
     ),
     'format_type' => 'tab',
     'format_settings' => array(

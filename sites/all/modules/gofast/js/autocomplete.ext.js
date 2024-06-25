@@ -85,7 +85,10 @@
           .attr('id', $input.attr('id') + '-autocomplete-aria-live')
         );
         $input.parent().parent().attr('role', 'application');
-        new Drupal.jsAC($input, acdb[uri], $context, xACData);
+        var instance = new Drupal.jsAC($input, acdb[uri], $context, xACData);
+        
+        // Autocomplete on paste 
+        instance.autocompleteOnPaste($input);
       });
     }
   };
@@ -583,20 +586,39 @@
       for (var key in matches) {
         //Remove uncessessary <a> tag - already present in result(matches)
         if (matches[key].indexOf('<a') === 0 ){
-          var element_match = $.parseHTML(matches[key]);
-          $(element_match).click(function (e) { e.preventDefault(); });
-          $('<li class="dropdown-item"></li>')
-          .html($(element_match))
-          .mousedown(function () {
-            ac.highlight(this);
-            ac.select(this);
-            ac.hidePopup(this);
-            if (ac.xAC && ac.xAC.submitOnClick) {
-              $(ac.input.form).submit();
+          
+          let element_match = $.parseHTML(matches[key]);
+          let element_data = $(element_match).attr("href").split("/")
+          let element_type = element_data[1];
+          $(element_match).click(function (e) { 
+            e.preventDefault(); 
+            if(Gofast._settings.isEssential){
+              e.stopPropagation();
             }
-          })
-          .data('autocompleteValue', key)
-          .appendTo(ul);
+          });
+          
+          if(Gofast._settings.isEssential){
+
+            $('<li class="dropdown-item"></li>').html($(element_match)).mousedown(function(){
+              let nid = element_data[element_data.length-1];
+              Gofast.Essential.goToNode(nid, element_type)
+            })
+            .appendTo(ul);
+          } else {
+
+            $('<li class="dropdown-item"></li>')
+            .html($(element_match))
+            .mousedown(function () {
+              ac.highlight(this);
+              ac.select(this);
+              ac.hidePopup(this);
+              if (ac.xAC && ac.xAC.submitOnClick) {
+                $(ac.input.form).submit();
+              }
+            })
+            .data('autocompleteValue', key)
+            .appendTo(ul);
+          }
         }
         else{
           $('<li class="dropdown-item"></li>')
@@ -604,11 +626,13 @@
             .click(function (e) { e.preventDefault(); })
           )
           .mousedown(function () {
-            ac.highlight(this);
-            ac.select(this);
-            ac.hidePopup(this);
-            if (ac.xAC && ac.xAC.submitOnClick) {
-              $(ac.input.form).submit();
+            if(!Gofast._settings.isEssential){
+              ac.highlight(this);
+              ac.select(this);
+              ac.hidePopup(this);
+              if (ac.xAC && ac.xAC.submitOnClick) {
+                $(ac.input.form).submit();
+              }
             }
           })
           .data('autocompleteValue', key)
@@ -691,7 +715,19 @@
           this.hidePopup();
         }
       }      
-    }  
+    },
+    
+    autocompleteOnPaste: function ($input){
+      $input.on('paste', function() {
+        try {
+          setTimeout(() => {
+            $(this).trigger('keyup');
+          }, 0);
+        } catch (error) {
+          console.error('An error occurred while handling the paste event:', error);
+        }
+      });
+    }
   }, _xAC);
   
   /**

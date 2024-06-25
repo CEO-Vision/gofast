@@ -1,0 +1,723 @@
+<?php 
+
+/**
+ * @file gofast_webhook.module
+ * 
+ * Contains gofast_webhook.module.
+ * 
+ * This module provides a webhook service for GoFast.
+ */
+
+const GOFAST_WEBHOOK_ACTIONS_BASE_URL = 'gofast-webhook/modal/nojs/admin/settings';
+
+/**
+ * Implements hook_permission().
+ */
+function gofast_webhook_permission(): array {
+  return array(
+    'administer gofast webhook' => array(
+      'title' => t('Administer GoFast Webhook'),
+      'description' => t('Allows users to administer the GoFast Webhook.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function gofast_webhook_menu(): array {
+  $items = [];
+
+  // Menu callback for the "Add Service" modal content.
+  $items['gofast-webhook/modal/%ctools_js/admin/settings/add-service'] = [
+    'page callback' => 'gofast_webhook_settings_service_modal',
+    'page arguments' => [2],
+    'access arguments' => ['administer gofast webhook'],
+    'delivery callback' => 'ajax_deliver',
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['gofast-webhook/modal/%ctools_js/admin/settings/%/%'] = [
+    'page callback' => 'gofast_webhook_settings_service_modal',
+    'page arguments' => [2, 5, 6],
+    'access arguments' => ['administer gofast webhook'],
+    'delivery callback' => 'ajax_deliver',
+    'type' => MENU_CALLBACK,
+  ];
+  
+  $items['gofast-webhook/api/get-service-container'] = [
+    'page callback' => 'gofast_webhook_api_get_service_container_html',
+    'access arguments' => array('administer gofast webhook'),
+    'type' => MENU_CALLBACK,
+  ];
+  
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function gofast_webhook_theme(): array {
+  return [
+    'gofast_webhook_settings_service_listing' => [
+      'template' => 'tpl/gofast-webhook-settings-service-listing',
+    ],
+    'gofast_webhook_settings_service_container' => [
+      'template' => 'tpl/gofast-webhook-settings-service-container',
+    ],
+  ];
+}
+
+/**
+ * Implements hook_library().
+ */
+function gofast_webhook_library(): array {
+  $libraries = [];
+  $path = drupal_get_path('module', 'gofast_webhook');
+  $libraries['gofast_webhook'] = [
+    'title' => 'GoFast Webhook',
+    'version' => '1.0',
+    'js' => [
+      $path . '/js/gofast_webhook.js' => [
+        'group' => JS_LIBRARY, // JS_DEFAULT
+        'every_page' => TRUE,
+        'weight' => 10,
+      ],
+    ],
+    'css' => [
+      $path . '/css/gofast_webhook.css' => [
+        'group' => CSS_THEME,
+        'every_page' => TRUE,
+        'weight' => 10,
+      ],
+    ],
+  ];
+  return $libraries;
+}
+
+/**
+ * Implements preprocess_HOOK().
+ */
+function gofast_webhook_preprocess_page(&$var): void {
+  drupal_add_library('gofast_webhook', 'gofast_webhook', TRUE);
+}
+
+/**
+ * Implements hook_entity_insert().
+ * 
+ * When an alfresco item node is created we trigger the webhook event.
+ *
+ */
+function gofast_webhook_entity_insert($entity): void {
+  if ( isset($entity->entity) && $entity->entity->type === 'alfresco_item' ) {
+    $entity->entity->webhook_event = 'CREATE';
+    gofast_webhook_execute_api_request($entity->entity);
+  }
+}
+
+/**
+ * Implements hook_node_update().
+ * 
+ * When an alfresco item node is unpublished (deleted) we trigger the webhook 
+ * event.
+ * 
+ * @param  $node
+ * 
+ */
+function gofast_webhook_node_update($node): void {
+  if ($node->type === 'alfresco_item' && $node->status === NODE_NOT_PUBLISHED) {
+    $node->webhook_event =  'DELETE';
+    gofast_webhook_execute_api_request($node);
+  }
+  else if ( $node->type === 'alfresco_item' ) {
+    $node->webhook_event =  'UPDATE';
+    gofast_webhook_execute_api_request($node);
+  }
+}
+
+/**
+ * Makes requests to the API services in the config file.
+ *
+ * @param $entity
+ *
+ * @return void
+ */
+function gofast_webhook_execute_api_request($entity): void {
+  $config = gofast_webhook_get_config();
+
+  if (!$config){
+    return;
+  }
+
+  foreach ($config->api_services as $api_service) {
+    // Check if the event is in the list of events to listen to.
+    if (!in_array($entity->webhook_event, $api_service->events)) {
+      continue;
+    } else if ($api_service->service_status !== 'ACTIVE') {
+      continue;
+    }
+
+    $url = $api_service->api_endpoint;
+    $method = $api_service->method ?? 'POST';
+
+    $headers = &drupal_static(__FUNCTION__ . '_' . $url . '_headers');
+    if (!isset($headers)) {
+      $headers = gofast_webhook_prepare_service_headers($api_service);
+    }
+
+
+    $data = gofast_webhook_prepare_request_data($entity);
+    if (empty($data)) {
+      continue;
+    }
+
+
+    $curl_handle = curl_init();
+    curl_setopt_array($curl_handle, [
+      CURLOPT_URL => $url,
+      CURLOPT_RETURNTRANSFER => true,
+      CURLOPT_CUSTOMREQUEST => $method,
+      CURLOPT_HTTPHEADER => $headers,
+      CURLOPT_POSTFIELDS => $data,
+      CURLOPT_TIMEOUT => 60,
+    ]);
+    curl_exec($curl_handle);
+    curl_close($curl_handle);
+  }
+}
+
+/**
+ * Gets the config object and returns it as an stdObject.
+ *
+ * @return \stdClass|bool
+ */
+function gofast_webhook_get_config(): \stdClass|bool {
+    $config = variable_get('gofast_webhook_config', new \stdClass());
+    return gofast_webhook_validate_config($config);
+}
+
+/**
+ * Validates the configuration for the GoFast webhook.
+ *
+ * @param string $config
+ *   The JSON-encoded configuration to validate.
+ *
+ * @return mixed
+ *   The decoded configuration if valid, FALSE otherwise.
+ * 
+ */
+function gofast_webhook_validate_config(String $config): mixed {
+  $decoded_config = json_decode($config);
+  if (!$decoded_config) {
+    return FALSE;
+  }
+  
+  $services = $decoded_config->api_services;
+  $invalid_services = array_filter($services, function($service){
+    if(!gofast_webhook_validate_service($service))
+      return TRUE;
+    return FALSE;
+  });
+
+  if (!empty($invalid_services)) {
+    return FALSE;
+  }
+  
+  return $decoded_config;
+}
+
+/**
+ * Validates an api service object
+ * @param stdClass $service
+ * @return Bool
+ */
+function gofast_webhook_validate_service(stdClass $service): bool {
+    $is_api_endpoint_valid = !empty($service->api_endpoint) &&
+      filter_var($service->api_endpoint, FILTER_VALIDATE_URL) !== FALSE;
+    
+    $is_api_auth_type_valid = !empty($service->api_auth->type) &&
+      in_array($service->api_auth->type, ['none', 'api_key', 'Bearer', 'x-api-key']);
+    
+    $is_api_auth_value_valid = !empty($service->api_auth->value);
+    
+    $service_has_event_type = !empty($service->events);
+
+    return $is_api_endpoint_valid && $service_has_event_type && $is_api_auth_type_valid && $is_api_auth_value_valid;
+}
+
+/**
+ * Prepares the data to be sent to the API service.
+ *
+ * @param $entity
+ *
+ * @return string
+ */
+function gofast_webhook_prepare_request_data($entity): string {
+  $metadata = gofast_get_metadata_output($entity, ['returnRawOutput' => TRUE]);
+  
+  return json_encode([
+    'operation' => $entity->webhook_event,
+    'gofast_nid' => $entity->nid,
+    'title' => $entity->title,
+    'type' => $entity->type,
+    'created' =>  date('Y-m-d H:i:s', $entity->created),
+    'changed' =>  date('Y-m-d H:i:s', $entity->changed),
+    'status' => $entity->status,
+    'uid' => $entity->uid,
+    'alfresco_reference' => $entity->reference,
+    'metadata' => isset($metadata) ? $metadata : [],
+  ]);
+}
+
+/**
+ * Prepares the headers to be sent to the API service.
+ *
+ * @param $api_service
+ *
+ * @return array
+ */
+function gofast_webhook_prepare_service_headers($api_service): array {
+  $headers = [];
+  $headers[] = 'Content-Type: application/json';
+  if ( isset($api_service->api_auth->type) && $api_service->api_auth->in_header) {
+    $headers[] = $api_service->api_auth->type.': '.$api_service->api_auth->value;
+  }
+  else if($api_service->api_auth->type == 'Bearer'){
+    $headers[] = 'Authorization: Bearer '. $api_service->api_auth->value;
+  }
+
+  return $headers;
+}
+
+/**
+ * Fetches the service data from the configuration.
+ */
+function gofast_webhook_fetch_service_data(int $service_id) {
+  $config = gofast_webhook_get_config();
+  $service_data = array_filter($config->api_services, function($service) use ($service_id) {
+    return $service->service_id == $service_id;
+  });
+  return array_shift($service_data);
+}
+/**
+ * Implements HOOK_form  for gofast_webhook_config_form.
+ *
+ * @throws \Exception
+ */
+function gofast_webhook_settings_form($form, &$form_state): array {
+  
+  $config = gofast_webhook_get_config();
+  
+  if (!$config){
+    $config = variable_get('gofast_webhook_config', new \stdClass());
+    $config = json_decode($config);
+  }
+  
+  // Initialize the services array if it doesn't exist.
+  if (!isset($config->api_services)) {
+    $config->api_services = [];
+  }
+
+  //add a nice heading to the form 
+  $form['heading'] = [
+    '#markup' => '<h2 style="top: 2rem;position: absolute">'.t('GoFast Webhook Settings', [], 
+        ['context' => 'gofast:gofast_webhook']).'</h2>',
+  ];
+
+  $info = t('Configure the services to send webhook data to.', [], ['context' => 'gofast:gofast_webhook']);
+  
+  // Add a help text to the form to let user know what the form is for
+  $form['help_text'] = [
+    '#markup' => '<p style="top: 5rem;position: absolute">'.$info.'</p>',
+  ];
+  
+  // Add a button to add a new service.
+  $form['add_service_modal_trigger'] = [
+    '#markup' => '<a id="webhookServicesAddService" class="btn btn-primary ctools-use-modal" href="/'.GOFAST_WEBHOOK_ACTIONS_BASE_URL.'/add-service">
+                    '.t('Add Service', [], ['context' => 'gofast:gofast_webhook']).'</a>',
+  ];
+
+  // Display a message if no services are found.
+  if (empty($config->api_services)) {
+    $no_services_message = t('No services found in the webhook configuration.', [], ['context' => 'gofast:gofast_webhook']);
+    $form['no_services_message'] = [
+      '#markup' => "<p>$no_services_message</p>",
+    ];
+  } else {
+    // Display the services in a table.
+    $form['services'] = [
+      '#markup' => theme('gofast_webhook_settings_service_listing', ['services' => $config->api_services]),
+    ];
+  }
+
+  return $form;
+}
+
+/**
+ * Modal dialog for adding a new service to the configuration.
+ */
+
+ function gofast_webhook_settings_service_modal($js, $action = "add-service", $service_id = NULL): void {
+  
+  $title = t('Add Webhook Service', [], ['context' => 'gofast:gofast_webhook']);
+
+  if(isset($action) && $action !== "add" && isset($service_id)){
+    
+    $service_data = gofast_webhook_fetch_service_data($service_id);
+    $service_name = $service_data->service_name;
+
+    switch ($action) {
+      case "view-service":
+        $title = t('Viewing @title', ['@title' => $service_name], ['context' => 'gofast:gofast_webhook']);
+        break;
+      case "edit-service":
+        $title = t('Editing  @title',['@title' => $service_name], ['context' => 'gofast:gofast_webhook']);
+        break;
+      case "delete-service":
+        $title = t('Deleting @title',['@title' => $service_name], ['context' => 'gofast:gofast_webhook']);
+        break;
+    }
+  }
+  
+  ctools_include('ajax');
+  ctools_include('modal');
+
+   $form_state = [
+    'ajax' => TRUE,
+    'title' => $title,
+    'args' => [
+      "action" => $action,
+      "service_id" => $service_id, 
+      "service_data" => $service_data ?? "",
+    ],
+  ];
+  
+  $commands = ctools_modal_form_wrapper('gofast_webhook_settings_service_modal_form', $form_state);
+  
+  if ($form_state['executed']) {
+    $errors = form_get_errors();
+    if (!empty($errors)) {
+      foreach ($errors as $error) {
+        $commands[] = gofast_command_toast_message($error, 'warning');
+      }
+      print ajax_render($commands);
+      exit;
+    }
+    form_clear_error();
+    if($action == "delete-service"){
+      $success_message = t('Service deleted successfully.', [], ['context' => 'gofast:gofast_webhook']);
+    } else if($action ==  "edit-service"){
+      $success_message = t('Service edited successfully.', [], ['context' => 'gofast:gofast_webhook']);
+    } else {
+      $success_message = t('Service added successfully.', [], ['context' => 'gofast:gofast_webhook']);
+    }
+    $commands[] = gofast_command_toast_message($success_message, 'success');
+    $commands[] = ajax_command_html('#ctools-add-js',"<script type='text/javascript'>
+                  Gofast.gofastWebhookPopulateServiceContainer()</script>");
+    $commands[] = ctools_modal_command_dismiss();
+  } 
+  
+  print ajax_render($commands);
+  exit;
+}
+
+/**
+/**
+ * Modal dialog for adding a new service.
+ */
+function gofast_webhook_settings_service_modal_form($form, &$form_state,): array {
+
+  $action = $form_state['args']['action']; 
+  $service_id = $form_state['args']['service_id'];
+  
+  if(isset($action) && $action !== "add" && isset($service_id)){
+    $service_data = $form_state['args']['service_data'];
+  }
+  
+  // Check if the action is 'view', 'edit', 'delete' or 'add'.
+  $is_view   = ($action == 'view-service');
+  $is_edit   = ($action == 'edit-service');
+  $is_delete = ($action == 'delete-service');
+  
+  $form = gofast_webhook_settings_get_form_fields(is_view: $is_view, is_edit:$is_edit, is_delete: $is_delete, service_data: $service_data ?? null, form: $form);
+
+  // Additional actions for view/edit mode
+  if ($is_edit) {
+    $form['actions']['delete'] = [
+      '#markup' => l(t('Delete', [], ['context' => 'gofast_webhook']), '/' .GOFAST_WEBHOOK_ACTIONS_BASE_URL.'/delete-service/'. $service_id, [
+        'attributes' => [
+          'class' => ['btn', 'btn-danger', 'btn-sm'], 
+        ]
+      ]),
+    ];
+  }
+  
+  return $form;
+}
+
+/**
+ * Returns the form fields for the service modal form.
+ *
+ * @param bool $is_view
+ * @param bool $is_edit
+ * @param bool $is_delete
+ * @param mixed $service_data
+ * @param $form
+ *
+ * @return array
+ */
+function gofast_webhook_settings_get_form_fields(bool $is_view, bool $is_edit, bool $is_delete, mixed $service_data, &$form): array {
+  
+  if ($is_delete) {
+    $delete_confirm_message = t('Are you sure you want to delete this service?', [], ['context' => 'gofast:gofast_webhook']);
+    
+    $form['delete_message'] = [
+      '#markup' => '<h1>'.$delete_confirm_message.'</h1>',
+    ];
+    
+    $delete_confirm_description = t('Deleting this service will remove it from the configuration and this service will no longer receive data from GoFast Webhook. This action cannot be undone.', 
+      [], ['context' => 'gofast:gofast_webhook']);
+    
+    $form['delete_message_description'] = [
+      '#markup' => '<p>'.$delete_confirm_description.'</p>',
+    ];
+
+    $form['submit'] = [
+      '#type'       => 'submit',
+      '#value'      => t('Delete Service', [], ['context' => 'gofast:gofast_webhook']),
+      '#access'     => !($is_view), // Disable submit button in view/edit mode.
+      '#attributes' => [
+        'id' => 'gofastWebhookSaveService',
+        'class' => ['btn', 'btn-danger', 'btn-sm'],
+      ],
+    ];
+    
+    return $form;
+  }
+  // Service Name Field (Read-only in view mode)
+  $form['service_name'] = [
+    '#type'          => 'textfield',
+    '#title'         => t('Service Name', [], ['context' => 'gofast:gofast_webhook']),
+    '#default_value' => ($is_view || $is_edit) ? isset($service_data) ? $service_data->service_name : '' : '',
+    '#required'      => TRUE,
+    '#disabled'      => $is_view,
+  ];
+
+  // API Endpoint Field (Read-only in view mode)
+  $form['api_endpoint'] = [
+    '#type'          => 'textfield',
+    '#title'         => t('API Endpoint', [], ['context' => 'gofast:gofast_webhook']),
+    '#default_value' => ($is_view || $is_edit) ? isset($service_data) ? $service_data->api_endpoint : '' : '',
+    '#required'      => TRUE,
+    '#disabled'      => ($is_view),
+    '#element_validate' => ['gofast_webhook_url_element_validate'],
+    '#attributes' => ['placeholder' => 'https://example.com']
+  ];
+
+  // Events Field (checkboxes, Read-only in view mode)
+  $form['events'] = [
+    '#type'     => 'checkboxes',
+    '#title'    => t('Events'),
+    '#required' => TRUE,
+    '#options'  => [
+      'CREATE'  => t('CREATE', [], ['context' => 'gofast:gofast_webhook']),
+      'UPDATE'  => t('UPDATE', [], ['context' => 'gofast:gofast_webhook']),
+      'DELETE'  => t('DELETE', [], ['context' => 'gofast:gofast_webhook']),
+      // Add more event options as needed.
+    ],
+    '#default_value' => ($is_view || $is_edit) ? isset($service_data) ? $service_data->events : [] : [],
+    '#disabled'      => $is_view,
+  ];
+
+  // ... (rest of the form fields)
+
+  // Method Field
+  $form['method'] = [
+    '#type'    => 'select',
+    '#title'   => t('Method', [], ['context' => 'gofast:gofast_webhook']),
+    '#options' => [
+      'POST'   => 'POST',
+      //'GET' => t('GET'),
+      // Add more method options as needed.
+    ],
+    '#default_value' => 'POST',
+    '#required' => TRUE,
+    '#disabled' => TRUE,
+  ];
+
+  // API Auth Type Field
+  $form['api_auth_type'] = [
+    '#type'    => 'select',
+    '#title'   => t('API Authentication Type', [], ['context' => 'gofast:gofast_webhook']),
+    '#options' => [
+      'Bearer'  => 'Bearer',
+      'api_key' => 'api_key',
+      'x-api-key' => 'x-api-key',
+    ],
+    '#default_value' => ($is_view || $is_edit) ? (isset($service_data) ? $service_data->api_auth->type : []) : [],
+    '#required'      => TRUE,
+    '#disabled'      => $is_view,
+  ];
+
+  // API Auth Value Field
+  $form['api_auth_value'] = [
+    '#type'          => 'textfield',
+    '#title'         => t('API Authentication Token', [], ['context' => 'gofast:gofast_webhook']),
+    '#default_value' => ($is_view || $is_edit) ? (isset($service_data) ? $service_data->api_auth->value : '') : '',
+    '#required'      => TRUE,
+    '#disabled'      => $is_view,
+  ];
+
+  // In Header Field (checkbox)
+  $form['in_header'] = [
+    '#type'          => 'checkbox',
+    '#title'         => t('Include Authentication Token in Header', [], ['context' => 'gofast:gofast_webhook']),
+    '#default_value' => ($is_view || $is_edit) ? (isset($service_data) ? $service_data->api_auth->in_header : TRUE) : TRUE,
+    '#disabled'      => $is_view,
+  ];
+  
+  
+  // Status Field (checkbox)
+  $form['status'] = [
+    '#type'          => 'checkbox',
+    '#title'         => t('Activate Service', [], ['context' => 'gofast:gofast_webhook']),
+    '#default_value' => ($is_view || $is_edit) ? (isset($service_data) ? $service_data->service_status === "ACTIVE" : 1) : 0,
+    '#disabled'      => $is_view,
+  ];
+
+  // Submit button (Different labels for view/edit mode)
+  $submit_label = ($is_edit) ? t('Edit Service', [], 
+    ['context' => 'gofast:gofast_webhook']) : t('Add Service', [],
+    ['context' => 'gofast:gofast_webhook']);
+  
+  $form['submit'] = [
+    '#type'       => 'submit',
+    '#value'      => $submit_label,
+    '#access'     => !($is_view), // Disable submit button in view/edit mode.
+    '#attributes' => [
+      'id' => 'gofastWebhookSaveService',
+      'class' => ['btn', 'btn-primary', 'btn-sm'],
+    ],
+  ];
+  
+
+  
+  return $form;
+}
+
+function gofast_webhook_url_element_validate($element, &$form_state, $form){
+  $value = $element['#value'];
+    if(!isset($value) || !str_contains($value, 'http')){
+      form_set_error('error', t("Please enter a valid url endpoint including the url protocol eg https://example.com", [], ['context' => 'gofast:gofast_webhook']));
+    } 
+    return TRUE; 
+}
+/**
+ * Submit handler to remove a service.
+ */
+function gofast_webhook_settings_remove_service_submit($form, &$form_state): void {
+  $service_id = $form_state['args']['service_id'];
+  $config = gofast_webhook_get_config();
+  $current_api_services = $config->api_services;
+  unset($current_api_services[$service_id - 1]);
+  $config->api_services = $current_api_services;
+  
+  variable_set('gofast_webhook_config', json_encode($config));
+}
+
+/**
+ * Submit handler to add a new service.
+ */
+function gofast_webhook_settings_service_modal_form_submit($form, &$form_state): void {
+  if ($form_state['args']['action'] == 'delete-service') {
+    gofast_webhook_settings_remove_service_submit($form, $form_state);
+    return;
+  }
+  
+  // Retrieve and sanitize the form values.
+  $current_config = variable_get('gofast_webhook_config', []);
+  $current_config = json_decode($current_config);
+  
+  if(empty($current_config)){
+    $current_config = new \stdClass();
+    $current_config->api_services = [];
+  }
+  
+  $current_api_services = $current_config->api_services; 
+
+  $service_id     = $form_state['args']['action'] === "edit-service" ? $form_state['args']['service_id']
+    : count($current_api_services) + 1;
+  $service_name   = $form_state['values']['service_name'];
+  $api_endpoint   = $form_state['values']['api_endpoint'];
+  $method         = $form_state['values']['method'];
+  $api_auth_type  = $form_state['values']['api_auth_type'];
+  $api_auth_value = $form_state['values']['api_auth_value'];
+  $in_header      = $form_state['values']['in_header'];
+  $is_secure      = str_starts_with($form_state['values']['api_endpoint'], 'https://');
+  $status         = $form_state['values']['status'] === 1 ? 
+    t('ACTIVE', [], ['context'=>'gofast_webhook']) :
+    t('INACTIVE', [],['context'=>'gofast_webhook']);
+  
+  $events = array_filter($form_state['values']['events'], function($event) {
+    return $event !== 0;
+  });
+  $events         = array_keys($events);
+  
+  
+  // Add the new service to the configuration.
+  $new_service                 = new stdClass(); 
+  $new_service->service_id     = $service_id;
+  $new_service->service_name   = $service_name;
+  $new_service->api_endpoint   = $api_endpoint;
+  $new_service->events         = $events;
+  $new_service->method         = $method;
+  $new_service->service_status = $status;
+  $new_service->is_secure      = $is_secure;
+  $new_service->api_auth       = (object) [
+    'type'      => $api_auth_type,
+    'value'     => $api_auth_value,
+    'in_header' => $in_header,
+  ];
+  
+  $is_new_service_valid = gofast_webhook_validate_service($new_service);
+  
+  if(!$is_new_service_valid){
+    $error_message = t('The service information you entered resulted in an invalid configuration. Please check your information and try again.', [], ['context' => 'gofast:gofast_webhook']);
+    form_set_error('error', $error_message);
+    return;
+  }
+
+  $config = [
+    "config_title"       => $current_config->config_title,
+    "config_description" => $current_config->config_description,
+    // Api services are stored here.
+  ];
+
+  if($form_state['args']['action'] == "edit-service"){
+    $service_id = $form_state['args']['service_id'];
+    $current_api_services[$service_id - 1] = $new_service;
+  } else if($form_state['args']['action'] == "add-service"){
+    $current_api_services[] = $new_service;
+  }
+  
+  $config['api_services'] = $current_api_services;
+  
+  try{
+    variable_set('gofast_webhook_config', json_encode( $config));
+  } catch (Exception $e) {
+      $error_message = t('Something went wrong saving your configuration, please contact your administrator.', [], ['context' => 'gofast:gofast_webhook']);
+      form_set_error('error', $error_message);
+  }
+  
+}
+
+/**
+ * Callback to get service container
+ *
+ * @throws \Exception
+ */
+function gofast_webhook_api_get_service_container_html(): void {
+  $services = gofast_webhook_get_config()->api_services;
+  $service_container = theme('gofast_webhook_settings_service_container', ['services' => $services]);
+  echo $service_container;
+}

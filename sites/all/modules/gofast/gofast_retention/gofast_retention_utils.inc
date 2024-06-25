@@ -29,7 +29,12 @@ function gofast_retention_set_node_readonly($node){
      $node_ref = gofast_cmis_node_get_item_id($node);
      
     $url = 'http://localhost:8080/alfresco/service/set/node/archive/permission/?reference=' . rawurlencode($node_ref);
-    exec("curl --user admin:" . gofast_get_admin_pwd() . " '" . $url . "'");  
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_USERPWD, "admin:" . gofast_get_admin_pwd());
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_exec($ch);
   }
 }
 
@@ -42,7 +47,12 @@ function gofast_retention_unset_node_readonly($node){
      $node_ref = gofast_cmis_node_get_item_id($node);
      
      $url = 'http://localhost:8080/alfresco/service/set/node/workflow/permission/?reference=' . rawurlencode($node_ref) . '&validators=&inverse=true';
-     $output = exec("curl --user admin:" . gofast_get_admin_pwd() . " '" . $url . "'");
+     $ch = curl_init();
+     curl_setopt($ch, CURLOPT_HEADER, 0);
+     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+     curl_setopt($ch, CURLOPT_USERPWD, "admin:" . gofast_get_admin_pwd());
+     curl_setopt($ch, CURLOPT_URL, $url);
+     curl_exec($ch);
      
      $properties['gofast:preventDelete'] = 'false'; 
      gofast_cmis_item_update_properties($node_ref, $properties, false, true);

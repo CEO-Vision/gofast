@@ -32,7 +32,7 @@
             if(count($p)>1){
                 $list = entity_load_single('userlist',$p[0]);
                 $title = htmlentities(check_plain($list->name));
-                $link = '<a href="userlist/' . $p[0] . '">' . $list->name . "</a>";
+                $link = '<a href="/node/' . $list->nid . '">' . $list->name . "</a>";
                 $picture = '<div class="symbol symbol-30 flex-shrink-0">
                     <span class="symbol-label"><i class="fas fa-users"></i></span>
                 </div>';

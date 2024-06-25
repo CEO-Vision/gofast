@@ -1,0 +1,11 @@
+--- ldap_query.module
++++ ldap_query.module
+@@ -116,7 +116,7 @@ function ldap_query_cache_clear() {
+ /**
+  * Return ldap query objects.
+  *
+- * @param string $qid
++ * @param string|null $qid
+  * @param string $type
+  *   'all', 'enabled',.
+  * @param bool $flatten

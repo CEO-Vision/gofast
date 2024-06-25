@@ -1,0 +1,13 @@
+diff --git a/ldap_servers/ldap_servers.module b/ldap_servers/ldap_servers.module
+index a020e8b..e8c57ba 100755
+--- a/ldap_servers/ldap_servers.module
++++ b/ldap_servers/ldap_servers.module
+@@ -581,7 +581,7 @@ function _ldap_servers_get_servers($sid, $type, $flatten, $reset) {
+ /**
+  * See ldap_servers_get_servers()
+  */
+-function _ldap_servers_get_simpletest_servers($sid, $type = NULL, $flatten, $reset = TRUE) {
++function _ldap_servers_get_simpletest_servers($sid, $type, $flatten, $reset) {
+ 
+   if (!$type) {
+     $type = 'all';

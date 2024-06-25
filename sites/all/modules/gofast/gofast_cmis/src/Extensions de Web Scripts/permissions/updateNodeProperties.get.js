@@ -23,7 +23,9 @@ function updateProperties(node, properties) {
            logger.log("already have aspects on node : " + node.name);
     }
     for (var property in properties) {
-        if(property == "mimetype"){
+        if (properties[property] == "") {
+            delete node.properties[property];
+        }else if(property == "mimetype"){
              node.mimetype = properties[property];
         }else if(property == "name"){
              node.name = properties[property];

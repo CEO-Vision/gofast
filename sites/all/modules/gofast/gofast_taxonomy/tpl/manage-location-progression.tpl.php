@@ -11,6 +11,7 @@
       <?php foreach($locations as $location){ ?>
         <li>
           <?php
+            $is_article = isset($type) && $type == "article";
             if(is_numeric($location)){
               echo gofast_cmis_space_get_webdav_path($location);
               $locations_a[] = gofast_cmis_space_get_webdav_path($location);
@@ -19,6 +20,9 @@
               echo $location;
               $locations_a[] = $location;
               $locations_gids[] = gofast_og_get_group_id_from_title($location, TRUE);
+            }
+            if ($is_article) {
+              echo "/Wikis";
             }
           ?>
         </li>

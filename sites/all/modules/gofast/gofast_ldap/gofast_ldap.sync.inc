@@ -25,15 +25,16 @@ function gofast_ldap_sync_block_accounts($remote_accounts){
   $sync_settings = variable_get('gofast_directory_sync_config', array());
   //Key remote accounts by username
   foreach($remote_accounts as $k => $account){
-    $remote_account_by_uname[$account[$sync_settings['mapping']['uid']][0]] = $account;
+    $remote_account_uname = strtolower($account[strtolower($sync_settings['mapping']['uid'])][0]);
+    $remote_account_by_uname[$remote_account_uname] = $account;
   }
-  
+
   $users = db_query("select name, status, uid, sasl_auth_value from users INNER JOIN field_data_sasl_auth ON uid=entity_id")->fetchAllAssoc('uid');
   
   foreach($users as $k => $rquery){
     $status = $rquery->status;
     $uid = $rquery->uid;
-    $name = $rquery->name;
+    $name = strtolower($rquery->name);
     $sasl = $rquery->sasl_auth_value;
     
     if($uid == 0 || $uid == 1){
@@ -43,12 +44,13 @@ function gofast_ldap_sync_block_accounts($remote_accounts){
     if(empty($remote_account_by_uname[$name]) && $status == 1 && $sasl == 1){
       //Log
       watchdog('Directory Synchronization', "Blocking user " . $uid . "/" . $name, array(), WATCHDOG_INFO);
-      
+     
       //Block the user
-       gofast_user_leave_user($uid);
-      //$my_user = user_load($uid);
-      //$edit = array('status' => 0);
-      //user_save($my_user, $edit);
+      try{
+        gofast_user_leave_user($uid);
+      }catch (Throwable $t){
+        watchdog('Directory Synchronization', "Error Blocking user ".json_encode($t), array(), WATCHDOG_INFO);
+      }
     }else if(!empty($remote_account_by_uname[$name]) && $status == 0 && $sasl == 1){
       //Log
       watchdog('Directory Synchronization', "Unblocking user " . $uid . "/" . $name, array(), WATCHDOG_INFO);
@@ -81,21 +83,37 @@ function gofast_ldap_synchronize_accounts($remote_accounts){
   unset($remote_accounts['count']);
   
   foreach($remote_accounts as $k => $account){
-    $uname = $account[$sync_settings['mapping']['uid']][0];
+    $uname = $account[strtolower($sync_settings['mapping']['uid'])][0];
+    $umail = $account[$sync_settings['mapping']['email']][0];
     if(empty($uname)){
       continue;
     }
     $user = user_load_by_name($uname);
     
     if($user == FALSE){
+      $mail_exists = (bool) count(db_select('users')->fields('users', array('uid'))->condition('mail', $umail, '=')->execute()->fetchAll());
+      if ($mail_exists) {
+        watchdog('Directory Synchronization', "Can't create user @user because of duplicate email @mail", array("@user" => $uname, "@umail" => $umail), WATCHDOG_WARNING);
+        continue;
+      }
       //We need to create the user as it's not registered yet
       watchdog('Directory Synchronization', "Creating user " . $uname, array(), WATCHDOG_NOTICE);
       gofast_ldap_synchronize_create_account($account);
     }else{
       //User is registered on the platform and we got it's informations from the 
       //remote Directory, we can synchronize it.
+      $mail_taken_by_other_user = (bool) count(db_select('users')->fields('users', array('uid'))->condition('mail', $umail, '=')->condition('name', $uname, '<>')->execute()->fetchAll());
+      if ($mail_taken_by_other_user) {
+        watchdog('Directory Synchronization', "Can't update user @user because of duplicate email @mail", array("@user" => $uname, "@umail" => $umail), WATCHDOG_WARNING);
+        continue;
+      }
+
       watchdog('Directory Synchronization', "Updating user " . $uname, array(), WATCHDOG_NOTICE);
-      gofast_ldap_synchronize_update_account($account);
+      try {
+        gofast_ldap_synchronize_update_account($account);
+      }catch (Throwable $t){
+        watchdog('Directory Synchronization', "Error Updating user ".json_encode($t));
+      }
     }
     
     unset($remote_accounts[$k]);
@@ -120,7 +138,8 @@ function gofast_ldap_synchronize_accounts($remote_accounts){
 function gofast_ldap_synchronize_create_account($account){
   $sasl = variable_get('gofast_sasl_auth', 0);
   $sync_settings = variable_get('gofast_directory_sync_config', array());
-  $uname = $account[$sync_settings['mapping']['uid']][0];
+  // Lowercase is important since keys are lowercased in the actual ldap result
+  $uname = $account[strtolower($sync_settings['mapping']['uid'])][0];
   //Prepare account fields
   $mapping = $sync_settings['mapping'];
   $options = array();
@@ -187,8 +206,8 @@ function gofast_ldap_synchronize_create_account($account){
   }
   
   //Create the account
-  $creation = gofast_user_create($uname, GOFAST_ROLE_CONTRIBUTOR, $options, $sasl);
-  
+  $method =  t('Automatically through LDAP synchronization.', ['context' => 'gofast:gofast_user']);
+  $creation = gofast_user_create($uname, GOFAST_ROLE_CONTRIBUTOR, $options, $sasl, $method);
   if(!$creation){
     watchdog('Directory Synchronization', "Unable to create the account : " . implode(', ', drupal_get_messages()['error']), array(), WATCHDOG_ERROR);
   }
@@ -199,7 +218,7 @@ function gofast_ldap_synchronize_create_account($account){
  */
 function gofast_ldap_synchronize_update_account($account){
   $sync_settings = variable_get('gofast_directory_sync_config', array());
-  $uname = $account[$sync_settings['mapping']['uid']][0];
+  $uname = $account[strtolower($sync_settings['mapping']['uid'])][0];
   $need_sync = false;
   $user = user_load_by_name($uname);
   

@@ -6,6 +6,7 @@ define("GOFAST_INTEGRITY_RUN_STATE_FOLDERS", 1);
 define("GOFAST_INTEGRITY_RUN_STATE_SPACES", 2);
 define("GOFAST_INTEGRITY_RUN_STATE_DOCUMENTS", 3);
 define("GOFAST_INTEGRITY_RUN_STATE_RESULTS", 4);
+define("GOFAST_INTEGRITY_RUN_STATE_PRIVATE_SPACES", 5);
 
 //Definition of batch sizes
 define('GOFAST_INTEGRITY_FOLDERS_BATCH_SIZE', 300);
@@ -19,11 +20,93 @@ module_load_include("solr.inc", "gofast_integrity");
 
 /*
  * @package gofast_integrity
+ * Implements hook_node_insert
+ * 
+ * Checks related to specific actions (when the nid is needed but the node didn't exist previously)
+ */
+function gofast_integrity_node_insert($node) {
+    if (!isset($node->integrity_check)) {
+        return;
+    }
+    switch($node->integrity_check) {
+        case "create space":
+            gofast_integrity_enqueue_check_create_space($node->nid);
+            break;
+    }
+}
+
+/**
+ * Write an error message to a file which can be inspected by a zabbix item
+ * Then runs again 30 minutes later to remove the error message from the file
+ */
+function gofast_integrity_check_write_zabbix_data($item_key, $data, $remove = FALSE, $append = TRUE) {
+    // open file matching item key
+    $zabbix_data_file_path = DRUPAL_ROOT . "/zabbix/$item_key.txt";
+    $contents = file_get_contents($zabbix_data_file_path);
+    // data has been queued for removal
+    if ($remove) {
+        // if other error messages have been inserted in the meantime, will remove only the one which was inserted 30mn before, leaving the other ones
+        $contents = trim(str_replace($data, "", $contents));
+        file_put_contents($zabbix_data_file_path, $contents);
+    // data has been queued for addition
+    } else {
+        $flag = 0;
+        if ($append) {
+            $data = strlen($contents) > 1 ? "\n" . $data : $data;
+            $flag = FILE_APPEND;
+        }
+        file_put_contents($zabbix_data_file_path, $data, $flag);
+        // we return a new queue item to clean up the zabbix item 30 minutes later (return array must be dimensional because the return value can hold several queue items if needed)
+        return [["timestamp" => strtotime("+ 30 minutes"), "callback" => "gofast_integrity_check_write_zabbix_data", "args" => [$item_key, $data, TRUE]]];
+    }
+}
+
+function gofast_integrity_run_queued_actions() {
+    $queued_actions = variable_get("gofast_integrity_actions_queue", array());
+    $update_queued_actions = FALSE;
+    $actions_to_add = [];
+    foreach($queued_actions as $index => $queued_action) {
+        if ($queued_action["timestamp"] < time()) {
+            $update_queued_actions = TRUE;
+            $return = call_user_func_array($queued_action["callback"], $queued_action["args"]);
+            unset($queued_actions[$index]);
+            // if a callback has returned queued actions, it may have returned several ones, thus the use of the spread operator
+            if (is_array($return)) {
+                $actions_to_add = [...$actions_to_add, ...$return];
+            }
+        }   
+    }
+    if ($update_queued_actions) {
+        $queued_actions = [...$queued_actions, ...$actions_to_add];
+        variable_set("gofast_integrity_actions_queue", $queued_actions);
+    }
+}
+
+/*
+ * @package gofast_integrity
  * Implements hook_cron
  * 
  * Trigger steps of the integrity check and coordinate the run
  */
 function gofast_integrity_cron(){
+    // Replication Integrity - Compare Alfresco database against Drupal database
+    $integrity_replication = variable_get("gofast_integrity_replication", 0);
+    if(time() > intval($integrity_replication) + 3700 && date('H') == "03"){
+        //Run the check each night once at 3 a.m.
+        watchdog('gofast_integrity', "Run replication check");
+        gofast_integrity_alfresco_run_replication_check();
+        variable_set("gofast_integrity_replication", time());
+    }
+    // Permissions Integrity - Get active nodes from the store which are not available to any regular user
+    $integrity_replication = variable_get("gofast_integrity_permissions", 0);
+    if(time() > intval($integrity_replication) + 3700 && date('H') == "04"){
+        //Run the check each night once at 4 a.m.
+        watchdog('gofast_integrity', "Run permissions check");
+        gofast_integrity_alfresco_run_replication_check();
+        variable_set("gofast_integrity_permissions", time());
+    }
+    
+    gofast_integrity_run_queued_actions();
     $running = variable_get("gofast_integrity_is_running", false);
     
     /*
@@ -151,6 +234,10 @@ function gofast_integrity_run_batch(){
             watchdog('gofast_integrity', "Starting integrity documents process");
             gofast_integrity_process_documents();
             break;
+        case GOFAST_INTEGRITY_RUN_STATE_PRIVATE_SPACES:
+            gofast_integrity_check_private_space();
+            variable_set("gofast_integrity_run_state", GOFAST_INTEGRITY_RUN_STATE_RESULTS);
+            break;
         case GOFAST_INTEGRITY_RUN_STATE_RESULTS:
             if($week_number != variable_get("gofast_integrity_week_number", 0)){
                 watchdog('gofast_integrity', "Week " . $week_number . " is starting !");
@@ -258,6 +345,15 @@ function gofast_integrity_process_spaces(){
             $invalid_spaces = array_merge($invalid_spaces, $ogs['invalid']);
             variable_set("gofast_integrity_invalid_spaces", $invalid_spaces);
         }
+
+        watchdog('gofast_integrity', "Starting spaces ldap sync check");
+        $ldaps = gofast_integrity_drupal_check_spaces_ldap_sync($spaces);
+        if(count($ldaps['invalid']) != 0){
+            watchdog('gofast_integrity', count($ldaps['invalid']) . " invalid spaces identified in Drupal ldap sync check !");
+            $invalid_spaces = variable_get("gofast_integrity_invalid_spaces", array());
+            $invalid_spaces = array_merge($invalid_spaces, $ldaps['invalid']);
+            variable_set("gofast_integrity_invalid_spaces", $invalid_spaces);
+        }
         
         watchdog('gofast_integrity', "End of spaces batch, preparing spaces integrity for next batch");
         variable_set('gofast_integrity_spaces_skip', ($skip+GOFAST_INTEGRITY_SPACES_BATCH_SIZE));
@@ -279,7 +375,7 @@ function gofast_integrity_process_documents(){
         //End of documents batch
         $week_number = (date("W", (time()-259200)));
         watchdog('gofast_integrity', "End of documents batch, that's all for week " . $week_number);
-        variable_set("gofast_integrity_run_state", GOFAST_INTEGRITY_RUN_STATE_RESULTS);
+        variable_set("gofast_integrity_run_state", GOFAST_INTEGRITY_RUN_STATE_PRIVATE_SPACES);
         variable_set("gofast_integrity_week_number", $week_number);
     }else{
         //Process checks on retrieved documents
@@ -330,6 +426,45 @@ function gofast_integrity_process_documents(){
         
         watchdog('gofast_integrity', "End of documents batch, preparing documents integrity for next batch");
         variable_set('gofast_integrity_documents_skip', ($skip+GOFAST_INTEGRITY_DOCUMENTS_BATCH_SIZE));
+    }
+}
+
+function gofast_integrity_enqueue_check_create_space($nid) {
+    $queued_actions = variable_get("gofast_integrity_actions_queue", array());
+    $queued_actions[] = ["timestamp" => strtotime("now"), "callback" => "gofast_integrity_check_create_space", "args" => [$nid, $rollback_on_failure]];
+    variable_set("gofast_integrity_actions_queue", $queued_actions);
+}
+
+function gofast_integrity_check_create_space($nid) {
+    $node = node_load($nid);
+    $failure = FALSE;
+    
+    $error_messages = "";
+
+    // Drupal-side
+    $error_message = gofast_integrity_check_create_space_drupal($nid, $node, $failure);
+    if ($error_message) {
+        $error_messages .= $error_message;
+    }
+
+    // LDAP-side
+    $LdapServer = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
+    $LdapServer->connectAndBindIfNotAlready();
+    $error_message = gofast_integrity_check_create_space_ldap($LdapServer, $nid, $failure);
+    if ($error_message) {
+        $error_messages .= (!empty($error_messages) ? " " : "") . $error_message;
+
+    }
+
+    // Alfresco-side
+    $error_message = gofast_integrity_check_create_space_alfresco($nid, $node, $failure);
+    if ($error_message) {
+        $error_messages .= (!empty($error_messages) ? " " : "") . $error_message;
+    }
+
+    // If something is wrong, then write the error messages to the relevant zabbix item
+    if ($failure) {
+        return [["timestamp" => strtotime("now"), "callback" => "gofast_integrity_check_write_zabbix_data", "args" => ["failed_space_creation", $error_messages]]];
     }
 }
 

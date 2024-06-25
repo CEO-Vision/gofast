@@ -31,10 +31,13 @@ and components/sidebar seem to be unused */
 @import 'components/GofastSubscriptionModal';
 @import 'components/GofastWorkflows';
 @import 'components/GofastStats';
+@import 'components/GofastTour';
 @import 'components/GofastUtil';
 @import 'components/GofastZtree';
 @import 'components/content/content';
 @import 'components/content/gofast-content';
 @import 'components/explorer/explorer';
 @import 'components/explorer/ajax-file-browser';
+@import 'components/explorer/essential-file-browser';
 @import 'components/riot/riot';
+@import 'components/GofastBookmark';

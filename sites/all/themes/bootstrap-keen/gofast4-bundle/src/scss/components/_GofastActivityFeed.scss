@@ -27,7 +27,12 @@
         margin-top: 100px;
     }
 
-    
+    @media (min-width: var(--breakpoint-md)) { // mobile
+        &__table {
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+    }
 }
 
 .gofastPopoverHeader {

@@ -60,7 +60,15 @@
                                                                 <td>
                                                                     <?= $item["icon_white"] ?>
                                                                 </td>
-                                                                <td><span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;<?= $item["node"]->title ?></span><?= isset($item["flag"]) ? " <span style='font-weight: 300; color: #FD7E14;'> <b>(" . t($item["flag"], array(), $l) . ")</b></span>" : "" ?>
+                                                                <td>
+                                                                    &nbsp;
+                                                                    <a
+                                                                        href="<?= $base_url . '/node/' . $item['node']->nid ?>"
+                                                                        style="color: #FFFFFF; font-size: 18px; font-weight: 600; text-decoration: none;"
+                                                                    >
+                                                                        <?= $item["node"]->title ?>
+                                                                    </a>
+                                                                    <?= isset($item["flag"]) ? " <span style='font-weight: 300; color: #FD7E14;'> <b>(" . t($item["flag"], array(), $l) . ")</b></span>" : "" ?>
                                                                 </td>
                                                             </tr>
                                                         </tbody>

@@ -240,8 +240,22 @@ function gofast_workflows_curl_get_user($myuser,$cookie_name){
 
 }
 
-
-
+function gofast_workflows_bind_group_to_actor($group_id, $actor_id) {
+    $url = URL_BONITA . "API/bpm/actorMember";
+    $cookie_name = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_VERBOSE, TRUE);
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+    curl_setopt($ch, CURLOPT_POST, 1);
+    //Attach our encoded JSON string to the POST fields.
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(["group_id" => $group_id, "actor_id" => $actor_id]));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+    curl_setopt($ch, CURLOPT_COOKIEFILE, 'sites/default/files/swf/'.$cookie_name);
+    $content = gofast_workflows_curl_exec($ch);
+    curl_close($ch);
+    return $content;
+}
 
 function gofast_workflows_curl_create_group($data, $cookie_name){
 
@@ -478,22 +492,27 @@ function gofast_workflows_deploy_gofast_application(){
     //Get available pages list
     $ch2 = curl_init();
     curl_setopt($ch2, CURLOPT_VERBOSE, true);
-    curl_setopt($ch2, CURLOPT_URL, $baseURL.'API/living/application?c=1&d=profileId&d=createdBy&d=updatedBy&d=layoutId&p=0');
+    curl_setopt($ch2, CURLOPT_URL, $baseURL.'API/living/application?c=20&d=profileId&d=createdBy&d=updatedBy&d=layoutId&p=0');
     curl_setopt($ch2, CURLOPT_COOKIEFILE, 'sites/default/files/swf/'.$cookie_name);
     curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch2, CURLOPT_PROXY, '');
     $available_apps = json_decode(curl_exec($ch2), TRUE);
 
     if(count($available_apps) > 0){
-        //Destroy existing application
-        $ch2 = curl_init();
-        curl_setopt($ch2, CURLOPT_VERBOSE, true);
-        curl_setopt($ch2, CURLOPT_URL, $baseURL.'API/living/application/'.$available_apps[0]["id"]);
-        curl_setopt($ch2, CURLOPT_CUSTOMREQUEST, "DELETE");
+        foreach ($available_apps as $available_app) {
+            if ($available_app["token"] == "GoFAST") {
+                //Destroy existing application
+                $ch2 = curl_init();
+                curl_setopt($ch2, CURLOPT_VERBOSE, true);
+                curl_setopt($ch2, CURLOPT_URL, $baseURL.'API/living/application/'.$available_app["id"]);
+                curl_setopt($ch2, CURLOPT_CUSTOMREQUEST, "DELETE");
 
-        curl_setopt($ch2, CURLOPT_COOKIEFILE, 'sites/default/files/swf/'.$cookie_name);
-        curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
-        curl_exec($ch2);
+                curl_setopt($ch2, CURLOPT_COOKIEFILE, 'sites/default/files/swf/'.$cookie_name);
+                curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+                curl_exec($ch2);
+                break;
+            }
+        }
     }
 
     //Create the application
@@ -758,6 +777,28 @@ function gofast_workflows_deploy_gofast_application(){
             curl_exec($ch2);
         }
 
+        if($available_page['urlToken'] == "custompage_TaskDelegation"){
+            //Bind the page
+            $ch2 = curl_init();
+            curl_setopt($ch2, CURLOPT_HTTPHEADER, array(
+                'Content-Type: application/json;charset=UTF-8',
+                )
+            );
+
+            curl_setopt($ch2, CURLOPT_VERBOSE, true);
+            curl_setopt($ch2, CURLOPT_URL, $baseURL.'API/living/application-page');
+            curl_setopt($ch2, CURLOPT_POST, 1);
+            $data = array(
+                    "applicationId" => $application_id,
+                    "pageId" => $available_page['id'],
+                    "token" => "taskDelegation",
+                );
+            curl_setopt($ch2, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch2, CURLOPT_COOKIEFILE, 'sites/default/files/swf/'.$cookie_name);
+            curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch2, CURLOPT_PROXY, '');
+            curl_exec($ch2);
+        }
     }
 
 
@@ -848,18 +889,18 @@ function gofast_workflows_deploy_rest_api_extension($name){
         )
     );
     curl_setopt($ch, CURLOPT_VERBOSE, true);
-    curl_setopt($ch, CURLOPT_URL, $baseURL.'API/portal/page?p=0&c=100');
+    curl_setopt($ch, CURLOPT_URL, $baseURL.'API/portal/page?p=0&c=1000');
     curl_setopt($ch, CURLOPT_COOKIEFILE, 'sites/default/files/swf/'.$cookie_name);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_PROXY, '');
     $response = json_decode(curl_exec($ch));
+    $page_id = NULL;
     foreach($response as $resource){
         if(isset($resource->id) && $resource->contentName == $name){
            $page_id = $resource->id;
            $action = "edit";
            break;
         }else{
-           $page_id = null;
            $action = "add";
         }
     }
@@ -1023,7 +1064,6 @@ function gofast_workflows_deploy_new_version_standard_process($old_name, $new_na
     curl_setopt($ch2, CURLOPT_COOKIEFILE, 'sites/default/files/swf/'.$cookie_name);
     curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
     $disabled_previous_process_object = json_decode(gofast_workflows_curl_exec($ch2));
-
 }
 
 

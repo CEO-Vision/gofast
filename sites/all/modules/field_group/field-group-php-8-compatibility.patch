@@ -1,0 +1,12 @@
+diff -ruN a/field_group.module b/field_group.module
+--- a/field_group.module	2022-10-26 12:53:25.041995000 +0200
++++ b/field_group.module	2022-10-26 14:44:46.305838000 +0200
+@@ -2090,7 +2090,7 @@
+         // Prepend #array_parents & #field_parents of group child element & its element_children
+         // if those keys are set, and don't already include the group parents
+         $group_child = &$group_references[$parent_name][$child_name];
+-        $group_parents = $group_references[$parent_name]['#array_parents'];
++        $group_parents = (array) $group_references[$parent_name]['#array_parents'];
+         $process_elements = array_merge(array(&$group_child), _field_group_element_children_recursive_ref($group_child));
+         foreach ($process_elements as $key => $current_element) {
+           if (isset($current_element['#array_parents']) && !in_array($group_parents[0], $current_element['#array_parents'])) {

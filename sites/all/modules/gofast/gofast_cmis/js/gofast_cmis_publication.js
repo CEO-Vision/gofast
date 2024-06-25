@@ -89,6 +89,8 @@
           }
           if(success && type == 'no_pdf'){
             $(panel).find('.panel-body').find(".manage-publications-info").html("<i class='fa fa-warning' style='color:#ffc107' aria-hidden='true'></i> " + Drupal.t("The pdf preview of the original document doesn't exist", {}, {context: 'gofast:taxonomy'}));             
+          }else if (success && !transformation){    
+            $(panel).find('.panel-body').find(".manage-publications-info").html("<i class='fa fa-check' style='color:green' aria-hidden='true'></i> " + Drupal.t("Processed ! (The file type is either incompatible for transformation or is already in PDF format).", {}, {context: 'gofast:taxonomy'}));
           }else if (success){    
             $(panel).find('.panel-body').find(".manage-publications-info").html("<i class='fa fa-check' style='color:green' aria-hidden='true'></i> " + Drupal.t("Processed !", {}, {context: 'gofast:taxonomy'}));
           }else if(type == 'is_publication'){

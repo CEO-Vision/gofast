@@ -33,15 +33,7 @@ class RadioactivityDeferredIncidentStorage extends RadioactivityIncidentStorage 
 
     while ($row = $result->fetch()) {
       $incident = unserialize($row->data);
-      //Patch CEO-vision GOFast
-      $exist=true;
-      if($incident->entityType=='node'){
-         $exist = db_query('SELECT nid FROM {node} WHERE nid = :nid', array(':nid'=> $incident->entityId))->fetchField();
-      }
-      elseif($incident->entityType=='user'){
-          $exist = db_query('SELECT uid FROM {user} WHERE uid = :uid', array(':uid'=> $incident->entityId))->fetchField();
-      }
-      if ($exist && $incident->floodCheck()) {
+      if ($incident->floodCheck()) {
         $incident->updateEnergy();
       }
     }

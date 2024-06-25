@@ -2925,7 +2925,7 @@ exports.default = _Droppable2.default;
 
 /***/ }),
 /* 35 */
-/***/ (function(module, exports, __nested_webpack_require_77764__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -4795,7 +4795,7 @@ exports.default = _MouseSensor2.default;
 
 /***/ }),
 /* 47 */
-/***/ (function(module, exports, __nested_webpack_require_128808__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -4901,7 +4901,7 @@ exports.default = Sensor;
 
 /***/ }),
 /* 48 */
-/***/ (function(module, exports, __nested_webpack_require_131440__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -4937,7 +4937,7 @@ exports.default = _requestNextAnimationFrame2.default;
 
 /***/ }),
 /* 50 */
-/***/ (function(module, exports, __nested_webpack_require_132231__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -6272,7 +6272,7 @@ exports.default = _Focusable2.default;
 
 /***/ }),
 /* 60 */
-/***/ (function(module, exports, __nested_webpack_require_169397__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -6596,7 +6596,7 @@ DraggableDestroyEvent.type = 'draggable:destroy';
 
 /***/ }),
 /* 64 */
-/***/ (function(module, exports, __nested_webpack_require_177454__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -9808,7 +9808,7 @@ exports.default = _Droppable2.default;
 
 /***/ }),
 /* 71 */
-/***/ (function(module, exports, __nested_webpack_require_75098__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -14226,7 +14226,7 @@ DragPressureSensorEvent.type = 'drag:pressure';
 
 /***/ }),
 /* 104 */
-/***/ (function(module, exports, __nested_webpack_require_195821__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -14262,7 +14262,7 @@ exports.default = _requestNextAnimationFrame2.default;
 
 /***/ }),
 /* 106 */
-/***/ (function(module, exports, __nested_webpack_require_196615__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -14578,7 +14578,7 @@ exports.default = _MouseSensor2.default;
 
 /***/ }),
 /* 110 */
-/***/ (function(module, exports, __nested_webpack_require_204532__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -14684,7 +14684,7 @@ exports.default = Sensor;
 
 /***/ }),
 /* 111 */
-/***/ (function(module, exports, __nested_webpack_require_207165__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -14733,7 +14733,7 @@ exports.default = AbstractPlugin;
 
 /***/ }),
 /* 112 */
-/***/ (function(module, exports, __nested_webpack_require_208029__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -16668,7 +16668,7 @@ Object.keys(_DragEvent).forEach(function (key) {
 
 /***/ }),
 /* 9 */
-/***/ (function(module, exports, __nested_webpack_require_10252__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -18538,7 +18538,7 @@ exports.default = _MouseSensor2.default;
 
 /***/ }),
 /* 21 */
-/***/ (function(module, exports, __nested_webpack_require_61292__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -18644,7 +18644,7 @@ exports.default = Sensor;
 
 /***/ }),
 /* 22 */
-/***/ (function(module, exports, __nested_webpack_require_63924__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -18680,7 +18680,7 @@ exports.default = _requestNextAnimationFrame2.default;
 
 /***/ }),
 /* 24 */
-/***/ (function(module, exports, __nested_webpack_require_64715__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -20015,7 +20015,7 @@ exports.default = _Focusable2.default;
 
 /***/ }),
 /* 34 */
-/***/ (function(module, exports, __nested_webpack_require_101881__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -20339,7 +20339,7 @@ DraggableDestroyEvent.type = 'draggable:destroy';
 
 /***/ }),
 /* 38 */
-/***/ (function(module, exports, __nested_webpack_require_109938__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -21177,7 +21177,7 @@ Object.keys(_DroppableEvent).forEach(function (key) {
 
 /***/ }),
 /* 10 */
-/***/ (function(module, exports, __nested_webpack_require_10706__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -23047,7 +23047,7 @@ exports.default = _MouseSensor2.default;
 
 /***/ }),
 /* 22 */
-/***/ (function(module, exports, __nested_webpack_require_61747__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -24401,7 +24401,7 @@ exports.default = _Focusable2.default;
 
 /***/ }),
 /* 31 */
-/***/ (function(module, exports, __nested_webpack_require_99274__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -25042,7 +25042,7 @@ exports.default = _Draggable2.default;
 
 /***/ }),
 /* 37 */
-/***/ (function(module, exports, __nested_webpack_require_115652__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -25078,7 +25078,7 @@ exports.default = _requestNextAnimationFrame2.default;
 
 /***/ }),
 /* 39 */
-/***/ (function(module, exports, __nested_webpack_require_116443__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -25472,7 +25472,7 @@ exports.default = Droppable;
 
 /***/ }),
 /* 42 */
-/***/ (function(module, exports, __nested_webpack_require_127486__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -26605,7 +26605,7 @@ exports.defaultOptions = _ResizeMirror.defaultOptions;
 
 /***/ }),
 /* 12 */
-/***/ (function(module, exports, __nested_webpack_require_23609__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -26641,7 +26641,7 @@ exports.default = _requestNextAnimationFrame2.default;
 
 /***/ }),
 /* 14 */
-/***/ (function(module, exports, __nested_webpack_require_24400__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -26728,7 +26728,7 @@ exports.default = _closest2.default;
 
 /***/ }),
 /* 16 */
-/***/ (function(module, exports, __nested_webpack_require_26671__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -26952,7 +26952,7 @@ exports.default = Collidable;
 
 /***/ }),
 /* 18 */
-/***/ (function(module, exports, __nested_webpack_require_32421__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -27352,7 +27352,7 @@ Object.keys(_CollidableEvent).forEach(function (key) {
 
 /***/ }),
 /* 1 */
-/***/ (function(module, exports, __nested_webpack_require_4480__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -27388,7 +27388,7 @@ exports.default = _requestNextAnimationFrame2.default;
 
 /***/ }),
 /* 3 */
-/***/ (function(module, exports, __nested_webpack_require_5268__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -27506,7 +27506,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 /***/ }),
 /* 6 */
-/***/ (function(module, exports, __nested_webpack_require_8218__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -27749,7 +27749,7 @@ exports.default = Collidable;
 
 /***/ }),
 /* 9 */
-/***/ (function(module, exports, __nested_webpack_require_14377__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -28084,7 +28084,7 @@ return /******/ (function(modules) { // webpackBootstrap
 /************************************************************************/
 /******/ ([
 /* 0 */
-/***/ (function(module, exports, __nested_webpack_require_4029__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -28120,7 +28120,7 @@ exports.default = _requestNextAnimationFrame2.default;
 
 /***/ }),
 /* 2 */
-/***/ (function(module, exports, __nested_webpack_require_4817__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -28238,7 +28238,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 /***/ }),
 /* 5 */
-/***/ (function(module, exports, __nested_webpack_require_7767__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -28618,7 +28618,7 @@ Object.keys(_SnappableEvent).forEach(function (key) {
 
 /***/ }),
 /* 1 */
-/***/ (function(module, exports, __nested_webpack_require_4472__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -28874,7 +28874,7 @@ exports.default = Snappable;
 
 /***/ }),
 /* 4 */
-/***/ (function(module, exports, __nested_webpack_require_10526__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -29199,7 +29199,7 @@ return /******/ (function(modules) { // webpackBootstrap
 /************************************************************************/
 /******/ ([
 /* 0 */
-/***/ (function(module, exports, __nested_webpack_require_4032__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -29867,7 +29867,7 @@ Object.keys(_SortableEvent).forEach(function (key) {
 
 /***/ }),
 /* 10 */
-/***/ (function(module, exports, __nested_webpack_require_10700__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -31737,7 +31737,7 @@ exports.default = _MouseSensor2.default;
 
 /***/ }),
 /* 22 */
-/***/ (function(module, exports, __nested_webpack_require_61741__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -31843,7 +31843,7 @@ exports.default = Sensor;
 
 /***/ }),
 /* 23 */
-/***/ (function(module, exports, __nested_webpack_require_64373__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -31879,7 +31879,7 @@ exports.default = _requestNextAnimationFrame2.default;
 
 /***/ }),
 /* 25 */
-/***/ (function(module, exports, __nested_webpack_require_65164__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -33214,7 +33214,7 @@ exports.default = _Focusable2.default;
 
 /***/ }),
 /* 35 */
-/***/ (function(module, exports, __nested_webpack_require_102330__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -34165,7 +34165,7 @@ function moveOutsideContainer(source, over, overContainer) {
 
 /***/ }),
 /* 42 */
-/***/ (function(module, exports, __nested_webpack_require_127313__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -34932,7 +34932,7 @@ Object.keys(_SwappableEvent).forEach(function (key) {
 
 /***/ }),
 /* 10 */
-/***/ (function(module, exports, __nested_webpack_require_10706__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -36802,7 +36802,7 @@ exports.default = _MouseSensor2.default;
 
 /***/ }),
 /* 22 */
-/***/ (function(module, exports, __nested_webpack_require_61747__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -36908,7 +36908,7 @@ exports.default = Sensor;
 
 /***/ }),
 /* 23 */
-/***/ (function(module, exports, __nested_webpack_require_64379__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -36944,7 +36944,7 @@ exports.default = _requestNextAnimationFrame2.default;
 
 /***/ }),
 /* 25 */
-/***/ (function(module, exports, __nested_webpack_require_65170__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -38279,7 +38279,7 @@ exports.default = _Focusable2.default;
 
 /***/ }),
 /* 35 */
-/***/ (function(module, exports, __nested_webpack_require_102336__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -39100,7 +39100,7 @@ function swap(source, over) {
 
 /***/ }),
 /* 42 */
-/***/ (function(module, exports, __nested_webpack_require_123640__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -39357,8 +39357,9 @@ exports.default = _Swappable2.default;
 /******/ 	// The require function
 /******/ 	function __webpack_require__(moduleId) {
 /******/ 		// Check if module is in cache
-/******/ 		if(__webpack_module_cache__[moduleId]) {
-/******/ 			return __webpack_module_cache__[moduleId].exports;
+/******/ 		var cachedModule = __webpack_module_cache__[moduleId];
+/******/ 		if (cachedModule !== undefined) {
+/******/ 			return cachedModule.exports;
 /******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
 /******/ 		var module = __webpack_module_cache__[moduleId] = {
@@ -39375,6 +39376,8 @@ exports.default = _Swappable2.default;
 /******/ 	}
 /******/ 	
 /************************************************************************/
+var __webpack_exports__ = {};
+// This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
 (() => {
 /*!*******************************************************!*\
   !*** ./webpack/plugins/custom/draggable/draggable.js ***!

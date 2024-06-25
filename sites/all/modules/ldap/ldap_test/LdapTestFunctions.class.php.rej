@@ -1,0 +1,25 @@
+--- LdapTestFunctions.class.php
++++ LdapTestFunctions.class.php
+@@ -143,9 +143,21 @@ public function ldapUserIsAuthmapped($username) {
+   }
+ 
+   /**
++   * Update a Drupal user in LDAP.
+    *
++   * @param array $edit
++   * @param bool $ldap_authenticated
++   * @param object|null $user
++   *   A drupal user account.
++   *
++   * @return object|null
++   *   The updated user.
+    */
+-  public function drupalLdapUpdateUser($edit = [], $ldap_authenticated = FALSE, $user) {
++  public function drupalLdapUpdateUser($edit = [], $ldap_authenticated = FALSE, $user = NULL) {
++    if (!$user) {
++      $user = new stdClass();
++      $user->is_new = TRUE;
++    }
+     if (count($edit)) {
+       $user = user_save($user, $edit);
+     }

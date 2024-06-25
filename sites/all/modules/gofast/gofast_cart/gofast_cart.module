@@ -36,6 +36,13 @@ function gofast_cart_menu(){
     'type' => MENU_CALLBACK,
   );
 
+  $items['gofast_cart/get_node_references'] = [
+    'page callback' => 'gofast_cart_get_node_references',
+    'access callback' => 'user_access',
+    'access arguments' => ['access content'],
+    'type' => MENU_CALLBACK,
+  ];
+
   return $items;
 }
 
@@ -66,6 +73,7 @@ function gofast_cart_ui_display_modal_bulk_add($js){
   $commands = ctools_modal_form_wrapper($form_id, $form_state);
   if ($form_state['executed']) {
     $commands[] = ctools_modal_command_dismiss();
+    $commands[] = gofast_command_toast_message(t('Your items were succesfully added to the cart', array(), array('context' => 'gofast:gofast_cart')), 'success');
   }
   print ajax_render($commands);
 
@@ -157,7 +165,7 @@ function gofast_cart_bulk_add_form_submit($form, &$form_state) {
     }
   }
 
- if(count($updated_nids) > 0){
+  if(count($updated_nids) > 0){
     global $user;
     foreach($updated_nids as $nid) {
       $flag = flag_get_flag('cart');
@@ -219,7 +227,7 @@ function gofast_cart_ui_display_modal($js){
 		  . "});";
 
     //Retrieve all nids in the cart
-    $flags = flag_get_user_flags("node", NULL, $user->uid)['cart'];
+    $flags = (array) flag_get_user_flags("node", NULL, $user->uid)['cart'];
     $nids = array_keys($flags);
 
     foreach($nids as $nid){
@@ -230,7 +238,7 @@ function gofast_cart_ui_display_modal($js){
 
     $modal = ctools_modal_form_render(NULL, $render);
     print ajax_render($modal);
-    return;
+    exit;
 }
 
 /*
@@ -269,6 +277,73 @@ function gofast_cart_theme() {
   return $items;
 }
 
+/**
+ * Gets the flags of a user given an entity type.
+ *
+ * A version of flag_get_user_flags that has its request paginated using
+ * PagerDefault.
+ *
+ * The current page is decided by the GET parameter 'page'.
+ *
+ * @param string $entity_type The type of entity that has been flagged
+ * @param string $flag_name The name of the flag we want to retrieve
+ * @param mixed $entity_id The ID of a specific entity to get the flags of
+ * @param mixed $uid The ID of the user of which we want the flags. Defaults to
+ *    the current user id.
+ * @param mixed $sid The Session ID. Defaults to the sid associated with the user.
+ * @param int $limit The number of items per page. Defaults to 10.
+ * @return array|null Returns an array of maximum $limit items for the current
+ *    page, or null if nothing could be found
+ * @throws PDOException A Database connection error occurred
+ */
+function gofast_cart_paginated_get_user_flags(
+  string $entity_type,
+  string $flag_name,
+  $entity_id = null,
+  $uid = null,
+  $sid = null,
+  int $limit = 10,
+) {
+  // apply defaults
+  $uid ??= $GLOBALS['user']->uid;
+  $sid ??= flag_get_sid($uid);
+
+  // whether to include the entity_id as a condition on the DB Query later.
+  $filter_entity_id = isset($entity_id);
+
+  // get teh flag object corresponding to the passed-in name.
+  // allows us to get the flag ID.
+  $flag = flag_get_flag($flag_name);
+
+  // build the base DB select query
+  $query = db_select('flagging', 'fc');
+  $query
+    ->fields('fc')
+    ->condition('fc.entity_type', $entity_type)
+    ->condition('fc.fid', $flag->fid)
+    ->condition('fc.sid', $sid)
+    ->condition(
+      db_or()
+        ->condition('fc.uid', $uid)
+        ->condition('fc.uid', 0)
+    );
+  // Add entity_id condition only if required.
+  if ($filter_entity_id) {
+    $query->condition('fc.entity_id', $entity_id);
+  }
+
+  // Add and configure pagination
+  /** @var PagerDefault */
+  $query = $query->extend(PagerDefault::class);
+  $query->limit($limit);
+
+  // run and retrieve entries
+  /** @var null|(PDOStatement&DatabaseStatementInterface) */
+  $result = $query->execute();
+
+  return $result->fetchAll() ?: null;
+}
+
 /*
  * GOFAST-6852 : Cart rework
  * Creates the table that will be displayed in the cart modal
@@ -290,7 +365,7 @@ function gofast_cart_display_table() {
     $output = "";
     $table = [];
     $cart_flag = flag_get_flag("cart");
-    $flags = flag_get_user_flags("node", NULL, $user->uid)['cart'];
+    $flags = gofast_cart_paginated_get_user_flags('node', 'cart', uid: $user->uid, limit: 10);
 
     foreach($flags as $flag) {
         $node = [];
@@ -345,4 +420,55 @@ function gofast_cart_display_table() {
     $content = (empty($table)) ? "" : theme('gofast_cart_modal_cart_table_content', array('items' => $table));
     $output = theme('gofast_cart_modal_cart', array('table_content' => $content));
     return $output;
+}
+
+/**
+ * Callback for an API endpoint to get node cmis item ids ("references") from a list of node ids.
+ *
+ * The request body should be a application/x-www-form-urlencoded conforming to
+ * the `Request` type once deserialized.
+ *
+ * The endpoint sends back a JSON response conforming with the `Response` type.
+ * ```ts
+ * type Request = {
+ *  nodeIds: string[], // array of node IDs
+ * }
+ *
+ * type Response = {
+ *    nodeId: string,
+ *    nodeRef: string,
+ * }[]
+ * ```
+ * @return void
+ */
+function gofast_cart_get_node_references() {
+  //Check content type
+  if (strpos($_SERVER['CONTENT_TYPE'], "application/x-www-form-urlencoded") === FALSE) {
+    gofast_api_not_implemented("This Content-Type");
+    return;
+  }
+
+  //Check authentication
+  global $user;
+  if ($user->uid == 0) {
+    gofast_api_not_authorized("Unavailable ressource for anonymous user");
+    return;
+  }
+
+  if(!isset($_POST['nodeIds'])) {
+    gofast_api_mandatory_parameter('nodeIds');
+    return;
+  }
+  $node_ids = $_POST['nodeIds'];
+
+  $node_references = [];
+  $nodes = node_load_multiple($node_ids);
+  foreach($nodes as $node) {
+    $node_references[] = [
+      'nodeId' => $node->nid,
+      'nodeRef' => gofast_cmis_node_get_item_id($node),
+    ];
+  }
+
+  gofast_api_success($node_references);
 }

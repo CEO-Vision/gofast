@@ -51,7 +51,10 @@ function gofast_onlyoffice_theme() {
         'edit_permission' => NULL,
         'extension' => NULL
       )
-    )
+      ),
+      'onlyoffice_compare' => array(
+        'template' => 'tpl/gofast_onlyoffice_compare',
+      ),
   );
 }
 
@@ -84,6 +87,54 @@ function gofast_onlyoffice_menu() {
   return $items;
 }
 
+function template_preprocess_onlyoffice_compare(&$variables) {
+  $node = $variables["node"];
+  $version_source = $variables["version_source"];
+  $version_dest = $variables["version_dest"];
+  $reference = gofast_cmis_node_get_item_id($node);
+  [$version_source_uuid, $version_dest_uuid] = gofast_pdf_compare_get_versions_links($reference, $version_source, $version_dest, TRUE);
+
+  // inject versions links into the OO compare template to trigger OO comparison on the correct targets
+  $alfresco_ticket = gofast_cmis_ticket_validate(); // This ticket is used for the Alfresco's authentification
+  $variables["version_source_link"] = rtrim(GOFAST_URL_WEBSCRIPT_ALFRESCO, '/') . '/api/node/content/versionStore/version2Store/' . $version_source_uuid . '?alf_ticket=' . $alfresco_ticket;
+  $variables["version_dest_link"] = rtrim(GOFAST_URL_WEBSCRIPT_ALFRESCO, '/') . '/api/node/content/versionStore/version2Store/' . $version_dest_uuid . '?alf_ticket=' . $alfresco_ticket;
+
+  // if we have pdf, we must change the extension to docx and convert both source and dest files to docx otherwise OO will not be able to compare the files
+  if ($variables["extension"] == "pdf") {
+    if (str_ends_with($node->title, ".pdf")) {
+      $node->title = rtrim($node->title, ".pdf") . ".docx";
+    }
+    $variables["extension"] = "docx";
+    $source_link = gofast_cmis_convert_document($node, $variables["version_source_link"], "docx");
+    $variables["version_source_link"] = json_decode(json_encode($source_link))->FileUrl;
+    $dest_link = gofast_cmis_convert_document($node, $variables["version_dest_link"], "docx");
+    $variables["version_dest_link"] = json_decode(json_encode($dest_link))->FileUrl;
+  }
+
+  // if there is any error, it will be shown in the template instead of the OO iframe
+  $variables["errors"] = [];
+  if (!$variables["version_source_link"] || !$variables["version_dest_link"]) {
+    $variables["errors"][] = t("Could not convert the document for comparison", [], ["context" => "gofast:gofast_onlyoffice"]);
+  }
+}
+
+function gofast_onlyoffice_parashift_callback($hash, $complete_node_ref, $onlyoffice_callback_values) {
+  $url_attributes['nodeRef'] = $complete_node_ref;
+  $url_attributes['cb_key'] = $hash;
+  $alfresco_callback_url = urldecode('http://localhost:8080/alfresco/s' . '/parashift/onlyoffice/callback?' . http_build_query($url_attributes));
+
+  //Dispatching data to alfresco
+  $ch = curl_init($alfresco_callback_url);
+  curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+  curl_setopt($ch, CURLOPT_POSTFIELDS, $onlyoffice_callback_values);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+  curl_setopt($ch, CURLOPT_USERPWD, 'admin:' . gofast_get_admin_pwd());
+  curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+  curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+  $result = curl_exec($ch);
+  return $result;
+}
+
 /**
  * This function creates a soft-lock on document open and removes it when the document is closed.
  * Also dispatch the returned callback to alfresco that handles the document storage.
@@ -105,8 +156,13 @@ function gofast_onlyoffice_callback($nid, $node_ref, $alfresco_ticket) {
   global $conf;
   
   $onlyoffice_callback_values = str_replace($conf['gofast-comm_domain'], "internal-" . $conf['gofast-comm_domain'], $onlyoffice_callback_values);
-  
+
+  // if the callback is called by the onlyoffice api, onlyoffice still expects a response from the doc server but we don't have to go further
   $decoded_values = json_decode($onlyoffice_callback_values, TRUE);
+  if (isset($decoded_values["userdata"]) && $decoded_values["userdata"] == "gofast_onlyoffice_is_doc_being_edited") {
+    $hash = gofast_cmis_webservice_item_onlyoffice_hash($complete_node_ref, NULL, NULL, TRUE);
+    return gofast_onlyoffice_parashift_callback($hash, $complete_node_ref, $onlyoffice_callback_values);
+  }
 
   if(isset($decoded_values['status'])) {
 
@@ -117,6 +173,15 @@ function gofast_onlyoffice_callback($nid, $node_ref, $alfresco_ticket) {
     switch($decoded_values['status']) {
       case '1' :
         // Document opened
+        // First user connected: check if it's not bringing back an old session
+        $has_soft_lock = gofast_onlyoffice_document_get_soft_lock($node);
+        if (!$has_soft_lock) {
+          $timestamp_value = end(explode("_", $decoded_values["key"]));
+          $is_session_old = (time() - $timestamp_value) > 60;
+          if ($is_session_old) {
+            return;
+          }
+        }
         // We need to check if there is a soft_lock, if not, set it to true
         gofast_onlyoffice_document_set_soft_lock($node, TRUE);
         break;
@@ -174,20 +239,7 @@ function gofast_onlyoffice_callback($nid, $node_ref, $alfresco_ticket) {
   }
 
   $hash = gofast_cmis_webservice_item_onlyoffice_hash($complete_node_ref);
-  $url_attributes['nodeRef'] = $complete_node_ref;
-  $url_attributes['cb_key'] = $hash;
-
-  $alfresco_callback_url = urldecode('http://localhost:8080/alfresco/s' . '/parashift/onlyoffice/callback?' . http_build_query($url_attributes));
-
-  //Dispatching data to alfresco
-  $ch = curl_init($alfresco_callback_url);
-  curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
-  curl_setopt($ch, CURLOPT_POSTFIELDS, $onlyoffice_callback_values);
-  curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
-  curl_setopt($ch, CURLOPT_USERPWD, 'admin:' . gofast_get_admin_pwd());
-  curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
-
-  $result = curl_exec($ch);
+  $result = gofast_onlyoffice_parashift_callback($hash, $complete_node_ref, $onlyoffice_callback_values);
 
 
   //if we are in case of saving document after OnlyOffice edition, we check if the document is in old office format. If yes, convert it
@@ -217,17 +269,7 @@ function gofast_onlyoffice_callback($nid, $node_ref, $alfresco_ticket) {
     $decoded_values['status'] = 1;
     $onlyoffice_callback_values = json_encode($decoded_values);
 
-    $alfresco_callback_url = urldecode('http://localhost:8080/alfresco/s' . '/parashift/onlyoffice/callback?' . http_build_query($url_attributes));
-
-    //Dispatching data to alfresco
-    $ch = curl_init($alfresco_callback_url);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $onlyoffice_callback_values);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
-    curl_setopt($ch, CURLOPT_USERPWD, 'admin:' . gofast_get_admin_pwd());
-    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
-
-    $result = curl_exec($ch);
+    $result = gofast_onlyoffice_parashift_callback($hash, $complete_node_ref, $onlyoffice_callback_values);
   }
 
   if(in_array($decoded_values['status'], array(2, 3, 4), TRUE) && !$save_continue){
@@ -239,7 +281,9 @@ function gofast_onlyoffice_callback($nid, $node_ref, $alfresco_ticket) {
 
 function gofast_onlyoffice_is_mimetype_must_convert($current_mimetype){
      switch($current_mimetype){
+      case 'application/vnd.ms-excel' :
       case 'application/msword' :
+      case 'application/vnd.ms-powerpoint' :
       case 'application/rtf' :
         return true;
         break;
@@ -268,9 +312,39 @@ function gofast_onlyoffice_document_set_soft_lock($node, $value) {
  */
 function gofast_onlyoffice_document_get_soft_lock($node) {
   if($node->type === 'alfresco_item' && isset($node->{GOFAST_ONLYOFFICE_SOFT_LOCK}[LANGUAGE_NONE][0]['value'])) {
-    return $node->{GOFAST_ONLYOFFICE_SOFT_LOCK}[LANGUAGE_NONE][0]['value'];
+    return boolval($node->{GOFAST_ONLYOFFICE_SOFT_LOCK}[LANGUAGE_NONE][0]['value']);
   } else {
     return FALSE;
+  }
+}
+
+/**
+ * @param string $doc_id is the OO key of the document (the key is provided by alfresco and has the format alfRef-hash, hash being the encoded last modification timestamp)
+ * @return boolean TRUE if a matching editing session exists according to OO API
+ */
+function gofast_onlyoffice_is_doc_being_edited($doc_id) {
+  $data = [
+    "c" => "info",
+    "key" => $doc_id,
+    "userdata" => "gofast_onlyoffice_is_doc_being_edited",
+  ];
+
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_URL, DOC_SERV_COMMAND_SERVICE);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+  curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+  curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+  curl_setopt($ch, CURLOPT_POST, true);
+  curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+  curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+  curl_setopt($ch, CURLOPT_TIMEOUT, DOC_SERV_TIMEOUT);
+  $response = curl_exec($ch);
+  $response = json_decode($response);
+  curl_close($ch);
+  if (isset($response->error) && $response->error == 1) {
+    return FALSE;
+  } else {
+    return TRUE;
   }
 }
 
@@ -330,6 +404,25 @@ function gofast_onlyoffice_editor($node, $ro = FALSE) {
 
     // Document id
     if(!$ro){
+        $current_hash = gofast_cmis_webservice_item_onlyoffice_hash(gofast_cmis_get_raw_item_id($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']), NULL, NULL, TRUE);
+        $is_doc_being_edited = FALSE;
+        // theoretically, this means the document is already being edited
+        if (!empty($current_hash)) {
+          $doc_id = gofast_cmis_get_raw_item_id($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']) . '_' . $current_hash;
+          $is_doc_being_edited = gofast_onlyoffice_is_doc_being_edited($doc_id);
+        }
+        // if not, something went wrong last time the document was closed: trigger the hash to trigger behavior on document closing
+        if (!empty($current_hash) && !$is_doc_being_edited) {
+          gofast_cmis_webservice_item_onlyoffice_hash(gofast_cmis_get_raw_item_id($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']), TRUE);
+          $current_hash = gofast_cmis_webservice_item_onlyoffice_hash(gofast_cmis_get_raw_item_id($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']), NULL, NULL, TRUE);
+          // if hash clear failed, then something is very very wrong and it's wiser to exit
+          if (!empty($current_hash)) {
+            watchdog("gofast_onlyoffice", "Hash cannot be cleared on doc_id %doc_id", ["%doc_id" => $doc_id], WATCHDOG_ERROR);
+            drupal_set_message(t("There was a problem getting the current version of the document"), "error");
+            header('Location: /node/' . $node->nid);
+            exit;
+          }
+        }
         $hash = gofast_cmis_webservice_item_onlyoffice_hash(gofast_cmis_get_raw_item_id($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']));
         $doc_id = gofast_cmis_get_raw_item_id($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']) . '_' . $hash;
     }
@@ -429,4 +522,50 @@ function gofast_onlyoffice_field_access($op, $field, $entity_type, $entity, $acc
   if ($op === 'edit' && in_array($field['field_name'], $fields)) {
     return FALSE;
   }
+}
+
+/*
+ * Configure share variables
+*/
+function gofast_onlyoffice_configure_share(){
+  global $conf;
+  
+  $url = "http://localhost:8080/alfresco/service/onlyoffice/onlyoffice-config";
+  $username = "admin";
+  $password = gofast_get_admin_pwd();
+
+  //Onlyoffice configuration
+  $postfields = [
+    'alfurl' => "",
+    'cert' => "true",
+    'forcesave' => "false",
+    'innerurl' => "",
+    'jwtsecret' => "",
+    'url' => "https://internal-" . $conf['gofast-comm_domain'] . "/",
+    'webpreview' => "false",
+    'formats' => [
+      'csv' => "true",
+      'odp' => "true",
+      'ods' => "false",
+      'odt' => "false",
+      'rtf' => "false",
+      'txt' => "true",
+    ]
+  ];
+
+  $postfields = json_encode((object)$postfields);
+
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_POST, 1);
+  curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+        'Content-Length: ' . strlen($postfields),
+        'Content-Type: application/json'
+    ));
+  curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+  curl_setopt($ch, CURLOPT_HEADER, 0);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_USERPWD, $username . ":" . $password);
+  curl_setopt($ch, CURLOPT_URL, $url);
+  curl_setopt($ch, CURLOPT_POSTFIELDS, $postfields);
+  curl_exec($ch);
 }

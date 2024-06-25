@@ -28,7 +28,8 @@ function gofast_retention_install(){
       'translatable' => FALSE,
       'locked' => FALSE,
       'settings' => array(),
-      'storage' => array()      
+      'storage' => array(),
+      'size' => 'big',
     );
     field_create_field($field);
   }
@@ -89,3 +90,17 @@ function gofast_retention_update_3801(){
      taxonomy_term_save($term);
 }
  
+/**
+ * GOFAST-8568 : Make retention_end timestamp able to go beyond the year 2038
+ */
+function gofast_retention_update_3802(){
+  // we can't just update the field using field_update_field and field_update_instance (this would rise a DB Drupal error)
+  // so we have to change the field directly in the database schema: fortunately the column doesn't imply to drop and rebuild the primary keys
+  $tables = ["field_data_field_retention_end", "field_revision_field_retention_end"];
+  foreach ($tables as $table) {
+    db_change_field($table, 'field_retention_end_value', 'field_retention_end_value', [
+      'type' => 'int',
+      'size' => 'big',
+    ]);
+  }
+}

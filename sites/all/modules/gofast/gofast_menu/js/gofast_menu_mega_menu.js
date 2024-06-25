@@ -25,6 +25,7 @@ var GFMegaMenu = function () {
     var _debug;
     var _subMenusCall;
     var _time = 800;
+    var _memoizedHtml = {};
 
     //Private functions
     var _init = function () {
@@ -50,7 +51,8 @@ var GFMegaMenu = function () {
     var _getSubMenus = function (url, params, callback) {
 
         _log("_getSubMenus - START");
-        var already_html = "";
+        var gid = url.split("?gid=")[1] || 0;
+        var already_html = _memoizedHtml[gid] || "";
         _subMenusCall = null;
         if (already_html == "") {
             _subMenusCall = jQuery.ajax({
@@ -58,7 +60,7 @@ var GFMegaMenu = function () {
                 data: params,
                 dataType: 'html',
                 success: function (data) {
-
+                    _memoizedHtml[gid] = data;
                     if ("undefined" !== callback && typeof (callback) === "function") {
                         callback(data);
                     }
@@ -67,6 +69,8 @@ var GFMegaMenu = function () {
                     _subMenusCall = null;
                 }
             });
+        } else if ("undefined" !== callback && typeof (callback) === "function") {
+            callback(already_html);
         }
         _log("_getSubMenus - END");
     };
@@ -365,59 +369,59 @@ var GFMegaMenu = function () {
 
     };
 
-    var _checkVerticalOverflow = function (parent, child) {
-        const childVerticalPosition = child.getBoundingClientRect().y;
-        const parentVerticalPosition = parent.getBoundingClientRect().y;
-    
-        return childVerticalPosition > parentVerticalPosition;
-    }
-
-
     var _attachEvents = function (submenu_container) {
 
         _log("_attachEvents - START");
 
         var menu_container = _menuElement.find('.gf-megamenu');
 
-        jQuery(menu_container).each(function () {
+        $(menu_container).each(function () {
             this.addEventListener("mouseleave", _onMenuLeave, false);
             
             //Required to by-pass Keen (KTMenu) default behaviours
             this.addEventListener("mouseout", _onMenuLeave, false);
         });
 
-        jQuery(menu_container).find('li.gf-megamenu-col').each(function () {
+        $(menu_container).find('li.gf-megamenu-col').each(function () {
             this.addEventListener("mouseleave", _onMenuNavigate, false);
         });
 
-        jQuery(submenu_container).find('.gf-megamenu-submenu').each(function () {
+        $(submenu_container).find('.gf-megamenu-submenu').each(function () {
             this.addEventListener("mouseenter", _onMenuHover, false);
             this.addEventListener("mouseleave", _onMenuHover, false);
         });
 
+        // the hover on the select dropdown is detected as a menu mouseleave, so the block below is here to keep the menu open even if the menu hover is not detected in this case
         const waitForWorfklowsSelectInterval = setInterval(function() {
-            if(!jQuery("#gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows select").length) {
+            if(!$("#gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows select").length) {
                 return;
             }
-            jQuery("#gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows select").on("click", (e) => {
+            // prevent triggering a mouseout event when a select dropdown is open
+            $("#gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows select").on("select2:open", (e) => {
                 e.stopPropagation();
-                if(!jQuery("#gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows").hasClass("has-open-select")) {
-                    jQuery("#gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows").addClass("has-open-select");
-                } else {
-                    jQuery("#gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows").removeClass("has-open-select");
+                window.GFTopbarMenu.pauseDropdownHoverTime = Infinity;
+            });
+            // go back to normal behavior when hovering the menu again
+            $("#gf-topbar-menu .menu-submenu").on("mouseenter", () => {
+                var isSelectOpen = false;
+                // Don't close tab is select is still focused
+                $("#gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows select").each((i, el) => {
+                    if($(".gofast_wf_profil .gofastSelect2").eq(1).data("select2").isOpen()){
+                        isSelectOpen = true;
+                        return
+                    }
+                })
+                if(!isSelectOpen){
+                    window.GFTopbarMenu.pauseDropdownHoverTime = 0
                 }
             });
-            jQuery("#gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows select option").on("click", (e) => {
-                e.stopPropagation();
-                const dashboardEl = jQuery("#gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows")[0];
-                // don't close the dashboard if the pointer is overflowing the dashboard while selecting an option
-                if (_checkVerticalOverflow(dashboardEl, e.currentTarget)) {
+            // force-hide the menu if clicking outside
+            $(document).on("click", (e) => {
+                if ($(e.target).closest("#gf-topbar-menu").length) {
                     return;
                 }
-                jQuery("#gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows").removeClass("has-open-select");
-            });
-            jQuery("#gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows select").on("blur", () => {
-                jQuery("#gofast_block_delta-gofast_workflows_light_dashboard-gofast_workflows").removeClass("has-open-select");
+                window.GFTopbarMenu.pauseDropdownHoverTime = 0;
+                window.GFTopbarMenu.hideDropdowns();
             });
             clearInterval(waitForWorfklowsSelectInterval);
         }, 250);
@@ -516,6 +520,14 @@ var GFMegaMenu = function () {
             _debug = true;
             return _debug;
         },
+        loadSubMenu: function(item){
+            _loadSubMenu(item);
+            return _loadSubMenu;  
+        },
+        cleanSubMenus: function(item){
+            _cleanSubMenus(item.parent().parent());
+            return _cleanSubMenus;  
+        },
         disableDebug: function () {
             _debug = false;
             return _debug;
@@ -539,8 +551,9 @@ function test() {
 jQuery(document).ready(function () {
 
     // console.log('GF MEGA MENU LIB LOADED');
+    Gofast = Gofast || {};
     GFMegaMenu.init('gf-spaces-menu', '/gofast/menu/get');
-
+    Gofast.spacesMenu = GFMegaMenu;
 });
 
 

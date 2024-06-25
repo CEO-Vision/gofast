@@ -332,6 +332,13 @@ $(document).ready(function() {
     KTApp.init(KTAppSettings);
 });
 
+// CSS3 Transitions only after page load(.page-loading class added to body tag and remove with JS on page load)
+window.onload = function() {
+    var result = KTUtil.getByTagName('body');
+    if (result && result[0]) {
+        KTUtil.removeClass(result[0], 'page-loading');
+    }
+}
 
 /***/ }),
 
@@ -339,9 +346,10 @@ $(document).ready(function() {
 /*!******************************************!*\
   !*** ../demo1/src/js/components/card.js ***!
   \******************************************/
-/***/ ((module) => {
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
 "use strict";
+/* provided dependency */ var $ = __webpack_require__(/*! jquery */ "jquery");
 
 
 // Component Definition
@@ -539,6 +547,12 @@ var KTCard = function(elementId, options) {
         remove: function() {
             if (Plugin.eventTrigger('beforeRemove') === false) {
                 return;
+            }
+
+            // Remove tooltips
+            var tooltips;
+            if ( tooltips = document.querySelectorAll('.tooltip.show') ) {
+                $(tooltips).tooltip('dispose');
             }
 
             KTUtil.remove(element);
@@ -888,7 +902,7 @@ if ( true && typeof module.exports !== 'undefined') {
 			 ** PRIVATE METHODS
 			 ********************/
 			isInit: false,
-			cellOffset: 110,
+			cellOffset: 108,
 			iconOffset: 15,
 			stateId: 'meta',
 			ajaxParams: {},
@@ -989,9 +1003,6 @@ if ( true && typeof module.exports !== 'undefined') {
 					// trigger datatable resize on width change only
 					if ($(this).width() !== width) {
 						width = $(this).width();
-                        if (Plugin.getColumn().hasClass('gofastSpaceMembersTable')) {
-                            return;
-                        }
 						Plugin.fullRender();
 					}
 					// get initial width
@@ -1131,8 +1142,11 @@ if ( true && typeof module.exports !== 'undefined') {
 						dropdownMenu.css('z-index', '2000');
 					}
 				}).on('hide.bs.dropdown', '.' + pfx + 'datatable .' + pfx + 'datatable-body', function(e) {
-					$(e.target).append(dropdownMenu.detach());
-					dropdownMenu.hide();
+					if (typeof dropdownMenu !== 'undefined') {
+						$(e.target).append(dropdownMenu.detach());
+						dropdownMenu.hide();
+						dropdownMenu.css('display', '');
+					}
 				});
 
 				// remove dropdown if window resize
@@ -2023,8 +2037,8 @@ if ( true && typeof module.exports !== 'undefined') {
 					|| options.data.serverFiltering === false && action === 'search'
 				) {
 					setTimeout(function() {
-						afterGetData();
 						Plugin.setAutoColumns();
+						afterGetData();
 					});
 					return;
 				}
@@ -2970,7 +2984,11 @@ if ( true && typeof module.exports !== 'undefined') {
 					$(datatable.table).find('.' + pfx + 'datatable-cell').show();
 					$(datatable.tableBody).each(function() {
 						var recursive = 0;
-						while ($(this)[0].offsetWidth < $(this)[0].scrollWidth && recursive < options.columns.length) {
+						var offsetWidth = $(this)[0].offsetWidth;
+						var scrollWidth = $(this)[0].scrollWidth;
+
+						while (offsetWidth < scrollWidth && (scrollWidth - offsetWidth) > Plugin.cellOffset && recursive < options.columns.length) {
+
 							$(datatable.table).find('.' + pfx + 'datatable-row').each(function(i) {
 								var cell = $(this).find('.' + pfx + 'datatable-cell:not(:hidden):not([data-autohide-disabled])').last();
 									if (cell.length) {
@@ -2979,6 +2997,9 @@ if ( true && typeof module.exports !== 'undefined') {
 									}
 							});
 							recursive++;
+
+							offsetWidth = $(this)[0].offsetWidth;
+							scrollWidth = $(this)[0].scrollWidth;
 						}
 					});
 
@@ -6343,7 +6364,7 @@ var KTOffcanvas = function(elementId, options) {
             return (the.state == 'shown' ? true : false);
         },
 
-        toggle: function() {;
+        toggle: function() {
             Plugin.eventTrigger('toggle');
 
             if (the.state == 'shown') {
@@ -8797,14 +8818,6 @@ KTUtil.ready(function() {
 	}
 });
 
-// CSS3 Transitions only after page load(.page-loading class added to body tag and remove with JS on page load)
-window.onload = function() {
-    var result = KTUtil.getByTagName('body');
-    if (result && result[0]) {
-        KTUtil.removeClass(result[0], 'page-loading');
-    }
-}
-
 
 /***/ }),
 
@@ -8834,7 +8847,8 @@ var KTWizard = function(elementId, options) {
     // Default options
     var defaultOptions = {
         startStep: 1,
-        clickableSteps: false // to make steps clickable this set value true and add data-wizard-clickable="true" in HTML for class="wizard" element
+        clickableSteps: false, // to make steps clickable this set value true and add data-wizard-clickable="true" in HTML for class="wizard" element
+        navigation: true
     };
 
     ////////////////////////////
@@ -8900,31 +8914,40 @@ var KTWizard = function(elementId, options) {
          * Build Form Wizard
          */
         build: function() {
-            // Next button event handler
-            KTUtil.addEvent(the.btnNext, 'click', function(e) {
-                e.preventDefault();
+            if (the.options.navigation) {
+                // Next button event handler
+                KTUtil.addEvent(the.btnNext, 'click', function(e) {
+                    e.preventDefault();
 
-                // Set new step number
-                Plugin.setNewStep(Plugin.getNextStep());
+                    // Set new step number
+                    Plugin.setNewStep(Plugin.getNextStep());
 
-                // Trigger change event
-                if (Plugin.eventTrigger('change') !== false) {
-                    Plugin.goTo(Plugin.getNextStep());
-                }
-            });
+                    // Trigger change event
+                    if (Plugin.eventTrigger('change') !== false) {
+                        Plugin.goTo(Plugin.getNextStep());
+                    }
+                });
 
-            // Prev button event handler
-            KTUtil.addEvent(the.btnPrev, 'click', function(e) {
-                e.preventDefault();
+                // Prev button event handler
+                KTUtil.addEvent(the.btnPrev, 'click', function(e) {
+                    e.preventDefault();
 
-                // Set new step number
-                Plugin.setNewStep(Plugin.getPrevStep());
+                    // Set new step number
+                    Plugin.setNewStep(Plugin.getPrevStep());
 
-                // Trigger change event
-                if (Plugin.eventTrigger('change') !== false) {
-                    Plugin.goTo(Plugin.getPrevStep());
-                }
-            });
+                    // Trigger change event
+                    if (Plugin.eventTrigger('change') !== false) {
+                        Plugin.goTo(Plugin.getPrevStep());
+                    }
+                });
+
+                // Submit button event handler
+                KTUtil.addEvent(the.btnSubmit, 'click', function(e) {
+                    e.preventDefault();
+
+                    Plugin.eventTrigger('submit');
+                });
+            }
 
             if (the.options.clickableSteps === true) {
                 KTUtil.on(element, '[data-wizard-type="step"]', 'click', function() {
@@ -8940,13 +8963,6 @@ var KTWizard = function(elementId, options) {
                     }
                 });
             }
-
-            // Submit button event handler
-            KTUtil.addEvent(the.btnSubmit, 'click', function(e) {
-                e.preventDefault();
-
-                Plugin.eventTrigger('submit');
-            });
         },
 
         /**
@@ -10365,1120 +10381,6 @@ if (true) {
 
 /***/ }),
 
-/***/ "../demo1/src/js/layout/extended/chat.js":
-/*!***********************************************!*\
-  !*** ../demo1/src/js/layout/extended/chat.js ***!
-  \***********************************************/
-/***/ ((module) => {
-
-"use strict";
-
-
-// Class definition
-var KTLayoutChat = function () {
-	// Private functions
-	var _init = function (element) {
-		var scrollEl = KTUtil.find(element, '.scroll');
-		var cardBodyEl = KTUtil.find(element, '.card-body');
-		var cardHeaderEl = KTUtil.find(element, '.card-header');
-		var cardFooterEl = KTUtil.find(element, '.card-footer');
-
-		if (!scrollEl) {
-			return;
-		}
-
-		// initialize perfect scrollbar(see:  https://github.com/utatti/perfect-scrollbar)
-		KTUtil.scrollInit(scrollEl, {
-			windowScroll: false, // allow browser scroll when the scroll reaches the end of the side
-			mobileNativeScroll: true,  // enable native scroll for mobile
-			desktopNativeScroll: false, // disable native scroll and use custom scroll for desktop
-			resetHeightOnDestroy: true,  // reset css height on scroll feature destroyed
-			handleWindowResize: true, // recalculate hight on window resize
-			rememberPosition: true, // remember scroll position in cookie
-			height: function() {  // calculate height
-				var height;
-
-				if (KTUtil.isBreakpointDown('lg')) { // Mobile mode
-					return KTUtil.hasAttr(scrollEl, 'data-mobile-height') ? parseInt(KTUtil.attr(scrollEl, 'data-mobile-height')) : 400;
-				} else if (KTUtil.isBreakpointUp('lg') && KTUtil.hasAttr(scrollEl, 'data-height')) { // Desktop Mode
-					return parseInt(KTUtil.attr(scrollEl, 'data-height'));
-				} else {
-					height = KTLayoutContent.getHeight();
-
-					if (scrollEl) {
-						height = height - parseInt(KTUtil.css(scrollEl, 'margin-top')) - parseInt(KTUtil.css(scrollEl, 'margin-bottom'));
-					}
-
-					if (cardHeaderEl) {
-						height = height - parseInt(KTUtil.css(cardHeaderEl, 'height'));
-						height = height - parseInt(KTUtil.css(cardHeaderEl, 'margin-top')) - parseInt(KTUtil.css(cardHeaderEl, 'margin-bottom'));
-					}
-
-					if (cardBodyEl) {
-						height = height - parseInt(KTUtil.css(cardBodyEl, 'padding-top')) - parseInt(KTUtil.css(cardBodyEl, 'padding-bottom'));
-					}
-
-					if (cardFooterEl) {
-						height = height - parseInt(KTUtil.css(cardFooterEl, 'height'));
-						height = height - parseInt(KTUtil.css(cardFooterEl, 'margin-top')) - parseInt(KTUtil.css(cardFooterEl, 'margin-bottom'));
-					}
-				}
-
-				// Remove additional space
-				height = height - 2;
-
-				return height;
-			}
-		});
-
-		// attach events
-		KTUtil.on(element, '.card-footer textarea', 'keydown', function(e) {
-			if (e.keyCode == 13) {
-				_handeMessaging(element);
-				e.preventDefault();
-
-				return false;
-			}
-		});
-
-		KTUtil.on(element, '.card-footer .chat-send', 'click', function(e) {
-			_handeMessaging(element);
-		});
-	}
-
-	var _handeMessaging = function(element) {
-		var messagesEl = KTUtil.find(element, '.messages');
-		var scrollEl = KTUtil.find(element, '.scroll');
-        var textarea = KTUtil.find(element, 'textarea');
-
-        if (textarea.value.length === 0 ) {
-            return;
-        }
-
-		var node = document.createElement("DIV");
-		KTUtil.addClass(node, 'd-flex flex-column mb-5 align-items-end');
-
-		var html = '';
-		html += '<div class="d-flex align-items-center">';
-		html += '	<div>';
-		html += '		<span class="text-muted font-size-sm">2 Hours</span>';
-		html += '		<a href="#" class="text-dark-75 text-hover-primary font-weight-bold font-size-h6">You</a>';
-		html += '	</div>';
-		html += '	<div class="symbol symbol-circle symbol-40 ml-3">';
-		html += '		<img alt="Pic" src="assets/media/users/150-9.jpg"/>';
-		html += '	</div>';
-		html += '</div>';
-		html += '<div class="mt-2 rounded p-5 bg-light-primary text-dark-50 font-weight-bold font-size-lg text-right max-w-400px">' + textarea.value + '</div>';
-
-		KTUtil.setHTML(node, html);
-		messagesEl.appendChild(node);
-		textarea.value = '';
-		scrollEl.scrollTop = parseInt(KTUtil.css(messagesEl, 'height'));
-
-		var ps;
-		if (ps = KTUtil.data(scrollEl).get('ps')) {
-			ps.update();
-		}
-
-		setTimeout(function() {
-			var node = document.createElement("DIV");
-			KTUtil.addClass(node, 'd-flex flex-column mb-5 align-items-start');
-
-			var html = '';
-			html += '<div class="d-flex align-items-center">';
-			html += '	<div class="symbol symbol-circle symbol-40 mr-3">';
-			html += '		<img alt="Pic" src="assets/media/users/150-11.jpg"/>';
-			html += '	</div>';
-			html += '	<div>';
-			html += '		<a href="#" class="text-dark-75 text-hover-primary font-weight-bold font-size-h6">Matt Pears</a>';
-			html += '		<span class="text-muted font-size-sm">Just now</span>';
-			html += '	</div>';
-			html += '</div>';
-			html += '<div class="mt-2 rounded p-5 bg-light-success text-dark-50 font-weight-bold font-size-lg text-left max-w-400px">';
-			html += 'Right before vacation season we have the next Big Deal for you.';
-			html += '</div>';
-
-			KTUtil.setHTML(node, html);
-			messagesEl.appendChild(node);
-			textarea.value = '';
-			scrollEl.scrollTop = parseInt(KTUtil.css(messagesEl, 'height'));
-
-			var ps;
-			if (ps = KTUtil.data(scrollEl).get('ps')) {
-				ps.update();
-			}
-		}, 2000);
-	}
-
-	// Public methods
-	return {
-		init: function(id) {
-			// Init modal chat example
-			_init(KTUtil.getById(id));
-
-			// Trigger click to show popup modal chat on page load
-			if (encodeURI(window.location.hostname) == 'keenthemes.com' || encodeURI(window.location.hostname) == 'www.keenthemes.com') {
-				setTimeout(function() {
-		            if (!KTCookie.getCookie('kt_app_chat_shown')) {
-		                var expires = new Date(new Date().getTime() + 60 * 60 * 1000); // expire in 60 minutes from now
-
-						KTCookie.setCookie('kt_app_chat_shown', 1, { expires: expires });
-
-						if (KTUtil.getById('kt_app_chat_launch_btn')) {
-							KTUtil.getById('kt_app_chat_launch_btn').click();
-						}
-		            }
-		        }, 2000);
-	        }
-        },
-
-        setup: function(element) {
-            _init(element);
-        }
-	};
-}();
-
-// Webpack support
-if (true) {
-	module.exports = KTLayoutChat;
-}
-
-
-/***/ }),
-
-/***/ "../demo1/src/js/layout/extended/demo-panel.js":
-/*!*****************************************************!*\
-  !*** ../demo1/src/js/layout/extended/demo-panel.js ***!
-  \*****************************************************/
-/***/ ((module) => {
-
-"use strict";
-
-
-var KTLayoutDemoPanel = function() {
-    // Private properties
-    var _element;
-    var _offcanvasObject;
-
-    // Private functions
-    var _init = function() {
-        _offcanvasObject = new KTOffcanvas(_element, {
-            overlay: true,
-            baseClass: 'offcanvas',
-            placement: 'right',
-            closeBy: 'kt_demo_panel_close',
-            toggleBy: 'kt_demo_panel_toggle'
-        });
-
-        var header = KTUtil.find(_element, '.offcanvas-header');
-        var content = KTUtil.find(_element, '.offcanvas-content');
-        var wrapper = KTUtil.find(_element, '.offcanvas-wrapper');
-        var footer = KTUtil.find(_element, '.offcanvas-footer');
-
-        KTUtil.scrollInit(wrapper, {
-            disableForMobile: true,
-            resetHeightOnDestroy: true,
-            handleWindowResize: true,
-            height: function() {
-                var height = parseInt(KTUtil.getViewPort().height);
-
-                if (header) {
-                    height = height - parseInt(KTUtil.actualHeight(header));
-                    height = height - parseInt(KTUtil.css(header, 'marginTop'));
-                    height = height - parseInt(KTUtil.css(header, 'marginBottom'));
-                }
-
-                if (content) {
-                    height = height - parseInt(KTUtil.css(content, 'marginTop'));
-                    height = height - parseInt(KTUtil.css(content, 'marginBottom'));
-                }
-
-                if (wrapper) {
-                    height = height - parseInt(KTUtil.css(wrapper, 'marginTop'));
-                    height = height - parseInt(KTUtil.css(wrapper, 'marginBottom'));
-                }
-
-                if (footer) {
-                    height = height - parseInt(KTUtil.actualHeight(footer));
-                    height = height - parseInt(KTUtil.css(footer, 'marginTop'));
-                    height = height - parseInt(KTUtil.css(footer, 'marginBottom'));
-                }
-
-                height = height - parseInt(KTUtil.css(_element, 'paddingTop'));
-                height = height - parseInt(KTUtil.css(_element, 'paddingBottom'));
-
-                height = height - 2;
-
-                return height;
-            }
-        });
-
-        if (typeof offcanvas !== 'undefined' && offcanvas.length === 0) {
-            offcanvas.on('hide', function() {
-                var expires = new Date(new Date().getTime() + 60 * 60 * 1000); // expire in 60 minutes from now
-                KTCookie.setCookie('kt_demo_panel_shown', 1, {expires: expires});
-            });
-        }
-    }
-
-    var _remind = function() {
-        if (!(encodeURI(window.location.hostname) == 'keenthemes.com' || encodeURI(window.location.hostname) == 'www.keenthemes.com')) {
-            return;
-        }
-
-        setTimeout(function() {
-            if (!KTCookie.getCookie('kt_demo_panel_shown')) {
-                var expires = new Date(new Date().getTime() + 15 * 60 * 1000); // expire in 15 minutes from now
-                KTCookie.setCookie('kt_demo_panel_shown', 1, { expires: expires });
-                if (typeof _offcanvasObject !== 'undefined') {
-                    _offcanvasObject.show();
-                }
-            }
-        }, 4000);
-    }
-
-    // Public methods
-    return {
-        init: function(id) {
-            _element = KTUtil.getById(id);
-
-            if (!_element) {
-                return;
-            }
-
-            // Initialize
-            _init();
-
-            // Remind
-            _remind();
-        }
-    };
-}();
-
-// Webpack support
-if (true) {
-	module.exports = KTLayoutDemoPanel;
-}
-
-
-/***/ }),
-
-/***/ "../demo1/src/js/layout/extended/examples.js":
-/*!***************************************************!*\
-  !*** ../demo1/src/js/layout/extended/examples.js ***!
-  \***************************************************/
-/***/ ((module) => {
-
-"use strict";
-
-
-var KTLayoutExamples = function() {
-
-    var initDefaultMode = function(element) {
-        var elements = element;
-        if (typeof elements === 'undefined') {
-            elements = document.querySelectorAll('.example:not(.example-compact):not(.example-hover):not(.example-basic)');
-        }
-
-        for (var i = 0; i < elements.length; ++i) {
-            var example = elements[i];
-            var copy = KTUtil.find(example, '.example-copy');
-
-            var clipboard = new ClipboardJS(copy, {
-                target: function(trigger) {
-                    var example = trigger.closest('.example');
-                    var el = KTUtil.find(example, '.example-code .tab-pane.active');
-
-                    if (!el) {
-                        el = KTUtil.find(example, '.example-code');
-                    }
-
-                    return el;
-                }
-            });
-
-            clipboard.on('success', function(e) {
-                KTUtil.addClass(e.trigger, 'example-copied');
-                e.clearSelection();
-
-                setTimeout(function() {
-                    KTUtil.removeClass(e.trigger, 'example-copied');
-                }, 2000);
-            });
-        }
-    }
-
-    var initCompactMode = function(element) {
-        var example,code,toggle,copy, clipboard;
-        var elements = element;
-        if (typeof elements === 'undefined') {
-            var elements = document.querySelectorAll('.example.example-compact');
-        }
-
-        for (var i = 0; i < elements.length; ++i) {
-            var example = elements[i];
-            var toggle = KTUtil.find(example, '.example-toggle');
-            var copy = KTUtil.find(example, '.example-copy');
-
-            // Handle toggle
-            KTUtil.addEvent(toggle, 'click', function() {
-                var example = this.closest('.example');
-                var code =  KTUtil.find(example, '.example-code');
-                var the = this;
-
-                if (KTUtil.hasClass(this, 'example-toggled')) {
-                    KTUtil.slideUp(code, 300, function() {
-                        KTUtil.removeClass(the, 'example-toggled');
-                        KTUtil.removeClass(code, 'example-code-on');
-                        KTUtil.hide(code);
-                    });
-                } else {
-                    KTUtil.addClass(code, 'example-code-on');
-                    KTUtil.addClass(this, 'example-toggled');
-                    KTUtil.slideDown(code, 300, function() {
-                        KTUtil.show(code);
-                    });
-                }
-            });
-
-            // Handle copy
-            var clipboard = new ClipboardJS(copy, {
-                target: function(trigger) {
-                    var example = trigger.closest('.example');
-                    var el = KTUtil.find(example, '.example-code .tab-pane.active');
-
-                    if (!el) {
-                        el = KTUtil.find(example, '.example-code');
-                    }
-
-                    return el;
-                }
-            });
-
-            clipboard.on('success', function(e) {
-                KTUtil.addClass(e.trigger, 'example-copied');
-                e.clearSelection();
-
-                setTimeout(function() {
-                    KTUtil.removeClass(e.trigger, 'example-copied');
-                }, 2000);
-            });
-        }
-    }
-
-    return {
-        init: function(element, options) {
-            initDefaultMode(element);
-            initCompactMode(element);
-        }
-    };
-}();
-
-// webpack support
-if ( true && typeof module.exports !== 'undefined') {
-    module.exports = KTLayoutExamples;
-}
-
-
-/***/ }),
-
-/***/ "../demo1/src/js/layout/extended/quick-actions.js":
-/*!********************************************************!*\
-  !*** ../demo1/src/js/layout/extended/quick-actions.js ***!
-  \********************************************************/
-/***/ ((module) => {
-
-"use strict";
-
-
-var KTLayoutQuickActions = function() {
-    // Private properties
-    var _element;
-    var _offcanvasObject;
-
-    // Private functions
-    var _init = function() {
-        var header = KTUtil.find(_element, '.offcanvas-header');
-        var content = KTUtil.find(_element, '.offcanvas-content');
-
-        _offcanvasObject = new KTOffcanvas(_element, {
-            overlay: true,
-            baseClass: 'offcanvas',
-            placement: 'right',
-            closeBy: 'kt_quick_actions_close',
-            toggleBy: 'kt_quick_actions_toggle'
-        });
-
-        KTUtil.scrollInit(content, {
-            disableForMobile: true,
-            resetHeightOnDestroy: true,
-            handleWindowResize: true,
-            height: function() {
-                var height = parseInt(KTUtil.getViewPort().height);
-
-                if (header) {
-                    height = height - parseInt(KTUtil.actualHeight(header));
-                    height = height - parseInt(KTUtil.css(header, 'marginTop'));
-                    height = height - parseInt(KTUtil.css(header, 'marginBottom'));
-                }
-
-                if (content) {
-                    height = height - parseInt(KTUtil.css(content, 'marginTop'));
-                    height = height - parseInt(KTUtil.css(content, 'marginBottom'));
-                }
-
-                height = height - parseInt(KTUtil.css(_element, 'paddingTop'));
-                height = height - parseInt(KTUtil.css(_element, 'paddingBottom'));
-
-                height = height - 2;
-
-                return height;
-            }
-        });
-    }
-
-    // Public methods
-    return {
-        init: function(id) {
-            _element = KTUtil.getById(id);
-
-            if (!_element) {
-                return;
-            }
-
-            // Initialize
-            _init();
-        },
-
-        getElement: function() {
-            return _element;
-        }
-    };
-}();
-
-// Webpack support
-if (true) {
-	module.exports = KTLayoutQuickActions;
-}
-
-
-/***/ }),
-
-/***/ "../demo1/src/js/layout/extended/quick-notifications.js":
-/*!**************************************************************!*\
-  !*** ../demo1/src/js/layout/extended/quick-notifications.js ***!
-  \**************************************************************/
-/***/ ((module) => {
-
-"use strict";
-
-
-var KTLayoutQuickNotifications = function() {
-    // Private properties
-    var _element;
-    var _offcanvasObject;
-
-    // Private functions
-    var _init = function() {
-        var header = KTUtil.find(_element, '.offcanvas-header');
-        var content = KTUtil.find(_element, '.offcanvas-content');
-
-        _offcanvasObject = new KTOffcanvas(_element, {
-            overlay: true,
-            baseClass: 'offcanvas',
-            placement: 'right',
-            closeBy: 'kt_quick_notifications_close',
-            toggleBy: 'kt_quick_notifications_toggle'
-        });
-
-        KTUtil.scrollInit(content, {
-            disableForMobile: true,
-            resetHeightOnDestroy: true,
-            handleWindowResize: true,
-            height: function() {
-                var height = parseInt(KTUtil.getViewPort().height);
-
-                if (header) {
-                    height = height - parseInt(KTUtil.actualHeight(header));
-                    height = height - parseInt(KTUtil.css(header, 'marginTop'));
-                    height = height - parseInt(KTUtil.css(header, 'marginBottom'));
-                }
-
-                if (content) {
-                    height = height - parseInt(KTUtil.css(content, 'marginTop'));
-                    height = height - parseInt(KTUtil.css(content, 'marginBottom'));
-                }
-
-                height = height - parseInt(KTUtil.css(_element, 'paddingTop'));
-                height = height - parseInt(KTUtil.css(_element, 'paddingBottom'));
-
-                height = height - 2;
-
-                return height;
-            }
-        });
-    }
-
-    // Public methods
-    return {
-        init: function(id) {
-            _element = KTUtil.getById(id);
-
-            if (!_element) {
-                return;
-            }
-
-            // Initialize
-            _init();
-        },
-
-        getElement: function() {
-            return _element;
-        }
-    };
-}();
-
-// Webpack support
-if (true) {
-	module.exports = KTLayoutQuickNotifications;
-}
-
-
-/***/ }),
-
-/***/ "../demo1/src/js/layout/extended/quick-panel.js":
-/*!******************************************************!*\
-  !*** ../demo1/src/js/layout/extended/quick-panel.js ***!
-  \******************************************************/
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-"use strict";
-/* provided dependency */ var $ = __webpack_require__(/*! jquery */ "jquery");
-
-
-var KTLayoutQuickPanel = function() {
-    // Private properties
-    var _element;
-    var _offcanvasObject;
-    var _notificationsElement;
-    var _logsElement;
-    var _settingsElement;
-
-    // Private functions
-    var _getContentHeight = function() {
-        var height;
-
-        var header = KTUtil.find(_element, '.offcanvas-header');
-        var content = KTUtil.find(_element, '.offcanvas-content');
-
-        var height = parseInt(KTUtil.getViewPort().height);
-
-        if (header) {
-            height = height - parseInt(KTUtil.actualHeight(header));
-            height = height - parseInt(KTUtil.css(header, 'marginTop'));
-            height = height - parseInt(KTUtil.css(header, 'marginBottom'));
-        }
-
-        if (content) {
-            height = height - parseInt(KTUtil.css(content, 'marginTop'));
-            height = height - parseInt(KTUtil.css(content, 'marginBottom'));
-        }
-
-        height = height - parseInt(KTUtil.css(_element, 'paddingTop'));
-        height = height - parseInt(KTUtil.css(_element, 'paddingBottom'));
-
-        height = height - 2;
-
-        return height;
-    }
-
-    var _init = function() {
-        _offcanvasObject = new KTOffcanvas(_element, {
-            overlay: true,
-            baseClass: 'offcanvas',
-            placement: 'right',
-            closeBy: 'kt_quick_panel_close',
-            toggleBy: 'kt_quick_panel_toggle'
-        });
-    }
-
-    var _initNotifications = function() {
-        KTUtil.scrollInit(_notificationsElement, {
-            mobileNativeScroll: true,
-            resetHeightOnDestroy: true,
-            handleWindowResize: true,
-            height: function() {
-                return _getContentHeight();
-            }
-        });
-    }
-
-    var _initLogs = function() {
-        KTUtil.scrollInit(_logsElement, {
-            mobileNativeScroll: true,
-            resetHeightOnDestroy: true,
-            handleWindowResize: true,
-            height: function() {
-                return _getContentHeight();
-            }
-        });
-    }
-
-    var _initSettings = function() {
-        KTUtil.scrollInit(_settingsElement, {
-            mobileNativeScroll: true,
-            resetHeightOnDestroy: true,
-            handleWindowResize: true,
-            height: function() {
-                return _getContentHeight();
-            }
-        });
-    }
-
-    var _updateScrollbars = function() {
-        $(_element).find('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
-            KTUtil.scrollUpdate(_notificationsElement);
-            KTUtil.scrollUpdate(_logsElement);
-            KTUtil.scrollUpdate(_settingsElement);
-        });
-    }
-
-    // Public methods
-    return {
-        init: function(id) {
-            _element = KTUtil.getById(id);
-            _notificationsElement = KTUtil.getById('kt_quick_panel_notifications');
-            _logsElement = KTUtil.getById('kt_quick_panel_logs');
-            _settingsElement = KTUtil.getById('kt_quick_panel_settings');
-
-            _init();
-            _initNotifications();
-            _initLogs();
-            _initSettings();
-
-            _updateScrollbars();
-        }
-    };
-}();
-
-// Webpack support
-if (true) {
-	module.exports = KTLayoutQuickPanel;
-}
-
-
-/***/ }),
-
-/***/ "../demo1/src/js/layout/extended/quick-search.js":
-/*!*******************************************************!*\
-  !*** ../demo1/src/js/layout/extended/quick-search.js ***!
-  \*******************************************************/
-/***/ ((module) => {
-
-"use strict";
-
-
-var KTLayoutQuickSearch = function() {
-    // Private properties
-    var _element;
-    var _offcanvasObject;
-
-    // Private functions
-    var _init = function() {
-        var header = KTUtil.find(_element, '.offcanvas-header');
-        var content = KTUtil.find(_element, '.offcanvas-content');
-        var form = KTUtil.find(_element, '.quick-search-form');
-        var results = KTUtil.find(_element, '.quick-search-wrapper');
-
-        _offcanvasObject = new KTOffcanvas(_element, {
-            overlay: true,
-            baseClass: 'offcanvas',
-            placement: 'right',
-            closeBy: 'kt_quick_search_close',
-            toggleBy: 'kt_quick_search_toggle'
-        });
-
-        KTUtil.scrollInit(results, {
-            disableForMobile: true,
-            resetHeightOnDestroy: true,
-            handleWindowResize: true,
-            height: function() {
-                var height = parseInt(KTUtil.getViewPort().height);
-
-                if (header) {
-                    height = height - parseInt(KTUtil.actualHeight(header));
-                    height = height - parseInt(KTUtil.css(header, 'marginTop'));
-                    height = height - parseInt(KTUtil.css(header, 'marginBottom'));
-                }
-
-                if (content) {
-                    height = height - parseInt(KTUtil.css(content, 'marginTop'));
-                    height = height - parseInt(KTUtil.css(content, 'marginBottom'));
-                }
-
-                if (results) {
-                    height = height - parseInt(KTUtil.actualHeight(form));
-                    height = height - parseInt(KTUtil.css(form, 'marginTop'));
-                    height = height - parseInt(KTUtil.css(form, 'marginBottom'));
-
-                    height = height - parseInt(KTUtil.css(results, 'marginTop'));
-                    height = height - parseInt(KTUtil.css(results, 'marginBottom'));
-                }
-
-                height = height - parseInt(KTUtil.css(_element, 'paddingTop'));
-                height = height - parseInt(KTUtil.css(_element, 'paddingBottom'));
-
-                height = height - 2;
-
-                return height;
-            }
-        });
-    }
-
-    // Public methods
-    return {
-        init: function(id) {
-            _element = KTUtil.getById(id);
-
-            if (!_element) {
-                return;
-            }
-
-            // Initialize
-            _init();
-        },
-
-        getElement: function() {
-            return _element;
-        }
-    };
-}();
-
-// Webpack support
-if (true) {
-	module.exports = KTLayoutQuickSearch;
-}
-
-
-/***/ }),
-
-/***/ "../demo1/src/js/layout/extended/quick-user.js":
-/*!*****************************************************!*\
-  !*** ../demo1/src/js/layout/extended/quick-user.js ***!
-  \*****************************************************/
-/***/ ((module) => {
-
-"use strict";
-
-
-var KTLayoutQuickUser = function() {
-    // Private properties
-    var _element;
-    var _offcanvasObject;
-
-    // Private functions
-    var _init = function() {
-        var header = KTUtil.find(_element, '.offcanvas-header');
-        var content = KTUtil.find(_element, '.offcanvas-content');
-
-        _offcanvasObject = new KTOffcanvas(_element, {
-            overlay: true,
-            baseClass: 'offcanvas',
-            placement: 'right',
-            closeBy: 'kt_quick_user_close',
-            toggleBy: 'kt_quick_user_toggle'
-        });
-
-        KTUtil.scrollInit(content, {
-            disableForMobile: true,
-            resetHeightOnDestroy: true,
-            handleWindowResize: true,
-            height: function() {
-                var height = parseInt(KTUtil.getViewPort().height);
-
-                if (header) {
-                    height = height - parseInt(KTUtil.actualHeight(header));
-                    height = height - parseInt(KTUtil.css(header, 'marginTop'));
-                    height = height - parseInt(KTUtil.css(header, 'marginBottom'));
-                }
-
-                if (content) {
-                    height = height - parseInt(KTUtil.css(content, 'marginTop'));
-                    height = height - parseInt(KTUtil.css(content, 'marginBottom'));
-                }
-
-                height = height - parseInt(KTUtil.css(_element, 'paddingTop'));
-                height = height - parseInt(KTUtil.css(_element, 'paddingBottom'));
-
-                height = height - 2;
-
-                return height;
-            }
-        });
-    }
-
-    // Public methods
-    return {
-        init: function(id) {
-            _element = KTUtil.getById(id);
-
-            if (!_element) {
-                return;
-            }
-
-            // Initialize
-            _init();
-        },
-
-        getElement: function() {
-            return _element;
-        }
-    };
-}();
-
-// Webpack support
-if (true) {
-	module.exports = KTLayoutQuickUser;
-}
-
-
-/***/ }),
-
-/***/ "../demo1/src/js/layout/extended/scrolltop.js":
-/*!****************************************************!*\
-  !*** ../demo1/src/js/layout/extended/scrolltop.js ***!
-  \****************************************************/
-/***/ ((module) => {
-
-"use strict";
-
-
-var KTLayoutScrolltop = function() {
-    // Private properties
-    var _element;
-    var _object;
-
-    // Private functions
-    var _init = function() {
-        _object = new KTScrolltop(_element, {
-            offset: 300,
-			speed: 600
-		});
-    }
-
-    // Public methods
-	return {
-		init: function(id) {
-            _element = KTUtil.getById(id);
-
-            if (!_element) {
-                return;
-            }
-
-            // Initialize
-            _init();
-		},
-
-        getElement: function() {
-            return _element;
-        }
-	};
-}();
-
-// Webpack support
-if (true) {
-	module.exports = KTLayoutScrolltop;
-}
-
-
-/***/ }),
-
-/***/ "../demo1/src/js/layout/extended/search.js":
-/*!*************************************************!*\
-  !*** ../demo1/src/js/layout/extended/search.js ***!
-  \*************************************************/
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-"use strict";
-/* provided dependency */ var $ = __webpack_require__(/*! jquery */ "jquery");
-
-
-var KTLayoutSearch = function() {
-    // Private properties
-    var _target;
-    var _form;
-    var _input;
-    var _closeIcon;
-    var _resultWrapper;
-    var _resultDropdown;
-    var _resultDropdownToggle;
-    var _closeIconContainer;
-    var _inputGroup;
-    var _query = '';
-
-    var _hasResult = false;
-    var _timeout = false;
-    var _isProcessing = false;
-    var _requestTimeout = 200; // ajax request fire timeout in milliseconds
-    var _spinnerClass = 'spinner spinner-sm spinner-primary';
-    var _resultClass = 'quick-search-has-result';
-    var _minLength = 2;
-
-    // Private functions
-    var _showProgress = function() {
-        _isProcessing = true;
-        KTUtil.addClass(_closeIconContainer, _spinnerClass);
-
-        if (_closeIcon) {
-            KTUtil.hide(_closeIcon);
-        }
-    }
-
-    var _hideProgress = function() {
-        _isProcessing = false;
-        KTUtil.removeClass(_closeIconContainer, _spinnerClass);
-
-        if (_closeIcon) {
-            if (_input.value.length < _minLength) {
-                KTUtil.hide(_closeIcon);
-            } else {
-                KTUtil.show(_closeIcon, 'flex');
-            }
-        }
-    }
-
-    var _showDropdown = function() {
-        if (_resultDropdownToggle && !KTUtil.hasClass(_resultDropdown, 'show')) {
-            $(_resultDropdownToggle).dropdown('toggle');
-            $(_resultDropdownToggle).dropdown('update');
-        }
-    }
-
-    var _hideDropdown = function() {
-        if (_resultDropdownToggle && KTUtil.hasClass(_resultDropdown, 'show')) {
-            $(_resultDropdownToggle).dropdown('toggle');
-        }
-    }
-
-    var _processSearch = function() {
-        if (_hasResult && _query === _input.value) {
-            _hideProgress();
-            KTUtil.addClass(_target, _resultClass);
-            _showDropdown();
-            KTUtil.scrollUpdate(_resultWrapper);
-
-            return;
-        }
-
-        _query = _input.value;
-
-        KTUtil.removeClass(_target, _resultClass);
-        _showProgress();
-        _hideDropdown();
-
-        setTimeout(function() {
-            $.ajax({
-                url: HOST_URL + '/api/quick_search.php',
-                data: {
-                    query: _query
-                },
-                dataType: 'html',
-                success: function(res) {
-                    _hasResult = true;
-                    _hideProgress();
-                    KTUtil.addClass(_target, _resultClass);
-                    KTUtil.setHTML(_resultWrapper, res);
-                    _showDropdown();
-                    KTUtil.scrollUpdate(_resultWrapper);
-                },
-                error: function(res) {
-                    _hasResult = false;
-                    _hideProgress();
-                    KTUtil.addClass(_target, _resultClass);
-                    KTUtil.setHTML(_resultWrapper, '<span class="font-weight-bold text-muted">Connection error. Please try again later..</div>');
-                    _showDropdown();
-                    KTUtil.scrollUpdate(_resultWrapper);
-                }
-            });
-        }, 1000);
-    }
-
-    var _handleCancel = function(e) {
-        _input.value = '';
-        _query = '';
-        _hasResult = false;
-        KTUtil.hide(_closeIcon);
-        KTUtil.removeClass(_target, _resultClass);
-        _hideDropdown();
-    }
-
-    var _handleSearch = function() {
-        if (_input.value.length < _minLength) {
-            _hideProgress();
-            _hideDropdown();
-
-            return;
-        }
-
-        if (_isProcessing == true) {
-            return;
-        }
-
-        if (_timeout) {
-            clearTimeout(_timeout);
-        }
-
-        _timeout = setTimeout(function() {
-            _processSearch();
-        }, _requestTimeout);
-    }
-
-    // Public methods
-    return {
-        init: function(id) {
-            _target = KTUtil.getById(id);
-
-            if (!_target) {
-                return;
-            }
-
-            _form = KTUtil.find(_target, '.quick-search-form');
-            _input = KTUtil.find(_target, '.form-control');
-            _closeIcon = KTUtil.find(_target, '.quick-search-close');
-            _resultWrapper = KTUtil.find(_target, '.quick-search-wrapper');
-            _resultDropdown = KTUtil.find(_target, '.dropdown-menu');
-            _resultDropdownToggle = KTUtil.find(_target, '[data-toggle="dropdown"]');
-            _inputGroup = KTUtil.find(_target, '.input-group');
-            _closeIconContainer = KTUtil.find(_target, '.input-group .input-group-append');
-
-            // Attach input keyup handler
-            KTUtil.addEvent(_input, 'keyup', _handleSearch);
-            KTUtil.addEvent(_input, 'focus', _handleSearch);
-
-            // Prevent enter click
-            _form.onkeypress = function(e) {
-                var key = e.charCode || e.keyCode || 0;
-                if (key == 13) {
-                    e.preventDefault();
-                }
-            }
-
-            KTUtil.addEvent(_closeIcon, 'click', _handleCancel);
-        }
-    };
-};
-
-// Webpack support
-if (true) {
-    module.exports = KTLayoutSearch;
-}
-
-var KTLayoutSearchInline = KTLayoutSearch;
-var KTLayoutSearchOffcanvas = KTLayoutSearch;
-
-
-/***/ }),
-
 /***/ "../demo1/src/js/layout/initialize.js":
 /*!********************************************!*\
   !*** ../demo1/src/js/layout/initialize.js ***!
@@ -11641,8 +10543,9 @@ module.exports = jQuery;
 /******/ 	// The require function
 /******/ 	function __webpack_require__(moduleId) {
 /******/ 		// Check if module is in cache
-/******/ 		if(__webpack_module_cache__[moduleId]) {
-/******/ 			return __webpack_module_cache__[moduleId].exports;
+/******/ 		var cachedModule = __webpack_module_cache__[moduleId];
+/******/ 		if (cachedModule !== undefined) {
+/******/ 			return cachedModule.exports;
 /******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
 /******/ 		var module = __webpack_module_cache__[moduleId] = {
@@ -11659,6 +10562,8 @@ module.exports = jQuery;
 /******/ 	}
 /******/ 	
 /************************************************************************/
+var __webpack_exports__ = {};
+// This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
 (() => {
 /*!**********************************!*\
   !*** ./webpack/scripts.demo1.js ***!
@@ -11696,16 +10601,16 @@ window.KTLayoutStickyCard = __webpack_require__(/*! @/src/js/layout/base/sticky-
 window.KTLayoutStretchedCard = __webpack_require__(/*! @/src/js/layout/base/stretched-card.js */ "../demo1/src/js/layout/base/stretched-card.js");
 
 // Keen layout extended js
-window.KTLayoutChat = __webpack_require__(/*! @/src/js/layout/extended/chat.js */ "../demo1/src/js/layout/extended/chat.js");
-window.KTLayoutDemoPanel = __webpack_require__(/*! @/src/js/layout/extended/demo-panel.js */ "../demo1/src/js/layout/extended/demo-panel.js");
-window.KTLayoutExamples = __webpack_require__(/*! @/src/js/layout/extended/examples.js */ "../demo1/src/js/layout/extended/examples.js");
-window.KTLayoutQuickActions = __webpack_require__(/*! @/src/js/layout/extended/quick-actions.js */ "../demo1/src/js/layout/extended/quick-actions.js");
-window.KTLayoutQuickNotifications = __webpack_require__(/*! @/src/js/layout/extended/quick-notifications.js */ "../demo1/src/js/layout/extended/quick-notifications.js");
-window.KTLayoutQuickPanel = __webpack_require__(/*! @/src/js/layout/extended/quick-panel.js */ "../demo1/src/js/layout/extended/quick-panel.js");
-window.KTLayoutQuickSearch = __webpack_require__(/*! @/src/js/layout/extended/quick-search.js */ "../demo1/src/js/layout/extended/quick-search.js");
-window.KTLayoutQuickUser = __webpack_require__(/*! @/src/js/layout/extended/quick-user.js */ "../demo1/src/js/layout/extended/quick-user.js");
-window.KTLayoutScrolltop = __webpack_require__(/*! @/src/js/layout/extended/scrolltop.js */ "../demo1/src/js/layout/extended/scrolltop.js");
-window.KTLayoutSearch = window.KTLayoutSearchOffcanvas = __webpack_require__(/*! @/src/js/layout/extended/search.js */ "../demo1/src/js/layout/extended/search.js");
+// window.KTLayoutChat = require('@/src/js/layout/extended/chat.js');
+// window.KTLayoutDemoPanel = require('@/src/js/layout/extended/demo-panel.js');
+// window.KTLayoutExamples = require('@/src/js/layout/extended/examples.js');
+// window.KTLayoutQuickActions = require('@/src/js/layout/extended/quick-actions.js');
+// window.KTLayoutQuickNotifications = require('@/src/js/layout/extended/quick-notifications.js');
+// window.KTLayoutQuickPanel = require('@/src/js/layout/extended/quick-panel.js');
+// window.KTLayoutQuickSearch = require('@/src/js/layout/extended/quick-search.js');
+// window.KTLayoutQuickUser = require('@/src/js/layout/extended/quick-user.js');
+// window.KTLayoutScrolltop = require('@/src/js/layout/extended/scrolltop.js');
+// window.KTLayoutSearch = window.KTLayoutSearchOffcanvas = require('@/src/js/layout/extended/search.js');
 
 __webpack_require__(/*! @/src/js/layout/initialize.js */ "../demo1/src/js/layout/initialize.js");
 

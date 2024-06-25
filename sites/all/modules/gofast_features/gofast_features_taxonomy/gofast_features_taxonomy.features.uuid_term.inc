@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * gofast_features_taxonomy.features.uuid_term.inc
@@ -64,6 +65,54 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
     ),
   );
   $terms[] = array(
+    'name' => 'C3 – Restricted / Secret / Sensitive sovereign',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 3,
+    'uuid' => '04ea8dab-b2d6-41ef-99bb-700182ac3e26',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification',
+    'field_classification_type' => array(
+      'und' => array(
+        0 => array(
+          'tid' => 'a95660f3-492d-410f-b464-a0fa6597989f',
+          'uuid' => 'a95660f3-492d-410f-b464-a0fa6597989f',
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
+    'name' => 'French Military',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 0,
+    'uuid' => '18910c4b-182e-43c5-9b45-ab890c19793f',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification_type',
+  );
+  $terms[] = array(
+    'name' => 'EUCI',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 0,
+    'uuid' => '6e1c579f-7f4b-4c94-ba0f-a7824352024a',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification_type',
+  );
+  $terms[] = array(
+    'name' => 'CIS TLP',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 0,
+    'uuid' => 'd0cfc3e6-48d2-441f-ae3e-fa2820990e07',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification_type',
+  );
+  $terms[] = array(
     'name' => 'Done',
     'description' => '',
     'format' => 'filtered_html',
@@ -118,6 +167,23 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
     ),
   );
   $terms[] = array(
+    'name' => 'Awaiting signature',
+    'description' => '',
+    'format' => 'plain_text',
+    'weight' => 0,
+    'uuid' => '1e3c4721-a787-46bd-8bf7-03929e32ba32',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'state',
+    'field_standard_gf' => array(
+      'und' => array(
+        0 => array(
+          'value' => 1,
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
     'name' => 'Contract',
     'description' => '',
     'format' => 'filtered_html',
@@ -133,6 +199,7 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
         ),
       ),
     ),
+    'field_naming_rules' => array(),
   );
   $terms[] = array(
     'name' => 'Vectorial presentation',
@@ -178,42 +245,6 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
     ),
   );
   $terms[] = array(
-    'name' => 'Awaiting signature',
-    'description' => '',
-    'format' => 'plain_text',
-    'weight' => 0,
-    'uuid' => '1e3c4721-a787-46bd-8bf7-03929e32ba32',
-    'language' => 'und',
-    'i18n_tsid' => 0,
-    'vocabulary_machine_name' => 'state',
-    'field_standard_gf' => array(
-      'und' => array(
-        0 => array(
-          'value' => 1,
-        ),
-      ),
-    ),
-  );
-
-    $terms[] = array(
-    'name' => 'Signed',
-    'description' => '',
-    'format' => 'plain_text',
-    'weight' => 0,
-    'uuid' => 'd1771148-d81a-4099-824b-a6ce932486c6',
-    'language' => 'und',
-    'i18n_tsid' => 0,
-    'vocabulary_machine_name' => 'state',
-    'field_standard_gf' => array(
-      'und' => array(
-        0 => array(
-          'value' => 1,
-        ),
-      ),
-    ),
-  );
-
-  $terms[] = array(
     'name' => 'Other',
     'description' => '',
     'format' => 'filtered_html',
@@ -229,6 +260,7 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
         ),
       ),
     ),
+    'field_naming_rules' => array(),
   );
   $terms[] = array(
     'name' => 'Userlist',
@@ -326,6 +358,7 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
         ),
       ),
     ),
+    'field_naming_rules' => array(),
   );
   $terms[] = array(
     'name' => 'Text file',
@@ -514,7 +547,7 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
     'field_extensions' => array(
       'und' => array(
         0 => array(
-          'value' => ';jpg;jpeg;tiff;png;bmp;',
+          'value' => ';jpg;jpeg;tiff;png;bmp;webp;',
           'format' => NULL,
         ),
       ),
@@ -614,6 +647,7 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
         ),
       ),
     ),
+    'field_naming_rules' => array(),
   );
   $terms[] = array(
     'name' => 'Presentation',
@@ -710,6 +744,7 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
         ),
       ),
     ),
+    'field_naming_rules' => array(),
   );
   $terms[] = array(
     'name' => 'Pre-Archived',
@@ -744,6 +779,7 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
         ),
       ),
     ),
+    'field_naming_rules' => array(),
   );
   $terms[] = array(
     'name' => 'PDF Image',
@@ -768,6 +804,24 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
         0 => array(
           'value' => 'fa-file-pdf-o pdf-image',
           'format' => NULL,
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
+    'name' => 'Top Secret Defence',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 14,
+    'uuid' => '8c948f9c-2c6f-40fc-8646-363e3421f96e',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification',
+    'field_classification_type' => array(
+      'und' => array(
+        0 => array(
+          'tid' => '18910c4b-182e-43c5-9b45-ab890c19793f',
+          'uuid' => '18910c4b-182e-43c5-9b45-ab890c19793f',
         ),
       ),
     ),
@@ -837,6 +891,16 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
     ),
   );
   $terms[] = array(
+    'name' => 'Civil Organization',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 0,
+    'uuid' => 'a95660f3-492d-410f-b464-a0fa6597989f',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification_type',
+  );
+  $terms[] = array(
     'name' => 'Outbound (e)mail',
     'description' => '',
     'format' => 'filtered_html',
@@ -852,6 +916,7 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
         ),
       ),
     ),
+    'field_naming_rules' => array(),
   );
   $terms[] = array(
     'name' => 'External Web Page',
@@ -939,6 +1004,7 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
         ),
       ),
     ),
+    'field_naming_rules' => array(),
   );
   $terms[] = array(
     'name' => 'Specification',
@@ -956,6 +1022,7 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
         ),
       ),
     ),
+    'field_naming_rules' => array(),
   );
   $terms[] = array(
     'name' => 'Group',
@@ -995,6 +1062,23 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
     'vocabulary_machine_name' => 'criticity',
   );
   $terms[] = array(
+    'name' => 'Signed',
+    'description' => '',
+    'format' => 'plain_text',
+    'weight' => 0,
+    'uuid' => 'd1771148-d81a-4099-824b-a6ce932486c6',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'state',
+    'field_standard_gf' => array(
+      'und' => array(
+        0 => array(
+          'value' => 1,
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
     'name' => 'PDF',
     'description' => 'A PDF document
 ',
@@ -1017,6 +1101,24 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
         0 => array(
           'value' => 'fa-file-pdf-o',
           'format' => NULL,
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
+    'name' => 'C2 – Confidential / Sensitive',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 2,
+    'uuid' => 'd350abef-e0af-4c02-8dad-b0afa45fa041',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification',
+    'field_classification_type' => array(
+      'und' => array(
+        0 => array(
+          'tid' => 'a95660f3-492d-410f-b464-a0fa6597989f',
+          'uuid' => 'a95660f3-492d-410f-b464-a0fa6597989f',
         ),
       ),
     ),
@@ -1063,6 +1165,7 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
         ),
       ),
     ),
+    'field_naming_rules' => array(),
   );
   $terms[] = array(
     'name' => 'Visio',
@@ -1116,6 +1219,7 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
         ),
       ),
     ),
+    'field_naming_rules' => array(),
   );
   $terms[] = array(
     'name' => 'Video',
@@ -1156,6 +1260,222 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
       'und' => array(
         0 => array(
           'value' => 1,
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
+    'name' => 'C1 – Internal',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 1,
+    'uuid' => 'e9102eb4-e891-408e-992e-827933b92345',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification',
+    'field_classification_type' => array(
+      'und' => array(
+        0 => array(
+          'tid' => 'a95660f3-492d-410f-b464-a0fa6597989f',
+          'uuid' => 'a95660f3-492d-410f-b464-a0fa6597989f',
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
+    'name' => 'Secret Defence',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 13,
+    'uuid' => '10ddee46-e89e-4e2a-be13-4228db73b993',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification',
+    'field_classification_type' => array(
+      'und' => array(
+        0 => array(
+          'tid' => '18910c4b-182e-43c5-9b45-ab890c19793f',
+          'uuid' => '18910c4b-182e-43c5-9b45-ab890c19793f',
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
+    'name' => 'Restricted Diffusion',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 12,
+    'uuid' => '123e4567-e89b-12d3-a456-426614174000',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification',
+    'field_classification_type' => array(
+      'und' => array(
+        0 => array(
+          'tid' => '18910c4b-182e-43c5-9b45-ab890c19793f',
+          'uuid' => '18910c4b-182e-43c5-9b45-ab890c19793f',
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
+    'name' => 'EU Restricted',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 4,
+    'uuid' => '332108c8-22ce-44ab-8403-f2104af6593a',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification',
+    'field_classification_type' => array(
+      'und' => array(
+        0 => array(
+          'tid' => '6e1c579f-7f4b-4c94-ba0f-a7824352024a',
+          'uuid' => '6e1c579f-7f4b-4c94-ba0f-a7824352024a',
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
+    'name' => 'EU Confidential',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 5,
+    'uuid' => '90227f22-fa70-4c8b-b154-8c001dbbee5f',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification',
+    'field_classification_type' => array(
+      'und' => array(
+        0 => array(
+          'tid' => '6e1c579f-7f4b-4c94-ba0f-a7824352024a',
+          'uuid' => '6e1c579f-7f4b-4c94-ba0f-a7824352024a',
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
+    'name' => 'EU Secret',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 6,
+    'uuid' => '09502a91-093e-469e-a054-f9d8826e4b9c',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification',
+    'field_classification_type' => array(
+      'und' => array(
+        0 => array(
+          'tid' => '6e1c579f-7f4b-4c94-ba0f-a7824352024a',
+          'uuid' => '6e1c579f-7f4b-4c94-ba0f-a7824352024a',
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
+    'name' => 'EU Top Secret',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 7,
+    'uuid' => 'bd3fdb50-6389-4842-b7dd-ce3cef6baa33',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification',
+    'field_classification_type' => array(
+      'und' => array(
+        0 => array(
+          'tid' => '6e1c579f-7f4b-4c94-ba0f-a7824352024a',
+          'uuid' => '6e1c579f-7f4b-4c94-ba0f-a7824352024a',
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
+    'name' => 'NC – Unclassified / Public',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 0,
+    'uuid' => 'dee88d73-89a3-4809-864e-3b3000a16b94',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification',
+    'field_classification_type' => array(
+      'und' => array(
+        0 => array(
+          'tid' => 'a95660f3-492d-410f-b464-a0fa6597989f',
+          'uuid' => 'a95660f3-492d-410f-b464-a0fa6597989f',
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
+    'name' => 'TLP:CLEAR',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 8,
+    'uuid' => '54fb7aff-3592-4b20-9a69-1bd5501f9d5a',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification',
+    'field_classification_type' => array(
+      'und' => array(
+        0 => array(
+          'tid' => 'd0cfc3e6-48d2-441f-ae3e-fa2820990e07',
+          'uuid' => 'd0cfc3e6-48d2-441f-ae3e-fa2820990e07',
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
+    'name' => 'TLP:AMBER+STRICT',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 10,
+    'uuid' => '0b7bb205-5139-4bed-b00c-bb723a027d4f',
+    'language' => 'und',
+    'i18n_tsid' => 10,
+    'vocabulary_machine_name' => 'classification',
+    'field_classification_type' => array(
+      'und' => array(
+        0 => array(
+          'tid' => 'd0cfc3e6-48d2-441f-ae3e-fa2820990e07',
+          'uuid' => 'd0cfc3e6-48d2-441f-ae3e-fa2820990e07',
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
+    'name' => 'TLP:GREEN',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 9,
+    'uuid' => 'aa3f4a1e-e3e7-4d1a-a2f9-61c9cb2d66d9',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification',
+    'field_classification_type' => array(
+      'und' => array(
+        0 => array(
+          'tid' => 'd0cfc3e6-48d2-441f-ae3e-fa2820990e07',
+          'uuid' => 'd0cfc3e6-48d2-441f-ae3e-fa2820990e07',
+        ),
+      ),
+    ),
+  );
+  $terms[] = array(
+    'name' => 'TLP:RED',
+    'description' => '',
+    'format' => 'filtered_html',
+    'weight' => 11,
+    'uuid' => 'f7f448ff-8b01-4387-b082-9aae317a02db',
+    'language' => 'und',
+    'i18n_tsid' => 0,
+    'vocabulary_machine_name' => 'classification',
+    'field_classification_type' => array(
+      'und' => array(
+        0 => array(
+          'tid' => 'd0cfc3e6-48d2-441f-ae3e-fa2820990e07',
+          'uuid' => 'd0cfc3e6-48d2-441f-ae3e-fa2820990e07',
         ),
       ),
     ),
@@ -1229,6 +1549,7 @@ function gofast_features_taxonomy_uuid_features_default_terms() {
         ),
       ),
     ),
+    'field_naming_rules' => array(),
   );
   $terms[] = array(
     'name' => 'Text Document',

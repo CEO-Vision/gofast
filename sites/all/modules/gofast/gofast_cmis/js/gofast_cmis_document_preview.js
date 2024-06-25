@@ -2,8 +2,12 @@
   Drupal.gofast_cmis = Drupal.gofast_cmis || {};
 
   Drupal.gofast_cmis.reloadPreview = function(force_pdfjs = false) {
+    if((Gofast.isMobile() || Gofast.isTablet()) && $("#pdf_frame").length){
+      $("#pdf_frame").addClass("mode-gf-full");
+      return;
+    }
     $('#refresh-preview').addClass('disabled');
-    if(jQuery('iframe[name="frameEditor"]').length > 0){
+    if($('iframe[name="frameEditor"]').length > 0){
         Gofast.docEditor.destroyEditor();
         Gofast.process_onlyoffice_editor();
     }else{
@@ -27,11 +31,12 @@
          $("#pdf_frame")[0].contentWindow.dispatchEvent(new Event('resize'));
          
          //Load annotations again on scrolling
-         $("#pdf_frame").contents().find("#viewerContainer").not("scroll-processed").on( "scroll", function(){
+         $("#pdf_frame").contents().find("#viewerContainer").not("scroll-processed").on("scroll", function(){
            clearTimeout(Gofast.wait_scroll_pdf);
-           
+           // we get the text color from context to avoid displaying black on black if the user is in dark mode
+           let textColor = getComputedStyle($("#pdf_frame").contents()[0].documentElement).getPropertyValue("--main-color");
            if(!$("#pdf_frame").contents().find("#loading-annotations").length){
-            $("#pdf_frame").contents().find("#toolbarViewerRight").prepend('<div id="loading-annotations" style="margin-top: 7px;">' + Drupal.t('Loading annotations...') + '</div>');
+            $("#pdf_frame").contents().find("#toolbarViewerRight").prepend('<div id="loading-annotations" style="color: ' + textColor + '; margin-top: 7px;">' + Drupal.t('Loading annotations...') + '</div>');
            }
            
            Gofast.wait_scroll_pdf = setTimeout(function(){

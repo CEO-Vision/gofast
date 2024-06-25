@@ -194,7 +194,7 @@ function saml_sp_drupal_login__saml_authenticate($is_valid, OneLogin\Saml2\Respo
       /* @CEO-Vision patch : Create gofast user if it doesn't exist */
       $account_ldap_informations = gofast_ldap_get_user_informations($email);
       usurp(1);
-      $account = gofast_user_user_create($email, $account_ldap_informations['givenname'], $account_ldap_informations['sn'],user_password(30), $account_ldap_informations['mail'],variable_get(VARIABLE_NAME_REPLICATION_MAIN_ORGA, ""));
+      $account = gofast_user_user_create($email,  $account_ldap_informations['givenname'], $account_ldap_informations['sn'], user_password(30), $account_ldap_informations['mail'],variable_get(VARIABLE_NAME_REPLICATION_MAIN_ORGA, ""), "", TRUE);
       gofast_ldap_sasl_auth_on($account);
       usurp(FALSE);
       /*$account = user_save($account, $new_user);
@@ -251,8 +251,6 @@ function saml_sp_drupal_login__saml_authenticate($is_valid, OneLogin\Saml2\Respo
 
     // @see user_login_submit().
     global $user;
-    global $mobile_url;
-    $standard_prefix_url = variable_get_value('base_url_standard');
 
     $user = user_load($account->uid);
 
@@ -267,21 +265,7 @@ function saml_sp_drupal_login__saml_authenticate($is_valid, OneLogin\Saml2\Respo
 
     user_login_finalize($edit);
 
-    $selectVersion = isset($_COOKIE["gofast_version_login_selected"]) ? $_COOKIE["gofast_version_login_selected"] : variable_get('gofast_admin_interface', GOFAST_COMPLETE_VERSION);
-
-    $token = variable_get("gofast_token_user_login");
-    // we get just the request uri, regardless of the idp domain
-    $request_uri = $_SERVER['REQUEST_URI'];
-
-    if (gofast_mobile_is_mobile_domain() && $selectVersion == GOFAST_COMPLETE_VERSION) {
-      header('Location: ' . $standard_prefix_url . '/gofast/user/login/redirect/' . $token . '/' . $uid . "?request_uri=" . urlencode($request_uri));
-      exit;
-    } elseif (!gofast_mobile_is_mobile_domain() && $selectVersion == GOFAST_SIMPLE_VERSION) {
-      header('Location: ' . $mobile_url . '/gofast/user/login/redirect/' . $token . '/' . $uid . "?request_uri=" . urlencode($request_uri));
-      exit;
-    } elseif (!empty($edit['redirect'])) {
-      drupal_goto($edit['redirect']);
-    }
+    drupal_goto($edit['redirect']);
   }
   drupal_goto();
 }

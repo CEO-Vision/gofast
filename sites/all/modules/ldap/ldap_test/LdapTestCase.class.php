@@ -106,6 +106,7 @@ class LdapTestCase extends DrupalWebTestCase {
    */
   public function testId($description = NULL, $method = NULL) {
 
+    $trace = debug_backtrace();
     static $test_id;
     static $i;
 
@@ -118,7 +119,6 @@ class LdapTestCase extends DrupalWebTestCase {
       return $test_id . '.' . $i;
     }
     if (!$method) {
-      $trace = debug_backtrace();
 
       $caller = array_shift($trace);
       $caller = array_shift($trace);

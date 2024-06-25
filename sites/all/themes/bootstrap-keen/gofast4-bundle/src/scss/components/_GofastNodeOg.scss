@@ -1,6 +1,9 @@
 .GofastNodeOg {
     &__container {
         height: calc(100%);
+        & #gofast_essential_space_actions {
+            width: 40px; // size of contextual menu button
+        }
     }
 }
 
@@ -33,6 +36,6 @@
     }
 }
 
-.GofastNodeOg .card-body .gofastArticleBreadcrumb{
+.GofastNodeOg .card-body:not(#wikiPageLayer) .gofastArticleBreadcrumb{
     display: none;
 }

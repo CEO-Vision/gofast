@@ -1,6 +1,16 @@
 function displayHistoryWidget($scope, $http, $location, $sce, $filter) {
     $scope.events = [];
     $scope.process = [];
+
+    let search_param = new URLSearchParams(location.search);
+    let langcode = search_param.get("locale");
+    if(langcode === "fr" || langcode === undefined) {
+        $scope.date_format_full = "dd/MM/yyyy HH:mm";
+        $scope.date_format = "dd/MM/yyyy";
+    } else if(langcode === "en") {
+        $scope.date_format_full = "MM/dd/yyyy HH:mm";
+        $scope.date_format = "MM/dd/yyyy";
+    }
     var type_page = "form";
     if ($location.$$absUrl.indexOf("processInstance/") !== -1) {
         type_page = "summary";
@@ -100,7 +110,7 @@ function displayHistoryWidget($scope, $http, $location, $sce, $filter) {
 
                         element.contents.forEach(function (mycontent) {
                             if (mycontent.type === "string") {
-                                content = content + $sce.trustAsHtml("<li><span class='ng-binding'> <i class='glyphicon glyphicon-th-list'></i> <u>" + $filter('gfdTranslate')(mycontent.name) + "</u> : " + mycontent.content_value + "</span></li>");
+                                content = content + $sce.trustAsHtml("<li><span class='ng-binding'> <i class='glyphicon glyphicon-th-list'></i> <u>" + $filter('gfdTranslate')(mycontent.name) + "</u> : " + mycontent.content_value.replace(/(\r\n|\n|\r)/gm, "<br>") + "</span></li>");
                             } else if (mycontent.type === "node") {
                                 display_content = true;
                                 var json_node = JSON.parse(mycontent.content_value);
@@ -125,12 +135,12 @@ function displayHistoryWidget($scope, $http, $location, $sce, $filter) {
                                 content_node = content_node + $sce.trustAsHtml("<li><small class='text-muted ng-binding'><i class='glyphicon glyphicon-file'></i> <a style='cursor:pointer;text-decoration:none;' onClick='window.parent.parent.Gofast.processAjax(\"/node/" + content_nid + "\");window.parent.parent.modalContentClose();'>" + content_title + "</a> " + content_node_buffer + "</small></li>");
 
 
-                            } else if (mycontent.type === "user") {
+                            } else if (mycontent.type === "user" || mycontent.type === "group") {
                                 display_content_user = true;
                                 var json_node = JSON.parse(mycontent.content_value);
-                                var content_login = "";
                                 var content_displayname = "";
                                 var content_user_buffer = "";
+                                var content_task_end_date = "";
                                 for (var property in json_node) {
                                     if (json_node.hasOwnProperty(property)) {
                                         if (property === "username") {
@@ -146,6 +156,10 @@ function displayHistoryWidget($scope, $http, $location, $sce, $filter) {
                                                 tmatch = $filter('gfdTranslate')(match);
                                                 content_displayname = content_displayname.replace(match, tmatch);
                                             }
+                                        } else if(property === "task_end_date") {
+                                            content_task_end_date = json_node[property];
+                                            content_task_end_date = get_deadline_html(content_task_end_date);
+
                                         } else {
                                             content_user_buffer = content_user_buffer + "<li><i class='glyphicon glyphicon-tag'></i> " + property + " : " + json_node[property] + "</li>";
                                         }
@@ -155,7 +169,11 @@ function displayHistoryWidget($scope, $http, $location, $sce, $filter) {
                                 if (content_user_buffer != "") {
                                     content_user_buffer = "<ul>" + content_user_buffer + "</ul>";
                                 }
-                                content_user = content_user + "<li><small class='text-muted ng-binding'><i class='glyphicon glyphicon-user'></i> " + content_displayname + content_user_buffer + "</small></li>";
+                                var content_user_icon = "fas fa-user";
+                                if (mycontent.type === "group") {
+                                    content_user_icon = "fas fa-users";
+                                }
+                                content_user = content_user + "<li><small class='text-muted ng-binding'><i class='" + content_user_icon + "'></i> " + content_displayname + content_user_buffer + content_task_end_date + "</small></li>";
                             }
                         });
                         if (display_content) {
@@ -198,5 +216,29 @@ function displayHistoryWidget($scope, $http, $location, $sce, $filter) {
                 results = regex.exec(location.search);
         return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
     }
+
+    
+  function get_deadline_html(end_date){
+    var d = new Date(end_date);
+    var timestamp_now = new Date().getTime() / 1000;
+    var timestamp = d.getTime() / 1000;
+
+    let deadline_color = "";
+    if(timestamp_now > timestamp){
+        deadline_color = "#c0392b";
+    }else if(timestamp - timestamp_now < 60*60*24){
+        deadline_color = "#d35400";
+    }else{
+        deadline_color = "#2ecc71";
+    }
+    if(end_date === null || typeof end_date == "undefined"){
+        end_date = " / ";
+        deadline_color = "#5bc0de";
+    }
+    let formatted_end_date = $filter('date')(end_date, $scope.date_format);
+    let deadline_html = `<span style="display: inline-block;"><i class="far fa-clock" style="margin: 0 3px;"></i><span style="color:${deadline_color};" title="${$filter('gfdTranslate')("label.process_deadline")}">${formatted_end_date}</span></span>`;
+
+    return deadline_html;
+  }
 
 }

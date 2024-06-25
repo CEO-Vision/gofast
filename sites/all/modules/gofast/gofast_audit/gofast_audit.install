@@ -7,7 +7,7 @@ function gofast_audit_schema(){
   $schema = array();
   
   $schema["ceo_vision_audit"] = array(
-            'description' => t("Table to store informations about events into the GoFast plateform"),
+            'description' => t("Table to store informations about events into the GoFast platform"),
             'fields' => array(
                     'id' => array(
                         'type' => 'serial',
@@ -59,10 +59,70 @@ function gofast_audit_schema(){
 }
 
 /*
+ * Implements hook_install
+ */
+function gofast_audit_install() {
+    // One index per costly sort and join (with node or users table)
+    if(!db_index_exists("ceo_vision_audit", "gfindex_ceo_vision_audit_nid_timestamp")){
+        db_add_index("ceo_vision_audit", "gfindex_ceo_vision_audit_nid_timestamp", array('nid', 'timestamp'));
+    }
+    if(!db_index_exists("ceo_vision_audit", "gfindex_ceo_vision_audit_uid_timestamp")){
+        db_add_index("ceo_vision_audit", "gfindex_ceo_vision_audit_uid_timestamp", array('uid', 'timestamp'));
+    }
+    // Indexes for joins implying both node and users tables
+    if(!db_index_exists("ceo_vision_audit", "gfindex_ceo_vision_audit_nid")){
+        db_add_index("ceo_vision_audit", "gfindex_ceo_vision_audit_nid", array('nid'));
+    }
+    if(!db_index_exists("ceo_vision_audit", "gfindex_ceo_vision_audit_uid")){
+        db_add_index("ceo_vision_audit", "gfindex_ceo_vision_audit_uid", array('uid'));
+    }
+    if(!db_index_exists("ceo_vision_audit", "gfindex_ceo_vision_audit_nid_uid")){
+        db_add_index("ceo_vision_audit", "gfindex_ceo_vision_audit_nid_uid", array('nid', 'uid'));
+    }
+    // One index for other sortable columns
+    if(!db_index_exists("ceo_vision_audit", "gfindex_ceo_vision_audit_timestamp")){
+        db_add_index("ceo_vision_audit", "gfindex_ceo_vision_audit_timestamp", array('timestamp'));
+    }
+    if(!db_index_exists("ceo_vision_audit", "gfindex_ceo_vision_audit_event_type")){
+        db_add_index("ceo_vision_audit", "gfindex_ceo_vision_audit_event_type", array('event_type'));
+    }
+}
+
+/*
  * Implements hook_update
  */
 function gofast_audit_update_7100(){
     if(!db_index_exists("ceo_vision_audit", "gfindex_ceo_vision_audit_1")){
         db_add_index("ceo_vision_audit", "gfindex_ceo_vision_audit_1", array('nid', 'event_type'));
+    }
+}
+
+/*
+ * Implements hook_update
+ */
+function gofast_audit_update_7101(){
+    // One index per costly sort and join (with node or users table)
+    if(!db_index_exists("ceo_vision_audit", "gfindex_ceo_vision_audit_nid_timestamp")){
+        db_add_index("ceo_vision_audit", "gfindex_ceo_vision_audit_nid_timestamp", array('nid', 'timestamp'));
+    }
+    if(!db_index_exists("ceo_vision_audit", "gfindex_ceo_vision_audit_uid_timestamp")){
+        db_add_index("ceo_vision_audit", "gfindex_ceo_vision_audit_uid_timestamp", array('uid', 'timestamp'));
+    }
+    // Indexes for joins implying both node and users tables
+    if(!db_index_exists("ceo_vision_audit", "gfindex_ceo_vision_audit_nid")){
+        db_add_index("ceo_vision_audit", "gfindex_ceo_vision_audit_nid", array('nid'));
+    }
+    if(!db_index_exists("ceo_vision_audit", "gfindex_ceo_vision_audit_uid")){
+        db_add_index("ceo_vision_audit", "gfindex_ceo_vision_audit_uid", array('uid'));
+    }
+    if(!db_index_exists("ceo_vision_audit", "gfindex_ceo_vision_audit_nid_uid")){
+        db_add_index("ceo_vision_audit", "gfindex_ceo_vision_audit_nid_uid", array('nid', 'uid'));
+    }
+    // One index for other sortable columns
+    if(!db_index_exists("ceo_vision_audit", "gfindex_ceo_vision_audit_timestamp")){
+        db_add_index("ceo_vision_audit", "gfindex_ceo_vision_audit_timestamp", array('timestamp'));
+    }
+    if(!db_index_exists("ceo_vision_audit", "gfindex_ceo_vision_audit_event_type")){
+        db_add_index("ceo_vision_audit", "gfindex_ceo_vision_audit_event_type", array('event_type'));
     }
 }

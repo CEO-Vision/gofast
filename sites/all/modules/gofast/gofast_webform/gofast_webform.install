@@ -14,3 +14,22 @@
         db_query("UPDATE field_revision_field_format SET field_format_tid=" . $new_tid . " WHERE field_format_tid=" . $old_tid);
     }
   }
+
+/**
+ * Implements hook update().
+ * Add "jpeg" to allowed values in webform file input
+ */
+function gofast_webform_update_7301() {
+  $result = db_select('webform_component', 'wc', array('fetch' => PDO::FETCH_ASSOC))
+    ->fields('wc')
+    ->condition('type', 'file')
+    ->execute();
+  foreach ($result as $component) {
+    $component['extra'] = unserialize($component['extra']);
+    if (isset($component['extra']['filtering']["types"]) && !in_array("jpeg", $component['extra']['filtering']["types"])) {
+      $component['extra']['filtering']["types"][] = "jpeg";
+      $component['extra'] = serialize($component['extra']);
+      drupal_write_record('webform_component', $component, array('nid', 'cid'));
+    }
+  }
+}

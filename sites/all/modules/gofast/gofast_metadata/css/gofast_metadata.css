@@ -1,6 +1,3 @@
-.fivestar-summary.fivestar-summary-average-count{
-    display: none !important;
-}
 /* default not focus */
 /* .metadata-node:not(:focus) {
     background-color: transparent;
@@ -40,7 +37,6 @@
 #gofast-node-metatadata-links .document__editable--label {
     width: 100%;
     text-align: left;
-    position: absolute;
     z-index: 1;
 }
 
@@ -55,4 +51,31 @@
 
 .tag-wrapper > div > a:not(.text-secondary) {
     text-align: right;
+}
+
+.select2-dropdown--dropleft {
+    left: auto!important;
+    right: -80px;
+}
+
+.gofast-node-title-value .EditableInput__value{
+    padding: 0px;
+}
+
+.external-url-icon{
+    width: 15px;
+    margin-right: 5px;
+}
+
+.external-links-list{
+    width: 100%;
+}
+
+.external-links-list .link-badge {
+    background-color: #EBEDF3;
+    align-items: center;
+    padding: 0 0.5rem;
+    border-radius: 0.42rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
 }

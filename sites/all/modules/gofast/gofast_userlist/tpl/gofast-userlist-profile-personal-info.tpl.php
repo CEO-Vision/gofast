@@ -19,6 +19,12 @@
                 <span class="font-size-md text-muted text-hover-primary font-weight-bold mb-4 d-block text-uppercase"><?php echo t('Description', array(), array('context' => 'gofast:gofast_userlist')); ?></span>
                 <p class="text-dark-75 font-size-lg font-weight-normal pt-2"><?php echo $description; ?></p>
             </div>
+            <?php if($status == 0) : ?>
+            <div class="alert alert-custom alert-notice alert-light-danger fade show" role="alert">
+                <div class="alert-icon"><i class="flaticon-warning"></i></div>
+                <div class="alert-text"><?php print t("This userlist is deleted.", array(), array("context" => "gofast:gofast_userlist")) ?></div>
+            </div>
+            <?php endif;?>
         </div>
     </div>
 </div>

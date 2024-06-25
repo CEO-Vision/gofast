@@ -1,0 +1,56 @@
+--- LdapServer.class.php
++++ LdapServer.class.php
+@@ -746,7 +746,7 @@ public function searchAllBaseDns(
+     $timelimit = 0,
+     $deref = NULL,
+     $scope = LDAP_SCOPE_SUBTREE
+-    ) {
++  ) {
+     $all_entries = [];
+     // Need to search on all basedns one at a time.
+     foreach ($this->basedn as $base_dn) {
+@@ -776,7 +776,7 @@ public function searchAllBaseDns(
+   /**
+    * Perform an LDAP search.
+    *
+-   * @param string $basedn
++   * @param string|null $basedn
+    *   The search base. If NULL, we use $this->basedn. should not be esacaped.
+    * @param string $filter
+    *   The search filter. such as sAMAccountName=jbarclay.  attribute values
+@@ -792,14 +792,16 @@ public function searchAllBaseDns(
+    *   elements if search returns no results),
+    *   or FALSE on error.
+    */
+-  public function search($base_dn = NULL,
+-  $filter,
+-  $attributes = [],
++  public function search(
++    $base_dn = NULL,
++    $filter = '',
++    $attributes = [],
+     $attrsonly = 0,
+-  $sizelimit = 0,
+-  $timelimit = 0,
+-  $deref = NULL,
+-  $scope = LDAP_SCOPE_SUBTREE) {
++    $sizelimit = 0,
++    $timelimit = 0,
++    $deref = NULL,
++    $scope = LDAP_SCOPE_SUBTREE
++  ) {
+ 
+     /**
+       * pagingation issues:
+@@ -1002,9 +1017,9 @@ public function pagedLdapQuery($ldap_query_params) {
+   /**
+    * Execute ldap query and return ldap records.
+    *
+-   * @param scope
++   * @param $scope
+    *
+-   * @params see pagedLdapQuery $params
++   * @param $params see pagedLdapQuery $params
+    *
+    * @return array of ldap entries
+    */

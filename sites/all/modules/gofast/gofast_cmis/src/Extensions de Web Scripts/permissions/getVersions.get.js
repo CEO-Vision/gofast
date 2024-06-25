@@ -36,12 +36,11 @@ logger.log(args.newfunction);
                 }
         }
 
-   updateAspects();
-
-        if(node === null){
+        if(node == null){
         model.myStatus = "unable to find doc";
-        updateAspects();
         }else{
+        updateAspects();
+
         if(args.newfunction === null) {
 
                 function versionHistoryToObject(versionHistory, last) {
@@ -68,10 +67,12 @@ logger.log(args.newfunction);
                  function nodeToObject(node) {
                         var version = {};                    
                         var history = node.getVersionHistory();
-                        //if(node.properties["modifier"] != history[0].creator){
-                                node.properties["modifier"] = history[0].creator;
-                                node.properties["modified"] = history[0].createdDate;
-                       // }
+                        if(history !== null){
+                                if (history.length > 0) {
+                                        node.properties["modifier"] = history[0].creator;
+                                        node.properties["modified"] = history[0].createdDate;
+                                }
+                        }
                         version.label = node.properties["versionLabel"];
                         version.createdDate = utils.toISO8601(node.properties["created"]);
                         version.modifiedDate = utils.toISO8601(node.properties["modified"]);

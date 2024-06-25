@@ -109,6 +109,11 @@ function gofast_search_get_popular_nodes_from_index() {
   ctools_include('gofast_search.admin', 'gofast_search', '');
   
   $stats = gofast_search_get_stats(GOFAST_SEARCH_ENV_ID, TRUE);
+  if (is_string($stats)) {
+    $indexed_stats = $stats;
+  } else {
+    $indexed_stats = $stats["indexed"];
+  }
   $environment = apachesolr_environment_load(GOFAST_SEARCH_ENV_ID);
   $l = parse_url($environment['url']);
 
@@ -122,7 +127,7 @@ function gofast_search_get_popular_nodes_from_index() {
     'qt' => 'select',
     'q' => 'entity_type:node',
     'fl' => 'entity_id',
-    'rows' => $stats['indexed'],
+    'rows' => $indexed_stats,
     'fq' => 'ps_popularity:[0.9 TO *]'
   ];
 
@@ -134,7 +139,7 @@ function gofast_search_get_popular_nodes_from_index() {
   _gofast_search_check_solr_cmd_response($response, 'solr/radioactivity', 'grab popular nodes');
   
   if (empty($response->data)) {
-    watchdog('Gofast Search', 'Could not retrieve popular nodes from index.', $variables, WATCHDOG_ERROR);
+    watchdog('Gofast Search', 'Could not retrieve popular nodes from index.', array(), WATCHDOG_ERROR);
     return FALSE;
   }
   
@@ -254,4 +259,20 @@ function _gofast_search_check_solr_cmd_response($response, $component, $descript
     $var += ['!code' => $response->code];
     watchdog('Gofast Search', 'Error encountered - !comp - !desc. HTTP Status=!code', $var, WATCHDOG_ERROR);
   }
+}
+
+
+
+function gofast_search_cron_calculate_min_date(){
+    $type = 'min';
+    $facet_name = "changed";
+    $query = db_select('node', 'n')->condition('status', 1);
+    $query->addExpression($type . '(' . $facet_name . ')', $type);
+    $time = $query->execute()->fetch()->{$type};
+    variable_set("gofast_facet_get_date_min_".$facet_name, $time);
+    $facet_name = "created";
+    $query = db_select('node', 'n')->condition('status', 1);
+    $query->addExpression($type . '(' . $facet_name . ')', $type);
+    $time = $query->execute()->fetch()->{$type};
+    variable_set("gofast_facet_get_date_min_".$facet_name, $time);
 }

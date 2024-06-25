@@ -1,0 +1,52 @@
+.GofastForm__Field--content-type .form-item-content-type label {
+    overflow: clip;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+}
+
+.GofastForm__Field .form-field-operator .select2-selection {
+    height: calc(1.35em + 1.1rem + 2px);
+}
+
+.GofastForm__Field .form-item-ac-list-tags-list-spaces tags{
+    height: calc(1.35em + 1.1rem + 2px);
+}
+
+.GofastForm__Field .form-field-operator .select2-selection .select2-selection__placeholder,
+.GofastForm__Field .form-field-operator .select2-selection .select2-selection__rendered{
+    margin-left:10px;
+}
+
+.GofastForm__Field .grid-container {
+    display: grid;
+    grid-template-columns: 25% 75%;
+}
+
+#form-group-spaces-category{
+    display: grid;
+    grid-template-columns: 50% 50%;
+}
+
+#form-group-spaces-category .GofastForm__Field{
+    width: 90%;
+}
+
+#form-search-label .GofastForm__Field{
+    width: 95%;
+}
+
+.badge-light-success {
+    background-color: #d1e7dd;
+    color: #155724;
+}
+
+.badge-light-warning {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.badge-light-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+}

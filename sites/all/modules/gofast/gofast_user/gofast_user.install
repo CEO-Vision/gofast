@@ -198,3 +198,10 @@ function gofast_user_update_7307(){
     }
   }
 }
+
+/**
+ * Remove all duplicate (obsolete) bonita tokens from the database
+ */
+function gofast_user_update_7308(){
+  db_query("TRUNCATE TABLE {gofast_token}");
+}

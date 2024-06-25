@@ -121,14 +121,14 @@ function gofast_polling() {
         if (array_key_exists($poll['pollID'], $context) && $time % $poll['interval'] === 0
           && ($_commands = call_user_func($module . '_poll', $poll_name, $poll, $context['__context'])) ) {
           $commands = array_merge($commands, $_commands);
-            array_unshift($commands , ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+          array_unshift($commands , ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
             if (jQuery('.popover-content').children().hasClass('ztree-widget')){
                 var popup_id = $('#fullscreen-node').children().attr('id').split('-').pop();
                 jQuery('#popup_block_' + popup_id).children().first().popover('hide');
             };
             </script>"
-              )
-      );
+            )
+          );
         }
       }
     }

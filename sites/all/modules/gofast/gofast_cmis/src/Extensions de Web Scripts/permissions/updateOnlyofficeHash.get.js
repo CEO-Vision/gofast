@@ -1,6 +1,8 @@
 var node = search.findNode(args.reference);
 var clear = args.clear
 var force = args.force
+var just_get = args.just_get
+var timestamp = args.timestamp
 var hash = null;
 
 if(clear){
@@ -11,9 +13,15 @@ if(clear){
     hash = force;
     node.properties["{}onlyoffice:editing-hash"] = hash;
     node.save();
+}else if (just_get){
+    if(node.properties["{}onlyoffice:editing-hash"] == null){
+        hash = ""
+    }else{
+        hash = node.properties["{}onlyoffice:editing-hash"];
+    }
 }else{
     if(node.properties["{}onlyoffice:editing-hash"] == null){
-        hash = Math.random().toString(36).substr(2, 5)+Math.random().toString(36).substr(2, 5)+Math.random().toString(36).substr(2, 5)+Math.random().toString(36).substr(2, 5);
+        hash = timestamp
         node.properties["{}onlyoffice:editing-hash"] = hash;
         node.save();
     }else{

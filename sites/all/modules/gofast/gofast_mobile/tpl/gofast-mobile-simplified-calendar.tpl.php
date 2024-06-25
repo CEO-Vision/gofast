@@ -1,3 +1,4 @@
+<?php global $base_url; ?>
 <div class="mainContent GofastMobileCalendar p-3 h-100 gofast-mobile-calendar-page"
      id="gofast-mobile-calendar">
     <div class="card card-custom card-stretch GofastMobileHome__container">
@@ -9,11 +10,11 @@
                            id="navigation_meetings" aria-controls="navMeetings"
                            data-toggle="tab" href="#navMeetings">
                         <span class="nav-icon">
-                        <i class="fa fa-video-camera"></i>
+                            <i class="fas fa-video"></i>
                         </span>
-                            <span class="nav-text">
-                    <?php print t('Meetings'); ?>
-                </span>
+                        <span class="nav-text">
+                            <?php print t('Meetings'); ?>
+                        </span>
                         </a>
                     </li>
                     <li class="nav-item ">
@@ -22,11 +23,11 @@
                            aria-controls="navDeadlines"
                            data-toggle="tab" href="#navDeadlines">
                         <span class="nav-icon">
-                        <i class="fa fa-file"></i>
+                            <i class="fa fa-file"></i>
                         </span>
-                            <span class="nav-text">
-                    <?php print t('Documents deadlines'); ?>
-                </span>
+                        <span class="nav-text">
+                            <?php print t('Documents deadlines'); ?>
+                        </span>
                         </a>
                     </li>
                 </ul>
@@ -36,35 +37,36 @@
                     <div id="home_navigation_content"
                          class="content well well-sm Navigation__content">
                         <div class="tab-content Navigation__tabsContent">
-                            <div id="navMeetings" role="tabpanel"
-                                 class="tab-pane fade in active show">
-                              <?php
-                              if (!empty(views_get_view_result('upcoming', 'upcoming_meetings'))) {
-                                $upcoming_meetings = views_embed_view('upcoming', 'upcoming_meetings');
-                                print $upcoming_meetings;
-                              }
-                              else {
-                                $msg = '</br><p> <b>' . t('No meeting is currently scheduled.', [], ['context' => 'gofast_simple']);
-                                if (drupal_valid_path('node/add/conference')) {
-                                  $msg .= '  <a href="/node/add/conference" style="opacity: 1;">' . t('Create a meeting', [], ['context' => 'gofast_simple']) . ' ? </a>';
-                                }
-                                $msg .= '</p> </b></br>';
-                                print $msg;
-                              }
-                              ?>
+                            <div id="navMeetings" role="tabpanel" class="tab-pane fade in active show">
+                                <?php
+                                    $placeholder = '</br><p> <b>' . t('No meeting is currently scheduled.', [], ['context' => 'gofast_simple']);
+                                    if (drupal_valid_path('node/add/conference')) {
+                                    $placeholder .= '  <a href="/node/add/conference" style="opacity: 1;">' . t('Create a meeting', [], ['context' => 'gofast_simple']) . ' ? </a>';
+                                    }
+                                    $placeholder .= '</p> </b></br>';
+                                ?>
+                                <?= theme("gofast_mobile_simplified_calendar_table", [
+                                    "contents" => $meetings,
+                                    "columns" => [t("Name"), t("Start"), t("End")],
+                                    "theme" => "gofast_mobile_simplified_calendar_meeting_row",
+                                    "placeholder" => $placeholder]) ?>
+
                             </div>
-                            <div id="navDeadlines" role="tabpanel"
-                                 class="tab-pane fade">
-                              <?php
-                              if (!empty(views_get_view_result('upcoming', 'upcoming_deadlines'))) {
-                                $upcoming_deadlines = views_embed_view('upcoming', 'upcoming_deadlines');
-                                print $upcoming_deadlines;
-                              }
-                              else {
-                                print '</br><p> <b>' . t('No deadline is currently defined.', [], ['context' => 'gofast_simple']) . '</p> </b></br>';
-                              }
-                              ?>
+                            <nav class="text-center mt-4">
+                                <ul class="pagination pagination-sm justify-content-center" id="goFastMeetingContent">
+                                </ul>
+                            </nav>
+                            <div id="navDeadlines" role="tabpanel" class="tab-pane fade table-responsive">
+                                <?= theme("gofast_mobile_simplified_calendar_table", [
+                                    "contents" => $deadlines,
+                                    "columns" => [t("Title"), t("Deadline")],
+                                    "theme" => "gofast_mobile_simplified_calendar_deadline_row",
+                                    "placeholder" => t('No deadline is currently defined.', [], ['context' => 'gofast_simple'])]) ?>
                             </div>
+                            <nav class="text-center mt-4">
+                                <ul class="pagination pagination-sm justify-content-center" id="goFastDeadlineContent">
+                                </ul>
+                            </nav>
                         </div>
                     </div>
             </div>
@@ -72,27 +74,9 @@
     </div>
 </div>
 
-<style>
-    .main-container {
-        width: 90% !important;
-    }
-</style>
-
-<script>
-    function triggerCalendarNavigation() {
-        jQuery('#home_navigation_content .pagination a').click(function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            var url = jQuery(this).attr('href');
-            jQuery.get(url,
-                function (data, textStatus, jqXHR) {
-                    jQuery('#home_navigation_content #navCalendar .view-display-id-page_4').remove();
-                    jQuery('#home_navigation_content').append(data);
-                    Drupal.attachBehaviors();
-                }
-            );
-        });
-    }
-
-    triggerCalendarNavigation();
+<script type="text/javascript">
+    jQuery(document).ready(function() {
+        jQuery('#navDeadlines tbody').pager({pagerSelector : '#goFastDeadlineContent', perPage: 11, numPageToDisplay : 5, isFlex : false});
+        jQuery('#navMeetings tbody').pager({pagerSelector : '#goFastMeetingContent', perPage: 11, numPageToDisplay : 5, isFlex : false});
+    })
 </script>

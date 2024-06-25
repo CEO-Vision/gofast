@@ -433,7 +433,7 @@ table td[class*="span"], table th[class*="span"], .row-fluid table td[class*="sp
     background-color:#ffffff !important;
 }
 
-#tabs_doc_wf ul, ol {
+#tabs_doc_wf ul, #tabs_doc_wf ol {
     padding-left: 5px;
 }
 
@@ -495,6 +495,10 @@ table td[class*="span"], table th[class*="span"], .row-fluid table td[class*="sp
   color: #2ecc71 !important;
 }
 
+.wf-button-orange {
+  color: #ffa800 !important;
+}
+
 .wf-button-blue{
   color: #337ab7 !important;
 }
@@ -525,7 +529,6 @@ table td[class*="span"], table th[class*="span"], .row-fluid table td[class*="sp
   }
 }
 
-
 #lightDashboardDocumentMyParentTab i , #lightDashboardDocumentOtherParentTab i , #lightDashboardDocumentHistoryParentTab i , 
 #lightDashboardDocumentNewParentTab i {
     width : 16px;
@@ -534,4 +537,8 @@ table td[class*="span"], table th[class*="span"], .row-fluid table td[class*="sp
 /* allows Bonita buttons text to wrap in lower resolutions */
 #bonita_form_container .btn {
     white-space: normal !important;
+}
+
+.apexcharts-toolbar{
+    display: none;
 }

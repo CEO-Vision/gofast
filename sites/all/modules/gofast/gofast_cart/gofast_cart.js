@@ -75,32 +75,18 @@
                 }
               });
         },
-        downloadSelectedCart: function(){
-            var tbody = $('.GofastCart__tBody');
+        downloadSelectedCart: async function(){
+          const nodeIds = Array.from(document.querySelectorAll("#cart_node_id option")).map((e) => e.textContent);
 
-            var els = tbody.children();
-            $.each(els, function(k, elem){
-                var fileName = elem.getElementsByClassName("GofastCart__rowTitle")[0].innerText.trim();           
-                var path = $(elem).find(".GofastCart__rowLocation .breadcrumb-gofast .breadcrumb").attr("fullpath");
-                
-                // Prevent multifilled documents
-                var split = path.split("%0A");
-                var path = split[0];
+          const cartNodeReferenceResponse = await $.post({
+            url: "/gofast_cart/get_node_references",
+            data: {
+              nodeIds,
+            },
+          });
 
-                path = "/alfresco/webdav/Sites/"+path;          
-                var fileNamePath = "/" + fileName;
-                path = path.padEnd(path.length + fileNamePath.length, fileNamePath);
-                Gofast.ITHit.queue.push({
-                uuid: Gofast.ITHit.generate_uuid(),
-                path : path,
-                displayNamePath: fileName + ' (' + decodeURIComponent(path).replace('/alfresco/webdav/Sites/', '') + ')',
-                fileName: fileName,
-                operation: 'download',
-                displayOperation: Drupal.t('Download', {}, {context: 'gofast:cart'}),
-                progression: 0,
-                status: 0
-              });
-            });
+          const cartNodeReferences = cartNodeReferenceResponse.map(({ nodeRef }) => ({ nodeRef }));
+          Gofast.ITHit.downloadFiles(cartNodeReferences);
         },
         remove: function(){
           $("#remove_all_documents").hide();

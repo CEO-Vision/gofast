@@ -109,27 +109,42 @@ window.GofastTodoList = (el, props = {}) => {
             formData.append(field, value)
 
             let url = window.origin + "/kanban/task/update/todo/" + taskId;
+            
+              //check if card node has not been deleted
+              const card_status = this.getCardStatus();
+              if( card_status == 0){
+                  window.ktKanbanItem.reload();
+                  this._displayCardDeletedMsg();
+              }else{
 
-            const res = await fetch(url, {
-                method: 'POST',
-                body: formData
-            });
+                const res = await fetch(url, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                let field_t = Drupal.t(field, {}, { 'context': 'gofast_kanban' });     
+                Gofast.toast(Drupal.t('Your modification on @field has been saved', {'@field': field_t}, { 'context': 'gofast' }), 'info');
+                
             
-            let field_t = Drupal.t(field, {}, { 'context': 'gofast_kanban' });     
-            Gofast.toast(Drupal.t('Your modification on @field has been saved', {'@field': field_t}, { 'context': 'gofast' }), 'info');
-            
-           
-            return await res
+                return await res
+              }
         },
         taskChecked: async function(taskId, isChecked){
 
+            //check if card node has not been deleted
+            const card_status = this.getCardStatus();
+            if( card_status == 0){
+                window.ktKanbanItem.reload();
+                this._displayCardDeletedMsg();
+            }else{
 
-            let url = window.origin + "/kanban/task/update_status/todo/" + taskId + "/" + (isChecked ? "1" : "0");
-            const res = await fetch(url, {
-                method: 'POST',
-            })
+                let url = window.origin + "/kanban/task/update_status/todo/" + taskId + "/" + (isChecked ? "1" : "0");
+                const res = await fetch(url, {
+                    method: 'POST',
+                })
 
-            return await res
+                return await res
+            }
         },
         showCreate(){},
         handleOnSubmitForm: async function(event){
@@ -142,26 +157,34 @@ window.GofastTodoList = (el, props = {}) => {
                     let formData = new FormData()
                     formData.append('label', taskname)
 
-                    let url = window.origin + "/kanban/task/" + this.cardId + "/add/todo";
+                    
+                      //check if card node has not been deleted
+                    const card_status = this.getCardStatus();
+                    if( card_status == 0){
+                        window.ktKanbanItem.reload();
+                        this._displayCardDeletedMsg();
+                    }else{
+                        let url = window.origin + "/kanban/task/" + this.cardId + "/add/todo";
 
-                    const res = await fetch(url, {
-                        method: 'POST',
-                        body: formData
-                    })
+                        const res = await fetch(url, {
+                            method: 'POST',
+                            body: formData
+                        })
 
-                    const data = await res.json()
-                    const itemId = await data.id
+                        const data = await res.json()
+                        const itemId = await data.id
 
-                    let newTask = {
-                        id: itemId,
-                        name: taskname,
-                        deadline: null,
-                        responsable: null,
-                        isDone: false,
-                        canEdit: true,
-                        canDo: true
+                        let newTask = {
+                            id: itemId,
+                            name: taskname,
+                            deadline: null,
+                            responsable: null,
+                            isDone: false,
+                            canEdit: true,
+                            canDo: true
+                        }
+                        this.tasks.push(newTask);
                     }
-                    this.tasks.push(newTask)
 
                 } catch (error) {
                     console.log(error.message)
@@ -178,6 +201,35 @@ window.GofastTodoList = (el, props = {}) => {
                 event.target['taskname'].classList.add('is-invalid')
             }
             
+        },
+        getCardStatus(){
+            let url = window.origin + "/kanban/task/" + this.cardId + "/get_status";
+            var status = 0;
+             
+             $.ajax({
+                 url: url,
+                 type: 'POST',
+                 dataType: 'json',
+                 async: false,
+                 success: function (content) {
+                     status = content;
+                 }
+             });
+             
+             return status;
+        },
+         _displayCardDeletedMsg(){
+            
+            var mainContainer = this.container.closest('.gofastKanbanCardDetail');
+            if(mainContainer.querySelector('#card_error_message') == null){
+                var elCardDeleteMsg = document.createElement("div");
+                elCardDeleteMsg.innerHTML =  '<div id="card_error_message" class="alert alert-custom alert-notice alert-light-danger fade show" role="alert"> '
+                                    +'<div class="alert-icon"><i class="flaticon-warning"></i></div>' 
+                                    +'<div class="alert-text">'+window.parent.Drupal.t("This card has been deleted, your modifications would not be saved.", {},{ context: "gofast_kanban" }) +'</div></div>';
+                mainContainer.prepend(elCardDeleteMsg);
+                
+                Gofast.toast(Drupal.t('Your modification could not be saved: the card had been deleted.', {}, { 'context': 'gofast' }), 'error');
+            }
         },
 
         init(element){
@@ -321,12 +373,12 @@ const GofastTodoItem = (task) => {
             let nameInputEl = document.createElement('div')
             nameInputEl.classList.add('GofastTodoList__nameInput', 'EditableInput')
 
-            let nameInput = GofastEditableInput(nameInputEl, this.task.name, 'text', {
-                isEditable: this.task.canEdit,
-                save: (newData) => this.onUpdate(this.task.id, 'label', newData),
+            let nameInput = GofastEditableInput(nameInputEl, this.task.name, 'text', { 
+              isEditable: this.task.canEdit,
+              widenInput: true,
+              save: (newData) => this.onUpdate(this.task.id, 'label', newData),
             })
-
-
+          
             if(this.task.isDone) nameInputEl.classList.add('isDone')
             this.inputs.push(nameInputEl)
 
@@ -386,6 +438,11 @@ const GofastTodoItem = (task) => {
             });
        
 
+            if(responsableInput.data != null){
+                Object.entries(responsableInput.data).forEach(([key, value]) => {
+                    $(responsableInput.DOM.input).select2("data")[0][key] = value
+                })
+            }
             this.inputs.push(responsableInputEl)
 
             // task responsible

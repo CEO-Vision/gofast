@@ -75,9 +75,9 @@ Drupal.behaviors.radioactivity = {
         }));      
       }
     } catch(e){
-      $.cookie(key, value, { expires: exp });
+      $.cookie(key, value, { expires: exp });
     }
-    $.cookie(key, value, { expires: exp });
+    $.cookie(key, value, { expires: exp });
   },
 
   hardFetch: function (key) {
@@ -108,10 +108,10 @@ Drupal.behaviors.radioactivity = {
           expire: exp.getTime()
         }));
       } catch(e) {
-        $.cookie(key, value, { expires: exp });
+        $.cookie(key, value, { expires: exp });
       }
     } else {
-      $.cookie(key, value, { expires: exp });
+      $.cookie(key, value, { expires: exp });
     }
   },
 

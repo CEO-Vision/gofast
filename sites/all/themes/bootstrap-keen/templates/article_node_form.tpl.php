@@ -10,10 +10,10 @@
             <?php echo render($form['body']); ?>
         </div>
         <div class="GofastForm__Field GofastForm__Field--book">
-            <?php echo render($form['book']); ?>
+            <?php echo render($form['page_selector']); ?>
         </div>
         <div class="GofastForm__Field GofastForm__Field--broadcast">
-            <?php echo render($form['og_group_content_ref']); ?>
+            <?php echo theme("gofast_book_tree_widget") ?>
             <?php if (isset($form['fieldset_broadcast_og'])) : ?>
                 <?php echo render($form['fieldset_broadcast_og']); ?>
             <?php endif ?>
@@ -30,57 +30,21 @@
     // we make 100% sure the ckeditor is correctly triggered
     Drupal.attachBehaviors();
 
-    function handleArticleTree() {
-        const articleEmplacements = Object.keys(<?= json_encode($form[GOFAST_CMIS_LOCATIONS_FIELD][LANGUAGE_NONE]['#default_value']) ?>);
-        for (const articleEmplacement of articleEmplacements) {
-            Gofast.expandTargetLinkNode(articleEmplacement.replace("/Wikis", "").replaceAll("/_", "/").replace("/Sites", ""));
-        }
-    }
-
     jQuery(document).ready(function() {
-        const articleTree = $.fn.zTree.getZTreeObj("ztree_component_content");
-        const $pageSelector = $("select#edit-book-page-selector");
-        // onCheck is already used to sync ztree with hidden inputs so we use another callback
-        articleTree.setting.callback.beforeCheck = function(treeId, treeNode) {
-            $pageSelector.html("");
-                $pageSelector.append("<option value='start'>" + "W001 - " + "<?= trim(t("Insert at the start of the wiki", array(), array("context" => "gofast:gofast_book"))) ?>" + "</option>");
-            const gid = treeNode.gid;
-            let nid = 0;
-            // if we're editing an existing node, we need to get the nid from the URL in order to preselect its location on the fly on zTree check, including the initial check
-            if (window.location.pathname.split("/")[1] == "node" && window.location.pathname.split("/")[2] != "add") {
-                nid = window.location.pathname.split("/")[2];
+        <?php
+            $target = FALSE;
+            if(isset($form[GOFAST_CMIS_LOCATIONS_FIELD][LANGUAGE_NONE]['#value']) && !empty($form[GOFAST_CMIS_LOCATIONS_FIELD][LANGUAGE_NONE]['#value'])) {
+                $target = $form[GOFAST_CMIS_LOCATIONS_FIELD][LANGUAGE_NONE]['#value'];
             }
-            $.get("/space/book/" + gid).done(function(data) {
-                if (!data) {
-                    return;
-                }
-                $("#gofast_book_weights").val(JSON.stringify(data));
-                let pageCounter = 1;
-                for (const wikiItem of data) {
-                    if(wikiItem.nid == nid) {
-                        $previousElement = $pageSelector.find("option").last();
-                        $previousElement.attr("selected", "");
-                        continue;
-                    }
-                    pageCounter++;
-                    const paddedPageCounter = String(pageCounter).padStart(3, "0");
-                    $pageSelector.append(
-                        '<option value="' + wikiItem.nid + '">' + "W" + paddedPageCounter + " - " + "<?= trim(t("Insert after the page", array(), array("context" => "gofast:gofast_book"))) ?>" + " " + wikiItem.title + '</option>'
-                    );
-                }
-            });
-        }
-        const interval = setInterval(function() {
-            if (!jQuery("#ztree_component_content > li").length) {
-                return;
+            if (isset($_GET['target_location']) && !empty($_GET['target_location'])) {
+                $target = gofast_xss_clean($_GET['target_location']);
             }
-            clearInterval(interval);
-            handleArticleTree();
-            // specific zTree conf for wiki articles
-            articleTree.setting.gofast = {
-                wiki: true
-            };
-            articleTree.refresh();
-        }, 100);
+            if ($target) :
+        ?>
+            const fakeEvent = {};
+            fakeEvent.preventDefault = () => {};
+            fakeEvent.currentTarget = "tr[data-nid='" + <?= $target ?> + "']";
+            Gofast.book.treeWidgetItemCallback(fakeEvent);
+        <?php endif; ?>
     });
 </script>

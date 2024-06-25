@@ -52,6 +52,9 @@
                     }
                     grid-column: 1 / span 10;
                     grid-row: 2;
+                    & .cke_contents {
+                        height: auto !important;
+                    }
                 }
                 &.GofastForm__Field--folders {
                     @media (min-width: 1200px) {
@@ -60,14 +63,36 @@
                     }
                     grid-column: 1 / span 10;
                     grid-row: 3;
+                    & .card-body {
+                        max-height: auto !important;
+                    }
                 }
                 &.GofastForm__Field--members {
                     @media (min-width: 1200px) {
                         grid-column: 1 / span 8;
                         grid-row: 3;
                     }
-                    grid-column: 1 / span 10;
+                    grid-column: 1 / span 8;
                     grid-row: 4;
+                }
+                &.GofastForm__Field--password {
+                    @media (min-width: 1200px) {
+                        grid-column: 9 / span 3;
+                        grid-row: 3;
+                    }
+                    grid-column: 9 / span 3;
+                    grid-row: 4;
+                }
+                &.GofastForm__Field--lobby {
+                    @media (min-width: 1200px) {
+                        grid-column: 9 / span 3;
+                        grid-row: 4;
+                    }
+                    grid-column: 9 / span 3;
+                    grid-row: 5;
+                    & input {
+                        display: none;
+                    }
                 }
                 & legend {
                     white-space: nowrap;
@@ -151,14 +176,14 @@
                     grid-row-end: 2;
                 }
 
-                &--book {
+                &--language {
                     grid-column-start: 4;
                     grid-column-end: 7;
                     grid-row-start: 1;
                     grid-row-end: 2;
                 }
 
-                &--language {
+                &--book {
                     grid-column-start: 7;
                     grid-column-end: 9;
                     grid-row-start: 1;
@@ -171,6 +196,9 @@
                     grid-column-end: 7;
                     grid-row-start: 2;
                     grid-row-end: 3;
+                    & label {
+                        display: none;
+                    }
                 }
                 &--broadcast {
                     grid-column-start: 7;
@@ -373,11 +401,17 @@
 
                 &--title {
                     grid-column-start: 1;
-                    grid-column-end: 9;
+                    grid-column-end: 4;
                     grid-row-start: 1;
                     grid-row-end: 2;
                 }
                 &--description {
+                    grid-column-start: 4;
+                    grid-column-end: 9;
+                    grid-row-start: 1;
+                    grid-row-end: 3;
+                }
+                &--administrator {
                     grid-column-start: 1;
                     grid-column-end: 9;
                     grid-row-start: 2;
@@ -387,19 +421,19 @@
                     grid-column-start: 1;
                     grid-column-end: 9;
                     grid-row-start: 3;
-                    grid-row-end: 4;
+                    grid-row-end: 5;
                 }
                 &--content {
                     grid-column-start: 1;
-                    grid-column-end: 5;
-                    grid-row-start: 4;
-                    grid-row-end: 5;
+                    grid-column-end: 7;
+                    grid-row-start: 6;
+                    grid-row-end: 6;
                 }
                 &--broadcast {
-                    grid-column-start: 5;
+                    grid-column-start: 7;
                     grid-column-end: 9;
-                    grid-row-start: 4;
-                    grid-row-end: 5;
+                    grid-row-start: 6;
+                    grid-row-end: 6;
                 }
 
 
@@ -432,7 +466,56 @@
     }
 }
 
+// overrides for forms in modals
+.modal .modal-content .GofastForm {
+    &__AlfrescoItem {
+        .GofastForm__CardContainer {
+            & > .card-body {
+                max-height: calc(100vh - 55px - 12rem);
+            }      
+            .GofastForm__Field--broadcast {
+                overflow-y: auto;
+            }
+            #createFromTemplate {
+                .table-responsive {
+                    overflow-y: hidden;
+                }
+            }
+        }
+    }
+}
+
+.ck-editor {
+    display: flex;
+    flex-direction: column;
+    min-height: 280px;
+    & .ck-editor__main {
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1; // flex-grow is essential for the resize handler to work
+        height: 100%;
+        overflow: scroll; // scroll instead of extending the editor size
+        & > div {
+            flex-grow: 1;
+            min-height: auto;
+        }
+    }
+    & .ck-splitbutton {
+        display: flex;
+    }
+    & .ui-resizable-e, .ui-resizable-s {
+        display: none !important;
+    }
+}
+
 // customize switches
+label.gofast-switch-icon.checkbox input:checked ~ span::after {
+    font-family: FontAwesome;
+    content: "\f00c";
+    transform: rotate(0);
+    margin-top: 0;
+}
+
 label.gofast-switch-icon.checkbox input:checked ~ span::after {
     font-family: FontAwesome;
     content: "\f00c";
@@ -443,3 +526,54 @@ label.gofast-switch-icon.checkbox input:checked ~ span::after {
 #form-builder-webform-save-form {
     margin-bottom: 0 !important;
 }
+
+.gofast_template_widget_path {
+    & > span:last-of-type {
+        font-weight: 700;
+    }
+}
+
+.gofast_metadata_field_custom{
+    max-width: 100% !important;
+    flex: 100% !important;
+}
+
+#gofast-book-location-form {
+    & > div {
+        display: flex;
+    }
+}
+
+.book-explorer-widget #book_explorer_body {
+    max-height: 100% !important;
+    overflow-y: auto;
+}
+
+#gofastTemplateTable {
+    td:first-child {
+        a {
+            display: flex;
+            flex-wrap: wrap;
+        }
+    }
+}
+
+.webformSubmissions {
+    table {
+      td {
+        vertical-align: middle;
+  
+        &:has(.user-picture > .symbol > img) {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+  
+          .user-picture > .symbol > img {
+            width: 100%;
+            max-width: 35px !important;
+            height: 35px !important;
+          }
+        }
+      }
+    }
+  }

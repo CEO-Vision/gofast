@@ -1,0 +1,135 @@
+<mjml>
+  <mj-head>
+    <mj-style>
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 400;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-Regular.otf") format("opentype");
+      }
+
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 600;
+        src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-SemiBold.otf") format("opentype");
+      }
+      .separate > table { border-collapse: separate; }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#EAF1F7" width="992px">
+    <mj-section padding-top="10px" padding-bottom="10px" background-color="transparent">
+    </mj-section>
+    <mj-section padding="0" background-color="white" border-radius="10px 10px 0 0">
+      <mj-column width="100%" background-color="#337ab7" border-radius="10px 10px 0px 0px">
+        <mj-text padding-left="10px" color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/users-white.png" width="18">
+                </td>
+                <td><span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;Spaces</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-raw>
+      <!-- Single comment -->
+    </mj-raw>
+    <mj-section padding="0" padding-top="10px" background-color="white" border-radius="0 0 10px 10px">
+      <mj-group width="90%">
+        <mj-column padding-top="10px" width="80%" vertical-align="middle">
+          <mj-text padding="0" padding-left="10px" font-size="14px" font-weight="400">
+            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+              <tbody>
+                <tr>
+                  <td>
+                    <span style="font-size: 14px; font-weight: 400;">You have been added to the following spaces :</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <table>
+              <tbody>
+                <ul style="list-style: none">
+                  <li style="padding-bottom: 5px">
+                    <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/users-primary.png" width="18">
+                    <a href="">Espace 1 (_Groupes/_Espace 1)</a>
+                  </li>
+                  <li style="padding-bottom: 5px">
+                    <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/globe-primary.png" width="18">
+                    <a href="">Espace 2 (_Extranet/_Espace 2)</a>
+                  </li>
+                </ul>
+              </tbody>
+            </table>
+
+          </mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+    <mj-raw>
+      <!-- Single comment -->
+    </mj-raw>
+    <mj-section padding-top="10px" padding-bottom="10px" background-color="transparent">
+    </mj-section>
+    <mj-section padding="0" background-color="white" border-radius="10px 10px 0 0">
+      <mj-column width="100%" background-color="#337ab7" border-radius="10px 10px 0px 0px">
+        <mj-text padding-left="10px" color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/mail-white.png" width="18">
+                </td>
+                <td><span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;Message</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-raw>
+      <!-- Single comment -->
+    </mj-raw>
+    <mj-section padding="0" padding-top="10px" padding-bottom="10px" background-color="white" border-radius="0 0 10px 10px">
+      <mj-column width="90%" css-class="separate" border-radius="10px" border="1px solid #666666">
+        <mj-text font-size="14px" font-weight="400" >
+          CONTENT
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-top="10px" padding-bottom="10px" background-color="transparent">
+    </mj-section>
+
+    <mj-section padding="0" background-color="white" border-radius="10px 10px 0 0">
+      <mj-column width="100%" background-color="#337ab7" border-radius="10px 10px 0px 0px">
+        <mj-text padding-left="10px" color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/mail-white.png" width="18">
+                </td>
+                <td><span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;Notes</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-raw>
+      <!-- Single comment -->
+    </mj-raw>
+    <mj-section padding="0" padding-top="10px" padding-bottom="10px" background-color="white" border-radius="0 0 10px 10px">
+      <mj-column width="90%" border="1px solid #666666" border-radius="10px">
+        <mj-text font-size="14px" font-weight="400">
+          You've been automatically subscribed to this space. You now will get notified of space's activity.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

@@ -122,7 +122,7 @@
               <tbody>
                 <tr>
                   <td align="left" style="font-size:0px;padding:10px 25px;padding-bottom:0;padding-left:0;word-break:break-word;">
-                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= $conference_owner->fullname . " " . t("canceled the meeting", array(), array("context" => "gofast:gofast_conference")) ?>.</div>
+                    <div style="font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= $conference_owner->fullname . " " . t("canceled the meeting", array(), $l) ?>.</div>
                   </td>
                 </tr>
               </tbody>

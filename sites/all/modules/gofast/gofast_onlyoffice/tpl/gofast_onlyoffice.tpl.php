@@ -152,16 +152,9 @@
           document.location.reload();
       }    
      
-
-//      var onRequestHistoryData = function(event) {
-//          var version = event.data;
-//          docEditor.setHistoryData({
-//              "version": 1,
-//              "url": "http://example.com/url-to-example-document.docx",
-//              "changesUrl": "http://example.com/url-to-changes.zip", //the changesUrl from the JSON object returned after saving the document
-//              "error": null,
-//          })
-//      };
+      var onOutdatedVersion = function () {
+        document.location.reload(true); // forceGet param set to true to bypass caching
+      };
 
       var onRequestHistoryClose = function() {
         document.location.reload();
@@ -190,9 +183,6 @@
       
       var domain_parse = location.origin.split(".");
       var domain_base = domain_parse[domain_parse.length-2] + "." + domain_parse[domain_parse.length-1];
-      
-      document.cookie = "gen_id=" + key + ";expires=" + current_date 
-                  + ";domain=." + domain_base + ";path=/";
       
       var сonnectEditor = function () {
           
@@ -244,6 +234,7 @@
                       feedback: false,
                       chat: true,
                       comments: true,
+                      forcesave: true,
                       goback: {
                         text: "<?php print t('Return to document', array(), array('context' => 'gofast:gofast_onlyoffice')); ?>",
                         url: "<?php print $gobackUrl ?>",
@@ -258,7 +249,7 @@
                     "onError": onError,
                     "onReady": onReady,
                     "onRequestEditRights": onRequestEditRights,
-                    //"onRequestHistoryData": onRequestHistoryData,
+                    "onOutdatedVersion": onOutdatedVersion,
                     "onRequestHistoryClose": onRequestHistoryClose
                   }
                 });

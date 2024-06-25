@@ -11,10 +11,19 @@
     console.error('CTools modal is not loaded.');
     return;
   }
-
+  
   Drupal.gofast_modal = Drupal.gofast_modal || {};
 
 
+  Drupal.CTools.Modal.showCtoolsModal = function(modalHref, redirectUrl = null) {
+    if(redirectUrl !== null){
+      Gofast.processAjax(redirectUrl);
+    }
+    $('body').append(`<a id="temporary-modal-link" href="${modalHref}" class="ctools-use-modal"></a>`)
+    Drupal.behaviors.ZZCToolsModal.attach();
+    $('#temporary-modal-link').click();
+    $('#temporary-modal-link').remove();
+  }
   /**
    * Click function for modals that can be cached.
    */
@@ -325,14 +334,25 @@
     if (ajax.allowStretch != undefined && ajax.allowStretch == true) {
       $("#modal-content").removeClass("w-100");
     }
-
+    //reset with if it has been previously changed by Bonita iframe 
+    $("#modal-content").css("width", '');
+    
     // Recenter modal
     $(target).css({
       top: 0,
       left: 0
     });
 
+    if(Gofast.isMobile()){
+      $(target).css("padding", "10px")
+    }
+
     $('#modal-title').html(response.title);
+
+    // cleanup previous ckeditor body and comment instances before adding new modal content
+    Gofast.removeAllCKEditorInstances("body-und");
+    Gofast.removeAllCKEditorInstances("edit-comment-body-und");
+    Gofast.removeAllCKEditorInstances("edit-message-value");
 
     /// In some cases classes are added to the object, then we deleted to prevent CSS override (exemple : modal-workflow)
     $(target + ' #modal-content').removeClass();
@@ -365,8 +385,8 @@
         $('#modal-footer').append(btnCart);
         $('#modal-footer').append(linkRemoved);
     }else{
-      var button = $('#modal-content .btn:not(.no-footer)').clone();
-      $('#modal-content .btn:not(.no-footer)').hide();
+      var button =$('#modal-content .btn:not(.no-footer):not([class^="field-add-more"])').clone();
+      $('#modal-content .btn:not(.no-footer):not([class^="field-add-more"])').hide();
       $('#modal-footer').html(button);
 
       // Remove form actions from content
@@ -397,8 +417,19 @@
     $(target + " .modal-dialog").addClass('modal-xl');
 
     if($('#modal-content #bonita_form_process').length != 0 || $('#modal-content #bonita_form').length != 0){
+      if(!Gofast.isMobile()){
         setTimeout(function(){$('.modal-content').css("min-width", "850px");}, 1800);
-         setTimeout(function(){$('.modal-content').css("width", "auto");}, 1800);
+        setTimeout(function(){$('.modal-content').css("width", "auto");}, 1800);
+      } else {
+        setTimeout(()=>{
+          $("#bonita_form").contents().find("body form").removeClass("col-xs-5")
+          $("#bonita_form").contents().find("body form").removeClass("col-xs-5")
+          $("#bonita_form").contents().find("body form > div > div").removeClass("col-xs-12")
+          $("#bonita_form").contents().find("body form").parent().next("div").find("> div").removeClass("col-xs-7")
+          $("#bonita_form").contents().find("body form").parent().next("div").find("> div > div > div > div").removeClass("col-xs-12")
+          $("#bonita_form").contents().find("body form").parent().next("div").find("ul.nav").css({"display": "flex", "justify-content": "center"})
+        },1800)
+    }
     }
     Drupal.attachBehaviors();
 
@@ -441,6 +472,7 @@
     var numberOfPanels = panels.length;
     var processedPanels = 0;
 
+
     //For each panel, process the request and check the result
     $.each(panels, function(i, panel) {
       var nid = $(panel).find('#nid').text();
@@ -471,7 +503,7 @@
 
   Drupal.behaviors.cancelButton = {
     attach: function (context, settings) {
-      $('#modal-content #edit-cancel').click(function (e) {
+      $('.modal-content #edit-cancel').click(function (e) {
         e.preventDefault();
         e.stopPropagation();
         Drupal.CTools.Modal.dismiss();
@@ -488,11 +520,13 @@
         }
       }
     });
+    
     $(document).on("hidden.bs.modal", function(e) {
       $('#modal-footer').removeClass('d-none').addClass('d-flex');
       $("#modal-content").addClass("w-100"); // put modal width back to default
     });
+    
   });
-
+  
 
 })(jQuery, Drupal, Gofast);

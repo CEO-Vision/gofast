@@ -1,55 +1,56 @@
 <!-- START gofast-book-file-browser.tpl.php -->
-<div class="book-explorer-wrapper">
+<div class="book-explorer-wrapper <?= isset($widget) ? "book-explorer-widget" : "book-explorer-main" ?> d-flex flex-column w-100 max-h-100">
     <div id="book_explorer_header">
-        <div class="book-explorer-title d-flex align-items-center justify-content-between">
-            <span><?= t("Wikis") ?></span>
-            <a href="/node/add/article" title="<?= t("Wikis") ?>" type="button" class="btn btn-icon btn-light-primary btn-xs"><i class="fas fa-plus"></i></a>
-        </div>
         <div id="book_explorer_toolbar_search" class="input input-group-sm">
             <div class="input-group">
                 <input id="book_explorer_toolbar_search_input" type="text" class="form-control" placeholder="<?php echo t('Filter', array(), array('context' => 'gofast:ajax_file_browser')); ?>" aria-describedby="sizing-addon3">
                 <div class="input-group-append dropdown no-arrow" id="file_browser_mobile_toolbar_refresh_group">
-                    <button title="<?php echo t('Refresh'); ?>" id="file_browser_books_mobile_tooolbar_refresh" type="button" class="btn input-group-text" ><i class="fa fa-refresh" aria-hidden="true"></i></button>
-                </div>            
-            </div>    
+                    <button title="<?php echo t('Refresh'); ?>" id="file_browser_books_mobile_tooolbar_refresh" type="button" class="btn input-group-text no-footer" <?= $widget ? "data-widget" : "" ?> <?= $has_links ? "data-has-links" : "" ?>><i class="fa fa-refresh" aria-hidden="true"></i></button>
+                </div>
+                <?php if (!isset($widget) || $has_links) : ?>
+                <a href="/node/add/article" title="<?= t("Wikis") ?>" type="button" class="btn btn-icon btn-light-primary ml-2"><i class="fas fa-plus"></i></a>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
     <div id="book_explorer_body" class="book-explorer-body panel-body">
-        <?php print $books; ?>
+
+    <div id="empty-home-page-wiki" class="d-none">
+        <div class="w-100 book-explorer-element-visible book-explorer-element" data-placement="top" data-toggle="tooltip" data-trigger="hover" data-original-title="<?= t("This space home page doesn't have any wiki article.", array(), array("context:gofast_book")); ?>">
+            <div class="book-explorer-element-seechild"></div>
+            <i class="fas fa-book book-explorer-element-icon"></i>
+            <div class="book-explorer-element-name">
+                <a href="" class="wiki-tree-widget-item-name item-name"></a>
+            </div>
+        </div>
+        <hr>
+    </div>
+        <?= empty($books) ? theme("gofast_book_no_book") : $books ?>
     </div>  
 </div>
 <!-- END gofast-book-file-browser.tpl.php -->
 <script>
     jQuery(document).ready(function() {
         // uncollapse on link click
-        jQuery(".book-explorer-element-name").on("click", function(e) {
+        jQuery(".book-explorer-element-name:not(.processed)").on("click", function(e) {
+            $(this).addClass("processed");
             const arrow = jQuery(e.currentTarget).closest('tr').find(".book-explorer-element-open");
             if (arrow.hasClass("ki-bold-arrow-next")) {
                 arrow.click();
             }
         });
         // uncollapse on icon click
-        jQuery(".book-explorer-element-open").on("click", function() {
-            let _this = jQuery(this).parent().parent();
-            let id = jQuery(_this).attr('id');
-            let childs_parents_doms = jQuery(_this).siblings().find(".book-explorer-element-parent");
-            jQuery.each(childs_parents_doms, function(k, elem) {
-                if(jQuery(elem).text().trim() === id) {
-                    if(jQuery(elem).parent().attr('class').includes("book-explorer-element-visible")) {
-                        jQuery(elem).parent().find(".book-explorer-element-open").addClass("ki-bold-arrow-next").removeClass("ki-bold-arrow-down");                
-                    }
-                    jQuery(elem).parent().toggleClass("book-explorer-element-visible").toggleClass("book-explorer-element-collapsed");
-                }
-            });
-            
-            if(jQuery(this).attr('class').includes('ki-bold-arrow-next')) {
-                jQuery(this).removeClass("ki-bold-arrow-next").addClass("ki-bold-arrow-down");
-            }else jQuery(this).addClass("ki-bold-arrow-next").removeClass("ki-bold-arrow-down");
-            
-        });
+        jQuery(".book-explorer-element-open:not(.wiki-processed)").addClass("wiki-processed").on("click", Gofast.book.treeWidgetItemCollapseCallback);
         if(jQuery("#wiki").hasClass("active")) {
             jQuery(".explorer-main-container .nav.nav-tabs a.active:not('#explorer-wiki')").removeClass('active');
         }
-        jQuery("[data-toggle='tooltip']").tooltip();
+        jQuery("[id='file_browser_books_mobile_tooolbar_refresh']").on("click", Gofast.book.refreshBrowser);
+        jQuery("[id='book_explorer_toolbar_search_input']").on("keyup", Gofast.book.searchBrowser);
+        <?php if (isset($widget) && !$has_links) : ?>
+            jQuery(".wiki-tree-widget-item-name:not(.wiki-processed)").addClass("wiki-processed").on("click", Gofast.book.treeWidgetItemCallback);
+        <?php endif;
+            if (!isset($widget) || $has_links) : ?>
+            jQuery("[data-toggle='tooltip']").tooltip();
+        <?php endif; ?>
     });
 </script>

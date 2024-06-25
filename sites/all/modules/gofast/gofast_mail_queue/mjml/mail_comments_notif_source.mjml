@@ -14,6 +14,7 @@
         font-weight: 600;
         src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-SemiBold.otf") format("opentype");
       }
+      .separate > table { border-collapse: separate; }
     </mj-style>
   </mj-head>
   <mj-body background-color="#EAF1F7" width="992px">
@@ -186,7 +187,7 @@
       </mj-group>
     </mj-section>
     <mj-section padding="0" padding-top="10px" background-color="white" border-radius="0 0 10px 10px">
-      <mj-column width="90%" border="1px solid #666666" background-color="#F3F6F9">
+      <mj-column css-class="separate" border-radius="10px" width="90%" border="1px solid #666666">
         <mj-text font-size="14px" font-weight="400">
           CONTENT
         </mj-text>
@@ -300,7 +301,7 @@
       <!-- Warning : the section differs a bit on the last comment -->
     </mj-raw>
     <mj-section padding="0" padding-top="10px" background-color="white">
-      <mj-column width="90%" border="1px solid #666666" background-color="#F3F6F9">
+      <mj-column width="90%" css-class="separate" border-radius="10px" border="1px solid #666666">
         <mj-text font-size="14px" font-weight="400">
           SHORTER CONTENT
         </mj-text>
@@ -363,7 +364,7 @@
       </mj-group>
     </mj-section>
     <mj-section padding="0" padding-top="10px" background-color="white">
-      <mj-column width="90%" border="1px solid #666666" background-color="#F3F6F9">
+      <mj-column width="90%" css-class="separate" border-radius="10px" border="1px solid #666666">
         <mj-text font-size="14px" font-weight="400">
           CONTENT
         </mj-text>

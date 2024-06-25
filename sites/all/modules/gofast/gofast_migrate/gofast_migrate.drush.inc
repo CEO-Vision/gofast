@@ -1114,7 +1114,7 @@ function gofast_migrate_relink_private_spaces(){
     //We rebuild aspect and properties for the folder
     $node = node_load($entity_id->nid);
     try{
-      gofast_cmis_update_aspect_properties($node);
+      gofast_cmis_update_aspect_properties($node, "update");
       gofast_cmis_node_update_permissions($node);
       echo(".");
       //drush_log('Properties rebuilt for node '.$node->nid.'//'.$node->title, 'success');
@@ -1537,10 +1537,10 @@ function gofast_migrate_rebuild_ldap(){
   drush_log("LDAP spaces has been reinitialized", 'success');
   
   $groups = array();
-  $groups[] = gofast_og_get_children('4', TRUE, TRUE, FALSE);
-  $groups[] = gofast_og_get_children('5', TRUE, TRUE, FALSE);
-  $groups[] = gofast_og_get_children('6', TRUE, TRUE, FALSE);
-  $groups[] = gofast_og_get_children('7', TRUE, TRUE, FALSE);
+  $groups[] = gofast_og_get_children(GOFAST_CMIS_LOCATIONS_FIELD_GROUPS_GID, TRUE, TRUE, FALSE);
+  $groups[] = gofast_og_get_children(GOFAST_CMIS_LOCATIONS_FIELD_ORGANISATIONS_GID, TRUE, TRUE, FALSE);
+  $groups[] = gofast_og_get_children(GOFAST_CMIS_LOCATIONS_FIELD_EXTRANET_GID, TRUE, TRUE, FALSE);
+  $groups[] = gofast_og_get_children(GOFAST_CMIS_LOCATIONS_FIELD_PUBLIC_GID, TRUE, TRUE, FALSE);
   
   //Dump dn references
   db_query("DELETE FROM field_data_field_ldap_group_dn");

@@ -38,6 +38,7 @@
 
             &.tagify {
                 height: auto !important;
+                display: flex;
             }
             
         }
@@ -90,11 +91,76 @@
 }
 
 /* homogenize display of input whether it is editable or not */
-.gofastArticleContent {
+.gofastArticleContent, .gofastSummaryContent {
     & .EditableInput__value > div > p {
         margin: 0;
     }
     & .ck-editor i {
         font-size: 1rem;
     }
+    & table {
+        width: 100%;
+        background-color: var(--white) !important;
+        & td {
+            border: 1px solid var(--dark);
+        }
+    }
+}
+
+.text-tiny {
+    font-size: .7em;
+}
+
+.text-small {
+    font-size: .85em;
+}
+
+.text-big {
+    font-size: 1.4em;
+}
+
+.text-huge {
+    font-size: 1.8em;
+}
+
+.image_resized {
+    & img {
+        max-width: 100%;
+    }
+}
+
+.GofastTodoList {
+    .select2-selection__rendered {
+        padding-right: 0 !important;
+    }
+    #itemTextContainer {
+        margin-right: 0.3rem;
+    }
+}
+
+
+
+// Make mention tags work with pictures even if the mention plugin only allows for single HTML tags
+.gofast__comment-tag[data-mention] {
+    position: relative;
+    padding-left: 20px; /* This padding must fit the image size since it is meant to leave room for the image */
+    vertical-align: middle;
+    text-decoration: none;
+    color: inherit;
+}
+
+// This is the pseudo elemenet which allows the display of an image in a single HTML a tag
+.gofast__comment-tag[data-mention]:before {
+    display: block;
+    content: "";
+    position: absolute;
+    left: 0; 
+    top: 50%;
+    transform: translateY(-50%); /* For vertical centering */
+    width: 20px; /* Sizing of the circular image. Adjust as needed */
+    height: 20px;
+    border-radius: 50%;
+    background-image: var(--bg-image); /* The CSS attribute is set in inline style, it allows us to track the src of the image */
+    background-size: cover;
+    background-repeat: no-repeat;
 }

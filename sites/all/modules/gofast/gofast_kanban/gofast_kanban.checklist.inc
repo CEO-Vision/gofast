@@ -283,7 +283,7 @@ function gofast_kanban_checklistItem_create($cid, $label, $attrs = array()) {
   $id = $query->execute();
   
   //Save entities ( audit and notificiation)
-  gofast_kanban_ext_create_checklistsave_entity($node,$values);
+  gofast_kanban_ext_create_checklistsave_entity($node, $values);
   
   $timer_stop = microtime(true);
   return $id;
@@ -294,7 +294,7 @@ function gofast_kanban_checklistItem_create($cid, $label, $attrs = array()) {
  * @param type $ciid
  * @param type $attrs arrays, each key should match a table column 
  */
-function gofast_kanban_checklistItem_udpate($ciid, $attrs = array()) {
+function gofast_kanban_checklistItem_update($ciid, $attrs = array()) {
   $timer_start = microtime(true);
 //watchdog('gofast_kanban', '%name() START ', array('%name' => __FUNCTION__), WATCHDOG_INFO);
   
@@ -307,7 +307,7 @@ function gofast_kanban_checklistItem_udpate($ciid, $attrs = array()) {
           $old_values_items[$item->ciid] = $item;
       }
   }
-  
+
   //format timestamp for deadline
   if(isset($attrs['deadline'])){
     $attrs['deadline'] = intdiv($attrs['deadline'], 1000);
@@ -320,139 +320,27 @@ function gofast_kanban_checklistItem_udpate($ciid, $attrs = array()) {
     $query->execute();
   }
   
-  //Save entities ( audit and notificiation)
-  gofast_kanban_ext_create_checklistsave_entity($node,$values);
+  //Save entities (audit and notification)
+  gofast_kanban_ext_create_checklistsave_entity($node, $values);
   
-  //compare if there is a new assignee
   $new_values = gofast_kanban_get_task_checklists($node->nid);
-  //first, reformate the list
-  
-  $new_values_items = array();
-  if(count($new_values[0]["items"]) > 0){
-      foreach($new_values[0]["items"] as $item){
-          $new_values_items[$item->ciid] = $item;
-      }
-  }
  
   global $user;
 
-  if (count($new_values_items) > 0) {
-        $n = variable_get('kanban_notifications',array());
-         if(!isset($n[$node->nid]))$n[$node->nid] = array(); 
-        if(!isset($n[$node->nid]['items'])){
-            $n[$node->nid]['items']= $old_values_items;
+  if (count($new_values[0]["items"]) > 0) {
+        $n = variable_get('kanban_notifications', array());
+        if(!isset($n[$node->nid]))$n[$node->nid] = array(); 
+        if(!isset($n[$node->nid]['items'])) {
+            $n[$node->nid]['items'] = $old_values_items;
             if(!isset($n[$node->nid]['participants']))$n[$node->nid]['participants'] = array(); 
         }
         if(!in_array($user->uid,$n[$node->nid]['participants'])){
-            $n[$node->nid]['participants'][]=$user->uid;
+            $n[$node->nid]['participants'][] = $user->uid;
         }
-        $n[$node->nid]['last_update']=time();
+        $n[$node->nid]['last_update'] = time();
         variable_set('kanban_notifications', $n);
   }
       
-  /*    
-    foreach ($new_values_items as $ciid => $item) {
-      //do not send notification if the assignee is the current user
-      if ($item->uid !== $user->uid) {
-        
-        if ($item->uid != $old_values_items[$ciid]->uid) {
-           
-            
-            $account = $RecipUser = user_load($item->uid);
-            $recpt = array(array('recpt' => $account->mail, 'method' => 'to'));
-
-            $userName = gofast_user_display_name($account);
-            $l = array('langcode' => $RecipUser->language, 'context' => 'gofast_kanban');
-
-            $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
-            $document_pic = gofast_mail_queue_fa_png($node_icon);
-
-           
-            $subject = t('Task: You are assigned on "!title_todo" of the "!title" task', array('!title_todo'=>$item->label,'!title'=>$node->title), $l);
-
-            $title = t('New assignation on a checklist item', array(), $l);
-            $footer = t('Message sent from ', array(), $l) . " " . variable_get('site_name');
-           
-            $node_link = $base_url . '/node/' . $node->nid;
-            $description = t('You have been assigned to a checklist element of the card : ', array(), $l);
-            $responsible = user_load($node->field_person_in_charge[LANGUAGE_NONE][0]["target_id"]);
-            $username = theme('username', array('account' => $responsible, 'popup' => FALSE, 'link' => $options['link']));
-            $description_detail = "<h3>".t('Responsible', array(), $l)."</h3>".$username;          
-            $description_detail .= "<h3>".t('Card description', array(), $l)."</h3><pre style='font-family: inherit;font-size: inherit;border: none;background-color: transparent;padding: 8px;'>".$node->body[LANGUAGE_NONE][0]["value"]."</pre>";
-            $description_detail .= "<h3>".t('Task description', array(), $l)."</h3> - ".$item->label;
-            $description_detail .= "<h3>".t('Deadline', array(), $l)."</h3>".format_date($item->deadline,  'short_without_hours');
-            $body = theme('gofast-notifications-node-task-assignee', array(
-                'user_name' => $userName,
-                'l' => $l,
-                'node_title' => $node->title,
-                'node_link' => $node_link,
-                'node_icon' => $document_pic,
-                'description' => $description,
-                'description_detail' => $description_detail
-
-            ));
-
-            $mail = array(
-                'body' => $body,
-                'title' => $title,
-                'subject' => $subject,
-                'footer' => $footer
-            );
-            gofast_mail_queue_api_queue_ext($mail, $recpt, time());
-          }
-          else if($item->deadline !=  $old_values_items[$ciid]->deadline){ //Send notification when deadline change
-             
-            $account = $RecipUser = user_load($item->uid);
-            $recpt = array(array('recpt' => $account->mail, 'method' => 'to'));
-
-            $userName = gofast_user_display_name($account);
-            $l = array('langcode' => $RecipUser->language, 'context' => 'gofast_kanban');
-
-            $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
-            $document_pic = gofast_mail_queue_fa_png($node_icon);
-            
-           
-            $deadline_formated= $item->deadline ? format_date($item->deadline,  'short_without_hours') : t('undefined',array(),$l);
-            
-            $subject = t('Task: New deadline on "!deadline" for "!title_todo" of the "!title" task', array('!deadline'=>$deadline_formated,'!title_todo'=>$item->label,'!title'=>$node->title), $l);
-
-            $title = t('New deadline', array(), $l);
-            $footer = t('Message sent from ', array(), $l) . " " . variable_get('site_name');
-            
-            $node_link = $base_url . '/node/' . $node->nid;
-            $description = t('Deadline has change on a checklist element of the card : ', array(), $l);
-            $responsible = user_load($node->field_person_in_charge[LANGUAGE_NONE][0]["target_id"]);
-            $username = theme('username', array('account' => $responsible, 'popup' => FALSE, 'link' => $options['link']));
-            $description_detail = "<h3>".t('Responsible', array(), $l)."</h3>".$username;          
-            $description_detail .= "<h3>".t('Card description', array(), $l)."</h3><pre style='font-family: inherit;font-size: inherit;border: none;background-color: transparent;padding: 8px;'>".$node->body[LANGUAGE_NONE][0]["value"]."</pre>";
-            $description_detail .= "<h3>".t('Task description', array(), $l)."</h3> - ".$item->label;
-            $description_detail .= "<h3>".t('Deadline', array(), $l)."</h3>".$deadline_formated;
-            $body = theme('gofast-notifications-node-task-deadline-change', array(
-                'user_name' => $userName,
-                'l' => $l,
-                'node_title' => $node->title,
-                'node_link' => $node_link,
-                'node_icon' => $document_pic,
-                'description' => $description,
-                'description_detail' => $description_detail
-
-            ));
-
-            $mail = array(
-                'body' => $body,
-                'title' => $title,
-                'subject' => $subject,
-                'footer' => $footer
-            );
-            gofast_mail_queue_api_queue_ext($mail, $recpt, time()); 
-
-          }
-      }
-    }
-   
-  }
-   * */
-  
   $timer_stop = microtime(true);
 //watchdog('gofast_kanban', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_DEBUG);
 }
@@ -475,7 +363,7 @@ function gofast_kanban_checklistItem_delete($ciid) {
   $query->execute();
   
   //Save entities ( audit and notificiation)
-  gofast_kanban_ext_create_checklistsave_entity($node,$values);
+  gofast_kanban_ext_create_checklistsave_entity($node, $values);
   
   $timer_stop = microtime(true);
 //watchdog('gofast_kanban', '%name() END - [execution time = %time s]', array('%name' => __FUNCTION__, '%time' => ($timer_stop - $timer_start)), WATCHDOG_DEBUG);
@@ -551,7 +439,7 @@ function gofast_kanban_checklistItem_canDo($ciid, $user = NULL) {
 /**
  * Implements function for create linksharing entity
  */
-function gofast_kanban_ext_create_checklistsave_entity($node,$values){
+function gofast_kanban_ext_create_checklistsave_entity($node, $values){
   
   global $user;  
   

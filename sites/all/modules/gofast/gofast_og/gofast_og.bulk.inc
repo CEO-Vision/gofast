@@ -418,15 +418,6 @@ function gofast_og_space_admin_add_membership($gid, $uid, $rid){
     og_role_revoke('node', $gid, $uid, $old_rid);
   }
   og_role_grant('node', $gid, $uid, $rid);
-  
-  $node = node_load($gid);
-  $membership_data = array(
-      'membership_action' => 'NMEM', // New Member
-      'membership_type' => 'user',
-      'membership_id' => $uid,
-      'membership_name' => gofast_user_get_display_name_sql($uid)
-  );
-  gofast_message_ext_create_og_membership_entity($node, $membership_data);
 }
 
 
@@ -460,7 +451,7 @@ function gofast_og_space_admin_get_spacesid_and_usersid($user){
  * @param type $node_type
  * @param type $group_id
  * @param type $default_role
- * @return type
+ * @return array
  */
 function gofast_og_space_admin_get_node_role($node_type, $group_id, $default_role){
   $role = array();

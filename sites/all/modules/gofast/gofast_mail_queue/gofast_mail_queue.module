@@ -30,3 +30,32 @@ function gofast_mail_queue_get_items_count(){
   $count = $query->countQuery()->execute()->fetchField();
   return $count;
 }
+
+function gofast_mail_queue_is_smtp_reachable(){
+  $mail = new PHPMailer; //The mail object from PHPMailer
+  
+  //Configure parameters from our configuration
+  $mail->isHTML(true);
+  $mail->CharSet = "utf-8";
+  $mail->isSMTP();
+  $mail->SMTPAutoTLS = false; // Disabled TLS (enabled by default) for now
+  $mail->SMTPSecure = variable_get('smtp_protocol');
+  $mail->Port = variable_get('smtp_port');
+  $mail->Host = variable_get('smtp_host');
+  $mail->Username = variable_get('smtp_username');
+  $mail->Password = variable_get('smtp_password');
+  if($mail->Username == "" && $mail->Password == ""){
+    $mail->SMTPAuth = false;
+  }else{
+    $mail->SMTPAuth = true;
+  }
+
+  //Try to connect to the SMTP server
+  if (!$mail->smtpConnect($mail->SMTPOptions)) {
+    return FALSE;
+  }
+  
+  //Close the connexion and validate the test
+  $mail->smtpClose();
+  return TRUE;
+}

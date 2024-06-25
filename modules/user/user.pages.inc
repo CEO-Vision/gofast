@@ -194,7 +194,12 @@ function user_pass_reset($form, &$form_state, $uid, $timestamp, $hashed_pass, $a
     $timeout = variable_get('user_password_reset_timeout', 86400);
     $current = REQUEST_TIME;
     // Some redundant checks for extra security ?
-    $users = user_load_multiple(array($uid), array('status' => '1'));
+    
+    /*
+     * @CEO-Vision patch
+     * Permit password reset email for users blocked for too many login attempts
+     */
+    $users = user_load_multiple(array($uid), !gofast_user_is_left(user_load($uid)) ? array() : array('status' => 1));
     if ($timestamp <= $current && $account = reset($users)) {
       // No time out for first time login.
       if ($account->login && $current - $timestamp > $timeout) {
@@ -451,8 +456,6 @@ function user_profile_form_submit($form, &$form_state) {
      */
     if(isset($_SESSION['pass_reset_' . $account->uid])){
         unset($_SESSION['pass_reset_' . $account->uid]);
-        global $pass_just_reseted;
-        $pass_just_reseted = true;
         user_logout_current_user();
     }
   }

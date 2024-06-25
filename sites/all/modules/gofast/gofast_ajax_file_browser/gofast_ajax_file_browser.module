@@ -1,5 +1,6 @@
 <?php
 
+global $base_path;
 
 /**
  * Implements hook_init()
@@ -336,12 +337,94 @@ function gofast_ajax_file_browser_menu() {
     'access arguments' => array('access content'),
     'access callback' => 'user_access'
   );
+  $items['ajax_file_browser/%/get_delete_modal_content'] = array(
+    'page callback' => 'gofast_node_delete_modal_template',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'page arguments' => array(1, TRUE),
+  );
+  $items['ajax_file_browser/download_selected_files'] = array(
+    'page callback' => 'gofast_download_selected_files',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access'
+    );
+  $items['ajax_file_browser/check_file_download_status'] = array(
+    'page callback' => 'gofast_ajax_file_browser_get_download_result',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => TRUE,
+    );
+  $items['ajax_file_browser/get_unzip_modal_content'] = array(
+    'page callback' => 'gofast_node_unzip_modal_template',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'page arguments' => array(1, TRUE),
+  );
+  
+  $items['ajax_file_browser/get_compress_modal_content'] = array(
+    'page callback' => 'gofast_node_compress_modal_template',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'page arguments' => array(1, TRUE),
+  );
+  
+  $items['ajax_file_browser/unzip_file'] = array(
+    'page callback' => 'gofast_ajax_file_browser_unzip_file',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'page arguments' => array(1, TRUE),
+  );
+
+  $items['ajax_file_browser/compress_files/check_status'] = array(
+    'page callback' => 'gofast_ajax_file_browser_check_compression_status',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+  );
+  
+  $items['ajax_file_browser/compress_files'] = array(
+    'page callback' => 'gofast_ajax_file_browser_compress',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'page arguments' => array(1, TRUE),
+  );
+  
+  
+  $items['ajax_file_browser/unzip_file/check_status'] = array(
+    'page callback' => 'gofast_ajax_file_browser_unzip_file_check_status',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'page arguments' => array(1, TRUE),
+  );
+  $items['ajax_file_browser/clear_unzip_session'] = [
+    'page callback' => 'gofast_ajax_file_browser_clear_unzip_session',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'page arguments' => array(1, TRUE),
+  ];
+  $items["ajax_file_browser/get_disabled_tabs/%"] = array(
+    "page callback" => "gofast_ajax_file_browser_get_disabled_tabs",
+    "type" => MENU_CALLBACK,
+    "page arguments" => array(2),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+
 
   return $items;
 }
 
 function gofast_ajax_file_browser_browser() {
-  if(gofast_mobile_is_mobile_domain()){
+  if(gofast_mobile_is_phone()){
       header("Location: /home_page_navigation?" . $_SERVER['QUERY_STRING'] .  "#navBrowser");
   }
   return theme('ajax_file_browser', array('browser' => TRUE));
@@ -365,22 +448,58 @@ function gofast_ajax_file_browser_get_rules(){
 }
 
 function gofast_ajax_file_browser_get_nid_from_href($href = null, $as_admin = FALSE) {
+
   $href = empty($href) ? $_POST["href"] : $href;
   $href = empty($href) ? $_GET["href"] : $href;
   $href = rawurldecode($href);
   $href = str_replace("/alfresco/webdav", "", $href);
 
-  $cmis_object = gofast_cmis_item_get_by_path($href, $as_admin);
+  $as_admin = isset($_GET["force"]) ? TRUE : $as_admin;
+
+  $cmis_object = new stdClass();
+  $cmis_object = &drupal_static("{cmis_object}" . $href, new stdClass());
+  if (empty((array) $cmis_object)) {
+    $cmis_object = gofast_cmis_item_get_by_path($href, $as_admin);
+  }
   $nid = isset($cmis_object->properties['gofast:nid']) ? $cmis_object->properties['gofast:nid'] : FALSE;
   if($nid == FALSE){
     $reference = $cmis_object->properties['alfcmis:nodeRef'];
     $nid = gofast_ajax_file_browser_get_nid_from_reference($reference);
-  }else{
-      //check if nid exists
-       $node = node_load($nid);
-       if(!isset($node->nid)){
-           $nid = false;
-       }
+  }
+  // check if there is a replication issue
+  if(
+    $nid == FALSE
+    && isset($cmis_object->properties['alfcmis:nodeRef']) // the item actually exists
+    && $cmis_object->properties['cmis:objectTypeId'] != "cmis:folder" // it's not a folder
+    && !isset($cmis_object->properties['gofast:preventDelete']) // but the gofast aspect is missing, which hints to a replication issue
+  ) {
+    $name = $cmis_object->properties['cmis:name'];
+    $person = $cmis_object->properties['cmis:createdBy'];
+    $language = user_load_by_name(trim($person))->language ?: LANGUAGE_NONE;
+    $parent_path = explode("/", $href);
+    array_pop($parent_path);
+    $parent_path = implode("/", $parent_path);
+    if($cmis_object->properties["cmis:objectTypeId"] != "folder") {
+      $href = $parent_path;
+    }
+    $gid = gofast_og_get_group_id_from_title_without_cmis($parent_path, TRUE);
+    gofast_cmis_create_node_programmatically($reference, $person, $name, FALSE, $language, FALSE, $gid, $href, "");    
+    $nid = db_select("node", "n")
+      ->fields("n", array("nid"))
+      ->condition("title", $name)
+      ->orderBy("created", "DESC")
+      ->range(0, 1)
+      ->execute()->fetchCol()[0];
+  }
+  if ($nid) {
+    //check if nid exists
+    $node = node_load($nid);
+    if(!isset($node->nid)){
+        $nid = false;
+    }
+  }
+  if(!$nid && $_GET["essential_close"] == "true"){
+    $nid =  gofast_og_get_group_id_from_title_2(htmlspecialchars_decode($href), TRUE);
   }
   return $nid;
 }
@@ -399,17 +518,11 @@ function gofast_ajax_file_browser_get_reference_from_href($href, $asAdmin = FALS
 function gofast_ajax_file_browser_get_is_confidential_from_reference(){
   $reference = $_POST["reference"];
   $is_confidential = false;
-
-  $nid = gofast_cmis_node_get_by_reference($reference);
-
-  if(!empty($nid)){
-      $node = node_load($nid);
-      $is_confidential = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Confidential Data";
-  }
+  $nid = gofast_ajax_file_browser_get_nid_from_reference($reference);
+  $is_confidential = gofast_cmis_is_node_confidential($nid);
   print $is_confidential;
   exit;
 }
-
 function gofast_ajax_file_browser_get_is_internal_from_reference()
 {
   $reference = $_POST["reference"];
@@ -418,8 +531,7 @@ function gofast_ajax_file_browser_get_is_internal_from_reference()
   $nid = gofast_cmis_node_get_by_reference($reference);
 
   if (!empty($nid)) {
-    $node = node_load($nid);
-    $is_internal = isset($node->field_criticity['und'][0]['tid']) && taxonomy_term_load($node->field_criticity['und'][0]['tid'])->name == "Internal Distribution";
+    $is_internal = gofast_cmis_is_node_internal($nid);
   }
   print $is_internal;
   exit;
@@ -462,14 +574,16 @@ function gofast_ajax_file_browser_right($op){
   }
 }
 
-function gofast_ajax_file_browser_get_reference(){
-  $path = $_POST['path'];
+function gofast_ajax_file_browser_get_reference(): void {
+  $paths = $_POST['paths'];
 
-  //Try to get nid from path
-  $path_decoded = rawurldecode($path);
-
-  print gofast_ajax_file_browser_get_reference_from_href($path_decoded);
-  exit;
+  $references = [];
+  foreach ($paths as $path) {
+    $path_decoded = rawurldecode($path);
+    $references[] = gofast_ajax_file_browser_get_reference_from_href($path_decoded);
+  }
+  
+  drupal_json_output($references);
 }
 
 
@@ -572,50 +686,66 @@ function gofast_ajax_file_browser_folder_is_bookmark($reference){
 function gofast_ajax_file_browser_bookmark_folder($path = null){
     global $user;
 
+    $reference = null;
     if($path === null){
         //Retrieve path param
         $href = $_POST['href'];
         $path = rawurldecode($href);
     }
-
-    $reference = gofast_ajax_file_browser_get_reference_from_href($path);
-
+    if(isset($_POST["folder_reference"])){
+      $reference = gofast_xss_clean($_POST["folder_reference"]);
+    }
+    if($reference == null){
+      $reference = gofast_ajax_file_browser_get_reference_from_href($path);
+    }
+    
     //Bookmark this element
     $exists = count(db_query("SELECT folder_reference FROM gofast_bookmark_folder WHERE folder_reference='" . $reference . "' AND uid='" . $user->uid . "'")->fetchAll()) > 0;
+    if($exists){
+      gofast_ajax_file_browser_unbookmark_folder($reference);
+      return;
+    }
 
     if(!$exists){
-        db_insert('gofast_bookmark_folder')
+        $fbid = db_insert('gofast_bookmark_folder')
             ->fields(array(
               'folder_reference' => $reference,
               'uid' => $user->uid,
               'timestamp' => REQUEST_TIME,
             ))
             ->execute();
+        if($fbid != null){
+          db_insert("gofast_bookmark_collections__bookmark_folder")
+          ->fields(array(
+            'bcid' => null,
+            'fbid' => $fbid,
+          ))
+          ->execute();
+          print "flag";
+          exit;
+        }
     }
 }
 
 /*
  * Unbookmark a folder
  */
-function gofast_ajax_file_browser_unbookmark_folder(){
-    //Retrieve path param
-    if(!empty($_POST['folder_reference'])){
-        $reference = $_POST['folder_reference'];
-        $folder_reference = trim(rawurldecode($reference));
-    }elseif(!empty($_POST['href'])){
-        //Retrieve path param
-        $href = $_POST['href'];
-        $path = rawurldecode($href);
-
-        if(!strpos('alfresco/webdav', $path)){
-            $path = '/alfresco/webdav' . trim($path);
-        }
-
-        $folder_reference = gofast_ajax_file_browser_get_reference_from_href($path);
-    }
+function gofast_ajax_file_browser_unbookmark_folder($folder_reference){
     global $user;
     //Unookmark this element
     db_query("DELETE FROM gofast_bookmark_folder WHERE uid=" . $user->uid . " AND folder_reference='" . $folder_reference . "'");
+}
+
+function gofast_ajax_file_browser_get_fbid_from_reference($reference){
+  global $user;
+  $result = db_select("gofast_bookmark_folder", "gbf")
+            ->fields("gbf", array("fbid"))
+            ->condition("gbf.folder_reference", $reference, "=")
+            ->condition("gbf.uid", $user->uid, "=")
+            ->execute()
+            ->fetchCol();
+  $fbid = $result[0];
+  return $fbid;
 }
 
 /**
@@ -697,6 +827,9 @@ function gofast_ajax_file_browser_add_template_folder_form($form, &$form_state){
         }
 
         $form['ztree_templates']['#group'] = 'group_template_file';
+        if (!isset($form['#groups']['group_template_file'])) {
+          $form['#groups']['group_template_file'] = new stdClass();
+        }
         $form['#groups']['group_template_file']->children[] = 'ztree_templates';
         $form['#group_children']['ztree_templates'] = 'group_template_file';
 
@@ -707,6 +840,9 @@ function gofast_ajax_file_browser_add_template_folder_form($form, &$form_state){
 
     // This is for vertical tab reorganization
     $form['empty_template']['#group'] = 'group_empty_file';
+    if (!isset($form['#groups']['group_empty_file'])) {
+      $form['#groups']['group_empty_file'] = new stdClass();
+    }
     $form['#groups']['group_empty_file']->children[] = 'empty_template';
     $form['#group_children']['empty_template'] = 'group_empty_file';
 
@@ -738,8 +874,8 @@ function gofast_ajax_file_browser_add_template_folder_form_validate($form, &$for
     }
     if($form_id != 'group_node_form'){
 	## get ajax file browser location
-	$drupal_path =  $form['#path'];
-	$nid = gofast_og_get_group_id_from_title_2($drupal_path,true);
+	$drupal_path = $form['#path'];
+	$nid = gofast_og_get_group_id_from_title_2(str_replace("/alfresco/webdav", "", $drupal_path), true);
 	//Check if the current user can write on this group
 	if (!og_user_access('node', $nid, 'create alfresco_item content')){
 	    $commands[] = ctools_modal_command_dismiss();
@@ -822,7 +958,7 @@ function gofast_ajax_file_browser_add_template_folder_form_submit($form, &$form_
 
   ## reach all template to create
   foreach ($paths_template_selected as $path_template_selected) {
-    if ($form_type !== 'space content' && in_array($drupal_path . (str_replace("/Sites/FOLDERS TEMPLATES", "", $path_template_selected)), $space_children)) {
+    if ($form_type !== 'space content' && in_array($drupal_path . (str_replace("/Sites/FOLDERS TEMPLATES", "", $path_template_selected)), (array) $space_children)) {
       $form_state['exist'] = true;
       continue;
     }
@@ -877,7 +1013,7 @@ function gofast_ajax_file_browser_validate_delete_folder(){
     $folder = empty($folder) ? $_POST["folder"] : $folder;
     $folder = empty($folder) ? $_GET["folder"] : $folder;
 
-    $reference = gofast_ajax_file_browser_get_reference_from_href($path);
+    $reference = gofast_ajax_file_browser_get_reference_from_href($folder);
     $item = gofast_cmis_item_get($reference);
 
     $creator_name = $item->properties['cmis:createdBy'];
@@ -893,25 +1029,27 @@ function gofast_ajax_file_browser_validate_delete_folder(){
  * @return int 1 if favorite was delete 0 else
  */
 function gofast_ajax_file_browser_check_favorite_folder(){
-  $folder = empty($folder) ? $_POST["folder"] : $folder;
-  $folder = empty($folder) ? $_GET["folder"] : $folder;
+  $folders = empty($folders) ? gofast_xss_clean($_POST["folders"]) : $folders;
+  $folders = empty($folders) ? gofast_xss_clean($_GET["folders"]) : $folders;
 
-  $item = gofast_cmis_item_get_by_path(str_replace('/alfresco/webdav', "", urldecode($folder)));
-
-  if ($item->properties['cmis:objectTypeId'] == "cmis:folder") {
-    $result = db_select('gofast_bookmark_folder', 'bf')
-      ->fields('bf', array('fbid'))
-      ->condition('folder_reference', $item->properties['alfcmis:nodeRef'], '=')
-      ->execute()
-      ->fetchAll();
-    if (!empty($result)) {
-      foreach ($result as $key => $value) {
-        db_query("DELETE FROM gofast_bookmark_folder WHERE fbid = '" . $value->fbid . "'");
+  $has_deleted_bookmarks = 0;
+  foreach ($folders as $folder) {
+    $item = gofast_cmis_item_get_by_path(str_replace('/alfresco/webdav', "", urldecode($folder)));
+    if (isset($item->id)) {
+      $result = db_select('gofast_bookmark_folder', 'bf')
+        ->fields('bf', array('fbid'))
+        ->condition('folder_reference', $item->properties['alfcmis:nodeRef'], '=')
+        ->execute()
+        ->fetchAll();
+      if (!empty($result)) {
+        foreach ($result as $key => $value) {
+          db_query("DELETE FROM gofast_bookmark_folder WHERE fbid = '" . $value->fbid . "'");
+        }
+        $has_deleted_bookmarks = 1;
       }
-      return 1;
     }
   }
-  return 0;
+  echo $has_deleted_bookmarks;
 }
 
 function gofast_ajax_file_browser_get_documents_into_folder(){
@@ -994,4 +1132,353 @@ function gofast_ajax_file_browser_block_view($delta = '')
 
   }
   return $block;
+}
+
+/**
+ *
+ * Processes Unzipping for files given the node details through $_POST
+ *
+ * @throws \Exception
+ */
+function gofast_ajax_file_browser_unzip_file() {
+  $path = $_POST['item'];
+  
+  $main_location =  str_replace('/alfresco/webdav','',dirname($path));
+  $main_location = urldecode($main_location);
+
+  /** Get the alfresco parent store ID of a node   */
+  $parent_item = gofast_cmis_item_get_by_path($main_location);
+  $item = gofast_cmis_item_get_by_path(str_replace('/alfresco/webdav', "", urldecode($path)));
+ 
+  $response = gofast_cmis_extract_selected_node_using_alfresco_service($item, $parent_item);
+  drupal_json_output($response);
+}
+
+/**
+ * Returns a status report of the unzipping process
+ */
+function gofast_ajax_file_browser_unzip_file_check_status() {
+  if($_GET['isProgressionComplete'] === 'true'){
+    drupal_json_output(variable_get('unzip_process_result', null));
+  }else{
+    drupal_json_output(variable_get('unzip_status', null));
+  }
+  return json_encode(array(
+    'status' => 'error',
+    'message' => t('An error occured while compressing the selected files'),
+  ));
+}
+
+/**
+ * Register a new download process  
+ * Stores the download process id in the session
+ * Returns JSON object with the download id and starts the job on the server.
+ */
+function gofast_download_selected_files($files = [], $AS_ADMIN = FALSE): void{
+  if(empty($files)){
+    $files = $_POST['files'];
+  }
+  
+  if(empty($files)){  
+    drupal_json_output([
+      'status' => 'error',
+      'message' => t('No files selected'),
+    ]);
+  }
+  
+  $uuid = uuid_generate();
+  $download_id = 'gdf_'.rand(0, 1000).'_user_'.$uuid;
+  
+  drupal_json_output([
+    'id' => $download_id,
+    'files' => $files,
+    'status' => 'download_processing',
+    'message' => t('Downloading files'),
+  ]);
+  fastcgi_finish_request();
+  gofast_ajax_file_browser_initialize_file_download_process($download_id, $files, $AS_ADMIN);
+}
+
+/**
+ * Retrieves the result of a file download process from the session and returns it as JSON.
+ *
+ * This function is designed to be called via AJAX to get the status of a file download process.
+ * The download result is stored in the session with the key 'gofast_download_result_[download_id]'.
+ *
+ * @return void
+ */
+function gofast_ajax_file_browser_get_download_result(): void {
+  // Get the 'download_id' parameter from the GET request.
+  $id = $_GET['download_id'];
+  
+  // Retrieve the download result from the session using the provided 'download_id'.
+  $result = variable_get('gofast_download_result_' . $id, null);
+  
+  // Check if the download result is not NULL and if the 'download_id' matches the result's 'id'.
+  if ($result !== NULL && $id == $result->id) {
+    drupal_json_output($result);
+    //unlink the file after download
+    fastcgi_finish_request();
+    sleep(2);
+    // Once the download result has been retrieved and sent to the client, remove it from the session.
+    unlink('/var/www/d7/'.$result->file);
+    variable_del('gofast_download_result_' . $id);
+  } else {
+    // If the download result is not found in the session or the 'id' doesn't match, return a default JSON response.
+    drupal_json_output([
+      'id' => $id,
+      'status' => 'PENDING',
+      'message' => t('IN PROGRESS'),
+    ]);
+  }
+}
+
+/**
+ * Initializes the file download process for the given download ID and files.
+ *
+ * @param string $download_id
+ *   The unique identifier for the download process.
+ * @param array $files
+ *   An array of files to be downloaded.
+ */
+function gofast_ajax_file_browser_initialize_file_download_process(string $download_id, array $files, bool $AS_ADMIN): void {
+  // Validate the selected files before proceeding.
+  $validatedNodes = gofast_ajax_file_browser_validate_selected_files($files);
+
+  if (empty($validatedNodes->nodes->passedValidation)) {
+    // If no files passed validation, create a FAILED result.
+    $result = (object) [
+      'id' => $download_id,
+      'status' => 'FAILED', 
+      'file' => '',
+      'downloadedFiles' => $validatedNodes->nodes->passedValidation,
+      'failedFiles' => $validatedNodes->nodes->failedValidation,
+    ];
+  } else {
+    // Otherwise, proceed with initializing node compression.
+    try {
+      $file = gofast_cmis_initialize_node_compression($validatedNodes->nodes->passedValidation, $AS_ADMIN);
+      // Create a COMPLETE result.
+      $result = (object) [
+        'id' => $download_id,
+        'status' => 'COMPLETE', 
+        'file' => str_replace('var/www/d7/', '', $file) ?? '',
+        'downloadedFiles' => $validatedNodes->nodes->passedValidation,
+        'failedFiles' => $validatedNodes->nodes->failedValidation,
+      ];
+    } catch (\Exception $e) {
+      // Handle any exceptions that occur during node compression.
+      $result = (object) [
+        'id' => $download_id,
+        'status' => 'FAILED',
+        'file' => '',
+        'exception' => $e->getMessage(), // Using getMessage() to get the exception message.
+        'downloadedFiles' => [],
+        'failedFiles' => [],
+      ];
+    }
+  }
+  
+  variable_set('gofast_download_result_'.$download_id, $result);
+}
+
+
+/**
+ * Validate the selected files and folders before downloading them
+ * Checks if a resource is confidential or internal return a results object with 
+ * nodes that passed validation and nodes that failed validation. 
+ * 
+ * @param array $files Array of files to validate
+ *
+ * @return stdClass Validation result object
+ */
+function gofast_ajax_file_browser_validate_selected_files(array $files): stdClass {
+
+  $validation = new stdClass();
+  $validation->nodes = (object) [
+    'passedValidation' => [],
+    'failedValidation' => [],
+  ];
+
+  foreach ($files as $file) {
+    $nid = gofast_ajax_file_browser_get_nid_from_reference($file['nodeRef']);
+    if(!$nid){
+      $item = gofast_cmis_item_get($file['nodeRef']); 
+      if(isset($item->properties['cmis:objectTypeId']) && $item->properties['cmis:objectTypeId'] === 'cmis:folder'){
+        $isValid  = gofast_ajax_file_browser_validate_folder_download($file['nodeRef']); 
+        if($isValid){
+          $result = (object) [
+            'nodeRef' => $file['nodeRef'],
+            'isConfidential' => false,
+            'isInternal' => false,
+            'title' => $item->properties['cmis:name'],
+            'result' => 'passed',
+          ];
+        } else{
+          $result = (object) [
+            'nodeRef' => $file['nodeRef'],
+            'isConfidential' => TRUE,
+            'isInternal' => FALSE,
+            'title' => $item->properties['cmis:name'],
+            'folderErrorMessage' => t("This folder contains some confidential documents hence cannot be downloaded", [], ['context' => 'gofast:gofast_cmis']),
+            'result' => 'failed'
+          ];
+        }
+
+        $validation->nodes->{$result->result . 'Validation'}[] = $result;
+      }
+    } else {
+      $is_confidential = gofast_cmis_is_node_confidential($nid);
+      $is_internal = gofast_cmis_is_node_internal($nid);
+
+      $result = (object) [
+        'nodeRef' => $file['nodeRef'],
+        'isConfidential' => $is_confidential,
+        'isInternal' => $is_internal,
+        'title' => gofast_cmis_get_node_field_from_nid('title', $nid),
+        'result' => ($is_confidential || $is_internal) ? 'failed' : 'passed'
+      ];
+      $validation->nodes->{$result->result . 'Validation'}[] = $result;
+    }
+  }
+
+  return $validation;
+}
+
+/**
+ * Validate the selected folders before downloading them
+ * Checks if a resource is confidential or internal return a results object with 
+ * nodes that passed validation and nodes that failed validation. 
+ * 
+ * @param string $folderRef The reference of the folder to validate
+ *
+ * @return stdClass Validation result object
+ */
+function gofast_ajax_file_browser_validate_folder_download($nodeRef, $targetValue = "Confidential", $propertyName = "gofast:criticity"){
+  $ticket_admin = gofast_cmis_webservice_generate_alfresco_ticket("admin");
+  $query = "?alf_ticket=" . $ticket_admin . "&nodeRef=" . $nodeRef . "&targetValue=" . $targetValue."&propertyName=". $propertyName;
+  $url = 'http://localhost:8080/alfresco/s/get/get_folder_has_files_with_metadata_field'.$query;
+
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_URL, $url);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+  curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
+  curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+    'Content-Type: application/json',
+    'Content-Length: ' . strlen($query))
+  );
+  
+  $result = curl_exec($ch);
+  curl_close($ch);
+  
+  $results = json_decode($result); 
+  $isValid = TRUE;
+  foreach ($results as $result){
+    if($result->found){
+      $isValid = FALSE;
+    }
+  }
+  return $isValid;
+}
+
+/** 
+ * Compresses selected files and folders into a zip file
+ */
+function gofast_ajax_file_browser_compress(){
+  global $user; 
+  $selected_items_data = json_decode(variable_get("ithit_bulk_" . $user->uid));
+  $main_location = str_replace('/alfresco/webdav','',dirname($selected_items_data[0]->url));
+  $main_location = rawurldecode($main_location);
+  if (isset($_POST['nodeRefs'])) {
+    drupal_json_output(array(
+      'status' => 'success',
+      'code' => 200, 
+      'message' => t('Compression of selected has been registered'),
+    ));
+    fastcgi_finish_request();
+    try{
+      gofast_cmis_compress_selected_nodes_using_alfresco_service($_POST['nodeRefs'], $main_location);
+    }
+    catch(\Exception $e){   
+      variable_set('gofast_cmis_compression_status', array(
+        'status' => 'ERROR',
+        'message' => t('Something went wrong'),
+        'code' => 500,
+      ));
+    }
+  }
+}
+
+/**
+ * Returns the status of an ongoing compression process
+ */
+function gofast_ajax_file_browser_check_compression_status(){
+  $status = variable_get("gofast_cmis_compression_status");
+  
+  if(!empty($status)){
+    drupal_json_output($status);
+    fastcgi_finish_request();
+    variable_del("gofast_cmis_compression_status");
+  }
+  else 
+     drupal_json_output([
+      "status" => "PENDING",
+      "done"=> "0",
+      "total"=> "0",
+  ]);
+}
+
+
+function gofast_ajax_file_browser_get_disabled_tabs($nid = null) {
+  $hidden_dropdown_links = [];
+  $disabled_tabs = [];
+  $tooltips = [];
+  $isRootFolder = false;
+  if(isset($_POST["isRootFolder"])){
+    $isRootFolder = gofast_xss_clean($_POST["isRootFolder"]);
+    $isRootFolder = filter_var($isRootFolder, FILTER_VALIDATE_BOOLEAN);
+  }
+  if($isRootFolder){
+    array_push($disabled_tabs, "oghome", "ogcalendar", "ogkanban", "gofastSpaceMembers", "users_stats", "documents_stats", "ogconversation");
+  } else if($nid != null){
+    $node = node_load($nid);
+    
+    if(!gofast_og_is_space($node)){
+      array_push($disabled_tabs, "ogcalendar", "ogkanban");
+    }
+    if(gofast_og_is_entity_hide_members_tab($node)){
+      array_push($disabled_tabs, "gofastSpaceMembers");
+      $tooltips["gofastSpaceMembers"] = gofast_ajax_file_browser_get_member_tab_tooltip($node);
+    }
+    if(gofast_og_is_entity_hide_home_tab($node)){
+      array_push($disabled_tabs, "oghome");
+      $tooltips["oghome"] = t('Root spaces have no homepages', [], ['context' => 'gofast:gofast_og']);
+    }
+    if(gofast_og_is_user_private_space($node)){
+      array_push($disabled_tabs, "users_stats");
+      $tooltips["users_stats"] = t('No users statistics for private space', array(), array('context' => 'gofast:gofast_og'));
+    }
+    global $user;
+    if (!in_array('administrator member', gofast_og_get_user_final_roles_for_space('node', $node->nid, $user->uid), true)) {
+      array_push($hidden_dropdown_links, "tab_ogaudit");
+    }
+  }
+  $disabled_tabs = array_fill_keys($disabled_tabs, "");
+  foreach($disabled_tabs as $tab_id => &$tooltip){
+    if(isset($tooltips[$tab_id])){
+      $tooltip = $tooltips[$tab_id];
+    }
+  }
+  drupal_json_output(["disabled_tabs" => $disabled_tabs, "hidden_dropdown_links" => $hidden_dropdown_links]);
+}
+
+function gofast_ajax_file_browser_get_member_tab_tooltip($node){
+  if($node->type == "public"){
+    $membersTabTooltip = t('Administrators of this space are managed in the Public userlist, members are managed automatically', [], ['context' => 'gofast:gofast_og']);
+  }else if($node->type == "private_space"){
+    $membersTabTooltip = t("This is a private space, only the owner can be a member of it", [], ['context' => 'gofast:gofast_og']);
+  }else{
+    $membersTabTooltip = t('Members of this space are managed automatically', [], ['context' => 'gofast:gofast_og']);
+  }
+  return $membersTabTooltip;
 }

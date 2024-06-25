@@ -1,6 +1,5 @@
     <?php if ($node->field_riot_identifier[LANGUAGE_NONE][0]['value'] != '') : ?>
-      <div id="DivRiot"></div>
-      <!--<iframe src="/sites/all/libraries/riot/index.html#/room/<?php echo $node->field_riot_identifier[LANGUAGE_NONE][0]['value']; ?>" id="gf_conversation" style="width:100%;height: calc(100vh - 180px);border:none;"></iframe> -->
+      <iframe src="/sites/all/libraries/riot/index.html#/room/<?php echo $node->field_riot_identifier[LANGUAGE_NONE][0]['value']; ?>" id="gf_conversation" style="width:100%;height: calc(100vh - 180px);border:none;"></iframe>
     <?php else : ?>
       <span class="RiotMessageRoom"> <?php print t('This collaboratif space does not have any chatroom yet.'); ?>
         <?php global $user;
@@ -13,3 +12,18 @@
     <?php endif; ?>
 
     <?php endif; ?>
+<script>
+  jQuery(document).ready(function() {
+    if(jQuery("#gf_conversation").length){
+      // Load settings icon and fix to fetch assets from the conversation
+      const waitForConversationPageLoadInterval = setInterval(() => {
+        if (!Gofast.Riot || !document.querySelector("#gf_conversation") || !document.querySelector("#gf_conversation").contentWindow.document.querySelector(".mx_MatrixChat")) {
+          return;
+        }
+        clearInterval(waitForConversationPageLoadInterval);
+        jQuery("#gf_conversation").contents().find('body').addClass("space-context");
+        Gofast.Riot.initFetchEvent('#gf_conversation');
+      }, 100);
+    }
+  })
+</script>

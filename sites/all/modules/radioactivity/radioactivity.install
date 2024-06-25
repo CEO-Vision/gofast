@@ -35,10 +35,16 @@ function radioactivity_uninstall() {
     'radioactivity_checksum_salt',
     'radioactivity_flood_protection',
     'radioactivity_flood_timeout',
+    'radioactivity_drupal_root',
+    'radioactivity_temp_dir',
     'radioactivity_memcached_host',
     'radioactivity_memcached_port',
-    'radioactivity_drupal_root',
+    'radioactivity_memcached_prefix',
+    'radioactivity_redis_host',
+    'radioactivity_redis_port',
     'radioactivity_last_cron_timestamp',
+    'radioactivity_config_warning',
+    'radioactivity_bootstrap_warning',
   );
 
   foreach ($vars as $v) {
@@ -162,7 +168,7 @@ function radioactivity_schema() {
         'description' => 'Unix timestamp',
       ),
     ),
-    'indexes' => array('main' => array('source')),
+    'primary key' => array('source'),
   );
 
   $schema['radioactivity_history'] = array(
@@ -268,4 +274,16 @@ function radioactivity_update_7205() {
   $table_name = 'radioactivity_history';
   $table = drupal_get_schema_unprocessed('radioactivity', $table_name);
   db_create_table($table_name, $table);
+}
+
+/**
+ * Adds a primary key for the radioactivity_flood_map table.
+ */
+function radioactivity_update_7206() {
+  if (db_index_exists('radioactivity_flood_map', 'source')) {
+    db_drop_index('radioactivity_flood_map', 'source');
+  }
+
+  db_drop_primary_key('radioactivity_flood_map');
+  db_add_primary_key('radioactivity_flood_map', array('source'));
 }

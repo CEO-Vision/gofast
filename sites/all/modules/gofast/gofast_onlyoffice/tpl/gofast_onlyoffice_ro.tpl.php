@@ -29,9 +29,6 @@
               var domain_parse = location.origin.split(".");
               var domain_base = domain_parse[domain_parse.length-2] + "." + domain_parse[domain_parse.length-1];
 
-              document.cookie = "gen_id=" + key + ";expires=" + current_date 
-                          + ";domain=." + domain_base + ";path=/";
-
               Gofast.docEditor = new DocsAPI.DocEditor("iframeEditor",
                         {
                           width: "100%",

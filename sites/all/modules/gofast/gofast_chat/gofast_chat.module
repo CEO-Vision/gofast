@@ -70,7 +70,7 @@ function gofast_chat_preprocess_page(&$variables){
   } else { // If this is a normal user, enable chat feature
     global $user;
     // Disable the chat feature if the user is admin or is using mobile Gofast's version
-    if ($user->uid != 1 && !gofast_mobile_is_mobile_domain()) {      
+    if ($user->uid != 1 && !gofast_essential_is_essential()) {      
       drupal_add_js($params, 'setting');
       drupal_add_library('gofast_chat', 'jsxc', TRUE); // Load library declared in the hook_library()
     }

@@ -1,3 +1,5 @@
+package com.ceovision.rest.api;
+
 import groovy.json.JsonBuilder
 
 import org.bonitasoft.web.extension.rest.*
@@ -43,6 +45,8 @@ import com.company.model.ProcessCurrent;
 import com.company.model.ProcessCurrentDAO;
 import com.company.model.ProcessHistory;
 import com.company.model.ProcessHistoryDAO;
+import org.bonitasoft.engine.identity.User
+import org.bonitasoft.engine.identity.UserSearchDescriptor;
 
 
 public class Index implements RestApiController {
@@ -53,6 +57,7 @@ public class Index implements RestApiController {
        APIClient apiClient = context.apiClient;
 	   
        ProcessAPI processAPI = apiClient.processAPI;
+       IdentityAPI identityAPI = apiClient.identityAPI;
 	   
        Map<String, String> response = [:]
        int responseCode = 201;
@@ -91,8 +96,10 @@ public class Index implements RestApiController {
 
                                             ProcessInstance myProcessInstanceSub = processAPI.getProcessInstance(myTaskInstance.parentProcessInstanceId);
                                             ProcessDefinition myProcessDefinitionSub = processAPI.getProcessDefinition(myProcessInstanceSub.processDefinitionId);
-
-
+					    def login = "";
+                                            try {
+                                                login = processAPI.getProcessDataInstance("login", myTaskInstance.parentProcessInstanceId).getValue();
+                                            } catch(DataNotFoundException e) {}
 
                                             //Load ProcessCurrent and ProcessHistory
                                             def ProcessCurrentDAO = apiClient.getDAO(ProcessCurrentDAO.class)       									
@@ -102,7 +109,7 @@ public class Index implements RestApiController {
 
 
                                             def myTask = [:];
-
+				            myTask.login = login;
                                             myTask.processDefinitionId = myTask.processId = myTaskInstance.processDefinitionId.toString();
                                             myTask.rootCaseId = myTaskInstance.rootContainerId
                                             myTask.parentCaseId = myTaskInstance.parentContainerId
@@ -148,6 +155,18 @@ public class Index implements RestApiController {
                                             }
                                             if(myTask.assigneeId == current_user_id){
                                                     is_eligible = 1;
+                                            }
+                                            //if the task is assigned to a userlist, check if the current user if an actual member of the userlist group
+                                            if(login.startsWith("ul_")) {
+                                                SearchOptionsBuilder searchBuilder = new SearchOptionsBuilder(0, 100);
+                                                searchBuilder.filter(UserSearchDescriptor.GROUP_ID, identityAPI.getGroupByPath(login).getId());
+                                                SearchResult<User> searchedUsers = identityAPI.searchUsers(searchBuilder.done());
+                                                for (User userAux: searchedUsers.getResult()) {
+                                                        if (userAux.getId() == current_user_id) {
+                                                                is_eligible = 1;
+                                                                break;
+                                                        }
+                                                }
                                             }
 
                                             myTask.is_eligible = is_eligible;

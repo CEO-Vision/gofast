@@ -45,7 +45,7 @@ if ($node->type != 'kanban'){
 </div> 
 
 
-<div class="w-100 position-relative" id="gofastKanban" data-kid="<?php echo $kanban_id ?>" style="height: calc(100vh - 250px) /*!important;*/">
+<div class="w-100 position-relative" id="gofastKanban" data-parent-tab="ogkanban" data-gid="<?php echo $node->nid ?>" data-kid="<?php echo $kanban_id ?>" style="height: 90% /*!important;*/">
     <div class="spinner gofastSpinner spinner-primary spinner-lg position-absolute fade show " style="top: 50%; left: 50%;"></div>
     <div id="goKanban" class="gofastKanban__kanban fade overflow-auto h-100"></div>
 </div>
@@ -69,4 +69,4 @@ if ($node->type != 'kanban'){
 
 <?php drupal_add_js(drupal_get_path('module', 'gofast_kanban') . "/js/gofastTodoList.js"); ?>
 <?php drupal_add_js(drupal_get_path('module', 'gofast_kanban') . "/js/gofastKanbanCardDetail.js"); ?>
-<?php drupal_add_js(drupal_get_path('module', 'gofast_kanban') . "/js/gofastKanban.js"); ?>
+<script src="/<?= drupal_get_path('module', 'gofast_kanban') . "/js/gofastKanban.js"?>"></script>

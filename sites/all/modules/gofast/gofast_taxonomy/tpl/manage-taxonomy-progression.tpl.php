@@ -19,6 +19,9 @@
     case 'field_criticity':
       $field_display = t("the criticity", array(), array('context' => 'gofast:taxonomy'));
       break;
+    case 'field_classification':
+      $field_display = t("the classification", array(), array('context' => 'gofast:taxonomy'));
+      break;
   }
 ?>
 
@@ -46,7 +49,7 @@
       <span id="value" style="display:none"><?php echo $value ?></span>
     <?php
       }else{
-        print taxonomy_term_load($value)->name;
+        print i18n_taxonomy_localize_terms(taxonomy_term_load($value))->name;
       ?>
         <span id="value" style="display:none"><?php echo $value ?></span>
       <?php

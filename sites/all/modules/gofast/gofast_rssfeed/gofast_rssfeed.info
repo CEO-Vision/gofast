@@ -3,7 +3,7 @@ description = "Managment of RSS Feed"
 core = 7.x
 package = Gofast
 
-version = "7.x-4.0.0_r3"
+version = "7.x-4.2.0"
 core = "7.x"
 project = "gofast_rssfeed"
 datestamp = "1596528000"

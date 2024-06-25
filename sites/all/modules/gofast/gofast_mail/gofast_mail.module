@@ -22,9 +22,10 @@ function gofast_mail_entity_presave($entity, $type) {
        foreach ($entity->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE] as $node_location) {
 
         if (strpos($node_location['value'], MAIL_FOLDER_NAME) !== FALSE) {
+          $courrier_tag_name = variable_get("gofast_taxonomy_tags_forced_cases", 0) ? "COURRIER" : "Courrier";
           // This add the tag "Courrier" to the newly created courriers.
-          $document_tags[] = gofast_xeditable_terms_get_from_array(GOFAST_VID_TAGS, array('Courrier'))[0];
-          if(count($entity->{'field_tags'}[LANGUAGE_NONE]) > 0){
+          $document_tags[] = gofast_xeditable_terms_get_from_array(GOFAST_VID_TAGS, array($courrier_tag_name))[0];
+          if(count((array)$entity->{'field_tags'}[LANGUAGE_NONE]) > 0){
              foreach($entity->{'field_tags'}[LANGUAGE_NONE] as $key=>$tag){
                  if($tag["tid"] == $document_tags[0]->tid){
                      unset($entity->{'field_tags'}[LANGUAGE_NONE][$key]);
@@ -49,19 +50,20 @@ function gofast_mail_entity_presave($entity, $type) {
  * @return boolean
  */
 function gofast_mail_node_is_mail($node){
-    $category_mail = gofast_xeditable_terms_get_from_array(GOFAST_VID_CATEGORY, array('Courrier entrant'))[0];
-    $tag_mail = gofast_xeditable_terms_get_from_array(GOFAST_VID_TAGS, array('Courrier'))[0];
+    $category_mail_tid = gofast_taxonomy_get_tid_by_vid_and_name(GOFAST_VID_CATEGORY, "Inbound (e)mail");
+    $courrier_tag_name = variable_get("gofast_taxonomy_tags_forced_cases", 0) ? "COURRIER" : "Courrier";
+    $tag_mail_tid = gofast_taxonomy_get_tid_by_vid_and_name(GOFAST_VID_TAGS, $courrier_tag_name);
 
-    if($node->{'field_category'}[LANGUAGE_NONE][0]["tid"] == $category_mail->tid){
+    if($node->{'field_category'}[LANGUAGE_NONE][0]["tid"] == $category_mail_tid){
         return true;
     }
 
-     if(count($node->{'field_tags'}[LANGUAGE_NONE]) > 0){
-             foreach($node->{'field_tags'}[LANGUAGE_NONE] as $key=>$tag){
-                 if($tag["tid"] == $tag_mail->tid){
-                     return true;
-                 }
-             }
+     if(count((array) $node->{'field_tags'}[LANGUAGE_NONE]) > 0){
+        foreach($node->{'field_tags'}[LANGUAGE_NONE] as $key=>$tag){
+            if($tag["tid"] == $tag_mail_tid){
+                return true;
+            }
+        }
     }
 
     return false;
@@ -100,7 +102,8 @@ function gofast_mail_form_alfresco_item_node_form_submit($form, &$form_state){
         $form_state['values']["field_target_link"][LANGUAGE_NONE][0] = array("target_id" => $form["field_target_link"]['#default_value'], "field_mode" => "default");
 
         // Tag as mail
-        $tag_mail = gofast_xeditable_terms_get_from_array(GOFAST_VID_TAGS, array('Courrier'))[0];
+        $courrier_tag_name = variable_get("gofast_taxonomy_tags_forced_cases", 0) ? "COURRIER" : "Courrier";
+        $tag_mail = gofast_xeditable_terms_get_from_array(GOFAST_VID_TAGS, array($courrier_tag_name))[0];
         $form_state['values']['field_tags'][LANGUAGE_NONE][0] = array("tid" => $tag_mail->tid);
 
         // Change category into outbound mail

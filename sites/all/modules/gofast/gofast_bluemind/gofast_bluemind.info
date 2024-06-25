@@ -1,0 +1,7 @@
+name        = Gofast BlueMind
+description = "Gofast Bluemind is a module that integrates Bluemind with Gofast. "
+core        = 7.x
+package     = Gofast
+version = "7.x-4.2.0"
+
+dependencies[] = gofast

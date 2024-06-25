@@ -10,11 +10,14 @@ if (gofast_user_is_business_admin($user)) {
 
 if (count(module_implements("extra_metadata")) >= 1) {
   //Check if node have metadata
-  $extra_data = '';
+  $extra_datas = array();
   foreach (module_implements("extra_metadata") as $module) {
     $metadata = call_user_func($module . "_extra_metadata", $node);
-    $extra_data .= $metadata;
+    if(!empty($metadata)){
+      $extra_datas[] = $metadata;
+    }
   }
+
 
   if(!empty($extra_data)){
     $extra_metadata = TRUE;
@@ -35,9 +38,11 @@ if (count(module_implements("extra_metadata")) >= 1) {
         <a class="dropdown-item" data-toggle="tab" href="#document__infotab">
           <?php print t('Informations', [], ['context' => 'gofast']); ?>
         </a>
-        <a class="dropdown-item" data-toggle="tab" href="#document__extra_metadata_tab">
-          <?php print t('Specifics informations', [], ['context' => 'gofast']); ?>
-        </a>
+        <?php foreach($extra_datas as $extra_data) : ?>
+          <a class="dropdown-item" data-toggle="tab" href="#<?php print $extra_data['id']; ?>">
+            <?php print $extra_data['title']; ?>
+          </a>
+        <?php endforeach; ?>
       </div>
     </li>
   <?php } else { ?>
@@ -59,7 +64,7 @@ if (count(module_implements("extra_metadata")) >= 1) {
         <?php } ?>
     </a>
   </li>
-  <?php if ($is_admin) { ?>
+  <?php if (gofast_audit_access("node", $node->nid)) { ?>
     <li class="nav-item ">
       <a class="nav-link px-2 d-flex justify-content-center h-100" data-toggle="tab" href="#document__audittab">
         <span class="nav-icon"><i class="flaticon2-paperplane"></i></span>
@@ -68,3 +73,10 @@ if (count(module_implements("extra_metadata")) >= 1) {
     </li>
     <?php } ?>
 </ul>
+<?php if (isset($count_notif['count_comment_notif']) && $count_notif['count_comment_notif'] > 0) { ?>
+  <script>
+    jQuery(document).ready(function() {
+      Gofast.removeCommentsBadge();
+    });
+  </script>
+<?php } ?>

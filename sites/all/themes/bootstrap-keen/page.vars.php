@@ -16,6 +16,9 @@
 function bootstrap_keen_preprocess_page(&$variables) {
   global $user;
 
+  // import core scripts and styles for bootstrap-keen theme
+  drupal_add_library("gofast", "keen", TRUE);
+
   if($user->uid == 0){
     $variables['page']['sidebar'] = "";
     $variables['page']['navigation'] = "";

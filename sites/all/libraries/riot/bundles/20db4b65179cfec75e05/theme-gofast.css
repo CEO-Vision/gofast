@@ -1,0 +1,279 @@
+/* use the full width of the messages panel to display the message content */
+.mx_EventTile_line {
+  margin-right: 0 !important;
+}
+
+.mx_EventTile_msgOption {
+  margin-inline-end: 0 !important;
+}
+
+.mx_Tooltip {
+  position: fixed;
+  border-radius: 8px;
+  -webkit-box-shadow: 4px 4px 12px 0 rgba(118, 131, 156, 0.6);
+  box-shadow: 4px 4px 12px 0 rgba(118, 131, 156, 0.6);
+  z-index: 6000;
+  padding: 10px;
+  pointer-events: none;
+  line-height: 1.4rem;
+  font-size: 1.2rem;
+  font-weight: 500;
+  max-width: 200px;
+  word-break: break-word;
+  margin-right: 50px;
+  background-color: #27303a;
+  color: #fff;
+  border: 0;
+  text-align: center;
+}
+
+.mx_Tooltip_chevron {
+  position: absolute;
+  right: -7px;
+  top: 10px;
+  width: 0;
+  height: 0;
+  border-top: 7px solid transparent;
+  border-left: 7px solid #27303a;
+  border-bottom: 7px solid transparent;
+}
+
+.mx_Tooltip_wrapper,
+.gofast-side-content .mx_ResizeHandle--horizontal {
+  display: none;
+}
+
+/** don't show explore rooms button */
+.mx_LeftPanel_exploreButton {
+  display: none !important;
+}
+
+/** don't show duplicate element to unwrap rooms */
+[id^="mx_RoomSublist_label_im.vector"] {
+  display: none !important;
+}
+
+/** fix wrong positioning of the sorting button for private conversations */
+.mx_RoomSublist.mx_RoomSublist_minimized[aria-labelledby="mx_RoomSublist_label_im.vector.fake.direct"]
+  .mx_RoomSublist_menuButton {
+  bottom: 0 !important;
+}
+
+/** we don't want the user to be able to toggle the sort menu if the chat is collapsed */
+.gofast-side-content-collapsed
+  .mx_RoomSublist.mx_RoomSublist_minimized
+  .mx_RoomSublist_menuButton {
+  display: none !important;
+}
+
+/** hide "share link to user" menu item */
+.mx_UserInfo_field:nth-of-type(3) {
+  display: none !important;
+}
+
+/** hide invite link section */
+.mx_InviteDialog_userSections + div {
+  display: none !important;
+}
+
+/** avoid having empty space where deleted contextual menu items were: we move the padding of the list item into its children */
+.mx_IconizedContextMenu_item {
+  padding-block: 0 !important;
+}
+.mx_IconizedContextMenu_icon {
+  padding: 8px 0 8px 8px;
+}
+.mx_IconizedContextMenu_label {
+  padding: 8px 8px 8px 0;
+}
+
+/** hide "stickers" button from message actions */
+.mx_MessageComposer_stickers,
+.mx_MessageComposer_stickers + span {
+  display: none !important;
+}
+
+/** hide "location" button from message actions */
+.mx_MessageComposer_location,
+.mx_MessageComposer_location + span {
+  display: none !important;
+}
+
+/** hide "explore public rooms" contextual menu item */
+.mx_RoomList_iconExplore,
+.mx_RoomList_iconExplore + span {
+  display: none !important;
+}
+
+/** hide "copy room link" contextual menu item */
+.mx_RoomTile_iconCopyLink,
+.mx_RoomTile_iconCopyLink + span {
+  display: none !important;
+}
+
+.mx_RoomTile_iconWidgets,
+.mx_RoomTile_iconWidgets + span {
+  display: none !important;
+}
+
+/** hide widget button */
+.mx_LegacyRoomHeader_appsButton {
+  display: none !important;
+}
+
+/** hide widget drawer */
+.mx_AppsDrawer {
+  display: none !important;
+}
+
+.mx_RoomGeneralContextMenu_iconCopyLink,
+.mx_RoomGeneralContextMenu_iconCopyLink + span {
+  display: none !important;
+}
+
+/** disable broken invite links */
+.mx_InviteDialog_helpText a {
+  color: currentColor !important;
+  cursor: default !important;
+  pointer-events: none !important;
+  text-decoration: none !important;
+}
+
+.mx_SpacePanel {
+  display: none !important;
+}
+
+.mx_LeftPanel_outerWrapper {
+  min-width: 68px;
+}
+
+.mx_UserMenu {
+  margin-bottom: 1rem;
+}
+
+.mx_UserMenu .mx_UserMenu_userAvatar_BaseAvatar {
+  display: flex !important;
+  background-color: transparent !important;
+}
+
+.mx_UserMenu .mx_UserMenu_userAvatar_BaseAvatar img {
+  margin: auto;
+}
+
+/** hide logout from settings */
+.mx_IconizedContextMenu_option_red {
+  display: none !important;
+}
+
+/** hide security settings from general settings */
+.mx_UserMenu_contextMenu
+  .mx_IconizedContextMenu_optionList
+  > li:nth-of-type(2) {
+  display: none !important;
+}
+
+/** hide every tab in general settings but appearance and video */
+.mx_SettingsDialog_content
+  .mx_TabbedView_tabLabels
+  > li:not([data-testid="settings-tab-USER_APPEARANCE_TAB"]):not(
+    [data-testid="settings-tab-USER_VOICE_TAB"]
+  ) {
+  display: none !important;
+}
+
+/** foce-hide content of the default general settings tab */
+#mx_tabpanel_USER_GENERAL_TAB {
+  display: none !important;
+}
+
+/** don't show tooltip on avatar uploader */
+.mx_MiniAvatarUploader .mx_Tooltip {
+  display: none !important;
+}
+
+/** hide broken search button in room settings */
+.mx_RoomSummaryCard_searchBtn {
+  display: none !important;
+}
+
+/** hide copy link menu item of the room settings */
+.mx_RoomSummaryCard button:nth-of-type(2) {
+  display: none !important;
+}
+
+/** hide address section of the room settings */
+#mx_tabpanel_ROOM_GENERAL_TAB .mx_SettingsSection:not(:first-of-type) {
+  display: none !important;
+}
+
+/** hide leave room item of the room settings */
+.mx_RoomSummaryCard [data-kind="critical"] {
+  display: none !important;
+}
+
+/** hide invite in room item of the room settings */
+.mx_RoomSummaryCard [data-kind="primary"]:first-of-type {
+  display: none !important;
+}
+
+/** hide widgets section of the room settings */
+.mx_RoomSummaryCard_appsGroup {
+  display: none !important;
+}
+
+/** don't show toasts except the incoming call toast */
+.mx_ToastContainer {
+  visibility: hidden;
+}
+
+.mx_Toast_body {
+  padding: 3px;
+  padding-left: 12px;
+  background-color: var(--cpd-color-bg-subtle-primary);
+  border-radius: 8px;
+  -webkit-box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.mx_Toast_body.mx_IncomingLegacyCallToast {
+  visibility: visible;
+}
+
+.gofast-side-content .mx_RoomView_wrapper > main > div {
+  max-width: 380px;
+}
+
+.gofast-side-content .mx_TabbedView_tabsOnLeft .mx_TabbedView_tabPanel {
+  margin-left: 180px !important;
+}
+
+.gofast-side-content .mx_SettingsSection {
+  max-width: 180px !important;
+}
+
+.mx_LayoutSwitcher_RadioButtons {
+  flex-direction: column !important;
+}
+
+.space-context .mx_LeftPanel_outerWrapper {
+  display: none;
+}
+
+.mx_Autocomplete_Completion_description {
+  display: none;
+}
+
+.mx_Autocomplete_Completion_pill {
+  height: min-content !important;
+}
+
+#mx_Autocomplete .mx_BaseAvatar {
+  min-width: var(--cpd-avatar-size, 24px);
+}
+
+.gofast-side-content .mx_RightPanel_ResizeWrapper {
+  max-width: 100% !important;
+  width: 100% !important;
+  z-index: 2;
+  padding-inline-end: 1rem;
+}

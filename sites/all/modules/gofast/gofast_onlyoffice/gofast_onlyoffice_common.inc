@@ -117,7 +117,7 @@ function getCurUserHostAddress($userAddress = NULL) {
 function getInternalExtension($filename) {
   $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
 
-  if (in_array($ext, gofast_onlyoffice_document_extensions))
+  if (in_array($ext, gofast_onlyoffice_document_extensions()))
     return ".docx";
   if (in_array($ext, gofast_onlyoffice_spreadsheet_extensions()))
     return ".xlsx";

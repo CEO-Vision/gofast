@@ -1,4 +1,4 @@
-version = "7.x-4.0.0_r3"
+version = "7.x-4.2.0"
 name        = Gofast community
 description = "community module fix bugs"
 core        = 7.x

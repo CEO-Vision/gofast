@@ -568,7 +568,7 @@ function _ldap_servers_get_servers($sid, $type, $flatten, $reset) {
 /**
  * see ldap_servers_get_servers()
  */
-function _ldap_servers_get_simpletest_servers($sid, $type = NULL, $flatten, $reset = TRUE) {
+function _ldap_servers_get_simpletest_servers($sid, $type, $flatten, $reset) {
 
   if (!$type) {
     $type = 'all';
@@ -846,6 +846,10 @@ function ldap_servers_decrypt($encrypted, $encryption = NULL) {
 }
 
 function ldap_servers_php_supports_pagination() {
+  // @patch CEO-Vision
+  if (version_compare(PHP_VERSION, '8.0.0') >= 0) {
+    return TRUE;
+  }
   return (boolean)(function_exists('ldap_control_paged_result_response') && function_exists('ldap_control_paged_result'));
 }
 
@@ -1112,14 +1116,10 @@ function ldap_servers_encode_text($cleartxt, $encoding) {
 
     case 'ssha':
       return '{SSHA}' . base64_encode(sha1($cleartxt . $salt, TRUE) . $salt);
-    //CEO-Vision patch
+    /** @patch CEO-Vision */
     case 'bcrypt':
-        $salt = '$2a$15$rjkVMBqj/Sj6EGKXc281B.';
-        $options = [
-            'cost' => 12,
-            'salt' => $salt
-        ];
-        return "{BCRYPT}". password_hash($cleartxt, PASSWORD_BCRYPT, $options);   
+      $hash = "{BCRYPT}".password_hash($cleartxt, PASSWORD_BCRYPT);
+      return $hash;
   }
   
   if (empty($encoding)) {

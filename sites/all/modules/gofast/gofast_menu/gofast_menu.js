@@ -407,30 +407,80 @@
     Drupal.behaviors.async_bookmarks_menu = {
         attach: function(context, settings) {
             let bookmarks = document.querySelector('#gofast_topbar_flag_bookmarks:not(.processed)');
-            let bookmarksButton = document.querySelector('#gofast_topbar_flag_bookmarks:not(.processed) a');
 
             if(bookmarks){
                 bookmarks.classList.add('processed');
                 let container = bookmarks.querySelector('.gofast-block-inner');
                 let loader = bookmarks.querySelector('.loader-blog');
                 
-                $('#gofast_topbar_flag_bookmarks').mouseover(function() {
-                    if(!bookmarks.classList.contains('gofast-menu-active')) {
+                $('#gofast_topbar_flag_bookmarks').mouseover(function(event) {
+                    if(!bookmarks.classList.contains('menu-item-hover')) {
+                        // Uncomment this block to reload bookmark menu on each mouseover
+                        // if($("#bookmarkContentTreeContainer").hasClass("processed")){
+                        //     Gofast.Display_ContentFolders();
+                        // }
+                        // if($("#bookmarkFolderTreeContainer").hasClass("processed")){
+                        //     Gofast.Display_FavoritesFolders();
+                        // }
                         bookmarks.classList.add('gofast-menu-active');
-                        $.post(location.origin + "/gofast/get/personnal_favorites").done(function (data) {
-                            container.innerHTML = data; 
-                            $('#contentFavoritesTab').removeClass('active');
-                            Gofast.Display_ContentFolders();
-                        }); 
+                        if(!$("#gofast_topbar_flag_bookmarks_block").hasClass("processed")){
+                            $.post(location.origin + "/gofast/get/personnal_favorites").done(function (data) {
+                                container.innerHTML = data; 
+                                $('#contentFavoritesTab').removeClass('active');
+                                $("#gofast_topbar_flag_bookmarks_block").addClass("processed")
+                                if(!$("#bookmarkContentTreeContainer").hasClass("processed")){
+                                    $.post(location.origin + "/gofast/bookmarks/favorites_contents").done(function(data){
+                                        if($('.gofastFlagBookmarks section .gofastFlagBookmarks').length == 0){
+                                            $('#path_pager_bookmarks_folders').remove();
+                                            $('#bookmarkContentTreeContainer').append(data);
+                                            $("#bookmarkContentTreeContainer").addClass("processed")
+                                        }
+                                    });
+                                }
+                                if(!$("#bookmarkFolderTreeContainer").hasClass("processed")){
+                                    $.post(location.origin + "/gofast/bookmarks/favorites_folders").done(function(data){
+                                        if($('.block-bookmarks .gofast-bookmarks-block-inner section .gofastFlagBookmarks').length == 0){
+                                            $('#path_pager_bookmarks_folders').remove();
+                                            $('#bookmarkFolderTreeContainer').append(data);
+                                            $("#bookmarkFolderTreeContainer").addClass("processed")
+                                        }
+                                    });
+                                }
+                            }); 
+                        }
                     }
                 })
-                .mouseleave(function({target}) {
+                .mouseleave(function(event) {
                     // if the mouseleave is triggered by a pagination click, do not set the menu to fetch the whole content again (which would navigate the user back to page 1)
-                    if (target.classList.contains("page_link")) {
+                    if ($(event.target).hasClass("page_link")) {
+                        return;
+                    }
+                    // Check if the hovered element is an element of the contextual menu dropdown
+                    if($("#gofast-bookmarks-node-actions").find(event.relatedTarget).length || $(event.relatedTarget).attr("id") == "gofast-bookmarks-node-actions"){
+                        // Maybe not the best thing but make the bookmark menu show when hover contextual menu
+                        // 500 is the default timeout value of dropdown 
+                        setTimeout(()=>{
+                            $("#gofast_topbar_flag_bookmarks").addClass("menu-item-hover")
+                        }, 510);
                         return;
                     }
                     bookmarks.classList.remove('gofast-menu-active');
-                $('.block-bookmarks .gofast-bookmarks-block-inner section').empty();
+                    $("#gofast-bookmarks-node-actions").remove()
+                    $('.block-bookmarks .gofast-bookmarks-block-inner section').empty();
+                })
+                .on("click", (event) => {
+                    // Check if the clicked element is an element of the contextual menu dropdown
+                    if($("#gofast-bookmarks-node-actions").find(event.target).length || $(event.target).attr("id") == "gofast-bookmarks-node-actions"){
+                        return;
+                    }
+                    $("#gofast-bookmarks-node-actions").remove()
+                })
+                $("body").on("click", (event) => {
+                    // Check if the clicked element is an element of the contextual menu dropdown
+                    if($("#gofast-bookmarks-node-actions").find(event.target).length || $(event.target).attr("id") == "gofast-bookmarks-node-actions"){
+                        return;
+                    }
+                    $("#gofast-bookmarks-node-actions").remove()
                 })
 
             }
@@ -616,7 +666,6 @@
             if(typeof filterClass == "undefined"){
                 filterClass = "view-display-id-page_1";
             }
-            // debugger;
             $("#navbar .view-gofast-flag-bookmarks."+filterClass+" > div > table > tbody > tr").each(function(k, item){
                 //Reformat all unflag links
                 $(item).find("td:last").find("a:not('.dropdown-placeholder, .dropdown-toggle')").html('<span style="color:red;" class="fa fa-trash"></span>');
@@ -644,82 +693,45 @@
                         var href = encodeURIComponent($(item).find(".views-field-field-emplacement").text());
                         var folder_reference = encodeURIComponent($(item).find(".views-field-field-reference").text());
                         $(item).find("td:last").html('<div class="loader-paginate"></div>');
-                        $.post(location.origin + "/ajax_file_browser/unbookmark_folder", {folder_reference: folder_reference}, function(){
-                            Gofast.toast(Drupal.t("Folder removed from bookmarks"), "success");
-                            //                                $(".block-bookmarks").data('forceRefresh', true);
-                            //                                Gofast.block.loadIfNeeded($(".gofast-block"));
-                            $(item).remove();
-                        });
                     });
                 }
             });
         };
 
 
-        Gofast.Display_FavoritesFolders = function(event){
-            if(!$('#foldersFavoritesTab').hasClass('active')) {
-                $('.block-bookmarks #gofastFavoriteFolderTabContent div').empty();
-                if($('.block-bookmarks .gofast-bookmarks-block-inner .loader-blog').length == 0){
-                    if($('.block-bookmarks .gofast-bookmarks-block-inner section .view-gofast-flag-bookmarks').length !== 0){
-                        $('.block-bookmarks .gofast-bookmarks-block-inner section .view-gofast-flag-bookmarks').remove();
-                        $('.block-bookmarks .gofast-bookmarks-block-inner section').append('<div class="loader-blog"></div>');
-                    }else{
-                        $('.block-bookmarks .gofast-bookmarks-block-inner .dashboard-folders-placeholder').remove();
-                        $('.block-bookmarks .gofast-bookmarks-block-inner').append('<div class="loader-blog"></div>');
+        Gofast.Display_FavoritesFolders = function(event, forceReload = false){
+            if((!$('#foldersFavoritesTab').hasClass('active')) || forceReload) {
+                let tree = Gofast.Bookmark_Collection.tree["bookmark_folder_tree"];
+                if(tree != undefined){
+                    Gofast.Bookmark_Collection.tree["bookmark_folder_tree"].destroy()
+                    if($("#gofast_topbar_flag_bookmarks .bookmark_tree_container").find(".loader-blog").length == 0){
+                        $('#gofast_topbar_flag_bookmarks .bookmark_tree_container').append('<div class="loader-blog"></div>');
                     }
-                    $.post(location.origin + "/gofast/bookmarks/favorites_folders").done(function(data){
-                        $('#path_pager_bookmarks_folders').remove();
-                        $('.block-bookmarks .gofast-bookmarks-block-inner .loader-blog').remove();
-                        $('#gofastFavoriteFolderTabContent div').append(data);
-                        $('.view-display-id-gofast_bookmarks_folders ul.pagination').parent().remove();
-                        jQuery('.view-display-id-gofast_bookmarks_folders table tbody').pager({pagerSelector : '#path_pager_bookmarks_folders', perPage: 6, numPageToDisplay : 5, showPrevNext: true});
-                        $('.menu-topbar-favorites-folders-delete').on('click', function(e) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            e.stopImmediatePropagation();
-                            const href = $(this).find('a').attr('href');
-                            this.parentElement.remove();
-                            $.get({
-                                url: href
-                            });
-                        })
-                        //                        Gofast.processBookmarksBlock("view-display-id-gofast_bookmarks_folders");
-                        //                        Drupal.attachBehaviors();
-                        //                        Gofast.bookmarksPageBindPagination();
-                    });
+                    
+                    if(!$("#bookmark_folder_tree").hasClass("processing")){
+                        $("#bookmark_folder_tree").addClass("processing");
+                        Gofast.Bookmark_Collection.loadTree("bookmark_folder_tree").then(() => {
+                            $("#bookmark_folder_tree").removeClass("processing");
+                        });
+                    }
                 }
             }
         }
 
-        Gofast.Display_ContentFolders = function(event){
-            if(!$('#contentFavoritesTab').hasClass('active')) {
-                $('.block-bookmarks #gofastFavoriteContentTabContent div').empty();
-                if($('.block-bookmarks .gofast-bookmarks-block-inner .loader-blog').length == 0){
-                    if($('.block-bookmarks .gofast-bookmarks-block-inner section .gofastFlagBookmarks').length !== 0){
-                        $('.block-bookmarks .gofast-bookmarks-block-inner section .gofastFlagBookmarks').remove();
-                        $('.block-bookmarks .gofast-bookmarks-block-inner').append('<div class="loader-blog"></div>');
-                    }else{
-                        $('.block-bookmarks .gofast-bookmarks-block-inner .dashboard-folders-placeholder').remove();
-                        $('.block-bookmarks .gofast-bookmarks-block-inner').append('<div class="loader-blog"></div>');
+        Gofast.Display_ContentFolders = function(event, forceReload = false){
+            if((!$('#contentFavoritesTab').hasClass('active')) || forceReload) {
+                let tree = Gofast.Bookmark_Collection.tree["bookmark_content_tree"];
+                if(tree != undefined){
+                    Gofast.Bookmark_Collection.tree["bookmark_content_tree"].destroy()
+                    if($("#gofast_topbar_flag_bookmarks .bookmark_tree_container").find(".loader-blog").length == 0){
+                        $('#gofast_topbar_flag_bookmarks .bookmark_tree_container').append('<div class="loader-blog"></div>');
                     }
-                    $.post(location.origin + "/gofast/bookmarks/favorites_contents").done(function(data){
-                        if($('.block-bookmarks .gofast-bookmarks-block-inner section .gofastFlagBookmarks').length == 0){
-                            $('#path_pager_bookmarks_folders').remove();
-                            $('.block-bookmarks .gofast-bookmarks-block-inner .loader-blog').remove();
-                            $('#gofastFavoriteContentTabContent div').html(data);
-                            $('.menu-topbar-favorites-delete').on('click', function(e) {
-                                e.preventDefault();
-                                let href = $(this).find('a').attr('href');
-                                this.parentElement.remove();
-                                $.get({
-                                    url: href
-                                });
-                            })
-                            //                            Gofast.processBookmarksBlock("view-display-id-gofast_flag_bookmarks");
-                            //                            Drupal.attachBehaviors();
-                            //                            Gofast.bookmarksPageBindPagination();
-                        }
-                    });
+                    if(!$("#bookmark_content_tree").hasClass("processing")){
+                        $("#bookmark_content_tree").addClass("processing");
+                        Gofast.Bookmark_Collection.loadTree("bookmark_content_tree").then(() => {
+                            $("#bookmark_content_tree").removeClass("processing");
+                        });
+                    }
                 }
             }
         }

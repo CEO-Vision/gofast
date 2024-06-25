@@ -423,7 +423,7 @@ function gofast_html_close_tag($html) {
   preg_match_all('/<[^>]*>/', $html, $tags);
 
   foreach ($tags[0] as $tag) {
-    if ($tag{1} != '/' && preg_match('/<([a-z]+[0-9]*)/i', $tag, $match)) {
+    if ($tag[1] != '/' && preg_match('/<([a-z]+[0-9]*)/i', $tag, $match)) {
       // Opening tag.
       $list[] = $match[1];
     }
@@ -533,9 +533,8 @@ function _gofast_set_user_key($uid, $key = NULL) {
  *  The name of the cookie to delete.
  */
 function gofast_delete_cookie($name) {
-  global $cookie_domain;
   unset($_COOKIE[$name]);
-  setcookie($name, '', time() - 3600, '/', $cookie_domain, TRUE, TRUE);
+  setcookie($name, '', time() - 3600, '/', '', TRUE, TRUE);
 }
 
 /**
@@ -560,7 +559,7 @@ function gofast_get_http_code($url) {
          $warning_message = t('There is a problem contacting Alfresco. Please reload your web page', array(), array('context' => 'gofast'));
          }
          $all_messages = drupal_get_messages("warning", false);
-         if(count($all_messages["warning"]) > 0){
+         if(count((array) $all_messages["warning"]) > 0){
              foreach($all_messages["warning"] as $message){
                  if($warning_message == $message){
                      $add_message = false;
@@ -1048,6 +1047,10 @@ function usurp($uid = FALSE) {
     $user = $_user;
     drupal_save_session(TRUE);
   }
+  // in case an error is thrown, this will call usurp(FALSE) to restore the original user session
+  if($uid != FALSE){
+  	drupal_register_shutdown_function("usurp");
+  }
 
   return $user;
 }
@@ -1130,6 +1133,43 @@ function gofast_element_info_alter(&$type) {
     $type['textfield']['#xac'] = NULL;
     array_unshift($type['textfield']['#process'], 'gofast_process_xac');
   }
+  $key_gofast = array_search('gofast_pre_render_styles', $type['styles']['#pre_render']);
+  if ($key_gofast === FALSE) {
+    $type['styles']['#pre_render'][] = 'gofast_pre_render_styles';
+  }
+}
+
+/** alter rendering of styles tags before they are injected into the <head> tag, see PHPDoc over advagg_pre_render_styles for details */
+function gofast_pre_render_styles(array $elements) {
+  // advagg_pre_render_styles has not been executed yet: return
+  if (empty($elements['#groups'])) {
+    return $elements;
+  }
+
+  foreach ($elements as $key => $group) {
+    // get only elements attached by advagg
+    if (!is_numeric($key)) {
+      continue;
+    }
+
+    $href = $group["#attributes"]["href"];
+    if (!$href) {
+      continue;
+    }
+
+    $elements[$key]["#attributes"] = [
+      'rel' => 'preload',
+      'as' => 'style',
+      'onload' => "this.onload=null;this.rel='stylesheet'",
+      'href' => $href,
+    ];
+
+    $media = $group["#attributes"]["media"];
+    if ($media != NULL) {
+      $elements[$key]["#attributes"]['media'] = $media;
+    }
+  }
+  return $elements;
 }
 
 /**
@@ -1162,16 +1202,11 @@ function gofast_process_xac($element) {
 function gofast_set_context($ctxt = NULL) {
   $context = &drupal_static(__FUNCTION__);
 
-  /*if (isset($context)) {
-    return $context;
-  }*/
-
   $context = isset($ctxt) ? $ctxt : array();
 
   $context += array(
     'space' => FALSE,
     'path' => $_GET['q'],
-  //  'entity' => FALSE,
     'is_front' => drupal_is_front_page()
   );
 
@@ -1328,6 +1363,23 @@ function gofast_command_processAjax($href) {
 }
 
 /**
+ * Creates a Drupal Ajax 'processEssentialAjax' command. Instructs the client to
+ * redirrect to a page in Essential version using ajax callback
+ *
+ * @param string $callback
+ *  A javascript function callback.
+ *
+ * @param mixed $data [optional]
+ *  Array of additional parameters to pass along to the function callback.
+ */
+function gofast_command_processEssentialAjax($href) {
+  return array(
+    'command' => 'processEssentialAjax',
+    'href' => $href
+  );
+}
+
+/**
  * Creates a Drupal Ajax 'scrollToComment' command. Instructs the client to
  * redirrect to a page using ajax callback
  *
@@ -1364,13 +1416,13 @@ function gofast_normalize_string_from_ajaxifying($output) {
 function gofast_get_node_title($nid, $bundles=array(), $rename_private = FALSE){
   $og_label = '';
 
-  $result = db_select('node', 'n')
+  $result = (array) db_select('node', 'n')
       ->fields('n', array('title', 'type', 'uid'))
       ->condition('n.nid', $nid, '=')
       ->execute()
       ->fetchAssoc();
 
-   if( count($result) > 0){
+   if(count($result) > 0){
       if($result['type'] == 'private_space' && $rename_private === 2){
         $og_label = user_load($result['uid'])->name;
       }else if($result['type'] == 'private_space' && $rename_private){
@@ -1394,11 +1446,8 @@ function gofast_get_node_title_multiple($nids, $bundles=array(), $rename_private
 
   foreach ($results as $nid => $result) {
     $og_label = '';
-    if ($result->type === 'private_space' && $rename_private === 2) {
-      $og_label = user_load($result->uid)->name;
-    }
-    else if ($result->type === 'private_space' && $rename_private) {
-      $og_label = gofast_user_display_name($result->uid);
+    if ($result->type === 'private_space' && $rename_private) {
+      $og_label = t("@user_display_name's Personal Space", array("@user_display_name" => gofast_user_display_name($result->uid), array("context" => "gofast:gofast")));
     }
     else {
       $og_label = $result->title;
@@ -1456,6 +1505,7 @@ function gofast_get_json_object_from_node($node, $full = false){
     $array_object["field_cei"] = $node->field_cei[LANGUAGE_NONE][0]['target_id'];
     $array_object["reference"] = $node->reference;
     $array_object["state"] = taxonomy_term_load($node->field_state[LANGUAGE_NONE][0]['tid'])->name;
+    $array_object["classification"] = taxonomy_term_load($node->field_type[LANGUAGE_NONE][0]['tid'])->name;
     $string_tags = "";
     if(count($node->field_tags[LANGUAGE_NONE])){
         foreach($node->field_tags[LANGUAGE_NONE] as $object_tag){
@@ -1657,7 +1707,7 @@ function batch_check_integrity_finish($success, $results, $operations) {
 
 }
 
-function gofast_array_diff_recursive($aArray1, $aArray2, $compare_keys = TRUE, $base_array = array()) {
+function gofast_array_diff_recursive($aArray1, $aArray2 = array(), $compare_keys = TRUE, $base_array = array()) {
   $aReturn = array();
 
   foreach ($aArray1 as $mKey => $mValue) {
@@ -1752,7 +1802,7 @@ function gofast_form_unset_error($name) {
     $removed_messages[] = $errors[$name];
     unset($errors[$name]);
   }
-  $_SESSION['messages']['error'] = array_diff($_SESSION['messages']['error'], $removed_messages);
+  $_SESSION['messages']['error'] = array_diff((array) $_SESSION['messages']['error'], $removed_messages);
 
   if (empty($_SESSION['messages']['error'])) {
     unset ($_SESSION['messages']['error']);
@@ -1788,7 +1838,7 @@ function gofast_resynchro_ldap_membership_one_user($account){
     }
 
     $dn = gofast_ldap_space_dn($space);
-    $members = $LdapServer->groupAllMembers($dn);
+    $members = (array) $LdapServer->groupAllMembers($dn);
      if(array_search(strtolower($member_cn), array_map('strtolower', $members)) === false){
             watchdog("GOFAST REBUILD MEMBERSHIP ONE USER ON SPACE", "Membership of user ".$account->uid." added on space ".$space->nid);
             $membership = new OgMembership();
@@ -1811,16 +1861,16 @@ function gofast_resynchro_ldap_membership_one_user($account){
          if($role_suffix === "ADMIN"){
               $dn = gofast_ldap_space_dn($space);
               $cn = gofast_ldap_space_cn($space);
-              $members = $LdapServer->groupAllMembers("cn={$cn}_ADMIN,{$dn}");
-               if(array_search($member_cn,$members) === false){
+              $members = (array) $LdapServer->groupAllMembers("cn={$cn}_ADMIN,{$dn}");
+               if(array_search($member_cn, $members) === false){
                 watchdog("GOFAST REBUILD MEMBERSHIP ONE USER ON SPACE", "Admin role of user ".$account->uid." added on space ".$space->nid);
                 gofast_ldap_og_role_grant('node', $gid, $uid, $rid);
                }
          }elseif($role_suffix === "STANDARD"){
               $dn = gofast_ldap_space_dn($space);
                $cn = gofast_ldap_space_cn($space);
-              $members = $LdapServer->groupAllMembers("cn={$cn}_STANDARD,{$dn}");
-               if(array_search($member_cn,$members) === false){
+              $members = (array) $LdapServer->groupAllMembers("cn={$cn}_STANDARD,{$dn}");
+               if(array_search($member_cn, $members) === false){
                 watchdog("GOFAST REBUILD MEMBERSHIP ONE USER ON SPACE", "Standard role of user ".$account->uid." added on space ".$space->nid);
                 gofast_ldap_og_role_grant('node', $gid, $uid, $rid);
                }
@@ -1836,8 +1886,8 @@ function gofast_resynchro_ldap_membership_one_user($account){
                 $ulid = $userlist->ulid;
                 $userlist = entity_load_single('userlist', $ulid);
                 $dn_userlist = array('dn' => array(UserListEntity::getDn($userlist)));
-                $members_userlist_ldap = $LdapServer->groupAllMembers($dn_userlist["dn"][0]);
-                if(array_search(strtolower($member_cn), array_map('strtolower', $members_userlist_ldap)) === false){
+                $members_userlist_ldap = (array) $LdapServer->groupAllMembers($dn_userlist["dn"][0]);
+                if($members_userlist_ldap && array_search(strtolower($member_cn), array_map('strtolower', $members_userlist_ldap)) === false){
                     watchdog("GOFAST REBUILD MEMBERSHIP ONE USER ON USERLIST", "Membership of user ".$account->uid." added on userlist ".$userlist->ulid);
                     $member = array('dn' => array(gofast_ldap_user_dn($account)));
                     $LdapServer->groupAddMember($dn_userlist["dn"][0], $member_cn);
@@ -1889,7 +1939,9 @@ function gofast_resynchro_ldap_remove_bad_ldap($account){
  $LdapServer = gofast_ldap_server_load(GOFAST_LDAP_INT_SERVER);
  $ldap_spaces = $LdapServer->groupUserMembershipsFromEntry($member_cn, false);
  $isAdmin= !empty($account->roles['3']);
+ $isBusinessAdmin= gofast_user_is_business_admin($account);
  $addFolderTemplate = false;
+ $addBusinessAdmin = false;
  foreach($ldap_spaces as $mydn){
       if (strpos($mydn, 'cn=ADMIN_GOFAST') !== false){
         if($isAdmin){
@@ -1897,9 +1949,18 @@ function gofast_resynchro_ldap_remove_bad_ldap($account){
             continue;
           }
         }
+      }else if(strpos($mydn, 'cn=BUSINESS_ADMIN_GOFAST') !== false){
+        if($isBusinessAdmin){
+          if($addBusinessAdmin === false){
+            continue;
+          }
+        }
       }else{
         if ($isAdmin) {
           $addFolderTemplate = true;
+        }
+        if ($isBusinessAdmin) {
+          $addBusinessAdmin = true;
         }
       }
       $gid = gofast_ldap_gid_from_dn($mydn);
@@ -1961,6 +2022,17 @@ function gofast_resynchro_ldap_remove_bad_ldap($account){
       watchdog('GOFAST REBUILD MEMBERSHIP ONE USER ON SPACE', "Remove user ".$account->uid." from LDAP entry ADMIN_GOFAST");
       $LdapServer->groupAddMember($gofast_ldap_gofast_admin_basedn, $account);
     }
+    if($addBusinessAdmin){
+      // Add the user into BUSINESS_ADMIN_GOFAST Ldap entity
+      $ldap_basedn = variable_get('gofast_ldap_int_base_dn');
+      $attributes = array();
+      $attributes['objectclass'] = array('groupOfNames');
+      $attributes['description'] = GOFAST_BUSINESS_ADMIN_PLATFORM;
+      $attributes['cn'] = GOFAST_BUSINESS_ADMIN_PLATFORM;
+      $gofast_ldap_gofast_admin_basedn = 'cn=' . $attributes['cn'] . ',ou=Groups,' . $ldap_basedn;
+        watchdog('GOFAST REBUILD MEMBERSHIP ONE USER ON SPACE', "Remove user ".$account->uid." from LDAP entry BUSINESS_ADMIN_GOFAST");
+        $LdapServer->groupAddMember($gofast_ldap_gofast_admin_basedn, $account);
+      }
 }
 
 function gofast_repair_membership_one_user($account){
@@ -2011,9 +2083,9 @@ function gofast_resynchro_ldap_membership_one_space($space){
        }
 
         $member = array('dn' => array(gofast_ldap_user_dn($account)));
-        $ldap_ro = _gofast_remove_admin_and_userslists_ldap_members_integrity_check($LdapServer->groupAllMembers($dn));
-        $ldap_admin = _gofast_remove_admin_and_userslists_ldap_members_integrity_check($LdapServer->groupAllMembers("cn={$cn}_ADMIN,{$dn}"));
-        $ldap_standard = _gofast_remove_admin_and_userslists_ldap_members_integrity_check($LdapServer->groupAllMembers("cn={$cn}_STANDARD,{$dn}"));
+        $ldap_ro = (array) _gofast_remove_admin_and_userslists_ldap_members_integrity_check($LdapServer->groupAllMembers($dn));
+        $ldap_admin = (array) _gofast_remove_admin_and_userslists_ldap_members_integrity_check($LdapServer->groupAllMembers("cn={$cn}_ADMIN,{$dn}"));
+        $ldap_standard = (array) _gofast_remove_admin_and_userslists_ldap_members_integrity_check($LdapServer->groupAllMembers("cn={$cn}_STANDARD,{$dn}"));
 
        //compare each arrays
        if(count(array_udiff($ldap_ro,$theorically_ro, 'strcasecmp')) > 0 || count(array_udiff($ldap_admin,$theorically_admin, 'strcasecmp')) > 0 || count(array_udiff($ldap_standard,$theorically_standard, 'strcasecmp')) > 0
@@ -2076,7 +2148,7 @@ function gofast_resynchro_ldap_membership_one_space($space){
 }
 
 function _gofast_remove_admin_and_userslists_ldap_members_integrity_check($members){
-    if(count($members) > 0){
+    if(count((array) $members) > 0){
           foreach($members as $key=>$member){
                    if(strpos($member, "uid=admin")  !== FALSE || strpos($member, "ou=UserLists")  !== FALSE){
                               unset($members[$key]);
@@ -2129,12 +2201,12 @@ function gofast_block_users_massively($block = array(), $pass = array(), $except
 
 function gofast_is_node_inside_space($node,$gid){
     $node_groups = $node->{GOFAST_OG_CONTENT_MEMBERSHIP_FIELD}[LANGUAGE_NONE];
-    if(count($node_groups) > 0){
-        foreach($node_groups as $key=>$group_array){
-            if($group_array["target_id"] == $gid){
-                return true;
-            }
+    if (!empty($node_groups) && count($node_groups) > 0) {
+      foreach ($node_groups as $group_array) {
+        if ($group_array["target_id"] == $gid) {
+          return true;
         }
+      }
     }
     return false;
 }
@@ -2765,6 +2837,37 @@ function gofast_api_post_drupal_variable($params){
 }
 
 /**
+ * Map of all node types. Keys are machine names, values are human-readable untranslated strings.
+ */
+function gofast_get_all_node_types() {
+  return [
+    "alfresco_item" => t("Document"),
+    "article" => t("Wiki article"),
+    "extranet" => t("Extranet"),
+    "forum" => t("Forum"),
+    "kanban" => t("Kanban board"),
+    "task" => t("Kanban card"),
+    "webform" => t("Web Form"),
+    "blog" => t("News"),
+    "conference" => t("Meeting"),
+    "contact" => t("Contact"),
+    "dashboard_article" => t("Dashboard article"),
+    "group" => t("Group"),
+    "organisation" => t("Organisation"),
+    "private_space" => t("Personal Space"),
+    "public" => t("Public"),
+    "userlist" => t("Userlist"),
+  ];
+}
+
+/**
+ * Given the machine name of a node type, returns the human-readable untranslated string for that node type
+ */
+function gofast_get_human_readable_node_type($type) {
+  return gofast_get_all_node_types()[$type] ?? $type;
+}
+
+/**
  * Get type of a node (usually called by *_get_item_type   below)
  *
  * @param $nid
@@ -2773,12 +2876,15 @@ function gofast_api_post_drupal_variable($params){
  * @return
  *  A string that contains the referenced type
  */
-function gofast_get_node_type($nid){
+function gofast_get_node_type($nid, $machine_type = FALSE){
   $query = db_select('node', 'n')
           ->fields('n', array('type'))
           ->condition('nid', $nid)
           ->execute();
   $result = $query->fetch();
+  if ($machine_type) {
+    return $result->type;
+  }
   switch($result->type){
     case 'alfresco_item':
       $return_type = "Document";
@@ -2823,6 +2929,8 @@ function gofast_admin_get_space_defaults(){
   $default_spaces_configuration = array(
       'public_contrib' => variable_get('public_contributions', '0'),
       'create_sub_space' => FALSE,
+      'group_add_external_user' => TRUE,
+      'organization_add_external_user' => TRUE,
   );
   return variable_get("spaces_defaults", $default_spaces_configuration);
 }
@@ -2867,6 +2975,21 @@ function gofast_node_get_icon($node){
       break;
     case 'article':
       $icon_class = "far fa-ballot";
+      break;
+    case 'contact':
+      $icon_class = "fas fa-address-book";
+      break;
+    case 'conference':
+      $icon_class = "fas fa-video";
+      break;
+    case 'webform':
+      $icon_class = "far fa-list-alt";
+      break;
+    case 'forum':
+      $icon_class = "far fa-comments";
+      break;
+    case 'blog':
+      $icon_class = "fa fa-edit";
       break;
     default:
       $icon_class = $type;
@@ -3076,14 +3199,14 @@ function _sanitize_naughty_html($matches)
 
 // call the function
 //from http://www.cnblogs.com/osfipin/
-function gofast_xss_clean($str, $is_image = FALSE)
+function gofast_xss_clean($str, $is_image = FALSE, $forbidden_tags = array("iframe"))
 {
   /*
 	 * Is the string an array?
 	 *
 	 */
   if (is_array($str)) {
-    while (list($key) = each($str)) {
+    foreach ($str as $key => $value) {
       $str[$key] = gofast_xss_clean($str[$key]);
     }
 
@@ -3091,6 +3214,24 @@ function gofast_xss_clean($str, $is_image = FALSE)
   }
 
   $str = remove_invisible_characters($str);
+
+  // If a word is abnormally long, there may be some too heavy base64-encoded data: remove it
+  $has_been_truncated = FALSE;
+  $str = preg_replace_callback('/\b\w+\b/', function ($matches) use (&$has_been_truncated) {
+    $skip_match = FALSE;
+    if (mb_strlen($matches[0]) > 100000) {
+      $has_been_truncated = TRUE;
+      $skip_match = TRUE;
+    }
+    return $skip_match ? '' : $matches[0];
+  }, $str);
+
+  if ($has_been_truncated) {
+    drupal_set_message(t("Part of the content was too long to be saved and has been truncated", array(), array("context" => "gofast")), "warning");
+  }
+
+  // Remove all mb4 characters 
+  $str = preg_replace('/[\xF0-\xF7].../s', "", $str);
 
   // Validate Entities in URLs
   $hash = md5(time() + mt_rand(0, 1999999999));
@@ -3183,6 +3324,11 @@ function gofast_xss_clean($str, $is_image = FALSE)
     $str = str_replace(array('<?', '?' . '>'),  array('<?', '?>'), $str);
   }
 
+   // Additional filtering for forbidden
+   foreach($forbidden_tags as $forbidden_tag){
+     $str = preg_replace("#<\/*\s*$forbidden_tag#is", '[removed]', $str);
+   }
+
   /*
 	 * Compact any exploded words
 	 *
@@ -3231,7 +3377,7 @@ function gofast_xss_clean($str, $is_image = FALSE)
   unset($original);
 
   // Remove evil attributes such as style, onclick and xmlns
-  $js_events = ["onclick", "onblur", "oncanplay", "onafterprint", "onbeforeprint", "onbeforeonload", "oncanplaythrough", "oncontextmenu", "onchange", "ondblclick", "ondragover", "ondragleave", "ondragenter", "ondragend", "ondrag", "onended", "onemptied", "ondurationchange", "ondragstart", "ondrop", "onerror", "onformchange", "onfocus", "onforminput", "oninvalid", "oninput", "onhaschange", "onkeypress", "onkeydown", "onloadeddata", "onmouseout", "onmousedown", "onmousemove", "onmessage", "onloadstart", "onmouseup", "onplaying", "onplay", "onpopstate", "onratechange", "onprogress", "onreadystatechange", "onstorage", "onstalled", "onseeking", "onscroll", "onseeked", "onresize", "onredo", "onsuspend", "onundo", "onwaiting", "ontimeupdate", "onvolumechange"];
+  $js_events = ["onclick", "onblur", "oncanplay", "onafterprint", "onbeforeprint", "onbeforeunload", "oncanplaythrough", "oncontextmenu", "onchange", "ondblclick", "ondragover", "ondragleave", "ondragenter", "ondragend", "ondrag", "onended", "onemptied", "ondurationchange", "ondragstart", "ondrop", "onerror", "onformchange", "onfocus", "onforminput", "oninvalid", "oninput", "onhashchange", "onkeypress", "onkeydown", "onkeyup", "onloadeddata", "onmouseout", "onmouseover", "onmousedown", "onmousemove", "onmouseleave", "onmessage", "onloadstart", "onmouseup", "onplaying", "onplay", "onpopstate", "onratechange", "onprogress", "onreadystatechange", "onstorage", "onstalled", "onseeking", "onscroll", "onseeked", "onresize", "onredo", "onsuspend", "onundo", "onwaiting", "ontimeupdate", "onvolumechange", "onsubmit", "onreset", "onselect", "ontouchstart", "ontouchmove", "ontouchend", "ontouchcancel", "onload", "onloadend", "onmouseenter", "oncopy", "onpaste"];
   // All javascript event handlers (e.g. onload, onclick, onmouseover), style, and xmlns
   $evil_attributes = array(...$js_events, 'xmlns', 'formaction');
   if ($is_image === TRUE) {
@@ -3465,6 +3611,7 @@ function gofast_get_mime_content_type($filename, $flip = FALSE) {
   }
   elseif (function_exists('finfo_open')) {
     $finfo = finfo_open(FILEINFO_MIME);
+    if(empty((array)$finfo)){return 'application/octet-stream';}
     $mimetype = finfo_file($finfo, $filename);
     finfo_close($finfo);
     return $mimetype;
@@ -3482,4 +3629,85 @@ function gofast_user_is_flood_blocked($uid) {
     ->condition('f.identifier', db_like($uid . "-") . "%", 'LIKE')
     ->execute();
   return $userFlood->rowCount() >= 5;
+}
+
+function gofast_partials(&$themes) {
+  $partial_path = "tpl/partials";
+  $partial_templates = ["gofast-cropper-buttons"];
+  foreach($partial_templates as $template) {
+    $theme = str_replace("-", "_", $template);
+    $themes[$theme] = [
+      "template" => $partial_path . "/" . $template
+    ];
+  }
+}
+
+/** 
+ * if a chain has the "gofast_technical" context, it means it is translated from a technical chain
+ * in this case, this function must be used instead of t() to get proper english translation
+ */
+function gft($string, $args = [], $options = []) {
+  if (!isset($options["langcode"])) {
+    global $user;
+    $options["langcode"] = $user->language;
+  }
+  if ($options["langcode"] == "en") {
+    $options["langcode"] = "gfen";
+  }
+  if (!isset($options["context"])) {
+    $options["context"] = "gofast_technical";
+  }
+  if (substr($options["context"], 0, strlen("gofast_technical")) != "gofast_technical") {
+    $options["context"] = "gofast_technical:" . $options["context"];
+  }
+  // in case there are HTML tags in the string (which would prevent import of the string)
+  $encoded_string = htmlentities($string);
+  $translation = t($encoded_string, $args, $options);
+  return html_entity_decode($translation);
+}
+
+function gofast_clean_language_list() {
+  $languages = language_list();
+  unset($languages["gfen"]);
+  return $languages;
+}
+
+/**
+ * Adds a Cancel button to a form with optional redirection.
+ *
+ * This function enhances a form by appending a Cancel button, which either
+ * redirects the user to a specified URL or invokes a custom JavaScript
+ * function to handle navigation based on history.
+ *
+ * @param array $form
+ *   The form to which the Cancel button will be added.
+ * @param string|null $url
+ *   (Optional) The URL to redirect to when the Cancel button is clicked.
+ *   If not provided, a JavaScript function (`Gofast.customHistoryBackOrBase()`)
+ *   will be used for navigation.
+ */
+function gofast_add_cancel_button_to_form(mixed &$form, string $url = NULL): void {
+  $form['actions']['#attributes'] = [
+    'class' => ['d-flex'],
+    'style' => ['gap:1rem;'],
+  ];
+  
+  $from_modal = $_POST['from_modal'] ?? FALSE;
+  $js =  $from_modal ? 'Drupal.CTools.Modal.dismiss()' : 'Gofast.customHistoryBackOrBase();';
+  if ($url)
+    $form['actions']['submit']['#suffix'] = '<a href="' . $url . '" class="btn btn-default ml-2">' . t('Cancel') . '</a>';
+  else
+    $form['actions']['submit']['#suffix'] = '<a href="" onclick="'.$js.'" class="btn btn-default ml-2">' . t('Cancel') . '</a>';
+}
+
+/**
+ * Checks if a node has an ancestor that is an extranet, thus that it can be accessed through an
+ * extranet space.
+ * @param mixed $node The node to check the ancestors of.
+ * @return bool true if the node can be accessed through an extranet, false otherwise.
+ */
+function gofast_node_has_extranet_location($node) {
+  $ancestors = gofast_og_get_ancestors($node, full: true, flat: true);
+  $ancestors_types = array_map(fn ($n) => $n->type, $ancestors);
+  return in_array('extranet', $ancestors_types, strict: true);
 }

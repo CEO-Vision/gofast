@@ -422,7 +422,7 @@ class DrupalApacheSolrService implements DrupalApacheSolrServiceInterface {
   function getId() {
     return $this->env_id;
   }
-  
+
   /**
    * Check the reponse code and thow an exception if it's not 200.
    *
@@ -440,8 +440,9 @@ class DrupalApacheSolrService implements DrupalApacheSolrServiceInterface {
       $caller = $this->findCaller();
       watchdog(
         'Apache Solr',
-        t('HTTP Status: %http_status; <br>Message: %status_message; <br>Response: %response; <br>Request: %request; <br>Caller: %function (line %line of %file)'),
+        t('Environment @env_id; HTTP Status: %http_status; <br>Message: %status_message; <br>Response: %response; <br>Request: %request; <br>Caller: %function (line %line of %file)'),
         array(
+          '@env_id' => $this->getId(),
           '%http_status' => $code,
           '%status_message' => $response->status_message,
           '%response' => $response->data,
@@ -538,7 +539,6 @@ class DrupalApacheSolrService implements DrupalApacheSolrServiceInterface {
       $options['headers']['Content-Type'] = 'text/xml; charset=UTF-8';
     }
     $response = $this->_makeHttpRequest($url, $options);
-//    _debug($response->data);
     return $this->checkResponse($response);
   }
 
@@ -553,30 +553,11 @@ class DrupalApacheSolrService implements DrupalApacheSolrServiceInterface {
       $options['data'] = NULL;
     }
 
-    /** @patch elavault@ceovision: authenticate the request */
-    $scheme = parse_url($url, PHP_URL_SCHEME);
-    // No need to escape, drupal_http_request() will set authorization header 
-    // from these values. 
-    $username = 'admin';
-    $pass = gofast_get_admin_pwd();
-    $url = str_replace("{$scheme}://", "{$scheme}://{$username}:{$pass}@", $url); 
-    
-    // Add our default params. This does not override our existing values
-    $options += array(
-      'headers' => array(),
-      'method' => 'GET',
-      'data' => NULL,
-    );
-    /*** end ***/
-    
     $result = drupal_http_request($url, $options);
-    
-//    _dump([
-//      'url' => $url,
-//      'options' => $options,
-//      'result' => $result
-//    ], 'solr_request');
-    
+    if (empty($result->status_message)) {
+      $result->status_message = '[unknown error]';
+    }
+
     if (!isset($result->code) || $result->code < 0) {
       $result->code = 0;
       $result->status_message = 'Request failed';
@@ -892,24 +873,8 @@ class DrupalApacheSolrService implements DrupalApacheSolrServiceInterface {
     else {
       $rawPost = '<optimize waitSearcher="' . $searcherValue . '" softCommit="' . $softCommit . '" />';
     }
-    
-    /** @patch elavault@ceo-vision
-     * Au lieu de faire appel à la méthode update(), on fait un appel curl ce
-     * qui réduit nettement l'impact de l'opération en terme de temps et de
-     * mémoire. Toutefois nous ne somme pas à l'abri d'une fatal error php (oom)
-     * ou d'un cronjob bloqué qui déboucherait sur une boucle.
-     */
-//    return $this->update($rawPost, $timeout);    
-    $ch = curl_init();
 
-    $username = 'admin';
-    $pass = gofast_get_admin_pwd();
-    watchdog(' SOLR ', ' OPTIMIZING... ');
-    
-    $url = "http://{$username}:{$pass}@localhost:8983/solr/update?optimize=true";
-    curl_setopt_array($ch, array(CURLOPT_HEADER => 0, CURLOPT_RETURNTRANSFER => 1, CURLOPT_URL => $url, CURLOPT_TIMEOUT => $timeout));
-    return curl_exec($ch);
-    /*** end ***/
+    return $this->update($rawPost, $timeout);
   }
 
   /**

@@ -4,5 +4,5 @@
       <i class="<?php echo $variables['icon'] ?> icon-nm"></i>
     </span>
   </div>
-  <a href="<?php echo $variables['link']?>" class="text-dark text-hover-primary text-truncate font-size-sm"><?php echo $variables['title'] ?></a>
+  <a href="<?php echo $variables['link']?>" class="text-dark text-hover-primary text-truncate font-size-sm" title="<?= $variables['title'] ?>"><?php echo $variables['title'] ?></a>
 </div>

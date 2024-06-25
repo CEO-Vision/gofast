@@ -1,7 +1,7 @@
 <?php
 if ($warning == true) {
     $class = "onlyoffice_button";
-    $onclick = "onClick=\"Gofast.gofast_onlyoffice_show_warning('" . $path . "', event);return false;\"";
+    $onclick = "onClick=\"Gofast.gofast_onlyoffice_show_warning('" . $path . "', $node->nid, event);return false;\"";
 } else {
     $class = "";
     $onclick = "onClick=\"window.open('" . $path . "', '_blank')\"";
@@ -9,7 +9,7 @@ if ($warning == true) {
 }
 
 if(module_exists('gofast_onlyoffice')){
-    if(gofast_onlyoffice_is_edition_disabed($node)){
+    if(gofast_onlyoffice_is_edition_disabled($node)){
         $disabled = true;
     }
 }

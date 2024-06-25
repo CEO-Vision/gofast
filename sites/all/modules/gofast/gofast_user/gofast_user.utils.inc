@@ -1,6 +1,5 @@
 <?php
 
-
 /**
  * Checks if a user has a given role. We should prefer this method over core
  * user_has_role() method that check on rid which may differ in production site.
@@ -218,7 +217,7 @@ function gofast_user_load_all($full = TRUE)
  * @return boolean
  *  Whether error(s) occured or not.
  */
-function gofast_user_create($name, $role_name = GOFAST_ROLE_CONTRIBUTOR, array $options = array(), $sasl = TRUE)
+function gofast_user_create($name, $role_name = GOFAST_ROLE_CONTRIBUTOR, array $options = array(), $sasl = TRUE, $creation_method = "form_gui")
 {
   $domain = str_replace(array('dc=', ','), array('', '.'), GOFAST_LDAP_INT_BASE_DN);
   $options['name'] = $name;
@@ -302,6 +301,12 @@ function gofast_user_create($name, $role_name = GOFAST_ROLE_CONTRIBUTOR, array $
     return FALSE;
   } else {
     watchdog('Gofast User', 'User :username created successfully', array(':username' => $options['name']), WATCHDOG_INFO);
+    
+    $uid_user   = user_load_by_name($name);
+    $uid_create = $uid_user->uid ?? FALSE;
+    if($uid_create){
+      gofast_audit_create_user( $uid_create, $creation_method);
+    }
     return TRUE;
   }
 }
@@ -309,7 +314,7 @@ function gofast_user_create($name, $role_name = GOFAST_ROLE_CONTRIBUTOR, array $
 /**
  * Create a user programmatically
  */
-function gofast_user_user_create($username, $givenname, $sn, $pass, $mail, $main_orga, $lang = 'fr')
+function gofast_user_user_create($username, $givenname, $sn, $pass, $mail, $main_orga, $lang = 'fr', $sso = FALSE)
 {
   require_once DRUPAL_ROOT . '/' . variable_get('password_inc', 'includes/password.inc');
 
@@ -337,10 +342,11 @@ function gofast_user_user_create($username, $givenname, $sn, $pass, $mail, $main
   ldap_user_ldap_provision_pwd('set', $pass);
 
   $account = user_save($account, $edit);
-  if ($account === FALSE) {
-    //watchdog('Gofast User', 'User :adm creation failed.', array(':adm' => GOFAST_USER_ADMINISTRATOR_USERNAME), WATCHDOG_ERROR);
-  } else {
-    // watchdog('Gofast User', 'User :adm created successfully', array(':adm' => $account->name), WATCHDOG_INFO);
+  
+  if($account && $sso){
+    $creation_method =  t('Automatically through SSO SAML configuration.', ['context' => 'gofast:gofast_user']);
+    $uid_create = $account->uid;
+    gofast_audit_create_user( $uid_create, $creation_method);
   }
 
   return $account;
@@ -427,7 +433,7 @@ function gofast_user_adm_delete($uid){
 
 
 
-function gofast_user_get_request_actions($account, $include_subscription = true)
+function gofast_user_get_request_actions($account, $include_subscription = TRUE, $exclude_bulk = FALSE)
 {
   $actions = array();
   global $user;
@@ -435,31 +441,32 @@ function gofast_user_get_request_actions($account, $include_subscription = true)
 
   if ($account->uid !== $user->uid) {
     //Check if we are administrator
-    if (user_access("gofast administer users")) {
-      if (gofast_user_is_left($account)) { //The user has left the org
+    if (!$exclude_bulk && user_access("gofast administer users")) {
+     if (gofast_user_is_left($account) && gofast_user_is_business_admin()) { //The user has left the org
         $actions[] = theme('gofast_link_generic', array(
           'icon_class' => "fas fa-check",
           'href' => "/modal/nojs/user/$account->uid/unleave",
           'link_class' => 'ctools-use-modal',
           'text' => t('Re-enable', array(), array('context' => 'gofast'))
         ));
-      } else if ($account->status == 0 || gofast_user_is_flood_blocked($account->uid)) { //The isuer is blocked due to a technical action
-        $actions[] = theme('gofast_link_generic', array(
-          'icon_class' => "fas fa-unlock",
-          'href' => "/modal/nojs/user/$account->uid/unblock",
-          'link_class' => 'ctools-use-modal',
-          'text' => t('Unblock', array(), array('context' => 'gofast'))
-        ));
-      } else { // The isuer isn't blocked
-        $actions[] = theme('gofast_link_generic', array(
-          'icon_class' => "fas fa-ban",
-          'href' => "/modal/nojs/user/$account->uid/leave",
-          'link_class' => 'ctools-use-modal',
-          'text' => t('Disable', array(), array('context' => 'gofast'))
-        ));
-      }
-
-      // DELETE User system link -- if logged user is an admin and the user that we will delete never connecte
+     }
+     if (!gofast_user_is_left($account) && gofast_user_is_business_admin()) { //The user has left the org
+      $actions[] = theme('gofast_link_generic', array(
+        'icon_class' => "fas fa-ban",
+        'href' => "/modal/nojs/user/$account->uid/leave",
+        'link_class' => 'ctools-use-modal',
+        'text' => t('Disable', array(), array('context' => 'gofast'))
+      ));
+     }
+     if((gofast_user_is_left($account) || $account->status == 0 || gofast_user_is_flood_blocked($account->uid) || $account->field_standby[LANGUAGE_NONE][0]["value"] == 1) && (gofast_user_is_business_admin())){
+      $actions[] = theme('gofast_link_generic', array(
+        'icon_class' => "fas fa-user-check",
+        'href' => "/modal/nojs/user/$account->uid/unstandby_or_unleave",
+        'link_class' => 'ctools-use-modal',
+        'text' => t('Unblock / Activate', array(), array('context' => 'gofast'))
+      ));   
+    }
+     // DELETE User system link -- if logged user is an admin and the user that we will delete never connecte
       if ($account->access == 0) { // the user never connect
         $actions[] = theme('gofast_link_generic', array(
           'icon_class' => "fas fa-trash",
@@ -722,6 +729,14 @@ function gofast_user_leave_user($account_uid){
     if(isset($account->uid)){
        $account->field_left[LANGUAGE_NONE][0]["value"] = 1;
        $account->status = 0;
+       
+        //GOFAST-9054
+        //if standby mecanism is enabled, and the user was standby, set this field to 0 because 
+        //the user is not in standby if we disable it
+        if($account->field_standby[LANGUAGE_NONE][0]["value"] == 1){
+          $account->field_standby[LANGUAGE_NONE][0]["value"] = 0;
+        }
+        
        user_save($account);
 
       //remove from search index
@@ -866,9 +881,10 @@ function gofast_user_import_file_decode($filepath)
 {
   set_time_limit(3000);
 
-  require_once libraries_get_path('excel_reader') . '/Classes/PHPExcel/IOFactory.php';
+  /** PHPSpreadSheet */
+  require_once libraries_get_path('phpspreadsheet').'/vendor/autoload.php';
   $file_path = file_stream_wrapper_get_instance_by_uri('public://')->realpath();
-  $objPHPExcel = PHPExcel_IOFactory::load($filepath);
+  $objPHPExcel = \PhpOffice\PhpSpreadsheet\IOFactory::load($filepath);
   $sheet = $objPHPExcel->getSheet(0);
 
   $data = array();
@@ -994,10 +1010,17 @@ function gofast_get_global_permissions_and_profiles() {
 */
 function gofast_change_user_global_permissions_and_profiles($account, $options, $add = TRUE) {
   foreach ($options as $option) {
-      // global permissions are found in the form of {rid}name
-      if (preg_match("/\{(\d+)\}(\w+)/", $option, $matches)) {
+      // global permissions are found in the form of "{rid}role name"
+      if (preg_match("/\{(\d+)\}((?:\w+\h*)+)/", $option, $matches)) {
           $rid = $matches[1];
           user_multiple_role_edit([$account->uid], $add ? "add_role" : "remove_role", $rid);
+          // Update roles on account so the wrapper save on other options does not overwrite the role updates
+          $role_array = [$rid => /* role name */ $matches[2]];
+          if ($add) {
+            $account->roles += $role_array;
+          } else {
+            $account->roles = array_diff($account->roles, $role_array);
+          }
           continue;
       }
       $reverse = FALSE;
@@ -1043,6 +1066,62 @@ function gofast_user_get_and_order_profile_options() {
 function gofast_user_queue_get_active_users_count(){
   $query = db_select("users", "u");
   $query->condition("status", 1);
+  $count = $query->countQuery()->execute()->fetchField();
+  return $count;
+}
+
+function gofast_user_standby_notify(){
+  if(gofast_user_get_standby_number() == 0){
+    return;
+  }
+
+  //get all standby uid
+  $users = db_query(" select entity_id from field_revision_field_standby where field_standby_value = 1")->fetchAll();
+  $recipients =  db_query("select uid from users where status = 1")->fetchAll();
+
+  $users_standby = array();
+  foreach($users as $user){
+    $users_standby[] = user_load($user->entity_id);
+  }
+
+  $recipients = gofast_user_load_multiple_by_roles(GOFAST_ROLE_BUSINESS_ADMIN, 'name', true);
+  
+  foreach($recipients as $recipient){
+    $account = $recipient;
+    if(gofast_user_is_business_admin($account, $account->uid) == 1){
+      $l = array('langcode' =>  $account->language, 'context' => 'gofast');
+      $subject = t("Standby Users", array(), $l);
+      $title = t('Standby users notification', array(), $l);
+      $sub_title = t('The following users are in standby', array(), $l);
+      $footer = t('Message sent from ', array(), $l) . " " . variable_get('site_name');
+      $body = theme('gofast-notifications-user-standby', array(
+        'recpt' => $account,
+        'user_name' => $account->name,
+        'users' => $users_standby,
+        'l' => $l,
+        'sub_title' => $sub_title,
+        'user_link_base' => $GLOBALS['base_url'] . "/user/",
+      ));
+      $mail = array(
+        'body' => $body,
+        'title' => $title,
+        'subject' => $subject,
+        'footer' => $footer
+      );
+
+      $recpt = ["recpt" => $account->mail, "method" => 'to'];
+      gofast_mail_queue_api_queue_ext($mail,[$recpt] , time());
+    }
+  }
+}
+
+function gofast_user_get_standby_number(){
+  $number_standby = db_query(" select count(*) as count from field_revision_field_standby where field_standby_value = 1")->fetchAssoc();
+  return $number_standby["count"];
+}
+
+function gofast_user_get_gofast_token_count(){
+  $query = db_select("gofast_token", "gft");
   $count = $query->countQuery()->execute()->fetchField();
   return $count;
 }

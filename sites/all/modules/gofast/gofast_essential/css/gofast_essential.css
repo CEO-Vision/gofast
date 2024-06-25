@@ -1,0 +1,87 @@
+.essentialHeader{
+  background-color: #3699FF !important;
+  left: 0 !important;
+  display: flex !important;
+  z-index: 95;
+  position: fixed;
+  top: 0;
+  right: 0;
+}
+
+.essentialHeader .btn-clean i{
+  color: #f3f6f9  !important;
+}
+.essentialHeader .btn-clean:hover i{
+  color: #3699FF !important;
+}
+.essentialHeader .btn-clean img{
+  filter: invert(100%) sepia(29%) saturate(1032%) hue-rotate(179deg) brightness(97%) contrast(101%); 
+}
+
+.essentialHeader a.btn-clean.selected {
+  background-color: #F3F6F9 !important;
+  border-color: transparent !important;
+}
+.essentialHeader a.btn-clean.selected i{
+  color: #3699FF !important;
+}
+.essentialHeader a.btn-clean.selected img{
+  filter: invert(52%) sepia(24%) saturate(6419%) hue-rotate(193deg) brightness(105%) contrast(101%);
+}
+
+#mobile_file_browser_full_tree_container{
+  border-radius: 0 !important;
+  border-bottom-left-radius: 0.42rem !important;
+  border-bottom-right-radius: 0.42rem !important;
+}
+
+#mobile_file_browser_full_tree_container a[id^="file_browser_full_tree_element_"].curSelectedNode{
+  opacity: 1 !important;
+  background-color: #3699FF !important;
+  border: none !important;
+  padding-bottom: 18px !important;
+
+}
+
+#mobile_file_browser_full_tree_container .curSelectedNode > .ztreeFa {
+  color: white !important;
+}
+
+#mobile_file_browser_full_tree_container .curSelectedNode > .ztreeFa + .node_name {
+  color: white !important;
+}
+
+:is(#gofastBrowserNavTabs, #gofast_file_browser_side_content) a.active:is(.essentialNavTab, .gofast-file-browser-side-content-tab){
+  background-color: #3699FF !important;
+}
+
+:is(#gofastBrowserNavTabs, #gofast_file_browser_side_content) a.active:is(.essentialNavTab, .gofast-file-browser-side-content-tab) > .nav-icon > i, :is(#gofastBrowserNavTabs, #gofast_file_browser_side_content) a.active:is(.essentialNavTab, .gofast-file-browser-side-content-tab) > .nav-text{
+  color: white !important;
+}
+
+:is(#gofastBrowserNavTabs, #gofast_file_browser_side_content):is(.essentialBrowserNavTabs, .gofast-file-browser-side-content-tabs) {
+  border-color: #3699FF !important;
+}
+
+#forum_explorer_body > table.forum-explorer-element-table > tbody{
+  width: 100% !important;
+  display: table !important;
+}
+
+#forum_explorer_body > table.forum-explorer-element-table > tbody .user-picture{
+  display: flex;
+}
+
+#select2-fileBrowserSelect-container{
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  display: block;
+}
+
+/* Media query for Safari on iPad */
+@media screen and (max-width: 1024px) and (min-width: 768px) and (-webkit-min-device-pixel-ratio: 1) {
+  #fileBrowserLayer {
+    height: 100%; 
+  }
+}

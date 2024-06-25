@@ -2,6 +2,7 @@
 
 define('GOFAST_CMIS_PUBLICATION_TYPE_DEFAULT', 0);
 define('GOFAST_CMIS_PUBLICATION_TYPE_PDF', 1);
+define('GOFAST_CMIS_PUBLICATION_TYPE_SVG', 2);
 
 define('GOFAST_CMIS_PUBLICATION_FIELD', 'field_publication');
 
@@ -115,8 +116,14 @@ function gofast_cmis_node_publish_form($form, &$form_state) {
 
     $description = t("Transformation is not available for this document");
     if ($pdf_exists) {
-      $array_transformation_choices[GOFAST_CMIS_PUBLICATION_TYPE_PDF] = "PDF";
-      $description = t("You can select original format (%1) or PDF transformation.", array("%1" => $mimetype));
+      if($mimetype == "image/vnd.dwg"){
+        $array_transformation_choices[GOFAST_CMIS_PUBLICATION_TYPE_SVG] = "SVG";
+        $description = t("You can select original format (%1) or PDF transformation.", array("%1" => $mimetype));
+        $description = str_replace('PDF', 'SVG', $description);
+      }else{
+        $array_transformation_choices[GOFAST_CMIS_PUBLICATION_TYPE_PDF] = "PDF";
+        $description = t("You can select original format (%1) or PDF transformation.", array("%1" => $mimetype));
+      }
     }
   }
   $format_tid = $node->{'field_format'}[LANGUAGE_NONE][0]['tid'];
@@ -128,7 +135,7 @@ function gofast_cmis_node_publish_form($form, &$form_state) {
         '#type' => 'select',
         '#title' => "<b>" . t("Transform the document") . '<span data-toggle="" title="' . htmlentities($description) . '">  <i class="fa fa-question-circle"></i></span> </b>',
         '#options' => $array_transformation_choices,
-        '#default_value' => isset($array_transformation_choices[GOFAST_CMIS_PUBLICATION_TYPE_PDF]) ? GOFAST_CMIS_PUBLICATION_TYPE_PDF : GOFAST_CMIS_PUBLICATION_TYPE_DEFAULT,
+        '#default_value' => end(array_keys($array_transformation_choices)),
       );
   }
 
@@ -168,32 +175,31 @@ function gofast_cmis_node_publish_form($form, &$form_state) {
     '#attributes' => array("class" => array("gofast_display_none"))
   );
 
-
-  $selected_options = array_map(function($element) {
-    return $element['value'];
-  }, $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE]);
-
-   $selected_options_fliped = array();
-   foreach($selected_options as $key=>$option){
-      ## need to get access to all private spaces or spaces we dont have access to.
-      $nid_selected_options = $node->og_group_content_ref[LANGUAGE_NONE][$key]['target_id'];
-      if(!$nid_selected_options){
-        $selected_options_fliped["/Sites"] = "/Sites";
-        unset($selected_options[$key]);
-      }elseif ($nid_selected_options && og_user_access('node', $nid_selected_options, 'create alfresco_item content') == TRUE){
-        $selected_options_fliped[$option] = $option;
-      }else{
-        unset($selected_options[$key]);
-      }
+  $node_locations = gofast_cmis_webservice_get_node_parents($node->{GOFAST_CMIS_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value']);
+  $selected_paths_array = [];
+  $selected_paths_associative_array = [];
+  foreach($node_locations as $path){
+    $item = gofast_cmis_item_get_by_path($path);
+    if(isset($item->properties['gofast:nid'])){
+      // if we're at the root of a space
+      $item_nid = $item->properties['gofast:nid'];
+    } else {
+      // if we're in a subfolder, set permissions after parent space
+      $item_nid = gofast_og_get_group_id_from_title_2($path, TRUE);
     }
-    array_values($selected_options);
+    if(og_user_access('node', $item_nid, 'create alfresco_item content') == TRUE){
+      $selected_paths_associative_array[$path] = $path;
+      $selected_paths_array[] = $path;
+    }
+  }
+
     $form[GOFAST_CMIS_LOCATIONS_FIELD]['#multiple'] = TRUE;
     $form[GOFAST_CMIS_LOCATIONS_FIELD]['#title'] = "<b>" . t("Select target of your publication") . "</b>";
     $form[GOFAST_CMIS_LOCATIONS_FIELD]['#required'] = FALSE;
     $form[GOFAST_CMIS_LOCATIONS_FIELD]['#type'] = 'select';
-    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#options'] = $selected_options_fliped;
-    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#default_value'] = $selected_options;
-    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#value'] = $selected_options;
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#options'] = $selected_paths_associative_array;
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#default_value'] = $selected_paths_array;
+    $form[GOFAST_CMIS_LOCATIONS_FIELD]['#value'] = $selected_paths_array;
     $form[GOFAST_CMIS_LOCATIONS_FIELD]["#attributes"]["class"][] = "gofast_display_none";
     $form[GOFAST_CMIS_LOCATIONS_FIELD]["#disable_selected"] = TRUE;
 
@@ -228,23 +234,9 @@ function gofast_cmis_node_publish_form($form, &$form_state) {
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Submit', array(), array('context' => 'gofast')),
-    '#prefix' => '',
-    '#suffix' => '',
     '#weight' => 10,
-    '#ajax' => array(
-      'wrapper' => 'ajax_content',
-      'callback' => 'gofast_cmis_node_publish_form_submit',
-      'event' => 'click'
-    ),
     '#attributes' => array('class' => array('btn btn-sm btn-success'))
   );
-
-  $form['#attached']['js'][] = array(
-    'type' => 'file',
-    'group' => JS_THEME + 1,
-    'data' => drupal_get_path('module', 'gofast') . '/js/gofast_ajax_form.js',
-  );
-
 
 $publication_information = t("Your publication title will be suffixed with <strong>%suffix</strong> before the extension.", array('%suffix' => GOFAST_CMIS_PUBLICATION_SUFFIX));
 
@@ -258,10 +250,6 @@ $publication_information = t("Your publication title will be suffixed with <stro
  * @param type $form_state
  */
 function gofast_cmis_node_publish_form_validate(&$form, &$form_state) {
-  //We clear the form errors as Drupal throws a fake error
-  drupal_get_messages();
-
-  $form['#submit'] = array();
   $node = $form_state['build_info']['args'][0];
   $array_path = array();
   foreach ($form_state['input'][GOFAST_CMIS_LOCATIONS_FIELD] as $location) {
@@ -286,6 +274,8 @@ function gofast_cmis_node_publish_form_validate(&$form, &$form_state) {
 
     if (intval($form_state['values']['transformation']) === GOFAST_CMIS_PUBLICATION_TYPE_PDF) {
       $transformation_extension = '.pdf';
+    } else if (intval($form_state['values']['transformation']) === GOFAST_CMIS_PUBLICATION_TYPE_SVG) {
+      $transformation_extension = '.svg';
     }
     else {
       $transformation_extension = isset($pathinfo['extension']) && $pathinfo['extension'] !== NULL ? '.' . $pathinfo['extension'] : '';
@@ -307,8 +297,7 @@ function gofast_cmis_node_publish_form_validate(&$form, &$form_state) {
       return;
     }
   }
-  
-  }
+}
 
 function gofast_cmis_publish_get_ajax_commands($publication_nid, &$form, &$form_state) {
     global $user;
@@ -343,11 +332,15 @@ function gofast_cmis_publish_get_ajax_commands($publication_nid, &$form, &$form_
       $event = serialize($event);
       $last_event_serialized = rawurlencode($event);
       gofast_audit_insert_line_audit($nid_node, $event_type, $last_event_serialized, $last_event_unserialized);
-
-      $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
-        window.location.href = '/node/" . $publication_nid."';
-        </script>"
-      );
+      $publication_node = node_load($publication_nid);
+      if(!node_access("view", $publication_node)){
+        $commands[] = gofast_command_toast_message(t("You don't have access to any space of the publication.", array(), array("context" => "gofast:gofast_cmis")), "warning");
+      } else {
+        $commands[] = ajax_command_html('#ctools-add-js', "<script type='text/javascript'>
+          window.location.href = '/node/" . $publication_nid."';
+          </script>"
+        );
+      }
 
       $commands[] = ctools_modal_command_dismiss();
     }
@@ -370,7 +363,7 @@ function gofast_cmis_node_publish_form_submit($form, &$form_state) {
 
   $broadcast_values = $form_state['input']['ac-list-tags-broadcast'];
   $broadcast_array = json_decode(trim($broadcast_values));
-  if(count($broadcast_array) > 0 && $broadcast_array[0] != ""){
+  if(isset($broadcast_array) && count($broadcast_array) > 0 && $broadcast_array[0] != ""){
     foreach($broadcast_array as $key => $broadcast_object){
       if($broadcast_object->type == "user"){
         $private_gid = gofast_og_get_user_private_space(user_load($broadcast_object->value), FALSE);
@@ -426,9 +419,6 @@ function gofast_cmis_node_publish_form_submit($form, &$form_state) {
   
   print(ajax_render($commands));
   exit;
-
-//  $form_state['redirect'] = array('node/' . $publication->nid);
-//  drupal_redirect_form($form_state);
 }
 
 /**
@@ -457,13 +447,15 @@ function gofast_cmis_manage_publications_form($form, &$form_state) {
     // Reach all nid and transform it to a path (available with folders)
     foreach($selected_items_json as $select){
       $node = node_load($select->url);
-      $paths = $node->{GOFAST_CMIS_LOCATIONS_FIELD}[LANGUAGE_NONE];
-      foreach($paths as $path){
-        array_push($nid_cart, $path['value'] . '/' . $node->title);
-        array_push($title_cart,$node->title);
-      }
+      // We need only one location in order ta have a 1:1 nid:path mapping
+      $first_location = gofast_essential_get_node_first_location($select->url, FALSE);
+      array_push($nid_cart, $first_location . '/' . $node->title);
+      array_push($title_cart,$node->title);
     }
     foreach($nid_cart as $key=>$path_cart){
+      if (!isset($selected_items_json[$key])) {
+        continue;
+      }
       $selected_items_json[$key]->url = '/alfresco/webdav' . $path_cart;
     }
     variable_del("ithit_bulk_cart_".$user->uid);
@@ -526,38 +518,55 @@ function gofast_cmis_manage_publications_form($form, &$form_state) {
   $nodes = explode(',',$form['selected_nodes_ids']['#default_value']);
   $nodes = str_replace("[",'',$nodes);
   $nodes = str_replace("]",'',$nodes);
-  foreach($nodes as $key=>$nid){
+
+  $can_transform = false;
+  $picture_tid = gofast_taxonomy_get_tid_by_vid_and_name(GOFAST_VID_FORMAT, "Picture");
+  $array_transformation_choices = array(GOFAST_CMIS_PUBLICATION_TYPE_DEFAULT => t("No transformations"));
+  $transformable_nids = array();
+
+  foreach($selected_nids as $nid => $path){
     $node = node_load($nid);
     $cmis_object_file_origine = gofast_cmis_item_get($node->reference);
     $mimetype = isset($cmis_object_file_origine) ? $cmis_object_file_origine->properties['cmis:contentStreamMimeType'] : '';
-    $array_transformation_choices = array(GOFAST_CMIS_PUBLICATION_TYPE_DEFAULT => t("No transformations"));
-    if ($mimetype === "application/pdf") {
-      $description = 0;
-    }
-    else {
+    $format_tid = $node->{'field_format'}[LANGUAGE_NONE][0]['tid'];
+    if ($mimetype !== "application/pdf" && $format_tid != $picture_tid) {
       //avant de proposer une transformation, je verifie si le document d'origine possède bien sa version PDF.
       // si pour X raison ce document ne possède pas de transformation PDF je ne la propose pas
-      $url = gofast_cmis_node_get_pdf_link($node);
-      $pdf_exists = gofast_get_http_headers($url) === 200;
-
-      $description = t("Transformation is not available for these documents");
+      $json_pdf = gofast_cmis_webservice_item_generate_onlyoffice_preview($node->nid);
+      if(!empty(json_decode($json_pdf)->FileUrl)){
+        $pdf_exists = true;
+      }else{
+        $url = gofast_cmis_node_get_pdf_link($node);
+        $pdf_exists = gofast_get_http_headers($url) === 200;
+      }
+      
+      $description = t("Transformation is not available for this document");
       if ($pdf_exists) {
-        $array_transformation_choices[GOFAST_CMIS_PUBLICATION_TYPE_PDF] = "PDF";
-        $description = t("You can select original format or PDF transformation.");
+        $can_transform = true;
+        $transformable_nids[] = $nid;
+        if($mimetype == "image/vnd.dwg"){
+          $array_transformation_choices[GOFAST_CMIS_PUBLICATION_TYPE_SVG] = "SVG";
+          $description = t("You can select original format or PDF transformation.");
+          $description = str_replace('PDF', 'SVG', $description);
+        }else{
+          $array_transformation_choices[GOFAST_CMIS_PUBLICATION_TYPE_PDF] = "PDF";
+          $description = t("You can select original format or PDF transformation.");
+        }
       }
     }
-    $format_tid = $node->{'field_format'}[LANGUAGE_NONE][0]['tid'];
-    $format_picture = taxonomy_get_term_by_name('Picture', 'format');
-    reset($format_picture);
-    $first_key = key($format_picture);
-    if ($format_tid != $first_key){
-      $form['transformation'] = array(
-        '#type' => 'select2',
-        '#title' => "<b>" . t("Transform the document") . '<span data-toggle="" title="' . htmlentities($description) . '">  <i class="fa fa-question-circle"></i></span> </b> ',
-        '#options' => $array_transformation_choices,
-        '#attributes' => array("class" => array("d-flex", "flex-colum"))
-      );
-    }
+  }
+  
+  if($can_transform) {
+    $form['transformation'] = array(
+      '#type' => 'select',
+      '#title' => "<b>" . t("Transform the document") . '<span data-toggle="" title="' . htmlentities($description) . '">  <i class="fa fa-question-circle"></i></span> </b>',
+      '#options' => $array_transformation_choices,
+      '#default_value' => isset($array_transformation_choices[GOFAST_CMIS_PUBLICATION_TYPE_PDF]) ? GOFAST_CMIS_PUBLICATION_TYPE_PDF : GOFAST_CMIS_PUBLICATION_TYPE_DEFAULT,
+    );
+    $form['transformable-nids'] = array(
+      "#type" => "hidden",
+      "#value" => json_encode($transformable_nids),
+    );
   }
   $all_og = array();
   $bundles = gofast_og_node_types();
@@ -677,8 +686,10 @@ function gofast_cmis_manage_publications_form_validate(&$form, &$form_state) {
 
       $exclude_pdf = ['PNG', 'JPG', 'JPEG'];
 
-      if (intval($form_state['values']['transformation']) === GOFAST_CMIS_PUBLICATION_TYPE_PDF && !in_array(strtoupper($pathinfo['extension']), $exclude_pdf)) {
+      if (intval($form_state['input']['transformation']) === GOFAST_CMIS_PUBLICATION_TYPE_PDF && !in_array(strtoupper($pathinfo['extension']), $exclude_pdf)) {
           $transformation_extension = '.pdf';
+      } else if (intval($form_state['values']['transformation']) === GOFAST_CMIS_PUBLICATION_TYPE_SVG && !in_array(strtoupper($pathinfo['extension']), $exclude_pdf)) {
+        $transformation_extension = '.svg';
       }
       else {
         $transformation_extension = isset($pathinfo['extension']) && $pathinfo['extension'] !== NULL ? '.' . $pathinfo['extension'] : '';
@@ -742,6 +753,8 @@ function gofast_cmis_manage_publications_get_ajax_commands($publication_nid, &$f
  * @param type $form_state
  */
 function gofast_cmis_manage_publications_form_submit($form, &$form_state) {
+  $transformable_nids = json_decode($form_state['input']['transformable-nids']) ?? [];
+  
   // Create nodes array
   $nodes = explode(',',$form_state['input']['selected_nids']);
   $nodes = str_replace("[",'',$nodes);
@@ -753,13 +766,10 @@ function gofast_cmis_manage_publications_form_submit($form, &$form_state) {
   // Emplacement to publish
   $locations = $form_state['values'][GOFAST_CMIS_LOCATIONS_FIELD];
 
-  // Transformation pdf or not
-  $transformation = $form_state['values']['transformation'];
-
   // Get locations for broadcaster
   $broadcast_values = $form_state['input']['ac-list-tags-broadcast'];
   $broadcast_array = json_decode(trim($broadcast_values));
-  if(count($broadcast_array) > 0 && $broadcast_array[0] != ""){
+  if(count((array) $broadcast_array) > 0 && $broadcast_array[0] != ""){
     global $cmis_as_publisher;
     global $cmis_sudo_admin;
     $cmis_as_publisher = true;
@@ -781,9 +791,12 @@ function gofast_cmis_manage_publications_form_submit($form, &$form_state) {
   //Insert a general progress bar for mass publication
   $html = '<div class="progress mb-4" id="publications-panels-progress"><div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0 / ' . count($nodes) . '</div></div>';
   foreach($nodes as $key=>$nid){
+    // Transformation pdf or not
+    $can_transform = in_array($nid, $transformable_nids);
+
     $title = $form_state['values']['title'][$key];
     //Create publish modal theme
-    $html .= theme('gofast_manage_publication_progression', array('nid' => $nid, 'transformation' => $transformation , 'title' => $title, 'locations' => $locations ,'locations_nid' => $form_state['selected_groups'], "is_broadcast" => $cmis_as_publisher));
+    $html .= theme('gofast_manage_publication_progression', array('nid' => $nid, 'transformation' => $can_transform , 'title' => $title, 'locations' => $locations ,'locations_nid' => $form_state['selected_groups'], "is_broadcast" => $cmis_as_publisher));
   }
 
   //Remove the current modal (ztree)
@@ -822,23 +835,9 @@ function gofast_manage_publications_process(){
 
   // Check if a publication already exist
   $node = node_load($nid);
-  $cmis_object_file_origine = gofast_cmis_item_get($node->reference);
-  $mimetype = isset($cmis_object_file_origine) ? $cmis_object_file_origine->properties['cmis:contentStreamMimeType'] : '';
   if (!empty(gofast_cmis_get_publication_source($node))){
     print 'is_publication';
     exit;
-  }
-
-// Check if the document is a PDF
-  if ($mimetype === "application/pdf"){
-    $transformation = 0;
-  }
-  $url = gofast_cmis_node_get_pdf_link($node);
-  $pdf_exists = gofast_get_http_headers($url) === 200;
-
-  if (!$pdf_exists && $transformation == 1){
-    $transformation = 0;
-    $can_pdf='no_pdf';
   }
 
   $array_path = isset($locations) ? $locations : array();
@@ -894,7 +893,7 @@ function gofast_manage_publications_process(){
  */
 function gofast_cmis_item_get_content_publication($node, $type) {
   // We will generate the publication using PDF preview, else by document type
-  if ($type === GOFAST_CMIS_PUBLICATION_TYPE_PDF) {
+  if ($type === GOFAST_CMIS_PUBLICATION_TYPE_PDF || $type == GOFAST_CMIS_PUBLICATION_TYPE_SVG) {
 
     $json_pdf = gofast_cmis_webservice_item_generate_onlyoffice_preview($node->nid);
     if(!empty(json_decode($json_pdf)->FileUrl)){
@@ -971,20 +970,7 @@ function gofast_cmis_node_republish_form($form, &$form_state) {
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Submit', array(), array('context' => 'gofast')),
-    '#prefix' => '',
-    '#suffix' => '',
     '#weight' => 10,
-    '#ajax' => array(
-      'wrapper' => 'ajax_content',
-      'callback' => 'gofast_cmis_node_republish_form_submit',
-      'event' => 'click'
-    ),
-  );
-
-  $form['#attached']['js'][] = array(
-    'type' => 'file',
-    'group' => JS_THEME + 1,
-    'data' => drupal_get_path('module', 'gofast') . '/js/gofast_ajax_form.js',
   );
 
   $form['#validate'][] = 'gofast_cmis_node_republish_form_validate';
@@ -998,11 +984,13 @@ function gofast_cmis_node_republish_form($form, &$form_state) {
  * @param type $form_state
  */
 function gofast_cmis_node_republish_form_validate(&$form, &$form_state) {
-  $form['#submit'] = array();
-//  if (empty($form_state['values']['tag_comment'])) {
-//    form_set_error('tag_comment', t("You have to set a comment."));
-//  }
-
+  $node = $form_state['build_info']['args'][0];
+  $publication_nid = $node->{GOFAST_CMIS_PUBLICATION_FIELD}[LANGUAGE_NONE][0]['target_id'];
+  $publication_node = node_load($publication_nid);
+  // Prevent user to republish if the publication is locked
+  if(gofast_cmis_node_is_locked($publication_node) != FALSE || gofast_onlyoffice_document_get_soft_lock($publication_node)){
+    form_set_error("locked", t("The publication is currently locked, so you can't publish it again now.", array(), array("context" => "gofast:gofast_modal")));
+  }
   return $form;
 }
 
@@ -1068,6 +1056,7 @@ function gofast_cmis_node_republish_form_submit($form, &$form_state) {
          $publicated_node->{'field_criticity'}[LANGUAGE_NONE] = $source_node->{'field_criticity'}[LANGUAGE_NONE];
          $publicated_node->{'field_document_author'}[LANGUAGE_NONE] = $source_node->{'field_document_author'}[LANGUAGE_NONE];
          $publicated_node->{'field_category'}[LANGUAGE_NONE] = $source_node->{'field_category'}[LANGUAGE_NONE];
+         $publicated_node->{'field_classification'}[LANGUAGE_NONE] = $source_node->{'field_classification'}[LANGUAGE_NONE];
          field_attach_update('node', $publicated_node);
    }
 
@@ -1087,12 +1076,11 @@ function gofast_cmis_node_republish_form_submit($form, &$form_state) {
 
  $node->field_publication_history = $new_field_publication_history;
  field_attach_update('node', $node);
-
-  return array('#type' => 'ajax', '#commands' => gofast_cmis_publish_get_ajax_commands($publicated_nid, $form, $form_state));
-
-
-//  $form_state['redirect'] = array('node/' . $publicated_nid);
-//  drupal_redirect_form($form_state);
+  
+  $commands = gofast_cmis_publish_get_ajax_commands($publicated_nid, $form, $form_state);
+  
+  print(ajax_render($commands));
+  exit;
 }
 
 /**
@@ -1259,8 +1247,13 @@ function gofast_cmis_publication_delete_form($form, &$form_state) {
           t('Delete', array(), array('context' => 'gofast')),
           t('Cancel', array(), array('context' => 'gofast'))
   );
-  $confirm_form['actions']['submit']['#attributes'] = array('class' => array('btn-success'));
-  unset($confirm_form['actions']['cancel']);
+  $confirm_form['actions']['submit']['#attributes'] = array('class' => array('btn-danger'));
+  $confirm_form['actions']['cancel']['#type'] = "submit";
+  $confirm_form['actions']['cancel']['#value'] = t('Cancel');
+  $confirm_form['actions']['cancel']['#attributes'] = array(
+      'id' => 'edit-cancel',
+      'class' => array('btn', 'btn-secondary')
+  );
 
   return  $confirm_form;
 }
@@ -1515,8 +1508,7 @@ function gofast_cmis_publication_force_create_missing_path($publication_path){
  * Function for testing if the publication path exists or not
  */
 function gofast_cmis_publication_check_existing_publication_location($path){
-    $repositoryId= gofast_cmis_get_repository();
-    $publication_path_object=cmisapi_getObjectByPath($repositoryId,rawurlencode($path));
+    $publication_path_object = gofast_cmis_item_get_by_path($path, TRUE);
 
     if(isset($publication_path_object->properties['cmis:objectId'])){
         return true;

@@ -1,0 +1,1 @@
+<tag class="bg-secondary px-2 rounded<?= !empty($added_classes) ? " " . implode(" ", $added_classes) : ""?>"><?= $value ?></tag>

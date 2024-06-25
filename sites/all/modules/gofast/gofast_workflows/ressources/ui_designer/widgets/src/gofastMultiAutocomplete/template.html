@@ -1,0 +1,21 @@
+<div ng-class="{
+    'form-horizontal': properties.labelPosition === 'left' && !properties.labelHidden,
+    'row': properties.labelPosition === 'top' && !properties.labelHidden || properties.labelHidden
+    }">
+    <div class="form-group">
+        <label
+            ng-if="!properties.labelHidden"
+            ng-class="{ 'control-label--required': properties.required }"
+            class="control-label col-xs-{{ !properties.labelHidden && properties.labelPosition === 'left' ? properties.labelWidth : 12 }}">
+            {{ properties.label | uiTranslate }}
+        </label>
+        <div class="col-xs-{{ 12 - (!properties.labelHidden && properties.labelPosition === 'left' ? properties.labelWidth : 0) }}" >
+            <input
+                id="tagInput"
+                type="text"
+                class="form-control"
+                placeholder="{{properties.placeholder}}"
+                name="{{ctrl.name}}">
+        </div>
+    </div>
+</div>

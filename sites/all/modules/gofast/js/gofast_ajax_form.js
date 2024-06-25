@@ -73,11 +73,18 @@
       console.log(ajax);
       console.log(response);
     }
+    let overrideEssentialAjax = false;
+    // we want normal navigation after space creation
+    if (response.type && ["private_space", "public", "extranet", "organisation", "group"].includes(response.type)) {
+      overrideEssentialAjax = true;
+    }
     Drupal.CTools.Modal.dismiss();
-    if(Drupal.settings.isMobile){
+    if(Gofast.isMobile() && !Gofast.isTablet()){
         window.location.href = location.origin + "/" + response.data;
+    }else if(Gofast._settings.isEssential && !overrideEssentialAjax){
+      location = response.data;
     }else{
-        Gofast.processAjax(response.data, false); // Gofast.removeLoading is called inside processAjax function
+      Gofast.processAjax(response.data, false); // Gofast.removeLoading is called inside processAjax function
     }
   };
   Drupal.ajax.prototype.commands.error_creating_node = function (ajax, response) {

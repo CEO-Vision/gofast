@@ -6,6 +6,11 @@
 define('GOFAST_PAGINATION_PAGE_DEFAULT', 1);
 define('GOFAST_PAGINATION_PERPAGE_DEFAULT', 20);
 
+/*
+ * Includes to other files
+*/
+include_once drupal_get_path("module", "gofast") . '/gofast.admin.inc';
+
 /**
  * Implements hook_init
  */
@@ -55,6 +60,30 @@ function gofast_directory_menu(){
         'access callback' => 'user_access',
     );
 
+    $items['modal/%ctools_js/taxonomy/categories/add'] = array(
+        'page callback' => 'gofast_directory_categories_add',
+        'type' => MENU_CALLBACK,
+        'page arguments' => array(1),
+        'access arguments' => array('administer categories configuration'),
+        'access callback' => 'user_access',
+    );
+
+    $items['modal/%ctools_js/taxonomy/categories/translate/%taxonomy_term'] = array(
+        'page callback' => 'gofast_directory_categories_rename_translate',
+        'type' => MENU_CALLBACK,
+        'page arguments' => array(1,5),
+        'access arguments' => array('administer categories configuration'),
+        'access callback' => 'user_access',
+    );
+
+    $items['gofast/admin/directory/%'] = array(
+        'page callback' => 'gofast_directory_admin_async',
+        'type' => MENU_CALLBACK,
+        'page arguments' => array(3),
+        'access arguments' => array('administer categories configuration'),
+        'access callback' => 'user_access',
+    );
+
     $items['modal/%ctools_js/directory/bulk_action/user/%/%'] = array(
         'page callback' => 'gofast_directory_bulk_actions_users',
         'type' => MENU_CALLBACK,
@@ -71,15 +100,31 @@ function gofast_directory_menu(){
         'access callback' => 'user_access',
     );
 
-      $items['modal/%ctools_js/directory/bulk_action/space/%/%'] = array(
+    $items['modal/%ctools_js/directory/bulk_action/space/%/%'] = array(
         'page callback' => 'gofast_directory_bulk_actions_spaces',
         'type' => MENU_CALLBACK,
         'page arguments' => array(1,5,6),
         'access arguments' => array('access content'),
         'access callback' => 'user_access',
     );
+    
+    $items['modal/%ctools_js/directory/bulk_action/contacts/%/%'] = array(
+        'page callback' => 'gofast_directory_bulk_actions_contacts',
+        'type' => MENU_CALLBACK,
+        'page arguments' => array(1,5,6),
+        'access arguments' => array('access content'),
+        'access callback' => 'user_access',
+    );
 
-     $items['directory/manage_bulkactions/spaces/process'] = array(
+    $items['modal/%ctools_js/directory/bulk_action/contacts/%/%'] = array(
+        'page callback' => 'gofast_directory_bulk_actions_contacts',
+        'type' => MENU_CALLBACK,
+        'page arguments' => array(1,5,6),
+        'access arguments' => array('access content'),
+        'access callback' => 'user_access',
+    );
+
+    $items['directory/manage_bulkactions/spaces/process'] = array(
         'page callback' => 'gofast_directory_bulk_actions_spaces_process',
         'type' => MENU_CALLBACK,
         'page arguments' => array(),
@@ -87,7 +132,19 @@ function gofast_directory_menu(){
         'access callback' => 'user_access',
     );
 
+    $items['modal/%ctools_js/directory/bulk_action/tags/%/%'] = array(
+        'page callback' => 'gofast_directory_bulk_actions_tags',
+        'type' => MENU_CALLBACK,
+        'page arguments' => array(1,5,6),
+        'access arguments' => array('administer tags configuration'),
+    );
 
+    $items['modal/%ctools_js/directory/bulk_action/categories/%/%'] = array(
+        'page callback' => 'gofast_directory_bulk_actions_categories',
+        'type' => MENU_CALLBACK,
+        'page arguments' => array(1,5,6),
+        'access arguments' => array('administer categories configuration'),
+    );
 
     return $items;
 }
@@ -112,6 +169,15 @@ function gofast_directory_theme() {
       'gofast_directory_contact_listing_table' => array(
         'template' => 'tpl/tables/gofast-directory-contact-listing-table'
       ),
+      'gofast_directory_audit_table' => array(
+        'template' => 'tpl/tables/gofast-directory-audit-table',
+      ),
+      'gofast_admin_categories_table' => array(
+        'template' => 'tpl/tables/gofast-admin-directory-categories-table',
+      ),
+      'gofast_admin_tags_table' => array(
+        'template' => 'tpl/tables/gofast-admin-directory-tags-table',
+      ),
       'gofast_directory_spaces_filter' => array(
           'template' => 'tpl/filters/gofast-directory-spaces-filter'
       ),
@@ -121,9 +187,24 @@ function gofast_directory_theme() {
       'gofast_directory_userlist_filter' => array(
           'template' => 'tpl/filters/gofast-directory-userlist-filter'
       ),
-      'gofast_manage_bulkactions_users_progression' => array(
-          'template'  => 'tpl/bulkactions/gofast-manage-bulkactions-users-progression',
-      ),
+        'gofast_directory_docs_popover' => array(
+            'template' => 'tpl/widgets/gofast-directory-docs-popover',
+        ),
+        'gofast_directory_docs_popover_content' => array(
+            'template' => 'tpl/widgets/gofast-directory-docs-popover-content',
+        ),
+        'gofast_directory_spaces_popover' => array(
+            'template' => 'tpl/widgets/gofast-directory-spaces-popover',
+        ),
+        'gofast_directory_spaces_popover_content' => array(
+            'template' => 'tpl/widgets/gofast-directory-spaces-popover-content',
+        ),
+        'gofast_directory_multiselect_input' => array(
+            'template'  => 'tpl/widgets/gofast-directory-multiselect-input',
+        ),
+        'gofast_manage_bulkactions_users_progression' => array(
+            'template'  => 'tpl/bulkactions/gofast-manage-bulkactions-users-progression',
+        ),
     );
   }
 
@@ -221,10 +302,30 @@ function gofast_directory_display_contact_listing(){
   return gofast_create_page_content($content, 'contact');
 }
 
-/**
- * Callback Async Directory - have return JSON array
-*/
+function gofast_directory_display_audit_page($type = "site", $etid = 0) {
+    $columns = [];
+    $columns['date'] = t('Date');
+    $columns['login'] = t('Login');
+    $columns['displayname'] = t('Display name');
+    $columns['title'] = t('Title');
+    $columns['details'] = t('Details');
+    $columns['eventtype'] = t('Event type');
+    $columns['type'] = t('Element type');
 
+    $jsonColumns = htmlspecialchars(json_encode($columns), ENT_QUOTES);
+
+    $content = theme('gofast_directory_audit_table', ["columns" => $jsonColumns, "type" => $type, "etid" => $etid]);
+
+    if($type == "site") {
+        $content = gofast_create_page_content($content);
+        return $content;
+    }
+    echo $content;
+}
+
+/**
+ * Callback async admin directory - returns JSON array
+*/
 function gofast_directory_async($type){
 
     $pagination = $_GET['pagination'];
@@ -248,7 +349,7 @@ function gofast_directory_async($type){
             break;
 
         case 'contact_listing':
-          $directory = gofast_get_contact_listing($pagination, $sort);
+          $directory = gofast_get_contact_listing($pagination, $sort, $filters);
           break;
 
         default:
@@ -257,6 +358,30 @@ function gofast_directory_async($type){
     }
 
     print json_encode($directory);
+}
+
+
+/**
+ * Callback async admin directory (to be called with appropriate access check) - returns JSON array
+ */
+function gofast_directory_admin_async($type) {
+    $pagination = gofast_xss_clean($_GET['pagination']);
+    $sort = gofast_xss_clean($_GET['sort']);
+    $filters = gofast_xss_clean($_GET['query']);
+  
+    switch ($type) {
+      case 'tags':
+        $global_settings = gofast_directory_get_tags($pagination, $sort, $filters);
+        break;
+      case 'categories';
+        $global_settings = gofast_directory_get_categories($pagination, $sort, $filters);
+        break;
+      default:
+        $global_settings = [];
+        break;
+    }
+  
+    print preg_replace('/<!--(.|\s)*?-->/', '', json_encode($global_settings)); //Remove unwanted HTML comments from the JSON
 }
 
 function gofast_getUserRoleNameByImplodedRoleIds($role_ids) {
@@ -270,6 +395,349 @@ function gofast_getUserRoleNameByImplodedRoleIds($role_ids) {
     return $role;
 }
 
+function gofast_directory_get_categories($pagination = [], $sort, $filters) {
+    global $user;
+    $categories = [];
+
+    // if no front information about pagination, use placeholder
+    if (empty($pagination["page"])) {
+        $pagination["page"] = 1;
+    }
+    if (empty($pagination["perpage"])) {
+        $pagination["perpage"] = 20;
+    }
+    $offset = max(($pagination["page"] - 1) * $pagination["perpage"], 0);
+
+    // needed retention uuids needed for the dua filter
+    $retention_matrix = variable_get(GOFAST_RETENTION_PERIOD_MATRICE_VAR, array());
+    $retention_matrix_uuids = array_keys($retention_matrix);
+
+    // select categories with associated documents and documents icons
+    $query = db_select("taxonomy_term_data", "cat");
+    $query->fields("cat", array("tid", "uuid", "name"));
+    $query->fields("n", array("nid", "title", "type"));
+    $query->fields("ogm", array("gid"));
+    $query->fields("lt", array("translation"));
+    $query->fields("fsgf", array("field_standard_gf_value"));
+    $query->fields("ttd", array("tid", "uuid", "name"));
+    $query->leftJoin("field_data_field_category", "fcat", "cat.tid = fcat.field_category_tid");
+    $query->leftJoin("node", "n", "n.nid = fcat.entity_id AND status = 1");
+    $query->leftJoin("og_membership", "ogm", "ogm.etid = cat.tid AND ogm.entity_type = 'taxonomy_term' AND field_name = :field", array(":field" => GOFAST_TAXONOMY_CATEGORY_MEMBERSHIP_FIELD));
+    $query->leftJoin("taxonomy_term_data", "ttd", "ttd.tid = fcat.field_category_tid");
+    $query->leftJoin("locales_source", "ls", "ls.textgroup = 'taxonomy' AND ls.context = CONCAT('term:', cat.uuid, ':name')");
+    $query->leftJoin("locales_target", "lt", "lt.lid = ls.lid AND lt.language = :language", array(":language" => $user->language));
+    $query->leftJoin("field_data_field_standard_gf", "fsgf", "fsgf.entity_id = cat.tid");
+    if (module_exists("gofast_naming_rules")) {
+        $query->fields("fnr", array("field_naming_rules_value"));
+        $query->leftJoin("field_data_field_naming_rules", "fnr", "fnr.entity_id = cat.tid");
+    }
+
+    // we must group by categories to have the right number of rows for server-side pagination
+    $query->groupBy("cat.tid");
+
+    $is_translated = "CASE WHEN lt.translation IS NOT NULL THEN '1' ELSE '0' END";
+    $translated_name_case_expression = "CASE WHEN lt.translation IS NOT NULL THEN lt.translation ELSE cat.name END";
+    $translated_name_nocase_expression = "CASE WHEN lt.translation IS NOT NULL THEN LOWER(CAST(lt.translation AS CHAR(10000) CHARACTER SET utf8)) ELSE LOWER(cat.name) END";
+    $query->addExpression($is_translated, "is_translated");
+    $query->addExpression($translated_name_case_expression, "translated_name");
+    $query->addExpression($translated_name_nocase_expression, "translated_name_nocase");
+
+    // because of grouping we have to do some concat to still get all associated docs
+    $query->addExpression("GROUP_CONCAT(DISTINCT
+        n.nid SEPARATOR '%%ROW_SEPARATOR%%'
+        )", "docs");
+    $query->addExpression("GROUP_CONCAT(DISTINCT
+        ogm.gid SEPARATOR '%%ROW_SEPARATOR%%'
+        )", "spaces");
+    $query->addExpression("COUNT (DISTINCT ogm.gid)", "spaces_count");
+    $query->addExpression("COUNT (DISTINCT n.nid)", "docs_count");
+
+    $query->condition("cat.vid", GOFAST_VID_CATEGORY);
+
+    // logic for filtering
+    if (isset($filters['catname'])) {
+        // selected result of expression doesn't exist when where clause is executed, so we have to repeat it
+        $query->where($translated_name_nocase_expression . " LIKE '%" . strtolower($filters['catname']) . "%'");
+    }
+    if (isset($filters['ac-list-tags-spaces'])) {
+        $target_spaces = json_decode($filters["ac-list-tags-spaces"]);
+        $target_gids = [];
+        foreach($target_spaces as $target_space) {
+            $target_gids[] = $target_space->value;
+        }
+        $query->condition("ogm.gid", $target_gids, "IN");
+    }
+    if (!isset($filters['standard'])) {
+        $query->condition("fsgf.field_standard_gf_value", 1, "<>");
+    }
+    if (isset($filters['dua'])) {
+        $query->condition("cat.uuid", $retention_matrix_uuids, "IN");
+    }
+
+    // logic for sorting
+    if ($sort) {
+        switch ($sort['field']) {
+        case 'name':
+            if ($sort['sort'] == 'asc') {
+                $query->orderBy('translated_name_nocase');
+            }
+            else {
+                $query->orderBy('translated_name_nocase', 'DESC');
+            }
+            break;
+        case 'docs':
+            if ($sort['sort'] == 'asc') {
+                $query->orderBy('docs_count');
+            }
+            else {
+                $query->orderBy('docs_count', 'DESC');
+            }
+            break;
+        case 'spaces':
+            if ($sort['sort'] == 'asc') {
+                $query->orderBy('spaces_count');
+            }
+            else {
+                $query->orderBy('spaces_count', 'DESC');
+            }
+            break;
+        case 'is-standard':
+            if ($sort['sort'] == 'asc') {
+                $query->orderBy('field_standard_gf_value');
+            }
+            else {
+                $query->orderBy('field_standard_gf_value', 'DESC');
+            }
+            break;
+        case 'naming-rules':
+            if (!module_exists("gofast_naming_rules")) {
+                break;
+            }
+            if ($sort['sort'] == 'asc') {
+                $query->orderBy('field_naming_rules_value');
+            }
+            else {
+                $query->orderBy('field_naming_rules_value', 'DESC');
+            }
+            break;
+        default:
+            break;
+        }
+    } else {
+        $query->orderBy('translated_name_nocase');
+    }
+
+    // count to display the right number of available pages
+    $cats_count = $query->countQuery()->execute()->fetchField();
+
+    // go back to last available page if we're pointing to a page which no longer exists after filter application
+    $page_count = ceil($cats_count / $pagination["perpage"]);
+    if ($pagination["page"] > $page_count) {
+        $pagination["page"] = $page_count;
+        $offset = max(($page_count - 1) * $pagination["perpage"], 0);
+    }
+
+    // apply server-side pagination
+    $query->range($offset, $pagination["perpage"]);
+
+    $results = $query->execute();
+    $categories = [];
+    // set the options for the selects; a set of options is an array technical values => displayed values
+    $multiselect_actions = ["-None-" => t("None"), "Archive" => t("Archive"), "Sort" => t("For sorting"), "Destroy" => t("For disposal")];
+    $multiselect_period_units =  ["d" => t("day(s)"), "m" => t("month(s)"), "y" => t("year(s)")];
+    // set the config which defines the selects; the config is an array select name => select options; the select names will be used as keys in the multiselect input request
+    $multiselect_config = ["action" => $multiselect_actions, t("after"), "period" => "number", "period_unit" => $multiselect_period_units];
+
+    // format data in order to have documents as an objects array inside each categories
+    foreach($results->fetchAll() as $result) {
+        $category = new stdClass();
+        $category->tid = $result->tid;
+        $category->name = $result->translated_name;
+        $category->docs_count = $result->docs_count;
+
+        $category->retention = new stdClass();
+        if (in_array($result->uuid, $retention_matrix_uuids)) {
+            $retention_item = $retention_matrix[$result->uuid];
+            $placeholder = $multiselect_actions[$retention_item["action"]] . " " . t("after") . " " . $retention_item["period"] . " " . $multiselect_period_units[$retention_item["period_unit"]];
+        } else {
+            $placeholder = theme("gofast_ac_placeholder");
+            $retention_item = [];
+        }
+        $category->retention = theme("gofast_directory_multiselect_input", ["entity_id" => $result->tid, "placeholder" => $placeholder, "config" => $multiselect_config, "default_values" => $retention_item, "submit" => "/admin/action/apply_retention", "clear_tooltip" => t("Click here to remove the retention rule currently attached to this category", [], ["gofast:gofast_directory"])]);
+
+        if (isset($result->spaces)) {
+            $allowed_spaces = explode('%%ROW_SEPARATOR%%', $result->spaces);
+            $category->spaces = theme("gofast_directory_spaces_popover", array(
+                "gids" => $allowed_spaces,
+                "spaces_count" => $result->spaces_count
+            ));
+        } else {
+            $category->spaces = "-";
+        }
+
+        $category->is_standard = $result->field_standard_gf_value;
+        $category->is_translated = $result->is_translated;
+        $category->actions = gofast_directory_categories_actions_get_all_actions($result->tid);
+
+        if (module_exists("gofast_naming_rules")) {
+            $rulable_tags = [];
+            foreach(gofast_naming_rules_metadata_get_metadata_types() as $label => $value) {
+                $rulable_tags[$label] = $label;
+            }
+            $human_readable_naming_rule = gofast_naming_rule_convert_naming_rule_value($result->field_naming_rules_value);
+            $submit_endpoint = "/taxonomy/" . $result->tid . "/naming_rules/post";
+            $category->rules = theme("gofast_ac_drag_input", ["value" => $human_readable_naming_rule, "span_placeholder" => theme("gofast_ac_placeholder"), "input_placeholder" => t("Drag the metadata here", [], ["context" => "gofast:gofast_directory"]), "clear_tooltip" => t("Click here to remove the naming rule currently attached to this category", [], ["gofast:gofast_directory"]), "input_id" => $result->tid, "rulable_tags" => $rulable_tags, "submit_endpoint" => $submit_endpoint]);    
+        }
+
+        $categories[] = $category;
+    }
+
+    $default_action_button = gofast_directory_categories_actions_get_all_actions(FALSE, TRUE);
+
+    $texts = [
+        "not_translated" => t("This category name is not translated yet", [], ["context" => "gofast:gofast_taxonomy"]),
+        "standard_category" => t("A standard category cannot be modified", [], ["context" => "gofast:gofast_taxonomy"]),
+    ];
+
+    $meta = [
+        "page" => $pagination["page"],
+        "pages" => $page_count,
+        "perpage" => $pagination["perpage"],
+        "total" => $cats_count,
+        "sort" => $sort ? $sort['sort'] : "",
+        "field" => $sort ? $sort['field'] : "",
+    ];
+    return ["data" => $categories, "meta" => $meta, "default_action_button" => $default_action_button, "filters" => $filters, "texts" => $texts];
+}
+
+function gofast_directory_get_tags($pagination, $sort = NULL, $filters = NULL) {
+
+    $tags = [];
+    if (empty($pagination["page"])) {
+        $pagination["page"] = 1;
+    }
+    if (empty($pagination["perpage"])) {
+        $pagination["perpage"] = 20;
+    }
+    $offset = ($pagination["page"] - 1) * $pagination["perpage"];
+
+    $query = db_select('taxonomy_term_data', 'taxonomy');
+    $query->addfield('taxonomy', 'name');
+    $query->addfield('taxonomy', 'tid');
+    // add docs
+    $query->leftJoin("field_data_field_tags", "docstags", "docstags.field_tags_tid = taxonomy.tid");
+    $query->leftJoin("node", "n", "n.nid = docstags.entity_id");
+    $query->condition("n.status", 1, "=");
+    $query->condition('taxonomy.vid', GOFAST_VID_TAGS);
+    $query->addExpression("COUNT(DISTINCT docstags.entity_id)", "qty");
+    $query->addExpression("GROUP_CONCAT(DISTINCT docstags.entity_id)", "tagdocs");
+    $query->groupBy("taxonomy.tid");
+    // with count
+    $target_nids = [];
+
+    // Search by name.
+    if (isset($filters['tagname'])) {
+        $query->condition('taxonomy.name', '%' . $filters['tagname'] . '%', 'LIKE');
+    } elseif(isset($filters["ac-list-tags-documents"])) {
+        $target_docs = json_decode($filters["ac-list-tags-documents"]);
+        foreach($target_docs as $target_doc) {
+            $target_nids[] = $target_doc->value;
+        }
+        $query->condition("docstags.entity_id", $target_nids, "IN");
+    } else {
+        $query->condition('taxonomy.name', '%%', 'LIKE');
+    }
+
+    // Sort.
+    if ($sort) {
+        switch ($sort['field']) {
+        case 'tag_nam':
+            if ($sort['sort'] == 'asc') {
+                $query->orderBy('taxonomy.name');
+            }
+            else {
+                $query->orderBy('taxonomy.name', 'DESC');
+            }
+            break;
+
+        case 'docs':
+            if ($sort['sort'] == 'asc') {
+                $query->orderBy('qty');
+            }
+            else {
+                $query->orderBy('qty', 'DESC');
+            }
+            break;
+
+        default:
+            break;
+        }
+    } else {
+        $query->orderBy('taxonomy.name');
+    }
+
+    // count to display the right number of available pages
+    $tags_count = $query->countQuery()->execute()->fetchField();
+
+    // go back to last available page if we're pointing to a page which no longer exists after filter application
+    $page_count = ceil($tags_count / $pagination["perpage"]);
+    if ($pagination["page"] > $page_count) {
+        $pagination["page"] = $page_count;
+        $offset = ($page_count - 1) * $pagination["perpage"];
+    }
+
+    // apply server-side pagination
+    $query->range($offset, $pagination["perpage"]);
+
+    $result = $query->execute();
+    $tags = $result->fetchAll();
+
+    $new_tags = [];
+    foreach ($tags as $tag) {
+        $tagdocs = isset($tag->tagdocs) ? explode(",", $tag->tagdocs) : [];
+        if(isset($filters["ac-list-tags-documents"])) {
+            if (empty($tagdocs)) {
+                continue;
+            }
+            $includes_all_target_nids = empty(array_diff($target_nids, $tagdocs));
+            if (!$includes_all_target_nids) {
+                continue;
+            }
+        }
+        $documents = [];
+        foreach($tagdocs as $nid) {
+            $doc = [];
+            $doc['nid'] = $nid;
+            $doc['title'] = gofast_get_node_title($nid);
+            $fake_node = new stdClass();
+            $fake_node->type = gofast_get_node_type($nid, TRUE);
+            $fake_node->title = $doc['title'];
+            $fake_node->field_format['und'][0]['tid'] = reset(gofast_mobile_get_node_format((int) $nid));
+            $doc["icon"] = gofast_node_get_icon($fake_node);
+            $documents[] = $doc;
+        }
+        $data = [];
+        $data['name'] = $tag->name ?? "";
+        $data['qty'] = $tag->qty ?? "";
+        $data['tid'] = $tag->tid ?? "";
+        $data['documents'] = $documents;
+        $data['actions'] = $tag->tid ? gofast_directory_tags_actions_get_all_actions($tag->tid) : "";
+        $new_tags[] = $data;
+    }
+
+    $default_action_button = gofast_directory_tags_actions_get_all_actions(FALSE, TRUE);
+
+    $meta = [
+        "page" => $pagination["page"],
+        "pages" => $page_count,
+        "perpage" => $pagination["perpage"],
+        "total" => $tags_count,
+        "sort" => $sort ? $sort['sort'] : "",
+        "field" => $sort ? $sort['field'] : "",
+    ];
+    return ["data" => $new_tags, "meta" => $meta, "default_action_button" => $default_action_button];
+}
+
 /**
  * Query functions
 */
@@ -277,6 +745,7 @@ function gofast_getUserRoleNameByImplodedRoleIds($role_ids) {
 function gofast_getAllUsers($pagination = NULL, $sort = NULL, $filter = NULL, $noPopup = FALSE){
 
     global $user;
+    global $base_url;
     $users = [];
     $uids_user_can_access = gofast_og_get_all_uids_user_can_access($user);
 
@@ -289,14 +758,21 @@ function gofast_getAllUsers($pagination = NULL, $sort = NULL, $filter = NULL, $n
 
     $query->leftJoin('field_revision_ldap_user_prov_entries', 'frlu', 'frlu.entity_id = udd.uid');
     $query->addField('frlu', 'ldap_user_prov_entries_value');
-
+  
+    $query->leftJoin('field_revision_field_standby', 'frsb', 'frsb.entity_id = udd.uid');
+    $query->addField('frsb', 'field_standby_value');
+    
     //apply visibility restrictions
     if($uids_user_can_access != false){
         $query->condition('udd.uid', $uids_user_can_access, 'IN');
     } 
 
     if(isset($filter['status']) && $filter['status'] >= 0){
-        $query->condition('udd.total_status', $filter['status'], '=');
+        if($filter['status'] == 3){
+            $query->condition('frsb.field_standby_value', "1", '='); 
+        }else{
+            $query->condition('udd.total_status', $filter['status'], '=');
+        }
     }
 
     if(!gofast_user_current_can_see_left_user()){
@@ -400,6 +876,8 @@ function gofast_getAllUsers($pagination = NULL, $sort = NULL, $filter = NULL, $n
 
                break;
        }
+    } else {
+        $query->orderBy('lastname');
     }
 
     $users_count = $query->countQuery()->execute()->fetchField();
@@ -420,24 +898,16 @@ function gofast_getAllUsers($pagination = NULL, $sort = NULL, $filter = NULL, $n
     foreach($users as $us) {
         $account = new stdClass();
         $account->uid = $us->uid;
+        $account->access = $us->login;
         $properties_u = ['picture','status','name','left'];
         $users_infos = gofast_get_properties_user_by_uid_or_u_name($us->uid, NULL, $properties_u);
         $account->field_left[LANGUAGE_NONE][0]["value"] = $users_infos->left;
         $us->firstname = trim($us->firstname);
         $us->lastname = trim($us->lastname);
 
-        if($noPopup){
-            $us->picture = gofast_get_url_picture_by_id($users_infos->picture);
-        }else{
-            $account->name = $users_infos->name;
-            $picture_html = '<div class="user-picture profile-to-popup " >
-                                <div class="profile-popup-wrapper">
-                            <div class="profile-popup">
-                            </div>
-                                </div>
-                                <a href="/user/'.$account->uid.'" class="symbol symbol-30"><img typeof="foaf:Image" class="img-responsive" src="'.gofast_get_url_picture_by_id($users_infos->picture).'" alt="Portrait de '.$account->name.'" title="Portrait de '.$account->name.'"></a></div>';
-            $us->picture = $picture_html;
-        }
+        $account_obj = user_load($us->uid);
+        $us->picture = ($account_obj->picture->uri == null ? $base_url . '/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png' : gofast_image_style_url("thumbnail", $account_obj->picture->uri));
+        
         $account->status = $users_infos->status;
         $us->entity = $us->entity == null ? '-' : $us->entity;
 
@@ -489,28 +959,24 @@ function gofast_getAllUsers($pagination = NULL, $sort = NULL, $filter = NULL, $n
                 $us->status['label'] = t('Activated', array(), array('context' => 'gofast:gofast_directory'));
                 break;
         }
+        
+        //standby
+        $us->standby = array();
+        $us->standby["value"] = $us->field_standby_value;
+        switch($us->field_standby_value) {
+            case "1":
+                $us->standby['label'] = t('Standby', array(), array('context' => 'gofast:gofast_user'));
+                break;
+            case "0":
+                $us->standby['label'] = t('Non Standby', array(), array('context' => 'gofast:gofast_user'));
+                break;
+            default:
+                $us->standby['label'] = t('Non Standby', array(), array('context' => 'gofast:gofast_user'));
+                break;
+        }
 
         //ACTIONS
-        $us->actions = "";
-        $account_request_actions = array();
-         foreach (gofast_user_get_request_actions($account, true) as $action) {
-           $account_request_actions[]['themed'] = $action;
-         }
-
-         $user_contextual_actions = array();
-
-         if (!empty($account_request_actions)) {
-           $user_contextual_actions[] = array(
-             'id' => 'account-dropdown',
-             'title' => 'Contextual actions',
-             'button-text' => '',
-             'icon-class' => 'fa fa-bars',
-             'children' => $account_request_actions
-           );
-         }
-
-        $actions = theme('contextual_links', array('buttons' => $user_contextual_actions));
-        $us->actions = $actions;
+        $us->actions = gofast_directory_bulk_actions_users_get_all_actions($account);
     }
 
     // sorts too complex to be treated in the SQL query here
@@ -537,21 +1003,46 @@ function gofast_getAllUsers($pagination = NULL, $sort = NULL, $filter = NULL, $n
 }
 
 function gofast_getAllUserlists($pagination = NULL, $sort = NULL, $filter = NULL){
-
-    global $user;
-    $userlists = [];
     $res = [];
-
+    if(empty($pagination["page"])) $pagination["page"] = GOFAST_PAGINATION_PAGE_DEFAULT;
+    if(empty($pagination["perpage"])) $pagination["perpage"] = GOFAST_PAGINATION_PERPAGE_DEFAULT;
+    $offset = ($pagination["page"] - 1) * $pagination["perpage"];
 
     // Get userslist
     $query = db_select('userlist_directory_detail', 'uldd');
     $query->fields('uldd', ['ulid', 'nid', 'name', 'creator_id', 'nb_og', 'nb_members', 'nb_admins', 'created', 'modified', 'status']);
-
+   
+    // we do this manually for now since grants_alter hook runs a subquery  each row, which is too costly
+    // @see gofast_userlist_og_node_grants_alter to see node_access conditions
+    // $query->addTag('node_access');
+    // $query->addMetaData('base_table', 'userlist_directory_detail');
+    // $query->addMetaData('op', 'view');
+    
+    
     // Get creator detail
     $query->leftJoin('`users_directory_detail`', 'udd', 'udd.uid=uldd.creator_id' );
     $query->addField('udd', 'firstname', 'creator_firstname');
     $query->addField('udd', 'lastname', 'creator_lastname');
     $query->addField('udd', 'picture', 'creator_picture');
+
+    // Check visibility (partitionning)
+    global $user;
+    $visibility = variable_get('gofast_user_partitioning', GOFAST_USER_PARTITIONING_DEFAULT);
+    $admin_visibility = variable_get('gofast_admin_visibility', GOFAST_ADMIN_VISIBILITY_DEFAULT);
+    $admin_visibility_condition = ($admin_visibility == GOFAST_ADMIN_VISIBILITY_ON && gofast_user_is_adm($user));
+
+    if (($visibility == GOFAST_USER_PARTITIONING_ON && $admin_visibility_condition == FALSE) || ($visibility == GOFAST_USER_PARTITIONING_ON_ONLY_EXTRANET && gofast_user_is_extranet() && $admin_visibility_condition == FALSE)) {
+        // get userlists the user is member of
+        $query->leftJoin("field_data_field_userlist_members", 'fum', 'fum.entity_id = uldd.ulid');
+        $query->addField('fum', 'field_userlist_members_value');
+        $query->groupBy("uldd.ulid");
+        $query->addExpression("CONCAT('__', GROUP_CONCAT(fum.field_userlist_members_value SEPARATOR '__'), '__')", "fumembers");
+        // ogm.etid will have a value only for userlists the user is admin of
+        $query->leftJoin("og_membership", "ogm", "ogm.gid = uldd.nid AND ogm.etid = :uid", array(":uid" => $user->uid));
+        $query->addField('ogm', 'etid');
+        // will display any userlist the user is member _or_ administrator of
+        $query->having("fumembers LIKE '%__" . $user->uid . "__%' OR ogm.etid");
+    }
 
     if(isset($filter['startCreated']) && isset($filter['endCreated'])){
         // if user inputed two times the same date, we assume he was looking for a 24h timespan
@@ -637,8 +1128,20 @@ function gofast_getAllUserlists($pagination = NULL, $sort = NULL, $filter = NULL
             default:
                 break;
         }
+    } else {
+        $query->orderBy('name');
     }
 
+    $userlists_count = $query->countQuery()->execute()->fetchField();
+
+    // go back to last available page if we're pointing to a page which no longer exists after filter application
+    $page_count = ceil($userlists_count / $pagination["perpage"]);
+    if ($pagination["page"] > $page_count) {
+        $pagination["page"] = $page_count;
+        $offset = max(($page_count - 1) * $pagination["perpage"], 0);
+    }
+
+    $query->range($offset, $pagination["perpage"]);
 
     $result = $query->execute();
     $res = $result->fetchAll();
@@ -693,24 +1196,88 @@ function gofast_getAllUserlists($pagination = NULL, $sort = NULL, $filter = NULL
 
         $userlist[] = $ulformatted;
     }
-    return $userlist;
+    $meta = [
+        "page" => $pagination["page"],
+        "pages" => $page_count,
+        "perpage" => $pagination["perpage"],
+        "total" => $userlists_count,
+        "sort" => $sort ? $sort['sort'] : "",
+        "field" => $sort ? $sort['field'] : "",
+    ];
+    return ["data" => $userlist, "meta" => $meta];
 }
 
 function gofast_getAllSpaces($pagination, $sort = NULL, $filterSpaces = NULL){
+    global $base_url;
+    
     if(empty($pagination["page"])) $pagination["page"] = GOFAST_PAGINATION_PAGE_DEFAULT;
     if(empty($pagination["perpage"])) $pagination["perpage"] = GOFAST_PAGINATION_PERPAGE_DEFAULT;
     global $user;
 
-    $nb_users_query = "(SELECT count(*) FROM og_membership WHERE gid=n.nid AND og_membership.entity_type='user')";
-    $nb_admins_query = "(SELECT count(*) FROM og_users_roles our LEFT JOIN og_role oro on our.rid = oro.rid WHERE name='administrator member' AND our.gid=n.nid)";
-    $nb_pending_query = "(SELECT count(*) FROM og_membership WHERE og_membership.state ='2' AND og_membership.gid=n.nid)";
+    // START QUERY FOR THE COUNT OF MEMBERS IN SPACE
+    $subquery_userlist = db_select("og_membership", "om");
+    $subquery_userlist->fields("om", array("gid"));
+    $subquery_userlist->fields("fdfum", array("field_userlist_members_value"));
+    $subquery_userlist->join("field_data_field_userlist_members", "fdfum", "fdfum.entity_id = om.etid");
+    $subquery_userlist->condition("om.entity_type", "userlist", "=");
 
-    $query = db_select('node', 'n');
+    $subquery_user = db_select("og_membership", "om");
+    $subquery_user->fields("om", array("gid"));
+    $subquery_user->fields("om", array("etid"));
+    $subquery_user->condition("om.entity_type", "user", "=");
+
+    $subquery_userlist->union($subquery_user);
+
+    $nb_members_subquery = db_select($subquery_userlist, "all_members");
+    $nb_members_subquery->fields("all_members", array("gid"));
+    $nb_members_subquery->addExpression("COUNT(*)", "nb_members");
+    $nb_members_subquery->groupBy("all_members.gid");
+    // END QUERY FOR THE COUNT OF MEMBERS IN SPACE
+    
+    // START QUERY FOR THE COUNT OF ADMINISTRATORS IN SPACE
+    $nb_admins_subquery = db_select("og_users_roles", "our");
+    $nb_admins_subquery->fields("our", array("gid"));
+    $nb_admins_subquery->addExpression("COUNT(*)", "nb_admins");
+    $nb_admins_subquery->leftJoin("og_role", "or", "or.rid = our.rid");
+    $nb_admins_subquery->condition("or.name", "administrator member", "=");
+    $nb_admins_subquery->groupBy("our.gid");
+    // END QUERY FOR THE COUNT OF ADMINISTRATORS IN SPACE
+
+    // START QUERY FOR THE COUNT OF CONTENTS IN SPACE
+    $nb_contents_subquery = db_select("node", "n2");
+    $nb_contents_subquery->fields("om", array("gid"));
+    $nb_contents_subquery->addExpression("COUNT(*)", "nb_contents");
+    $nb_contents_subquery->leftJoin("og_membership", "om", "om.etid = n2.nid");
+    $nb_contents_subquery->condition("om.entity_type", "node", "=");
+    $nb_contents_subquery->condition("n2.status", 1, "=");
+    $nb_contents_subquery->condition("n2.type", ["alfresco_item", "article"], "IN");
+    $nb_contents_subquery->groupBy("om.gid");
+    // END QUERY FOR THE COUNT OF CONTENTS IN SPACE
+
+    // START QUERY FOR THE COUNT OF PENDING MEMBERS IN SPACE
+    $nb_pendings_members_subquery = db_select("og_membership", "om");
+    $nb_pendings_members_subquery->fields("om", array("gid"));
+    $nb_pendings_members_subquery->addExpression("COUNT(*)", "nb_pendings_members");
+    $nb_pendings_members_subquery->condition("om.state", 2, "=");
+    $nb_pendings_members_subquery->groupBy("om.gid");
+    // END QUERY FOR THE COUNT OF PENDING MEMBERS IN SPACE
+
+    $query = db_select("node", "n");
     $query->fields('n', ['nid','type', 'title', 'uid']);
-    $query->addExpression('COUNT(*)', 'nb_contents');
-    $query->addExpression($nb_users_query, 'nb_members');
-    $query->addExpression($nb_admins_query, 'nb_admins');
-    $query->addExpression($nb_pending_query, 'nb_pendings_members');
+    $query->addExpression("COALESCE(nb_members.nb_members, 0)", "nb_members");
+    $query->addExpression("COALESCE(nb_pendings_members.nb_pendings_members, 0)", "nb_pendings_members");
+    $query->addExpression("COALESCE(nb_admins.nb_admins, 0)", "nb_admins");
+    $query->addExpression("COALESCE(nb_contents.nb_contents, 0)", "nb_contents");
+
+    // Link nb_members subquery to the global query
+    $query->leftJoin($nb_members_subquery, "nb_members", "nb_members.gid = n.nid");
+    // Link nb_admins subquery to the global query
+    $query->leftJoin($nb_admins_subquery, "nb_admins", "nb_admins.gid = n.nid");
+    // Link nb_contents subquery to the global query
+    $query->leftJoin($nb_contents_subquery, "nb_contents", "nb_contents.gid = n.nid");
+    // Link nb_pendings_members subquery to the global query
+    $query->leftJoin($nb_pendings_members_subquery, "nb_pendings_members", "nb_pendings_members.gid = n.nid");
+
     $query->leftJoin('og_membership', 'ogm', 'n.nid=ogm.gid');
     $query->condition('n.type', ['organisation', 'group', 'public', 'extranet'], 'IN');
     $query->condition('n.nid', ['4', '5', '6', '7'], 'NOT IN');
@@ -746,6 +1313,65 @@ function gofast_getAllSpaces($pagination, $sort = NULL, $filterSpaces = NULL){
                 case 'type':
                     $query->condition('n.type', $value, '=');
                     break;
+                case 'ac-list-tags-total-members':
+                
+                    $accounts = json_decode($value);
+                    
+                    foreach($accounts as $account){
+                        
+                        $user_account = user_load($account->value);
+                        
+                        if(isset($user_spaces)){
+                            $user_spaces = array_intersect($user_spaces,gofast_og_get_spaces_by_user($user_account, TRUE, FALSE));
+                        } else {
+                            $user_spaces = gofast_og_get_spaces_by_user($user_account, TRUE, FALSE);
+                        }
+                    }
+                    
+                    $query->condition('n.nid',$user_spaces,'IN');
+                    break;
+                    
+                case 'ac-list-tags-total-administrators':
+                    $accounts = json_decode($value);
+                    
+                    foreach($accounts as $key => $account){
+                        
+                        $user_account = user_load($account->value);
+                        $user_spaces = gofast_og_get_spaces_by_user($user_account, TRUE, FALSE);
+                        foreach ($user_spaces as $space) {
+                            $user_role = gofast_og_get_user_roles($space,$user_account->uid);
+                            if(in_array('administrator member',array_values($user_role))){
+                                $temp_admin_spaces[$key][] = $space;
+                            }
+                        }
+                        if(isset($admin_spaces)){
+                            $admin_spaces = array_intersect($admin_spaces,$temp_admin_spaces[$key]);
+                        } else {
+                            $admin_spaces = $temp_admin_spaces[$key];
+                        }
+                    }
+                    
+                    $query->condition('n.nid',$admin_spaces,'IN');
+                    break;
+                    
+                case 'ac-list-tags-total-pending-members':
+                    
+                    $accounts = json_decode($value);
+                    
+                    foreach($accounts as $account){
+                        
+                        $user_account = user_load($account->value);
+                        
+                        if(isset($pending_members)){
+                            $pending_members = array_intersect($pending_members, gofast_og_get_user_pending_spaces($user_account));
+                        } else {
+                            $pending_members = gofast_og_get_user_pending_spaces($user_account);
+                        }
+                    }
+                    
+                    $query->condition('n.nid',$pending_members,'IN');
+                    break;
+                    
                 default:
                     break;
             }
@@ -802,11 +1428,12 @@ function gofast_getAllSpaces($pagination, $sort = NULL, $filterSpaces = NULL){
             default:
                 break;
         }
+    } else {
+        $query->orderBy('n.title');
     }
     
     //duplicate query without rang to have total element count
-    $total_count_result = $query->execute();
-    $total_count = $total_count_result->rowCount();  
+    $total_count = $query->countQuery()->execute()->fetchField();
     $query->range(($pagination["page"]-1)*$pagination["perpage"], $pagination["perpage"]);
     $result = $query->execute();
     $spaces = $result->fetchAll();
@@ -814,9 +1441,13 @@ function gofast_getAllSpaces($pagination, $sort = NULL, $filterSpaces = NULL){
     $spacesAr = [];
     foreach($spaces as $key => &$space) {
         $node = node_load($space->nid);
-
+        
         $space->name = $node->title;
         $space->type = $node->type;
+        $space->description = $node->field_description[LANGUAGE_NONE][0]['value'];
+        $custom_logo = $node->field_logo_uri['und'][0]['value'];
+        $custom_logo = isset($custom_logo) ? file_create_url($custom_logo) : $base_url . '/sites/all/themes/bootstrap-keen/logo.png';
+        $space->picture = $custom_logo;
         $space->breadcrumb = gofast_breadcrumb_display_breadcrumb($node->nid, ['return' => TRUE, 'only_title' => FALSE, 'from_tooltip' => TRUE]);
         if ($node->status) {
             $space->status = t('Active', array(), array('context' => 'gofast:gofast_directory'));
@@ -854,8 +1485,8 @@ function gofast_getAllSpaces($pagination, $sort = NULL, $filterSpaces = NULL){
             $admin_members[] = array(
                 "uid" => $uid,
                 "picture" => gofast_get_url_picture_by_id($users_infos->picture),
-                "firstname" => $users_infos->firstname,
-                "lastname" => $users_infos->lastname,
+                "firstname" => $users_infos->firstname ?? "",
+                "lastname" => $users_infos->lastname ?? "",
             );
           }
         }
@@ -877,30 +1508,56 @@ function gofast_getAllSpaces($pagination, $sort = NULL, $filterSpaces = NULL){
     return $spaces;
 }
 
-function gofast_get_contact_listing($pagination, $sort = NULL) {
+function gofast_get_contact_listing($pagination = [], $sort = NULL,  $filters = NULL) {
 
   $userlist = [];
-  if (empty($pagination->page)) {
-    $pagination->page = GOFAST_PAGINATION_PAGE_DEFAULT;
+  if (empty($pagination["page"])) {
+    $pagination["page"] = GOFAST_PAGINATION_PAGE_DEFAULT;
   }
-  if (empty($pagination->perpage)) {
-    $pagination->perpage = GOFAST_PAGINATION_PERPAGE_DEFAULT;
+  if (empty($pagination["perpage"])) {
+    $pagination["perpage"] = GOFAST_PAGINATION_PERPAGE_DEFAULT;
   }
 
   $query = db_select('node', 'n');
   $query->leftJoin('field_data_field_contact_name', 'lastname', 'lastname.entity_id = n.nid');
   $query->leftJoin('field_data_field_contact_email', 'email', 'email.entity_id = n.nid');
   $query->leftJoin('field_data_field_contact_entity', 'entity', 'entity.entity_id = n.nid');
-  $query->leftJoin('field_data_field_contact_firstname', 'firstaname', 'firstaname.entity_id = n.nid');
+  $query->leftJoin('field_data_field_contact_firstname', 'firstname', 'firstname.entity_id = n.nid');
   $query->leftJoin('field_data_field_contact_phone', 'phone', 'phone.entity_id = n.nid');
   $query->addField('n', 'nid');
+  $query->addField('n', 'uid');
   $query->addField('lastname', 'field_contact_name_value');
-  $query->addField('firstaname', 'field_contact_firstname_value');
+  $query->addField('firstname', 'field_contact_firstname_value');
   $query->addField('entity', 'field_contact_entity_value');
   $query->addField('email', 'field_contact_email_value');
   $query->addField('phone', 'field_contact_phone_value');
   $query->condition('n.type', 'contact');
-
+  $query->condition('n.status', 1);
+  
+  if (isset($filters['firstname'])) {
+  $query->condition('firstname.field_contact_firstname_value', '%' . $filters['firstname'] . '%', 'LIKE');
+  }
+  
+  if (isset($filters['lastname'])) {
+  $query->condition('lastname.field_contact_name_value', '%' . $filters['lastname'] . '%', 'LIKE');
+  }
+  
+  if (isset($filters['entity'])) {
+  $query->condition('entity.field_contact_entity_value', '%' . $filters['entity'] . '%', 'LIKE');
+  }
+  
+  if (isset($filters['email'])) {
+  $query->condition('email.field_contact_email_value', '%' . $filters['email'] . '%', 'LIKE');
+  }
+  
+  if (isset($filters['mobile'])) {
+  $query->condition('phone.field_contact_phone_value', '%' . $filters['mobile'] . '%', 'LIKE');
+  }
+  
+  if (isset($filters['name'])) {
+  $query->condition(db_or()->condition('firstname.field_contact_firstname_value', '%' . $filters['name'] . '%', 'LIKE')->condition('lastname.field_contact_name_value', '%' . $filters['name'] . '%', 'LIKE'));
+  }
+      
   //SORT
   if ($sort) {
     switch ($sort['field']) {
@@ -914,10 +1571,10 @@ function gofast_get_contact_listing($pagination, $sort = NULL) {
         break;
       case 'firstname':
         if ($sort['sort'] == 'asc') {
-          $query->orderBy('firstaname.field_contact_firstname_value');
+          $query->orderBy('firstname.field_contact_firstname_value');
         }
         else {
-          $query->orderBy('firstaname.field_contact_firstname_value', 'DESC');
+          $query->orderBy('firstname.field_contact_firstname_value', 'DESC');
         }
         break;
       case 'entity':
@@ -947,7 +1604,10 @@ function gofast_get_contact_listing($pagination, $sort = NULL) {
       default:
         break;
     }
+  } else {
+    $query->orderBy('lastname.field_contact_name_value');
   }
+
   $result = $query->execute();
   $contacts = $result->fetchAll();
 
@@ -959,6 +1619,10 @@ function gofast_get_contact_listing($pagination, $sort = NULL) {
     $data['entity'] = $contact->field_contact_entity_value ?? " ";
     $data['phone'] = $contact->field_contact_phone_value ?? " ";
     $data['nid'] = $contact->nid;
+    $fake_node = new stdClass();
+    $fake_node->type = "contact";
+    $fake_node->uid = $contact->uid;
+    $data['can_update'] = gofast_contacts_can_update_contact_node($fake_node, "update");
     $userlist[] = $data;
   }
 
@@ -1117,9 +1781,6 @@ function gofast_get_all_users_by_userlistId($id){
 
 
 function gofast_get_user_by_id($uid){
-
-    $user;
-
     $query = db_select('users_directory_detail', 'udd');
     $query->fields('udd');
     $query->condition('udd.uid', $uid, '=');
@@ -1200,6 +1861,14 @@ function gofast_modal_form_bulk_actions_users($form, &$form_state, $action, $uid
             $title_confirm = t('Disable', array(), array('context' => 'gofast'));
             $text_confirm = t('You are about to disable those @count user(s)', array("@count" => count($uids_array)), array('context' => 'gofast'));
             break;
+        case 'unstandby':
+            $title_confirm = t('Activate', array(), array('context' => 'gofast'));
+            $text_confirm = t('You are about to activate those @count user(s) if possible', array("@count" => count($uids_array)), array('context' => 'gofast'));
+            break;
+        case 'unstandby_or_unleave':
+            $title_confirm = t('Unblock / Activate', array(), array('context' => 'gofast'));
+            $text_confirm = t('You are about to activate or unblock those @count user(s) if possible', array("@count" => count($uids_array)), array('context' => 'gofast'));
+            break;
         default:
             $title_confirm = "";
             break;
@@ -1239,11 +1908,6 @@ function gofast_modal_form_bulk_actions_users($form, &$form_state, $action, $uid
     return $confirm_form;
 }
 
-function gofast_modal_form_bulk_actions_users_validate(&$form, &$form_state) {
-
-}
-
-
 function gofast_modal_form_bulk_actions_users_submit(&$form, &$form_state) {
   //Create nodes array
   $uids = explode("-",$form_state["build_info"]["args"]["uids"]);
@@ -1275,6 +1939,12 @@ function gofast_modal_form_bulk_actions_users_submit(&$form, &$form_state) {
             case 'disable':
                $title_action = t("Disable user", array(), array("context" => "gofast"));
                 break;
+            case 'unstandby':
+                $title_action = t("Activate user", array(), array("context" => "gofast"));
+                break;
+            case 'unstandby_or_unleave':
+                $title_action = t("Unblock / Activate", array(), array("context" => "gofast"));
+                break;         
             default:
                $title_action = "";
                break;
@@ -1295,36 +1965,399 @@ function gofast_modal_form_bulk_actions_users_submit(&$form, &$form_state) {
   exit;
 }
 
+function gofast_directory_categories_add($js) {
+    module_load_include('inc', 'taxonomy', 'taxonomy.admin');
 
+    $form_id = 'gofast_admin_categories_add_form';
 
+    if (!$js) {
+        return drupal_get_form($form_id);
+    }
 
-function gofast_directory_bulk_actions_users_get_all_actions(){
+    ctools_include('modal');
+    ctools_include('ajax');
+    $form_state = [
+        'reset_html_ids' => TRUE,
+        'ajax' => TRUE,
+        're_render' => FALSE,
+        'no_redirect' => TRUE,
+    ];
+
+    $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+    $commands[] = ajax_command_html('#ctools-add-js', "<script>
+        window.tagify['ac-list-tags-spaces'].setReadonly($('#edit-allow-all-bs-switch').prop('checked'));
+        if($('#edit-allow-all-bs-switch').prop('checked')) {
+            window.tagify['ac-list-tags-spaces'].DOM.scope.parentElement.parentElement.style.display = 'none'; 
+        } else {
+            window.tagify['ac-list-tags-spaces'].DOM.scope.parentElement.parentElement.style.display = 'block'; 
+        }
+        $('#edit-allow-all-bs-switch').on('change', function() {
+            window.tagify['ac-list-tags-spaces'].setReadonly($(this).prop('checked'));
+            if($('#edit-allow-all-bs-switch').prop('checked')) {
+                window.tagify['ac-list-tags-spaces'].DOM.scope.parentElement.parentElement.style.display = 'none'; 
+            } else {
+                window.tagify['ac-list-tags-spaces'].DOM.scope.parentElement.parentElement.style.display = 'block'; 
+            }
+        }); 
+    </script>')");
+
+    if ($form_state['executed']) {
+        $commands[] = ctools_modal_command_dismiss();
+        $commands[] = gofast_command_processAjax("/admin/config/gofast/global#edit-categories");
+    }
+    print ajax_render($commands);
+}
+
+function gofast_directory_categories_rename_translate($js, $category) {
+    module_load_include('inc', 'taxonomy', 'taxonomy.admin');
+
+    $form_id = 'gofast_admin_categories_rename_translate_form';
+
+    if (!$js) {
+        return drupal_get_form($form_id);
+    }
+
+    ctools_include('modal');
+    ctools_include('ajax');
+    $form_state = [
+        'reset_html_ids' => TRUE,
+        'build_info' => [
+            'args' => [
+                $category,
+            ],
+        ],
+        'ajax' => TRUE,
+        're_render' => FALSE,
+        'no_redirect' => TRUE,
+    ];
+
+    $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+    if ($form_state['executed']) {
+        $commands[] = ctools_modal_command_dismiss();
+        $commands[] = gofast_command_processAjax("/admin/config/gofast/global#edit-categories");
+    }
+    print ajax_render($commands);
+}
+
+function gofast_directory_bulk_actions_categories($js, $action = NULL, $terms = NULL) {
+    module_load_include('inc', 'taxonomy', 'taxonomy.admin');
+
+    $terms = explode("-", $terms);
+    $terms = array_filter($terms);
+
+    if ($action === 'delete') {
+        $form_id = 'gofast_admin_categories_multiple_delete_confirm_form';
+    }
+    elseif ($action === 'manage-spaces') {
+        $form_id = 'gofast_admin_categories_multiple_manage_spaces_form';
+    } elseif ($action == "merge") {
+        $form_id = 'gofast_admin_categories_multiple_merge_form';
+    } elseif ($action == 'manage-criticities') {
+        $form_id = 'gofast_admin_categories_multiple_manage_criticities_form';
+    } elseif ($action == "apply-retention") {
+        $form_id = 'gofast_admin_categories_multiple_apply_retention_form';
+    }
+
+    if (!$js) {
+        return drupal_get_form($form_id, $terms);
+    }
+
+    ctools_include('modal');
+    ctools_include('ajax');
+    $form_state = [
+        'reset_html_ids' => TRUE,
+        'build_info' => [
+            'args' => [
+                $terms,
+            ],
+        ],
+        'ajax' => TRUE,
+        're_render' => FALSE,
+        'no_redirect' => TRUE,
+    ];
+
+    $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+    $checkboxes_handler = "$('#modal-content .checkbox-item').on('change', function() {
+        const ids = [];
+        $('#modal-content .checkbox-item').each(function() {
+            if (!$(this).prop('checked')) { return; }
+            var id = $(this).attr('id');
+            var value = id.replace('checkbox-item-', '');
+            ids.push(value);
+        });
+        const result = ids.join(' ');
+        $('#modal-content input[name=\"terms\"]').val(result);
+    });";
+
+    if ($action == 'manage-spaces') {
+        $commands[] = ajax_command_html('#ctools-add-js', "<script>
+            window.tagify['ac-list-tags-spaces'].setReadonly($('#edit-allow-all-bs-switch').prop('checked'));
+            if($('#edit-allow-all-bs-switch').prop('checked')) {
+                window.tagify['ac-list-tags-spaces'].DOM.scope.parentElement.parentElement.style.display = 'none'; 
+            } else {
+                window.tagify['ac-list-tags-spaces'].DOM.scope.parentElement.parentElement.style.display = 'block'; 
+            }
+            $('#edit-allow-all-bs-switch').on('change', function() {
+                window.tagify['ac-list-tags-spaces'].setReadonly($(this).prop('checked'));
+                if($('#edit-allow-all-bs-switch').prop('checked')) {
+                    window.tagify['ac-list-tags-spaces'].DOM.scope.parentElement.parentElement.style.display = 'none'; 
+                } else {
+                    window.tagify['ac-list-tags-spaces'].DOM.scope.parentElement.parentElement.style.display = 'block'; 
+                }
+            });
+            " . $checkboxes_handler . "
+        </script>')");
+    } elseif ($action == 'retention') {
+        $commands[] = ajax_command_html('#ctools-add-js', "<script>
+            if($('#edit-unset-all-bs-switch').prop('checked')) {
+                $('#edit-retention').css('display', 'none'); 
+            } else {
+                $('#edit-retention').css('display', 'block');
+            }
+            $('#edit-unset-all-bs-switch').on('change', function() {
+                if($('#edit-unset-all-bs-switch').prop('checked')) {
+                    $('#edit-retention').css('display', 'none'); 
+                } else {
+                    $('#edit-retention').css('display', 'block');
+                }
+            });
+            " . $checkboxes_handler . "
+            </script>')");
+    } elseif ($action == 'manage-criticities') {
+        $commands[] = ajax_command_html('#ctools-add-js', "<script>
+            " . $checkboxes_handler . "
+            </script>')");
+    }
+    if ($form_state['executed']) {
+        $commands[] = ctools_modal_command_dismiss();
+        $commands[] = gofast_command_processAjax("/admin/config/gofast/global#edit-categories");
+    }
+    print ajax_render($commands);
+}
+
+function gofast_directory_categories_actions_get_all_actions($tid = FALSE, $default = FALSE) {
+    $tid_param = $tid ? $tid : 0;
+    $is_standard = gofast_taxonomy_categories_is_category_standard($tid);
+    $has_retention = gofast_retention_get_category_retention($tid);
+
+    $array_actions[]['themed'] = theme('gofast_link_generic', [
+        'icon_class' => "fas fa-plus",
+        'href' => "/modal/nojs/taxonomy/categories/add",
+        'link_class' => 'ctools-use-modal default-action',
+        'text' => t('Add', [], ['context' => 'gofast']),
+    ]);
+
+    $array_actions[]['themed'] = theme('gofast_link_generic', [
+        'icon_class' => "fas fa-pen",
+        'text' => t('Rename / Translate', [], array('context' => 'gofast')), // change the cat name in any languages in a modal
+        'href' => '/modal/nojs/taxonomy/categories/translate/' . $tid_param,
+        'link_class' => ($tid && !$is_standard) ? 'ctools-use-modal' : NULL,
+        'disabled' => ($tid && !$is_standard) ? FALSE : TRUE
+    ]);
+
+    $array_actions[]['themed'] = theme('gofast_link_generic', [
+        'icon_class' => "flaticon2-group",
+        'href' => "/modal/nojs/directory/bulk_action/categories/manage-spaces/" . $tid_param,
+        'link_class' => (!$default && !$is_standard) ? 'ctools-use-modal' : NULL,
+        'text' => t('Manage spaces', [], ['context' => 'gofast']),
+        'disabled' => ($default || $is_standard) ? TRUE : FALSE
+    ]);
+
+    $array_actions[]['themed'] = theme('gofast_link_generic', [
+        'icon_class' => "fas fa-object-ungroup",
+        'href' => "/modal/nojs/directory/bulk_action/categories/merge/" . $tid_param,
+        'link_class' => (!$default && !$is_standard) ? 'ctools-use-modal' : NULL,
+        'text' => t('Merge categories', [], ['context' => 'gofast']),
+        'disabled' => ($default || $is_standard) ? TRUE : FALSE
+    ]);
+
+    if (!module_exists("gofast_community")) {
+        // $array_actions[]['themed'] = theme('gofast_link_generic', [
+        //     'icon_class' => "fas fa-warning",
+        //     'href' => "/modal/nojs/directory/bulk_action/categories/manage-criticities/" . $tid_param,
+        //     'link_class' => !$default ? 'ctools-use-modal' : NULL,
+        //     'text' => t('Manage criticities', [], ['context' => 'gofast']),
+        //     'disabled' => $default
+        // ]);
+        
+        $array_actions[]['themed'] = theme('gofast_link_generic', [
+            'icon_class' => "fas fa-play",
+            'href' => "/modal/nojs/directory/bulk_action/categories/apply-retention/" . $tid_param,
+            'link_class' => (!$default && $has_retention) ? 'ctools-use-modal' : NULL,
+            'text' => t('Apply retention', [], ['context' => 'gofast']),
+            'disabled' => (!$default && $has_retention) ? FALSE : TRUE
+        ]);
+    }
+
+    $array_actions[]['themed'] = theme('gofast_link_generic', [
+        'icon_class' => "fas fa-trash",
+        'href' => "/modal/nojs/directory/bulk_action/categories/delete/" . $tid_param,
+        'disabled' => ($default || $is_standard) ? TRUE : FALSE,
+        'link_class' => (!$default && !$is_standard ) ? 'ctools-use-modal' : NULL,
+        'text' => t('Delete', [], ['context' => 'gofast']),
+    ]);
+
+    $cats_contextual_actions[] = [
+        'id' => 'cats-dropdown',
+        'title' => 'Contextual actions',
+        'button-text' => '',
+        'icon-class' => 'fa fa-bars',
+        'children' => $array_actions,
+    ];
+    
+    $actions = theme('contextual_links', ['buttons' => $cats_contextual_actions]);
+    return $actions;
+}
+
+function gofast_directory_bulk_actions_tags($js, $action = NULL, $terms = NULL) {
+    module_load_include('inc', 'taxonomy', 'taxonomy.admin');
+
+    $terms = explode("-", $terms);
+    $terms = array_filter($terms);
+
+    if ($action === 'delete') {
+        $form_id = 'gofast_admin_tags_multiple_delete_confirm_form';
+    }
+
+    elseif ($action === 'edit') {
+        $form_id = 'taxonomy_form_term';
+        $terms = taxonomy_term_load(...$terms);
+    }
+    elseif ($action === 'merge') {
+        $form_id = 'gofast_admin_tags_merge_form';
+    }
+
+    if (!$js) {
+        return drupal_get_form($form_id, $terms);
+    }
+
+    ctools_include('modal');
+    ctools_include('ajax');
+    $form_state = [
+        'build_info' => [
+            'args' => [
+                $terms,
+            ],
+        ],
+        'ajax' => TRUE,
+        're_render' => FALSE,
+        'no_redirect' => TRUE,
+    ];
+
+    $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+    if ($form_state['executed']) {
+        $commands[] = ctools_modal_command_dismiss();
+        $commands[] = gofast_command_processAjax("/admin/config/gofast/global#edit-tags");
+    }
+    print ajax_render($commands);
+}
+
+function gofast_directory_tags_actions_get_all_actions($tid = FALSE, $default = FALSE) {
+    $tid_param = $tid ? $tid : 0;
+    $is_standard = gofast_taxonomy_tags_is_tag_standard($tid);
+  
+    $array_actions[]['themed'] = theme('gofast_link_generic', [
+        'icon_class' => "fas fa-pen",
+        'text' => t('Rename', [], ['context' => 'gofast']),
+        'onClick' => ($tid ? 'Gofast.renameTag(\''.$tid.'\')' : NULL),
+        'disabled' => ($tid && !$is_standard ? FALSE : TRUE)
+    ]);
+  
+    $array_actions[]['themed'] = theme('gofast_link_generic', [
+      'icon_class' => "fas fa-object-ungroup",
+      'href' => "/modal/nojs/directory/bulk_action/tags/merge/" . $tid_param,
+      'link_class' => 'ctools-use-modal',
+      'text' => t('Merge', [], ['context' => 'gofast']),
+      'disabled' => ($default || $is_standard ? TRUE : FALSE)
+    ]);
+  
+    $array_actions[]['themed'] = theme('gofast_link_generic', [
+      'icon_class' => 'fas fa-font-case',
+      'href' => '/modal/nojs/taxonomy/tags/case/edit/' . $tid_param,
+      'link_class' => 'ctools-use-modal',
+      'text' => t("Capitalize tags", [], ["context" => "gofast:gofast_metadata"]),
+      'disabled' => ($default || $is_standard ? TRUE : FALSE)
+    ]);
+  
+    $array_actions[]['themed'] = theme('gofast_link_generic', [
+        'icon_class' => 'fas fa-cogs',
+        'href' => '/modal/nojs/taxonomy/tags/config',
+        'link_class' => 'ctools-use-modal default-action',
+        'text' => t("Tags configuration", [], ["context" => "gofast:gofast_metadata"]),
+    ]);  
+  
+    $array_actions[]['themed'] = theme('gofast_link_generic', [
+      'icon_class' => "fas fa-trash",
+      'href' => "/modal/nojs/directory/bulk_action/tags/delete/" . $tid_param,
+      'link_class' => 'ctools-use-modal',
+      'text' => t('Delete', [], ['context' => 'gofast']),
+      'disabled' => ($default || $is_standard ? TRUE : FALSE)
+    ]);
+  
+    $tags_contextual_actions[] = [
+      'id' => 'tags-dropdown',
+      'title' => 'Contextual actions',
+      'button-text' => '',
+      'icon-class' => 'fa fa-bars',
+      'children' => $array_actions,
+    ];
+  
+    $actions = theme('contextual_links', ['buttons' => $tags_contextual_actions]);
+    return $actions;
+}
+  
+/**
+ * @param stdClass|bool $account if set, will get actions for given account
+ */
+function gofast_directory_bulk_actions_users_get_all_actions($account = FALSE){
+    if ($account) {
+        $single_actions = gofast_user_get_request_actions($account, TRUE, TRUE);
+        foreach ($single_actions as $single_action) {
+            $array_actions[]['themed'] = $single_action;
+        }
+    }
+
+    $link_tail = 0;
+    if ($account) {
+        $link_tail = $account->uid;
+    }
+
     $has_role_permission = user_access("administer roles");
     $array_actions[]['themed'] = theme('gofast_link_generic', array(
         'icon_class' => "fas fa-user-tag",
-        'href' => "/modal/nojs/directory/bulk_action/user/rolechange/0",
+        'href' => "/modal/nojs/directory/bulk_action/user/rolechange/$link_tail",
         'link_class' => $has_role_permission ?'ctools-use-modal' : 'disabled',
         'text' => t('Change permissions and profiles', array(), array('context' => 'gofast'))
     ));
-
-    $array_actions[]['themed'] = theme('gofast_link_generic', array(
-        'icon_class' => "fas fa-unlock",
-        'href' => "/modal/nojs/directory/bulk_action/user/unblock/0",
-        'link_class' => 'ctools-use-modal',
-        'text' => t('Re-enable or unblock', array(), array('context' => 'gofast'))
-    ));
-
+    
+    if(gofast_user_is_business_admin()){
+        $array_actions[]['themed'] = theme('gofast_link_generic', array(
+            'icon_class' => "fas fa-user-check",
+            'href' => "/modal/nojs/directory/bulk_action/user/unstandby_or_unleave/$link_tail",
+            'link_class' => 'ctools-use-modal',
+            'text' => t('Unblock / Activate', array(), array('context' => 'gofast'))
+        ));
+    }
+    
     $array_actions[]['themed'] = theme('gofast_link_generic', array(
         'icon_class' => "fas fa-ban",
-        'href' => "/modal/nojs/directory/bulk_action/user/disable/0",
+        'href' => "/modal/nojs/directory/bulk_action/user/disable/$link_tail",
         'link_class' => 'ctools-use-modal',
         'text' => t('Disable', array(), array('context' => 'gofast'))
     ));
+    
+    $can_delete = $account && gofast_user_is_business_admin() && $account->access == 0 ;
 
     $array_actions[]['themed'] = theme('gofast_link_generic', array(
         'icon_class' => "fas fa-trash",
-        'href' => "",
-        'link_class' => 'disabled',
+        'title' => $can_delete ? "" : t("You don't have permission to do this action", array(), array("context" => "gofast")),
+        'href' => "/modal/nojs/user/$link_tail/delete",
+        'link_class' => $can_delete ? 'ctools-use-modal' : '',
+        'disabled'=> !$can_delete,
         'text' => t('Delete', array(), array('context' => 'gofast'))
     ));
 
@@ -1396,6 +2429,22 @@ function gofast_directory_bulk_actions_users_process(){
                 exit;
             }
             break;
+        case 'unstandby':
+                //first, check if user is already activated. if yes, error
+                 if ($account->field_standby[LANGUAGE_NONE][0]["value"] == 1) {
+                     gofast_user_unstandby($uid);
+                 }else{
+                    drupal_set_message(t("The user !user is already activated",  array('!user' => $account->name) , array("context" => "gofast")),"error");                    
+                 }
+                 break;
+        case 'unstandby_or_unleave':
+            //first, check if user is already activated or not left. if yes, error
+            if ($account->field_standby[LANGUAGE_NONE][0]["value"] == 1 || gofast_user_is_left($account)) {
+                gofast_user_unstandby_or_unleave($uid);
+            }else{
+                drupal_set_message(t("The user !user is already unblocked / activated ",  array('!user' => $account->name) , array("context" => "gofast")),"error");                    
+            }
+            break;
         default:
             break;
     }
@@ -1407,50 +2456,180 @@ function gofast_directory_bulk_actions_users_process(){
 /** @param $nid of 0 means it's a bulk action */
 function gofast_directory_bulk_actions_spaces_get_all_actions($nid = 0){
     global $user;
+    $node_type = gofast_get_node_type($nid, TRUE);
+    $is_public = $node_type == "public";
 
-    $array_actions[]['themed'] = theme('gofast_link_generic', array(
-          'icon_class' => "fa fa-user-plus",
-          'href' => $nid == 0 ? "/modal/nojs/directory/bulk_action/space/add_member/0" : "/modal/nojs/og/{$nid}/add/members",
-          'link_class' => 'ctools-use-modal',
-          'text' => t('Add members/Userlists', array(), array('context' => 'gofast:gofast_userlist'))
-        ));
+    $array_actions[] = [
+        'disabled' => $is_public,
+        'title' => $is_public ? t("Public spaces members are the members of the Public userlist", array(), array('context' => 'gofast:gofast_userlist')) : "",
+        "themed" => theme('gofast_link_generic', [
+            'icon_class' => "fa fa-user-plus",
+            'href' => $nid == 0 ? "/modal/nojs/directory/bulk_action/space/add_member/0" : "/modal/nojs/og/{$nid}/add/members",
+            'link_class' => 'ctools-use-modal ajax_link',
+            'text' => t('Add members/Userlists', [], ['context' => 'gofast:gofast_userlist']),
+        ]),
+    ];
 
-        $array_actions[]['themed'] = theme('gofast_link_generic', array(
-          'icon_class' => "fa fa-user-plus",
-          'href' => $nid == 0 ? "/modal/nojs/directory/bulk_action/space/ask_join/0" : "/modal/nojs/ask/join/{$nid}/space",
-          'link_class' => 'ctools-use-modal',
-          'text' => t('Ask to join those spaces', array(), array('context' => 'gofast'))
-        ));
+    $array_actions[] = [
+        'disabled' => $is_public,
+        'title' => $is_public ? t("Public spaces members are the members of the Public userlist", array(), array('context' => 'gofast:gofast_userlist')) : "",
+        "themed" =>  theme('gofast_link_generic', [
+            'icon_class' => "fa fa-user-plus",
+            'href' => $nid == 0 ? "/modal/nojs/directory/bulk_action/space/ask_join/0" : "/modal/nojs/ask/join/{$nid}/space",
+            'link_class' => 'ctools-use-modal ajax_link',
+            'text' => t('Ask to join those spaces', [], ['context' => 'gofast']),
+        ]),
+    ];
 
-      if(gofast_user_is_business_admin($user)){
-        $array_actions[]['themed'] = theme('gofast_link_generic', array(
-          'icon_class' => "fa fa-user-plus",
-          'href' => $nid == 0 ? "/modal/nojs/directory/bulk_action/space/preadd/0" : "/modal/nojs/og/{$nid}/preadd/members",
-          'link_class' => 'ctools-use-modal',
-          'text' => t('Pre-Add members/Userlists', array(), array('context' => 'gofast:gofast_userlist'))
-        ));
-      }
-
-        $user_contextual_actions[] = array(
-             'id' => 'account-dropdown',
-             'title' => 'Contextual actions',
-             'button-text' => '',
-             'icon-class' => 'fa fa-bars',
-             'children' => $array_actions
-           );
-
-       $actions = theme('contextual_links', array('buttons' => $user_contextual_actions));
-
-
-
-       $actions  = str_replace("btn btn-primary btn-icon btn-sm position-relative", "btn btn-light btn-xs btn-icon mr-2 dropdown-placeholder dropdown-processed", $actions);
-       $actions  = str_replace("dropdown ml-3", "dropdown", $actions);
-       $actions  = str_replace("justify-content-center", "", $actions);
+    if(gofast_user_is_business_admin($user)){
+        $array_actions[] = [
+            'disabled' => $is_public,
+            'title' => $is_public ? t("Public spaces members are the members of the Public userlist", array(), array('context' => 'gofast:gofast_userlist')) : "",
+            "themed" => theme('gofast_link_generic', [
+                'icon_class' => "fa fa-user-plus",
+                'href' => $nid == 0 ? "/modal/nojs/directory/bulk_action/space/preadd/0" : "/modal/nojs/og/{$nid}/preadd/members",
+                'link_class' => 'ctools-use-modal',
+                'text' => t('Pre-Add members/Userlists', [], ['context' => 'gofast:gofast_userlist']),
+            ]),
+        ];
+    }
+    
+    $array_actions[]['themed'] = theme('gofast_link_generic', [
+    'icon_class' => 'fa fa-user-plus',
+    'text' => t('Contact administrators of this space', [], ['context' => 'gofast:gofast_og']),
+    'href' => "/modal/nojs/og/{$nid}/contact/admins",
+    'link_class' => 'ctools-use-modal',
+    ]);
 
 
-       return $actions;
+    $children = [];
+
+    $archive_space_prevent_args = [
+        gofast_user_is_business_admin($user),
+        //add more conditions here if needed
+    ];
+
+    $children[]['themed'] = theme('gofast_link_generic', [
+        'icon_class' => "fa fa-archive",
+        'text' => t('Archive', [], ['context' => 'gofast:space_archive']),
+        'href' => "/modal/nojs/og/{$nid}/archive",
+        'link_class' => gofast_og_user_has_permission_to(permission: "archive space", prevent_args: $archive_space_prevent_args) ? 'ctools-use-modal' : 'disabled',
+        'link_id' => 'archive-link',
+    ]);
+
+    $children[]['themed'] = theme('gofast_link_generic', [
+        'icon_class' => 'fa fa-star',
+        'text' => t('Bookmark', [], ['context' => 'gofast:gofast_flag']),
+        'href' => "/modal/nojs/bookmark_collection/flag/{$nid}/bookmark_flag_tree",
+        'link_class' => 'ctools-use-modal',
+        'link_id' => 'bookmark-link',
+    ]);
+
+    $children[]['themed'] = theme('gofast_link_generic', [
+        'icon_class' => 'fa fa-star',
+        'text' => t('Unbookmark', [], ['context' => 'gofast:gofast_flag']),
+        'href' => "/modal/nojs/bookmark_collection/unflag/{$nid}/bookmark_flag_tree",
+        'link_class' => 'ctools-use-modal',
+        'link_id' => 'unbookmark-link',
+    ]);
+
+    $children[]['themed'] = theme('gofast_link_generic', [
+        'icon_class' => 'fa fa-rss',
+        'text' => t('Subscribe', [], ['context' => 'gofast:gofast_flag']),
+        'href' => "/modal/nojs/og/space/bulk_subscribe/{$nid}",
+        'link_class' => 'ctools-use-modal',
+    ]);
+
+    $children[]['themed'] = theme('gofast_link_generic', [
+        'icon_class' => 'fa fa-rss',
+        'text' => t('Unsubscribe', [], ['context' => 'gofast:gofast_flag']),
+        'href' => "/modal/nojs/og/space/bulk_unsubscribe/{$nid}",
+        'link_class' => 'ctools-use-modal',
+    ]);
+
+    $delete_space_prevent_args = [
+        gofast_user_is_business_admin($user),
+	      (is_numeric($nid) && $nid !== 0),
+	    //add more validations here if required
+    ];
+		
+    $children[]['themed'] = theme('gofast_link_generic', [
+        'icon_class' => "fa fa-trash", 
+        'text' => t('Delete', [], ['context' => 'gofast']),
+        'title' => !is_numeric($nid) ? t('You cannot delete spaces in bulk', [], ['context' => 'gofast_og:delete_space']) : t('Delete', [], ['context' => 'gofast_og']),
+        'href' => $nid !== 0  ? "/modal/nojs/gofast_og/delete_space/{$nid}" : "",
+        'link_class' => gofast_og_user_has_permission_to(permission:"delete", node:node_load($nid), prevent_args:$delete_space_prevent_args) ? 'ctools-use-modal' : 'disabled',
+        'link_id' => 'delete-link',
+    ]);
+
+    $array_actions[] = [
+        'themed' => theme('gofast_link_generic', [
+            'text' => t('More ...', [], ['context' => 'gofast']),
+            'title' => t('More'),
+            'icon_class' => 'fas fa-arrow-right',
+            'link_class' => 'w-100',
+        ]),
+        'children' => $children,
+    ];
+
+    $user_contextual_actions[] = [
+        'id' => 'account-dropdown',
+        'title' => 'Contextual actions',
+        'button-text' => '',
+        'icon-class' => 'fa fa-bars',
+        'children' => $array_actions,
+    ];
+
+    $actions = theme('contextual_links', ['buttons' => $user_contextual_actions]);
+
+    $actions  = str_replace("btn btn-primary btn-icon btn-sm position-relative", "btn btn-light btn-xs btn-icon mr-2 dropdown-placeholder dropdown-processed", $actions);
+    $actions  = str_replace("dropdown ml-3", "dropdown", $actions);
+    $actions  = str_replace("dropdown gofastDropdown", "dropdown gofastDropdown w-100", $actions);
+    return str_replace("justify-content-center", "", $actions);
 }
 
+/**
+ * Check user permission for a specific action while considering additional conditions.
+ *
+ * This function provides a convenient way to determine if a user has permission
+ * to perform a particular action within Gofast. It combines
+ * core permission checks with custom conditions specified in the `prevent_args`
+ * parameter, allowing for fine-grained access control.
+ *
+ * @param string $permission - The permission to check for.
+ * @param mixed $node - (Optional) The node to check permissions for. eg a space node.
+ * @param array $prevent_args - (Optional) An array of boolean conditions to meet.
+ * @param string $type - (Optional) The type of entity to check permissions for. eg 'node' or 'space' or 'general'
+ * type general is for global permissions node specific to a single node like "archive space".
+ *
+ * @return bool - True if the user has permission and all conditions are met, false otherwise.
+ */
+function gofast_og_user_has_permission_to(string $permission, mixed $node = FALSE, array $prevent_args = [], string $type = ""): bool {
+    global $user;
+		
+		if(empty($type) && $node !== FALSE){
+			$type = "node";
+		}
+		
+		if(($type === "node" || $type === "space") && $node){
+			$access_conditions = node_access($permission, $node, $user);
+		}else {
+			// Add the original conditions to check
+			$access_conditions = user_access($permission, $user);
+		}
+
+    // Check additional conditions from $prevent_args
+    foreach ($prevent_args as $condition) {
+      // Ensure each condition in $prevent_args is a boolean
+      if (!is_bool($condition)) {
+        throw new InvalidArgumentException("All conditions in \$prevent_args must be boolean values.");
+      }
+
+      // Combine conditions using logical AND
+      $access_conditions = $access_conditions && $condition;
+    }
+    return $access_conditions;
+}
 
 function gofast_directory_bulk_actions_spaces($js,$action, $gids){
 
@@ -1609,3 +2788,153 @@ function gofast_directory_bulk_actions_spaces($js,$action, $gids){
 
 }
 
+/**
+* Get all contextual actions for contacts bulk actions
+*
+* @param int|string $nid
+*
+* @return mixed|string
+* @throws \Exception
+*/
+function gofast_directory_bulk_contacts_get_all_actions(int|string $nid = 0) {
+    global $user;
+    $array_actions[]['themed'] = theme('gofast_link_generic', [
+        'icon_class' => "fas fa-trash",
+        'href' => "/modal/nojs/directory/bulk_action/contacts/delete/0",
+        'link_class' => 'ctools-use-modal' . (gofast_user_is_business_admin($user) ? "" : " disabled"),
+        'text' => t('Delete', [], ['context' => 'gofast']),
+    ]);
+    
+    $contacts_contextual_actions[] = [
+        'id' => 'contacts-dropdown',
+        'title' => 'Contextual actions',
+        'button-text' => '',
+        'icon-class' => 'fa fa-bars',
+        'children' => $array_actions,
+    ];
+    
+    return theme('contextual_links', ['buttons' => $contacts_contextual_actions]);
+}
+
+/**
+*  Bulk actions modal for contacts directory
+*/
+function gofast_directory_bulk_actions_contacts($js, $action = NULL, $nids = NULL) {
+    $nids = explode("-", $nids);
+    $nids = array_filter($nids);
+    
+    if ($action === 'delete') {
+        $form_id = 'gofast_directory_bulk_contacts_delete_form';
+    }
+    
+    if (!$js) {
+        return drupal_get_form($form_id, $nids);
+    }
+    
+    $title_confirm = t('Delete contacts', [], ['context' => 'gofast::directory::contacts::bulk::delete']);
+    ctools_include('modal');
+    ctools_include('ajax');
+    $form_state = [
+        'reset_html_ids' => TRUE,
+        'build_info' => [
+            'args' => [
+                $nids,
+            ],
+        ],
+        'title' => $title_confirm,
+        'ajax' => TRUE,
+        're_render' => FALSE,
+        'no_redirect' => TRUE,
+    ];
+    
+    $commands = ctools_modal_form_wrapper($form_id, $form_state);
+    
+    if ($form_state['executed']) {
+        $commands[] = ctools_modal_command_dismiss();
+        $commands[] = gofast_command_processAjax("/directory/contacts-listing");
+    }
+    print ajax_render($commands);
+}
+
+/**
+* Bulk contacts Delete confirmation form
+*/
+function gofast_directory_bulk_contacts_delete_form($form, &$form_state, $nids = NULL) {
+    
+    $form['nids'] = array(
+        '#type' => 'hidden',
+        '#value' => $nids,
+    );
+    
+    $title_confirm = t('Delete contacts', array(), array('context' => 'gofast::directory::contacts::bulk::delete'));
+    $text_confirm = t('Are you sure you want to delete these contacts?', array(), array('context' => 'gofast::directory::contacts::bulk::delete'));
+    
+    $form['contacts_delete_confirm'] = array(
+        '#markup' => '<div class="font-weight-bolder font-size-h4 text-dark-75">' . $text_confirm . '</div>',
+    );
+    
+    $form['contacts_to_delete'] = [
+        '#prefix' => '<ul class="list-group position-relative" style="top:1rem">',
+        '#suffix' => '</ul>',
+    ];
+    
+    $contact_list = node_load_multiple($nids);
+    foreach ($contact_list as $contact) {
+        $form['contacts_to_delete'][$contact->nid] = array(
+            '#markup' => '<li class="list-group-item d-flex w-50 justify-content-start align-items-center">' .
+            '<i class="fas fa-user-circle mr-2"></i>' . (!empty($contact->title) ? $contact->title :
+            $contact->field_contact_firstname[LANGUAGE_NONE][0]['value'] . ' ' .
+            $contact->field_contact_name[LANGUAGE_NONE][0]['value']) . '</span></li>',
+        );
+        
+    }
+    
+    $form['actions'] = array(
+        '#type' => 'actions',
+    );
+    
+    $form['actions']['submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Delete'),
+        '#attributes' => array(
+            'class' => array('btn', 'btn-danger'),
+        ),
+    );
+    
+    $form['actions']['cancel'] = array(
+        '#type' => 'submit',
+        '#value' => t('Cancel'),
+        '#attributes' => array(
+            'class' => array('btn', 'btn-secondary'),
+        ),
+    );
+    
+    return $form;
+}
+
+/**
+* Bulk contacts Delete confirmation form submit
+* @param $form
+* @param $form_state
+* @return void
+*/
+function gofast_directory_bulk_contacts_delete_form_submit($form, &$form_state): void {
+    global $user;
+    if (!gofast_user_is_business_admin($user)) {
+        $commands[] = gofast_command_toast_message(t('Operation not allowed'), 'error');
+        print ajax_render($commands);
+        exit;
+    }
+    $nids = $form_state['values']['nids'];
+    
+    foreach ($nids as $nid) {
+        //set the status to 0 to delete the node without loading the full node
+        db_update('node')
+        ->fields(['status' => 0])
+        ->condition('nid', $nid)
+        ->execute();
+    }
+    
+    drupal_set_message(t('Contacts deleted', [], ['context' => 'gofast::directory::contacts::bulk::delete']), 'success');
+    $form_state['executed'] = TRUE;
+}

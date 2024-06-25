@@ -249,7 +249,7 @@ function gofast_menu_theme()
     ],
     'gofast_menu_header_mobile' => [
       'template' => 'tpl/header/gofast-menu-header-mobile',
-    ],
+    ]
 
   );
 
@@ -504,7 +504,6 @@ function template_preprocess_gofast_menu_header_topbar(&$variables){
 
 }
 
-
 function template_preprocess_gofast_menu_sidebar(&$variables)
 {
   $menus = [];
@@ -550,7 +549,7 @@ function template_preprocess_gofast_menu_aside(&$variables){
 
   // Changed menu if is_mobile detected.
   $mobile = FALSE;
-  if ($detect->isMobile() || $detect->isTablet() || gofast_mobile_is_mobile_domain()) {
+  if ($detect->isMobile() || gofast_essential_is_essential()) {
     $mobile = TRUE;
   }
 
@@ -575,8 +574,6 @@ function template_preprocess_gofast_menu_aside(&$variables){
                   $path = substr($menu_lvl3["href"], 1);
                     if ($router_item = menu_get_item($path)) {
                         if (!$router_item['access']) {
-                           // exit;
-                           // print_r($menus[$key_parent]);print_r($key);print_r($key2);exit;
                             unset($menus[$key_parent]["menu"][$key]["menu"][$key2]);
                         }
                     }
@@ -585,6 +582,11 @@ function template_preprocess_gofast_menu_aside(&$variables){
      }
   }
 
+  //allow menu to alter this menu
+  foreach (module_implements('alter_aside_menu') as $module) {
+    $menus = module_invoke($module, 'alter_aside_menu',$menus);
+  }
+  
   $variables['menus'] = $menus;
 
 }
@@ -615,7 +617,7 @@ function template_preprocess_gofast_menu_topbar_profile(&$variables){
   // Get GoFAST Multi language
   if (drupal_multilingual()) {
     $path = $_GET['q'];
-    $available_languages = language_list();
+    $available_languages = gofast_clean_language_list();
     global $language;
     foreach ($available_languages as $available_language) {
       if ($available_language->enabled == 0) {
@@ -633,23 +635,7 @@ function template_preprocess_gofast_menu_topbar_profile(&$variables){
       }
     }
   }
-  $links = [];
-  
-  if(gofast_mobile_is_mobile_domain()) {
-    $switchVersion = array(
-      'href' => '/gofast/user/login/version/standard',
-      'label' => 'GoFAST Plus',
-      'icon' => 'fa fa-laptop'
-    );
-  }else{
-    $switchVersion = array(
-      'href' => '/gofast/user/login/version/mobile',
-      'label' => 'GoFAST Essential',
-      'icon' => 'fa fa-mobile'
-    );
-  }
-  
-  
+    
   $links = [
     'profile' => [
       'href' => '/user',
@@ -662,12 +648,29 @@ function template_preprocess_gofast_menu_topbar_profile(&$variables){
       'icon' => 'fas fa-rss',
       'label' => t("Subscriptions")
     ],
-    'switchVersion' => $switchVersion,
-    'logout' => [
-      'href' => '/user/logout',
-      'icon' => 'fas fa-sign-out-alt',
-      'label' => t("Logout")
-    ],
+  ];
+  
+  $detect = new Mobile_Detect();
+  if(!$detect->isTablet()){
+    if(gofast_essential_is_essential()) {
+      $switchVersion = array(
+        'href' => '/gofast/user/login/version/standard',
+        'label' => 'GoFAST Plus',
+        'icon' => 'fa fa-laptop'
+      );
+    }else{
+      $switchVersion = array(
+        'href' => '/gofast/user/login/version/mobile',
+        'label' => 'GoFAST Essential',
+        'icon' => 'fa fa-mobile'
+      );
+    }
+    $links["switchVersion"] = $switchVersion;
+  }
+  $links["logout"] = [
+    'href' => '/user/logout',
+    'icon' => 'fas fa-sign-out-alt',
+    'label' => t("Logout")
   ];
 
   $variables['link'] = $link;
@@ -676,14 +679,14 @@ function template_preprocess_gofast_menu_topbar_profile(&$variables){
 
 function template_preprocess_gofast_menu_header_subheader(&$variables){
 
-  $node;
+  $node = NULL;
 
   if(isset($variables['node'])){
     $node = $variables['node'];
   }
 
   if (empty($breadcrumb)) {
-    $breadcrumb = drupal_get_breadcrumb();
+    $breadcrumb = array();
   }
 
   $output = '';
@@ -753,6 +756,22 @@ function template_preprocess_gofast_menu_header_subheader(&$variables){
     $variables['contextual_actions'] = "";
     $variables['breadcrumb'] = "";
   }
+  // // uncomment if needed to make navigation arrows work with wikis
+  // if ($node && $node->type == "article") {
+  //   $weight =  gofast_book_get_articles_weights([$node->nid])[0];
+  //   if (isset($weight->body_summary)) {
+  //     $node->weight = $weight->body_summary;
+  //   }
+  //     $article_ref = gofast_cmis_node_get_reference_by_nid_without_cmis($node->nid);
+  //     $article_path = gofast_cmis_webservice_get_node_parents($article_ref)[0];
+  //     if ($article_path) {
+  //       $book = gofast_book_get_minimal_book_by_gid(NULL, FALSE, $article_path, FALSE);
+  //       if (is_array($book)) {
+  //         // already sorted by weight
+  //         $node->book = $book;
+  //       }
+  //     }
+  // }
   $variables['breacrumb_node'] = $output;
 }
 
@@ -784,9 +803,18 @@ function _gofast_normal_menu() {
   // Desktop menu version.
   $menu2['espaces'] = [
     'label' => t('Collaborative spaces'),
+    'id' => 'gofastCollaborativeSpacesMenuItem',
     'icon' => '',
     'svg' => '/sites/all/themes/bootstrap-keen/img/collaborative_space.svg',
     'href' => '/node/' . $private_space_id . "#ogdocuments"
+  ];
+
+  // Desktop menu version.
+  $menu2['advanced_search'] = [
+    'label' => t('Advanced search'),
+    'id' => 'gofastAdvancedSearchMenuItem',
+    'icon' => 'fas fa-search-plus',
+    'href' => '/search/advanced'
   ];
 
   $menu2['task'] = [
@@ -813,6 +841,7 @@ function _gofast_normal_menu() {
   $menu3['directory'] = [
     'label' => t('Directories'),
     'icon' => 'fas fa-address-book',
+    'id' => 'directories_menu'
   ];
 
   $menu3['directory']['menu'][] = [
@@ -839,7 +868,6 @@ function _gofast_normal_menu() {
 
   // $menu3['Administration'] = ['label' => 'Administration', 'icon' => 'fas fa-users-cog'];
   $menu4['configuration'] = ['label' => t('GoFAST Configuration'), 'icon' => 'fas fa-tools', 'href' => '/admin/config/gofast/global'];
-  //$menu4['metadata'] = ['label' => t('Categories / Tags'), 'icon' => 'fas fa-tags', 'href' => '/admin/manage/metadata'];
   $menu4['statistic'] = ['label' => t('Statistics'), 'icon' => 'fas fa-chart-line', 'href' => '/gofast_stats/dashboard'];
   $menu4['audit'] = ['label' => t('Audit'), 'icon' => 'fas fa-file-invoice', 'href' => '/gofast_audit'];
   $menu4['ldap_import'] = ['label' => t('Import Users From LDAP'), 'icon' => 'fas fa-address-book"', 'href' => '/admin/config/gofast/ldap/manage'];
@@ -873,9 +901,9 @@ function _gofast_mobile_menu() {
   $menu1 = [
     'home' => [
       'label' => t('Home'),
-      'icon' => '',
-      'svg' => 'sites/all/themes/bootstrap-keen/img/collaborative_space.svg',
+      'icon' => 'fa fa-home',
       'href' => '/home_page_navigation#navBrowser',
+      'class' => "gofastCollaborativeSpacesMenuItem"
     ],
   ];
 
@@ -885,18 +913,19 @@ function _gofast_mobile_menu() {
   $menu2 = [];
   $menu2['private_documents'] = [
     'label' => t("Personal Space"),
-    'icon' => 'fa fa-home',
+    'icon' => '',
+    'svg' => '/sites/all/themes/bootstrap-keen/img/collaborative_space.svg',
     'href' => "/home_page_navigation?&path=/Sites/_{$user->name}#navBrowser",
   ];
   $menu2['calendar'] = [
     'label' => t('Calendar'),
     'icon' => 'fas fa-calendar-alt',
-    'href' => '/calendar_simplified',
+    'href' => "/calendar_simplified",
   ];
   $menu2['task'] = [
     'label' => t("Workflows & Tasks"),
     'icon' => 'fas fa-cogs',
-    'href' => '/tasks_page_navigation#lightDashboardMyTab',
+    'href' => "/tasks_page_navigation#lightDashboardMyTab",
   ];
 
   if (!empty($url)) {
@@ -940,6 +969,31 @@ function _gofast_mobile_menu() {
     'icon' => 'fa fa-user',
     'href' => '/user',
   ];
+  
+  $language_list = gofast_clean_language_list();
+  if (drupal_multilingual() && count($language_list) >= 2) {
+    $menu2['lang'] = [
+      'label' => t('Language'),
+      'icon' => 'fas fa-flag',
+    ];
+    foreach ($language_list as $language) {
+      if($language->enabled == 0){
+        continue;
+      }
+      $path = gofast_xss_clean($_GET['q']);
+      $menu2['lang']['menu'][] = [
+        'id' => 'gofast-mobile-lang-switch',
+        'label' => t($language->name),
+        'href' => '/' . $path . '?language=' . $language->language,
+      ];
+    }
+  }
+
+  $menu2['logout'] = array(
+    'href' => '/user/logout',
+    'label' => t('Logout', array(), array('context' => 'gofast:gofast_menu')),
+    'icon' => 'fas fa-power-off',
+  );
 
   $section['menu'] = $menu2;
   $menus[] = $section;

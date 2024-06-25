@@ -15,8 +15,14 @@
                 });
             });
 
-            console.log('ps:', 'init');
-
+            const thead = $("#gofastSpaceMembersTable > table > thead"); 
+            const tbody = $("#gofastSpaceMembersTable > table > tbody");
+            thead.scroll(function() {
+            tbody.scrollLeft(thead.scrollLeft());
+            });
+            tbody.scroll(function() {
+                thead.scrollLeft(tbody.scrollLeft());
+            });
         }
     };
 

@@ -54,10 +54,10 @@ function gofast_mail_queue_api_queue($message, $type){
     $req = $message_data['event']['value'];
 
     //---------------To stock users to notify------------------
-    $subscribed_user = NULL;
-    $subscribed_term = NULL;
-    $subscribed_group = NULL;
-    $subscribed_node = NULL;
+    $subscribed_user = array();
+    $subscribed_term = array();
+    $subscribed_group = array();
+    $subscribed_node = array();
    //---------------------------------------------------------
     //We retrieve the node ID in the message
     $nid = NULL;
@@ -152,8 +152,8 @@ function gofast_mail_queue_api_queue($message, $type){
           $subscribed_node = gofast_subscription_ui_api_subscribed_list('node', $message_data['nid']['value'], $nid);
         }
         break;
-      case NMEM:
-      case DMEM: // Generate notification for the group administrator
+        case 'NMEM':
+        case 'DMEM': // Generate notification for the group administrator
 
         watchdog('gofast_mail_queue', 'from gofast_message for membership add/delete', array(), WATCHDOG_INFO);
         $subscriptions = gofast_subscription_ui_api_subscribed_list('group', $nid, $nid);
@@ -170,7 +170,7 @@ function gofast_mail_queue_api_queue($message, $type){
 
         break;
 
-      case ECOM:
+      case 'ECOM':
 
         $type_com='message_comment';
 
@@ -199,7 +199,7 @@ function gofast_mail_queue_api_queue($message, $type){
 
         break;
 
-       case NCOM:
+       case 'NCOM':
 
         $type_com='message_comment';
 
@@ -361,6 +361,9 @@ function gofast_mail_queue_api_query($subscription, $log, $type = "message"){
   $uid = $subscription['0'];
 
   $message_data = json_decode($log, TRUE);
+  if (isset($message_data["ignore_mail_queue"]["value"]) && $message_data["ignore_mail_queue"]["value"] == TRUE) {
+    return;
+  }
   //Looking for modifier to avoid sending him a notification
   if(isset($message_data['ruid']['to'])){
     $modifier = $message_data['ruid']['to'];
@@ -559,7 +562,7 @@ function gofast_mail_queue_api_send_mail(string $subject, string $title, string 
 
     if(is_numeric($recept_item['recpt'])){ //If it's a uid
       $user = user_load($recept_item['recpt']); //Load the user
-      if($user->status == 0){
+      if($user->status == 0 && gofast_user_is_left($user)){
           watchdog('gofast_mail_queue', 'prevent sending email to blocked user : '.$user->uid);
           continue;
       }
@@ -570,7 +573,7 @@ function gofast_mail_queue_api_send_mail(string $subject, string $title, string 
     }
     else{ //If it's a mail address
       $user = user_load_by_mail($recept_item['recpt']); //Load the user
-      if(isset($user->uid) && $user->status == 0){
+      if(isset($user->uid) && gofast_user_is_left($user)){
           watchdog('gofast_mail_queue', 'prevent sending email to blocked user : '.$user->uid);
           continue;
       }
@@ -590,6 +593,7 @@ function gofast_mail_queue_api_send_mail(string $subject, string $title, string 
     }
   }
 
+  
   // Generate "Reply to" (the transmitter)
   if(is_numeric($transmitter_id)){
     $_transmitter = user_load($transmitter_id);
@@ -597,8 +601,11 @@ function gofast_mail_queue_api_send_mail(string $subject, string $title, string 
     $_username_transmitter = gofast_user_display_name($_transmitter);
 
     $mail->AddReplyTo($_mail_transmitter, $_username_transmitter);
+    // Generate "FROM" username
+    $mail->SetFrom(variable_get('site_mail'), $_username_transmitter);
+  }else{
+    $mail->setFrom(variable_get('site_mail'), variable_get('site_mail_sender', 'Postmaster ' . variable_get('site_name', 'GoFast')));
   }
-  $mail->setFrom(variable_get('site_mail'), variable_get('site_mail_sender', 'Postmaster ' . variable_get('site_name', 'GoFast')));
   $mail->isHTML(true);
   $mail->CharSet = "utf-8";
   $mail->isSMTP();
@@ -617,6 +624,8 @@ function gofast_mail_queue_api_send_mail(string $subject, string $title, string 
   $mail->Subject = $subject;
   //Formating the final form of the mail:
   global $base_url;
+  
+  $l = array('langcode' => $user->language, 'context' => 'gofast:gofast_mail_queue');
   $format_mail = "";
   $format_mail .= theme('gofast-notifications-mailer-header', array('logo' => theme_get_setting('logo', 'bootstrap_gofast'), 'title' => $title)); //Include header
 
@@ -626,7 +635,7 @@ function gofast_mail_queue_api_send_mail(string $subject, string $title, string 
   } else {
     $format_mail .= theme('gofast-notifications-mailer-body', array('content' => $body)); //Body
   }
-  $format_mail .= theme('gofast-notifications-mailer-footer', array('footer' => $footer)); //Footer
+  $format_mail .= theme('gofast-notifications-mailer-footer', array('footer' => $footer, 'l' => $l)); //Footer
   //$mail->Body = $format_mail;
   $mail->msgHTML($format_mail);
 
@@ -657,6 +666,7 @@ function gofast_mail_queue_api_send_mail(string $subject, string $title, string 
     ));
   }
   if(!$mail->send()){
+    watchdog('gofast_mail_queue', 'ERROR Sending mail: '.$mail->ErrorInfo);
     $return = "Mail: Error, cannot send one or multiple email(s), reason: ".$mail->ErrorInfo;
   }
   else{
@@ -796,8 +806,91 @@ function gofast_mail_queue_api_push($type = NULL){
     //Subject: 'Members Notification'
     $subject = t('Membership notifications report (!date)', array('!date' => format_date(time(), 'custom', $short_format, NULL, $l["langcode"])), $l);
     $title = t("Your notifications from site_name", array('site_name' => variable_get('site_name')), $l);
-    $body = (string) gofast_mail_queue_format_membership_mail($array_notification);
-    if($body != NULL){
+    // $body = (string) gofast_mail_queue_format_membership_mail($array_notification);
+    
+    $item_uid = json_decode(reset($array_notification)->uid, TRUE)[0]['recpt'];
+    $item_user = user_load($item_uid);
+    
+    $myformat = system_date_format_locale($item_user->language, "medium");
+    
+    $event_filters = array('NMEM', 'DMEM');
+    $items_sort = (array) gofast_mail_queue_sort_notifications($array_notification, $item_user, $event_filters);
+    
+    $modification_type = [];
+    $spaces = [];
+    $authors = [];
+    $user_names = [];
+    $user_picts = [];
+    $user_added = [];
+    $new_members = [];
+    $removed_members = [];
+    $date = [];
+    
+    foreach($items_sort as $group => $items){
+      
+      foreach($items as $nid => $item){
+        $new_members[$nid] = 0;
+        $removed_members[$nid] = 0;
+        
+        foreach($item as $key => $event){
+          
+          
+          $message = json_decode($event->message,true);
+          $timestamp = $event->timestamp;
+          
+          
+          $date[$nid][$key] = format_date($timestamp, 'custom', $myformat, NULL, $l["langcode"]);
+          $modification_type[$nid][$key] = $message['event']['value'];
+          if($modification_type[$nid][$key] == "NMEM"){
+            $new_members[$nid]++;
+          } elseif ($modification_type[$nid][$key] == "DMEM"){
+            $removed_members[$nid]++;
+          }
+          
+          if (!$spaces[$nid]) {
+            $spaces[$nid] = new stdClass();
+          }
+          $spaces[$nid]->path = str_replace("/_","/",str_replace("/Sites/_","",$message['path']['value']));
+          $spaces[$nid]->icon = gofast_node_get_icon(node_load($nid));
+          $authors[$nid][$key] = gofast_user_get_display_name_sql($message['ruid']['value']);
+
+          if (!$user_picts[$nid]) {
+            $user_picts[$nid] = [];
+          }
+          if (!$user_names[$nid]) {
+            $user_names[$nid] = [];
+          }
+          
+          if ('user' == $message['new_member_type']['value']) {
+            $user_added = user_load($message['new_member_id']['value']);
+            $user_added_display_name = gofast_user_display_name($user_added);
+            $user_picts[$nid][$key] = '<img width="40" style="border-radius: 5px; vertical-align: middle;" typeof="foaf:Image" src="' . gofast_get_url_picture_by_id($user_added->picture->fid) . '" alt="' . t("@user's picture", array('@user' => $user_added_display_name), array('context' => 'gofast:gofast_user')) . '" title="' . t("@user's picture", array('@user' => $user_added_display_name), array('context' => 'gofast:gofast_user')) . '" />';
+            $user_names[$nid][$key] = $user_added_display_name;
+          }else{
+            $userlist_added = entity_load_single('userlist', $message['new_member_id']['value']);
+            $user_picts[$nid] = theme('gofast_userlist_picture', array('member' => $userlist_added, 'dimensions' => 40, 'attributes' => ['style' => "border-radius: 5px; width:40px;"]));
+            $user_names[$nid] = $userlist_added->name;
+          }
+        }
+      }
+    }
+    
+    if (count($items_sort) > 0){
+      $body = theme('gofast-notifications-mail-notifications-report',array(
+        'modification_type' => $modification_type,
+        'spaces' => $spaces,
+        'authors' => $authors,
+        'user_picts' => $user_picts,
+        'user_names' => $user_names,
+        'item_user' => $item_user,
+        'new_members' => $new_members,
+        'removed_members' => $removed_members,
+        'date' => $date,
+        'l' => array('langcode' => $user->language, 'context' => 'gofast'),
+      ));
+    
+      $footer = variable_get('site_name', 'GoFAST');
+      
       $uid_formated = array(array('recpt' => $uid, 'method' => 'to'));
       gofast_mail_queue_api_send_mail($subject, $title, $footer, $body, $uid_formated);
     }
@@ -1158,10 +1251,16 @@ function gofast_node_deadline_notify_accumulate_recipients(&$recpt, $subscribers
         'firstname' => $user->ldap_user_givenname[LANGUAGE_NONE][0]['value'],
         'user_language' => $user->language,
       );
-      $recpt[$user->mail]['nodes'][$node_index][] = clone $node;
-    }else{
-      // if it already exists, we just add the new node to its registry
-      $recpt[$user->mail]['nodes'][$node_index][] = clone $node;
+      $recpt[$user->mail]['nodes'][$node_index][$node->nid] = clone $node;
+    } else if (isset($recpt[$user->mail]['nodes'][$node_index][$node->nid]) && $node_sub_type == "todolist"){
+      // if the node is already accumulated for the target recipient, merge todolist items
+      $previous_items = $recpt[$user->mail]['nodes'][$node_index][$node->nid]->items ?? [];
+      $all_items = $previous_items + $node->items;
+      $recpt[$user->mail]['nodes'][$node_index][$node->nid] = clone($node);
+      $recpt[$user->mail]['nodes'][$node_index][$node->nid]->items = $all_items;
+    } else {
+      // if new recipient already exists, we just add the new node to its registry
+      $recpt[$user->mail]['nodes'][$node_index][$node->nid] = clone $node;
     }
   }
 }
@@ -1207,6 +1306,7 @@ function gofast_node_deadline_notify(){
           $i++;
         }
         if (isset($subscribers)) {
+          $node->responsible = $node->field_person_in_charge[LANGUAGE_NONE][0]['target_id'] ? user_load($node->field_person_in_charge[LANGUAGE_NONE][0]['target_id']) : NULL;
           gofast_node_deadline_notify_accumulate_recipients($recpt, $subscribers, $node);
         }
       }
@@ -1264,27 +1364,27 @@ function gofast_node_deadline_notify(){
   );
 
   $items = gofast_kanban_get_user_checklistItems(false, TRUE, $filters);
-
   if (count($items) > 0) {
     foreach ($items as $item) {
-
       $node = node_load($item->task_nid);
-      if ((array_search($node->nid, $nids) !== FALSE)) {
-        // if the item is already in the nids list treated above, then it's already in the recpt list
-        continue;
-      }
-      //not send email when task is disable
-      if ($node->status == 0)continue;
+      //don't add item if task is disabled
+      if ($node->status == 0) continue;
       //get item data :
-      $node->item_label = $item->label;
+      $node->items = [];
+      $node->items[$item->ciid] = [];
+      $node->items[$item->ciid]["item_label"] = $item->label;
+      $node->items[$item->ciid]["item_responsible"] = $item->uid ? user_load($item->uid) : NULL;
+
       $responsible = $node->field_person_in_charge[LANGUAGE_NONE][0]["target_id"];
+      $node->responsible = $responsible ? user_load($responsible) : NULL;
+      $parent_space = $node->og_group_content_ref[LANGUAGE_NONE][0]['target_id'];
+      $node->parent_space = $parent_space ? gofast_get_node_title($parent_space) : NULL;
       $subscribers = array();
       $subscribers[] = array(0 => $responsible);
-      if( $item->uid != $responsible){
+      if($item->uid != $responsible){
         $subscribers[] = array(0 => $item->uid);
-      }      
-      gofast_node_deadline_notify_accumulate_recipients($recpt, $subscribers, $node, 'todolist');  
-      
+      }
+      gofast_node_deadline_notify_accumulate_recipients($recpt, $subscribers, $node, 'todolist');
     }
   }
 
@@ -1356,11 +1456,11 @@ function gofast_mail_queue_get_all_event_types(){
  * @param type $notifications
  * @param type $item_user
  * @param type $event_filters
- * @return type
+ * @return array
  */
 function gofast_mail_queue_sort_notifications($notifications, $item_user, $event_filters = array() ) {
 
-  $timer_start = time(true);
+  $timer_start = microtime(true);
   watchdog('gofast_mail_queue', '%name() START ', array('%name' => __FUNCTION__), WATCHDOG_INFO);
 
   if(empty($event_filters)){
@@ -1416,7 +1516,7 @@ function gofast_mail_queue_sort_notifications($notifications, $item_user, $event
  */
 function gofast_mail_queue_clean_notifications(&$notifications) {
 
-  $timer_start = time(true);
+  $timer_start = microtime(true);
   watchdog('gofast_mail_queue', '%name() START ', array('%name' => __FUNCTION__), WATCHDOG_INFO);
 
   $notifications = json_decode(json_encode($notifications), TRUE);
@@ -1431,7 +1531,7 @@ function gofast_mail_queue_clean_notifications(&$notifications) {
 }
 
 /**
- * @todo merge this with the centralized gofast_mail_queue_format function
+ * @deprecated
  * Build notification mail for space administrator (membership activity)
  */
 function gofast_mail_queue_format_membership_mail($notifications){
@@ -1485,8 +1585,8 @@ function gofast_mail_queue_format_membership_mail($notifications){
           $target .= $space['value'] . "<br />";
         }
       }
-      $title = $node->title;
-      $title = "<a style='text-decoration:none; color:#0074A6' href='" . $base_url . "/node/" . $node->nid . "'>" . $title . "</a>";
+      $path = isset($item[0]) ? json_decode($item[0]->message, TRUE)['path']['value'] : $node->title;
+      $title = "<a style='text-decoration:none; color:#0074A6' href='" . $base_url . "/node/" . $node->nid . "'>" . $path . "</a>";
       $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
       $node_icon = gofast_mail_queue_fa_png($node_icon);
 
@@ -1563,7 +1663,7 @@ function gofast_mail_queue_format_membership_mail($notifications){
 
       $node_updates = '<p style="font-size:18px; border-right: 1px solid #dddddd;border-bottom: 1px solid #dddddd;background-color: #bce8f1; opacity: 0.9;padding: 2px; text-align: center;">' . t("Info", array(), array('context' => "gofast:mail_queue")) . '</p>' . $info;
 
-      $events_body .= theme('gofast-notifications-node-update', array('l' => $l, 'count_node' => $count_node, 'isNew' => $isNew, 'isRev' => $updated, 'group' => $group, 'node_icon' => $node_icon, 'node_title' => $title, 'com_updates' => NULL, 'updates' => $node_updates, 'spaces' => $target, 'details' => $details, 'date' => $date));
+      $events_body .= theme('gofast-notifications-node-update', array('l' => $l, 'count_node' => $count_node, 'isNew' => $isNew, 'isRev' => $updated, 'group' => $group, 'node_icon' => $node_icon, 'node_title' => $title, 'com_updates' => NULL, 'updates' => $node_updates, 'spaces' => $target));
       $count_node ++;
     }
   }
@@ -1601,6 +1701,7 @@ function gofast_mail_queue_fa_png($input, $width = "", $color = ""){
     'fa-share-alt' => 'share',
     'fa-file-excel' => 'excel',
     'fa-users' => 'users',
+    'fa-user-single' => 'user',
     'fa-video' => 'conference',
     'fa-file-audio' => 'audio',
     'fa-list-alt file-webform' => 'webform',
@@ -1613,7 +1714,8 @@ function gofast_mail_queue_fa_png($input, $width = "", $color = ""){
     'fa-file file-cao' => 'cao',
     'fa-file-archive' => 'archive',
     'fa-trello' => "trello",
-    'fa-flag file-task' => "flag"
+    'fa-flag file-task' => "flag",
+    'fa-folder' => "folder",
   );
   foreach($matcher as $fa => $png){
     if(strpos($input, $fa)){
@@ -1719,7 +1821,7 @@ function gofast_mail_queue_api_sort_match($timestamp_filter = FALSE, $time = NUL
 
 function gofast_mail_queue_theme(){
   $theme['gofast-notifications-mailer-header'] = array(
-    'template' => '/tpl/gofast-notifications-mailer-header'
+    'template' => 'tpl/gofast-notifications-mailer-header'
   );
   $theme['gofast-notifications-mailer-digest'] = array(
     'template' => 'tpl/gofast-notifications-mailer-digest'
@@ -1760,6 +1862,15 @@ function gofast_mail_queue_theme(){
   $theme['gofast-notifications-node-remove-member'] = array(
      'template' => 'tpl/gofast-notifications-node-remove-member'
    );
+   $theme['gofast-notifications-mail-add-remove-member'] = array(
+    'template' => 'tpl/gofast-notifications-mail-add-remove-member'
+   );
+   $theme['gofast-notifications-mail-notifications-report'] = array(
+    'template' => 'tpl/gofast-notifications-mail-notifications-report'
+   );
+   $theme['gofast-notifications-user-standby'] = array(
+    'template' => 'tpl/gofast-notifications-user-standby'
+  );
 
 
   return $theme;

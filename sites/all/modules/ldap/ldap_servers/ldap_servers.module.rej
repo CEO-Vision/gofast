@@ -1,0 +1,22 @@
+--- ldap_servers.module
++++ ldap_servers.module
+@@ -522,8 +522,8 @@ function ldap_servers_module_load_include($type, $module, $name = NULL) {
+ /**
+  * Return ldap server conf objects.
+  *
+- * @param string $sid
+- * @param string $type
++ * @param string|null $sid
++ * @param string|null $type
+  *   All', 'enabled'.
+  * @param bool $flatten
+  *   signifies if array or single object returned.  Only works if sid is specified.
+@@ -581,7 +581,7 @@ function _ldap_servers_get_servers($sid, $type, $flatten, $reset) {
+ /**
+  * See ldap_servers_get_servers()
+  */
+-function _ldap_servers_get_simpletest_servers($sid, $type = NULL, $flatten, $reset = TRUE) {
++function _ldap_servers_get_simpletest_servers($sid, $type, $flatten, $reset) {
+ 
+   if (!$type) {
+     $type = 'all';

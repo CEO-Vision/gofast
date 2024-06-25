@@ -1,4 +1,4 @@
-<div class="card card-custom card-stretch">
+<div class="card card-custom card-stretch<?= gofast_essential_is_essential() ? " isStackedLayer" : "" ?>">
   <div class="card-header min-h-50px flex-nowrap px-3">
     <?php print theme('gofast_menu_header_subheader', array('node' => $node)); ?>
   </div>

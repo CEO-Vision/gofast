@@ -1,5 +1,4 @@
 (function ($, Gofast, Drupal) {
-    Gofast.lastUrlForumTab = '';
     $(document).ready(function() {
         
         $("html").on('click', '.forum-explorer-element-open', function() {
@@ -30,22 +29,36 @@
                 }
             });
         });
-
-    
     });
     
-    Gofast.reloadForums = function(){
-        if ($("#expl-forum").length) {
-            const urlParam = window.location.pathname.split('/')[2] || "-1";
-            if($("#expl-forum").hasClass("active") && $("#explorer-toggle").hasClass("open")){
-               var spinner = ' <div class="spinner spinner-track spinner-primary d-inline-flex gofast-spinner-xxl position-absolute" style="top: calc(50% - 6em); left: calc(50% - 4em);"></div>';
-               $("#expl-forum").html(spinner);
-               $.get(window.origin + "/gofast/forum/explorer/" + urlParam).done((data) => $("#expl-forum").html(data));
-               Gofast.lastUrlForumTab = '';
-            }else{              
-                Gofast.lastUrlForumTab =  urlParam;
-            }
+    Gofast.reloadForums = function($forumTreeParentElement = null){
+        if (!$forumTreeParentElement) {
+            $forumTreeParentElement = $("#expl-forum");
         }
+        if ($forumTreeParentElement.length) {
+            const urlParam = window.location.pathname.split('/')[2] || "-1";
+            var spinner = ' <div class="spinner spinner-track spinner-primary d-inline-flex gofast-spinner-xxl position-absolute" style="top: calc(50% - 6em); left: calc(50% - 4em);"></div>';
+            $forumTreeParentElement.html(spinner);
+            $.get(window.origin + "/gofast/forum/explorer/" + urlParam).done((data) => $forumTreeParentElement.html(data)); 
+        }
+    }
+
+    Gofast.selectCurrentForum = function(nid = null){
+        var urlParam = window.location.pathname.split('/')[2] || "-1";
+        if(nid != null){
+            urlParam = nid
+        }
+        const waitForForumElementInterval = setInterval(() => {
+            const $forumElement = $(".forum-explorer-wrapper [id='-1'][data-nid='" + urlParam + "']");
+            if (!$forumElement.length) {
+                return;
+            }
+            clearInterval(waitForForumElementInterval);
+            $forumElement.addClass("gofastHighlightedForum bg-primary text-white rounded");
+            if (window.location.hash == "#comment-init" || !window.location.hash.startsWith("#comment-")) {
+                $forumElement[0].scrollIntoView({behavior: "smooth", block: "center"});
+            }
+        }, 100);
     }
 
 })(jQuery, Gofast, Drupal);

@@ -19,6 +19,9 @@ if (isset($event["type"])) {
             $event_string = t('!author added a comment', array('!author' => $event["author_name"]), $l) . ".";
         }
     }
+// In case we only have body modification
+} else if(count($event["actions"]) == 1 && $event["actions"][0]["update"]["field"] == "body"){
+    $event_string = t("!author has made changes to the content.", array("!author" => $event["author_name"]), $l);
 } else {
     $event_string = t('!author made the following changes:', array('!author' => $event["author_name"]), $l);
 }
@@ -108,9 +111,9 @@ if (isset($event["type"])) {
                 <tr>
                     <td style="direction:ltr;font-size:0px;padding:0;padding-top:10px;text-align:center;">
 
-                        <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="" style="vertical-align:top;width:892.8px;" ><![endif]-->
-                        <div class="mj-column-per-90 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
-                            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#F3F6F9;border:1px solid #666666;vertical-align:top;" width="100%">
+                        <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td class="separate-outlook" style="vertical-align:top;width:892.8px;" ><![endif]-->
+                        <div class="mj-column-per-90 mj-outlook-group-fix separate" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+                            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border:1px solid #666666;border-radius:10px;vertical-align:top;" width="100%">
                                 <tbody>
                                     <tr>
                                         <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
@@ -144,7 +147,7 @@ if (isset($event["type"])) {
                                                 <tbody>
                                                     <tr>
                                                         <td align="center" bgcolor="#337ab7" role="presentation" style="border:none;border-radius:5px;cursor:auto;mso-padding-alt:10px 25px;background:#337ab7;" valign="middle">
-                                                            <a href="<?= $base_url . "/node/" . $event["nid"] . "#document__commentstab" ?>" style="display:inline-block;background:#337ab7;color:#ffffff;font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:120%;margin:0;text-decoration:none;text-transform:none;padding:10px 25px;mso-padding-alt:0px;border-radius:5px;" target="_blank"><?= t("Answer", array(), $l) ?> </a>
+                                                            <a href="<?= $base_url . "/node/" . $event["nid"] . "#comment-" . $event["vid"] ?>" style="display:inline-block;background:#337ab7;color:#ffffff;font-family:Poppins, Candara, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:120%;margin:0;text-decoration:none;text-transform:none;padding:10px 25px;mso-padding-alt:0px;border-radius:5px;" target="_blank"><?= t("Answer", array(), $l) ?> </a>
                                                         </td>
                                                     </tr>
                                                 </tbody>
@@ -163,6 +166,10 @@ if (isset($event["type"])) {
     <?php
 else :
     foreach ($event["actions"] as $index => $action) :
+        // Don't show the diff of the body
+        if($action["update"]["field"] == "body"){
+            continue;
+        }
     ?>
         <!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
         <div style="background:white;background-color:white;margin:0px auto;max-width:992px;<?= $index + 1 == count($event["actions"]) ? "border-radius:0 0 10px 10px;" : "" ?>">

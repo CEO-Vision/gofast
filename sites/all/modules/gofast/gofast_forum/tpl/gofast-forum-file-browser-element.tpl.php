@@ -1,7 +1,7 @@
 <table class="forum-explorer-element-table">
     
     <?php foreach ($comments as $key => $comment) : ?>
-    <tr id="<?php echo $comment->cid; ?>" class="forum-explorer-element forum-explorer-element-<?php echo (($key==0) ? 'visible' : 'collapsed'); ?>" style="display: block;">
+    <tr id="<?php echo $comment->cid; ?>" data-nid=<?= $comment->nid ?> class="h-auto forum-explorer-element forum-explorer-element-<?php echo (($key==0) ? 'visible' : 'collapsed'); ?>" style="display: block;">
         <td style="width: <?php echo $comments[$key]->css_indent; ?>em;">
             
         </td>

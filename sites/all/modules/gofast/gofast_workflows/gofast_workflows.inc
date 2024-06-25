@@ -33,12 +33,11 @@ function gofast_workflows_login_curl_exec($ch, $cookie_file = null){
    $decoded_result = json_decode($buf, true);
 
    //check if a cookie file was created or not. if not, it means the login process was not well, so inform the user about that
-   if($cookie_file !== null && !file_exists($cookie_file)) {
+   if($cookie_file !== null) {
        $buf = null;
         //unable to genere session cookie. Set a flag to inform the user and prevent next requests
         global $user;
-        $_SESSION['bonita_cookie_problem_' . $user->uid] = "true";
-        watchdog("debug set session flag wf", $user->uid);
+       // $_SESSION['bonita_cookie_problem_' . $user->uid] = "true";
     }
    $temps_fin = microtime(true);
   //watchdog('Bonita request time', round($temps_fin - $temps_debut, 4));
@@ -164,9 +163,101 @@ function gofast_workflows_get_html_list_actives_tasks($archived = false, $arrayT
     return $output;
 }
 
+/**
+ * @param string $case_id
+ * @param int $account
+ * @param boolean|int $nid if is an int, will also check if the related document is in the workflow
+ * Given a Bonita process instance id and a Drupal uid, check if the user is an assignee of an active task in the process instance.
+ * This will work with every workflow since it doesn't rely on specific workflow variables.
+ * This will work with tasks assigned to userlists as long as the tasks have been started.
+ */
+function gofast_workflows_has_user_active_task_in_workflow($case_id, $uid = 0, $nid = FALSE) {
+    gofast_workflows_activate_bonita_connection();
+    if ($uid == 0) {
+        global $user;
+        $account = $user;
+    } else {
+        $account = user_load($uid);
+    }
 
-/*
- * fonction qui renvoit l'objet complet de la tache recue en parametre
+    // Check if assignee is in workflow
+    $bonita_id = gofast_workflows_get_user_id($account);
+    $matching_assignees = db_select("flownode_instance", "fi", array("target" => "bonita"));
+    $matching_assignees->condition("fi.rootContainerId", $case_id)
+        ->condition("fi.kind", "user")
+        ->condition("fi.assigneeId", $bonita_id);
+    $matching_assignees_count = (int) $matching_assignees->countQuery()->execute()->fetchField();
+    if (!$nid) {
+    return $matching_assignees_count > 0;
+    }
+
+    if ($matching_assignees_count <= 0) {
+        return FALSE;
+    }
+    // If a document to check is given, check it's in the workflow
+    $list_nids = reset(gofast_workflows_get_task_variable_from_db($case_id, "list_nids", "PROCESS_INSTANCE"));
+    if (!$list_nids) {
+        return;
+    }
+    // Lists are stored as XML strings in Bonita database, so we have to parse it
+    $xml = simplexml_load_string($list_nids);
+    $nids_in_workflow = array();
+
+    foreach ($xml->children() as $child) {
+        $nids_in_workflow[] = (string) $child;
+    }
+    // Provided document is not in the workflow: don't allow access
+    if (!in_array($nid, $nids_in_workflow)) {
+        return FALSE;
+    }
+    // Otherwise allow access
+    return TRUE;
+}
+
+/**
+ * Get a Bonita task variable without having to make an API request
+ * @param $container_type if set to PROCESS_INSTANCE, will get a process variable instead of a task variable
+ * @warning will work only on ready tasks
+ */
+function gofast_workflows_get_task_variable_from_db($taskId, $variable_name, $container_type = "ACTIVITY_INSTANCE") {
+    gofast_workflows_activate_bonita_connection();
+    $tasks = db_select("data_instance", "da", array("target" => "bonita"));
+    $tasks->fields("da", array("clobValue"));
+    $tasks->condition("da.containerId", $taskId)
+        ->condition("da.name", $variable_name)
+        ->condition("da.containerType", $container_type);
+    return $tasks->execute()->fetchCol();
+}
+
+/**
+ * This is intended to retrieve several task objects at once using the database query for greater performance
+ * @return array complete task object matching the task ids given in parameter
+ */
+function gofast_workflows_get_task_objects_from_db($taskIds) {
+    if (empty($taskIds)) {
+        return [];
+    }
+    gofast_workflows_activate_bonita_connection();
+    $query = db_select("flownode_instance", "fi", array("target" => "bonita"));
+    $query->fields("fi", ["displayDescription", "executedBy", "rootContainerId", "displayName", "executedBySubstitute", "description", "actorId", "name", "id"]);
+    $query->addField("fi", "stateName", "state");
+    $query->addExpression("FROM_UNIXTIME(ROUND(claimedDate / 1000))", "assigned_date");
+    $query->addExpression("FROM_UNIXTIME(ROUND(expectedEndDate / 1000))", "dueDate");
+    $query->addExpression("FROM_UNIXTIME(ROUND(reachedStateDate / 1000))", "reached_state_date");
+    $query->addExpression("FROM_UNIXTIME(ROUND(lastUpdateDate / 1000))", "last_update_date");
+    $query->addExpression("'USER_TASK'", "type");
+    $query->addExpression("'normal'", "priority");
+    $query->addField("fi", "assigneeId", "assigned_id");
+    $query->addField("fi", "rootContainerId", "caseId");
+    $query->addField("fi", "rootContainerId", "rootCaseId");
+    $query->addField("fi", "parentContainerId", "parentCaseId");
+    $query->condition("id", $taskIds, "IN");
+    $task_objects = $query->execute()->fetchAll();
+    return $task_objects;
+}
+
+/**
+ * @return type complete task object matching the task id given in parameter
  */
 function gofast_workflows_get_task_object($taskId){
     global $user;
@@ -190,7 +281,7 @@ function gofast_workflows_get_task_object($taskId){
 
        if($bonita_user_id){
             $url = URL_BONITA."API/bpm/humanTask/".$taskId;
-            $params .= "?d=processDefinitionId";
+            $params = "?d=processDefinitionId";
 
             curl_setopt($ch, CURLOPT_URL, $url.$params);
             $buf = gofast_workflows_curl_exec($ch);
@@ -237,8 +328,15 @@ function gofast_workflows_get_list_actives_tasks($archived = false, $rootCaseId 
         $bonita_user_id = gofast_workflows_get_user_id($user_drupal);
 
      }
-        //Filter by process definition ID to not display some unwanted processes
-        $processes = gofast_workflows_get_list_available_processes(false, false, $user_drupal->uid, false);
+        //Filter by process definition ID to not display some unwanted processes - Include static cache for recursive usage
+        static $processes_in_active_tasks = [];
+        if(isset($processes_in_active_tasks[$user_drupal->uid])){
+            $processes = $processes_in_active_tasks[$user_drupal->uid];
+        }else{
+            $processes = gofast_workflows_get_list_available_processes(false, false, $user_drupal->uid, false);
+            $processes_in_active_tasks[$user_drupal->uid] = $processes;
+        }
+        
         foreach(module_implements("workflows_processes_light_dashboard") as $module){
             $processes = call_user_func($module . "_workflows_processes_light_dashboard", $processes);
         }
@@ -295,7 +393,7 @@ function gofast_workflows_get_list_actives_tasks($archived = false, $rootCaseId 
                 curl_setopt($ch, CURLOPT_URL, $url.$params);
 
                 $buf = gofast_workflows_curl_exec($ch);
-                $array_results = json_decode($buf, true);
+                $array_results = (array) json_decode($buf, true);
                 if(count($array_results)> 0){
                     foreach($array_results as $key=>$task){
                         if($include_case_object == true){
@@ -374,7 +472,7 @@ function gofast_api_process_document($params, $api = TRUE){
      }
 
     $output = array();
-    if(count($mysql_result > 0)){
+    if(isset($mysql_result) && count($mysql_result) > 0){
          if($return == "process_filter"){
                 $process_filters = "caseids=";
                 $already_pid = array();
@@ -830,7 +928,7 @@ function gofast_workflows_get_html_list_available_processes($reference = false){
             // We load all saved profil to display multiple line for each process with saved profils in a droplist
             $saved_profils = gofast_workflows_profil_get_all_from_type_wf($process["displayName"]);
 
-            if(in_array($process["name"], variable_get("gofast_workflows_processes_models", array('Document broadcast')))){
+            if(in_array($process["name"], variable_get("gofast_workflows_processes_models", array('Document broadcast', 'Courrier Sortant')))){
 
                 if(! str_ends_with(urldecode($reference), '|') ){
                     $referenceListe = $reference;
@@ -838,7 +936,7 @@ function gofast_workflows_get_html_list_available_processes($reference = false){
                     $referenceListe = "";
                 }
                  $processID = $process["id"];
-                $processName = $process["name"]."--".$process["version"]."|".t($process["name"], array(), array('context'=> 'gofast:gofast_workflow'))."/".$process["version"] ;
+                $processName = $process["name"]."--".$process["version"]."|".t($process["name"] , array(), array('context'=> 'gofast:gofast_workflow'))." (v ".$process["version"].")";
                 $addOnlick = "Drupal.gofast_workflows.ceo_vision_js_process_startit('".$processID."', '".$processName."', '".str_replace("'", " ", $reference)."', '".$referenceListe. "' , 'new', '')";
 
                 //add element to be able to start WF without any saved profil
@@ -1010,7 +1108,7 @@ function gofast_workflows_get_list_available_processes($filter_is_document = fal
 
        $buf = gofast_workflows_curl_exec($ch);
 
-        $array_results = json_decode($buf, true);
+        $array_results = (array) json_decode($buf, true);
         $array_results_formatted = array();
 
        if(count($array_results)> 0){
@@ -1304,7 +1402,7 @@ function gofast_workflows_get_case_variables_from_id($case_id){
     $array_results = json_decode($buf, true);
     //on reformate le resultat pour utiliser le nom des variable comme clé du tableau
     $formatted_case_variables = array();
-    if(count($array_results) > 0){
+    if(count((array)$array_results) > 0){
         foreach($array_results as $case_variable){
              $formatted_case_variables[$case_variable["name"]] = $case_variable;
         }
@@ -1394,7 +1492,7 @@ function gofast_workflows_get_image_process($processId, $process_name){
  */
 function gofast_workflows_get_drupalid_from_bonitaid($bonita_id, $returnobject = false){
 
-    if($bonita_id == -1 || $bonita_id === null){
+    if($bonita_id == -1 || $bonita_id == 0 || $bonita_id === null){
         return false;
     }
 
@@ -1424,7 +1522,7 @@ function gofast_workflows_get_drupalid_from_bonitaid($bonita_id, $returnobject =
         curl_setopt($ch, CURLOPT_URL, $url);
         $buf = gofast_workflows_curl_exec($ch);
 
-        $array_results = json_decode($buf, true);
+        $array_results = (array) json_decode($buf, true);
 
         if(count($array_results) > 0){
             $username = $array_results["userName"];
@@ -1595,9 +1693,20 @@ function gofast_get_workflow_action_node($node, $empty = false) {
     $mysql_result = ceo_vision_workflow_execute_bonita_query_bdm($query);
 
     $list_tasks = array();
+    $count_my_assigned_tasks = 0;
+    $count_other_assigned_tasks = 0;
     if(count($mysql_result) > 0){
+        global $user;
+        $bonita_assignee_id =  gofast_workflows_get_user_id($user);
         foreach($mysql_result as $result){
            $tasks_from_pid = gofast_workflows_get_list_actives_tasks(false, $result->PID, false, false, false);
+           foreach ($tasks_from_pid as $task) {
+                if ($task["assigned_id"] == $bonita_assignee_id) {
+                    $count_my_assigned_tasks++;
+                } else {
+                    $count_other_assigned_tasks++;
+                }
+           }
           // $list_tasks = array_merge($list_tasks, $tasks_from_pid);
            $list_tasks = $list_tasks + $tasks_from_pid;
         }
@@ -1619,7 +1728,7 @@ function gofast_get_workflow_action_node($node, $empty = false) {
     $new_comments_class = $wf_count ? ' new-comments' : '';
     $btn_classes = BONITA_WF_ICON__SHOW_PROCESS_IMG . $new_comments_class;
     global $base_url;
-    if(gofast_mobile_is_mobile_domain()){
+    if(gofast_essential_is_essential()){
         $href = $base_url . "/workflow/rapiddashboard";
         $classes = array('ctools-modal-gofast-workflow-document');
     }else{
@@ -1631,6 +1740,8 @@ function gofast_get_workflow_action_node($node, $empty = false) {
       'alt' => t('Workflows', array(), array('context' => 'gofast:gofast_workflows')),
       'title' => t("Workflows", array(), array('context' => 'gofast:gofast_workflows')),
       'button-text' => $wf_count,
+      'my-assigned-tasks' => $count_my_assigned_tasks ?? 0,
+      'other-assigned-tasks' => $count_other_assigned_tasks ?? 0,
       'icon-class' => $btn_classes,
       'href' => $href,
       'classes' => $classes
@@ -1795,36 +1906,151 @@ function gofast_workflows_assign_task_to_user($task_id, $user_id = false){
     return $array_results;
 }
 
+/**
+ * @param object $profile profile fetched from the gofast_wf_profil table
+ * @return object|boolean the actual profile if the current user has access to at least one space the profile belongs to, otherwise FALSE
+ */
+function gofast_worflows_profil_handle_space_restriction($profile) {
+    global $user;
+    $can_access = FALSE;
+    $gids = explode(",",  $profile->gids);
+    // check permissions and format spaces info
+    foreach ($gids as $gid) {
+        $in_space = gofast_og_get_user_final_roles_for_space("node", $gid, $user->uid);
+        if ($in_space) {
+            $can_access = TRUE;
+        }
+        $profile->spaces[] = gofast_ac_format_value_json("node", node_load($gid));
+    }
+    // if user is not in one of the target spaces, don't return the profile
+    if ($can_access) {
+        return $profile;
+    }
+    return FALSE;
+}
+
 function gofast_workflows_profil_get($id){
-   $profil = db_query("SELECT * FROM {gofast_wf_profil} WHERE id = :1", array(":1" => $id))->fetchObject();
-   return $profil;
+    $profile = db_select("gofast_wf_profil", "p")
+        ->fields("p", array())
+        ->condition("id", $id)
+        ->execute()->fetchAll();
+    $profile = reset($profile);
+    $profile->spaces = [];
+    // profile has no space restriction: return it right away
+    if (strlen($profile->gids)== 0) {
+        return $profile;
+    }
+    return gofast_worflows_profil_handle_space_restriction($profile);
 }
 
 function gofast_workflows_profil_get_all_from_type_wf($type_wf, $version = null){
-   if($version == null){
-      $profils = db_query("SELECT * FROM {gofast_wf_profil} WHERE type_wf = :1", array(":1" => $type_wf))->fetchAll();
-   }else{
-      $profils = db_query("SELECT * FROM {gofast_wf_profil} WHERE type_wf = :1 AND version_wf = :2", array(":1" => $type_wf, ":2" => $version))->fetchAll();
-   }
-  return $profils;
+    $ids = db_select("gofast_wf_profil", "p")
+        ->fields("p", array("id"))
+        ->condition("type_wf", $type_wf);
+    if ($version) {
+        $ids = $ids->condition("version_wf", $version);
+    }
+    $ids = $ids->execute()->fetchCol();
+    $profiles = [];
+    foreach ($ids as $id) {
+        $profile = gofast_workflows_profil_get($id);
+        if ($profile) {
+            $profiles[] = $profile;
+        }
+    }
+    return $profiles;
 }
 
-function gofast_workflows_profil_create($name,$value,$type_wf,$version_wf){
+function gofast_workflows_profil_create($name, $value, $type_wf, $version_wf, $gids){
     global $user;
     $uid = $user->uid;
-    db_query("INSERT INTO {gofast_wf_profil} (name,value,type_wf,version_wf,uid) VALUES (:1,:2,:3,:4,:5)",
-                                   array(":1" => $name,":2" => $value,":3" => $type_wf,":4" => $version_wf, ":5" => $uid));
-   return $profil;
+    db_insert("gofast_wf_profil")
+        ->fields(array(
+        'name' => $name,
+        'gids' => $gids,
+        'value' => $value,
+        'type_wf' => $type_wf,
+        'version_wf' => $version_wf,
+        'uid' => $uid,
+        ))
+        ->execute();
 }
 
-function gofast_workflows_profil_edit($id,$name,$value,$type_wf,$version_wf){
-   db_query("UPDATE {gofast_wf_profil} SET name =:1,value=:2,type_wf=:3,version_wf=:4 WHERE id=:5",
-                                   array(":1" => $name,":2" => $value,":3" => $type_wf,":4" => $version_wf,":5" => $id ));
-   return $profil;
+function gofast_workflows_profil_edit($id, $name, $value, $type_wf, $version_wf, $gids){
+    db_update("gofast_wf_profil")
+        ->fields(array(
+        'name' => $name,
+        'gids' => $gids,
+        'value' => $value,
+        'type_wf' => $type_wf,
+        'version_wf' => $version_wf,
+        ))
+        ->condition('id', $id)
+        ->execute();
 }
 
 function gofast_workflows_profil_delete($id)
 {
     $result = db_query("DELETE FROM {gofast_wf_profil} WHERE  id=". $id);
     return $result;
+}
+
+
+function gofast_workflows_parse_bonita_java_variable($variable_value){
+    $list_all_signers = str_replace("=", ":" , $variable_value);
+    $list_all_signers = str_replace("[", "" , $list_all_signers);
+    $list_all_signers = str_replace("]", "" , $list_all_signers);
+    $array_list_all_signers = explode("},", $list_all_signers );
+    $final_result = array();
+    foreach($array_list_all_signers as $signer){
+        $signer = str_replace("{", "" , $signer);
+        $signer = str_replace("}", "" , $signer);
+        $array_signer = explode(",", $signer  );
+        $final_array_signer = array();
+        foreach( $array_signer as $data_signer){
+            list($k, $v) = explode(":", $data_signer);
+            $final_array_signer[ trim($k) ] = $v;
+        }
+        $final_result[] =  $final_array_signer;
+    }
+  
+ return $final_result;
+}
+
+function gofast_workflows_get_user_tasks_infos($task_ids) {
+    global $base_url;
+    $url = $base_url . "/bonita/API/extension/getTasksAllInfos";
+    $url = $url . "?" . http_build_query(array("taskids" => implode("-",$task_ids)));
+
+    $cookie_name = "cookie_bonita".BONITA_TECHNICAL_LOGIN.".txt";
+
+    $ch = curl_init();
+
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_COOKIEFILE, "sites/default/files/swf/".$cookie_name);
+
+    $response = curl_exec($ch);
+    curl_close($ch);
+    if ($response != null) {
+        return $response;
+    } else {
+        return null;
+    }
+}
+
+function gofast_workflows_get_task_type_label($task_type){
+    $all_task_types = ["validate" => t("For validation", array(), array("context" => "gofast:gofast_workflows")),
+                        "sign" => t("For signature", array(), array("context" => "gofast:gofast_workflows")), 
+                        "contribute" => t("For contribution", array(), array("context" => "gofast:gofast_workflows")), 
+                        "inform" => t("For information", array(), array("context" => "gofast:gofast_workflows")), 
+                        "comment" => t("For comment", array(), array("context" => "gofast:gofast_workflows")),
+                        "custom" => $task_type,
+                        "sign_yousign" => t("For signature (Yousign)", array(), array("context" => "gofast:gofast_workflows")),
+                        "sign_yousign_advanced" => t("For advanced signature (Yousign)", array(), array("context" => "gofast:gofast_workflows")),
+                        "sign_digitalsign" => t("For signature (Digitalsign)", array(), array("context" => "gofast:gofast_workflows")),
+                    ];
+    if(in_array($task_type, array_keys($all_task_types))){
+        return $all_task_types[$task_type];
+    }
 }

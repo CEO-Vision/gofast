@@ -362,8 +362,8 @@ class LdapServer {
       }else{   
         // Patch CEO-Vision
         // Analyse ppolicy infos from LDAP     
-        $bind_return = ldap_bind_ext($this->connection, $userdn, $pass, [['oid' => LDAP_CONTROL_PASSWORDPOLICYREQUEST],['oid' => LDAP_CONTROL_PASSWORDPOLICYRESPONSE]]); 
-         if (ldap_parse_result($this->connection, $bind_return, $errcode, $matcheddn, $errmsg, $referrals, $ctrls)) {            
+        $bind_return = ldap_bind_ext($this->connection, $userdn, $pass, [['oid' => LDAP_CONTROL_PASSWORDPOLICYREQUEST],['oid' => LDAP_CONTROL_PASSWORDPOLICYRESPONSE]]);
+         if ($bind_return && ldap_parse_result($this->connection, $bind_return, $errcode, $matcheddn, $errmsg, $referrals, $ctrls)) {            
              if($errcode === 0){
                  //bind is ok, manage ppolicy info
                  gofast_ldap_manage_ppolicy_return_on_successful_login($userdn,$ctrls,$errcode,$errmsg,$this); 
@@ -767,8 +767,8 @@ class LdapServer {
    *   elements if search returns no results),
    *   or FALSE on error.
    */
-
-  function search($base_dn = NULL, $filter, $attributes = array(),
+  // @patch CEO-Vision
+  function search($base_dn = NULL, $filter = NULL, $attributes = array(),
     $attrsonly = 0, $sizelimit = 0, $timelimit = 0, $deref = NULL, $scope = LDAP_SCOPE_SUBTREE) {
 
      /**
@@ -888,8 +888,17 @@ class LdapServer {
     $has_page_results = FALSE;
 
     do {
-      ldap_control_paged_result($this->connection, $this->searchPageSize, TRUE, $page_token);
-      $result = $this->ldapQuery($ldap_query_params['scope'], $ldap_query_params);
+      $servercontrols = array(
+        array(
+          'oid' => LDAP_CONTROL_PAGEDRESULTS,
+          'value' => array(
+            'size' => $this->searchPageSize,
+            'cookie' => $page_token,
+          ),
+        ),
+      );
+      // @patch CEO-Vision
+      $result = ldap_search($this->connection, $ldap_query_params['base_dn'], $ldap_query_params['filter'], array("*"), 0, $this->searchPageSize, -1, LDAP_DEREF_NEVER, $servercontrols);
 
       if ($page >= $this->searchPageStart) {
         $skipped_page = FALSE;
@@ -915,7 +924,10 @@ class LdapServer {
       else {
         $skipped_page = TRUE;
       }
-      @ldap_control_paged_result_response($this->connection, $result, $page_token, $estimated_entries);
+      ldap_parse_result($this->connection, $result, $errcode, $matcheddn, $errmsg, $referrals, $controls);
+      if (isset($controls[LDAP_CONTROL_PAGEDRESULTS]['value']['cookie'])) {
+        $page_token = $controls[LDAP_CONTROL_PAGEDRESULTS]['value']['cookie'];
+      }
       if ($ldap_query_params['sizelimit'] && $this->ldapErrorNumber() == LDAP_SIZELIMIT_EXCEEDED) {
         // false positive error thrown.  do not set result limit error when $sizelimit specified
       }

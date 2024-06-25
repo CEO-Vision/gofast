@@ -8,14 +8,26 @@ switch ($step) {
         $done_task = $history[0];
         $message .= $done_task->actor_displayname;
         $post_message = t("with the following comment:", array(), array("langcode" => $assignee_language, "context" => "gofast:gofast_workflows"));
-        $task_comment = $done_task->comment;
-        // Drupal will not accept importation of translatable strings with HTML tags inside, so we encode the translatable string html entities
-        $done_task_description =  html_entity_decode(t(htmlentities($done_task->description), array(), array("langcode" => $assignee_language, "context" => "gofast:gofast_workflows")));
+        $task_comment = str_replace("\n", "<br />", $done_task->comment);
+        $done_task_description = "";
+        // In case we have the exclusion pattern : "translated|||not_translated|||translated"
+        $descriptions = explode("|||", $done_task->description);
+        foreach ($descriptions as $i => $description) {
+            if ($i == 1) {
+                $done_task_description .= $description;
+                continue;
+            }
+            // Drupal will not accept importation of translatable strings with HTML tags inside, so we encode the translatable string html entities
+            $done_task_description .=  html_entity_decode(t(htmlentities($description), array(), array("langcode" => $assignee_language, "context" => "gofast:gofast_workflows")));
+        }
         break;
     case "task_assigned":
     case "remind_task_assigned":
         $message .= t("Please review your pending tasks below", array(), array("langcode" => $assignee_language, "context" => "gofast:gofast_workflows"));
         break;
+    case "document_already_certified":
+        $already_certified_document = $_POST["already_certified_document"];
+        $message .=  t("The document %name can not be signed because is is already certified with a \"No changes allowed\" level", ["%name" => $already_certified_document->title], ["context" => "gofast:gofast_workflows"]);
     case "end_process":
         $message .= t("The process has been entirely completed", array(), array("langcode" => $assignee_language, "context" => "gofast:gofast_workflows"));
         break;
@@ -154,7 +166,7 @@ switch ($step) {
                                             <div style="font-family:Poppins;font-size:14px;font-weight:400;line-height:1.5;text-align:left;color:#000000;margin-top:10px;">
                                                 <?= $post_message ?>
                                             </div>
-                                            &nbsp;<div style="color: #000000; font-size: 14px; font-weight: 400; background-color: #F3F6F9; border: 1px solid #666666; padding: 2px;"><?= $task_comment?></div>
+                                            &nbsp;<div style="color: #000000; font-size: 14px; font-weight: 400; border-radius: 10px; border: 1px solid #666666; padding: 2px;"><?= $task_comment?></div>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -237,7 +249,7 @@ switch ($step) {
                                     <tbody>
                                         <tr>
                                             <td align="left" style="font-size:0px;padding:10px;word-break:break-word;">
-                                                <div style="font-family:Poppins;font-size:14px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= $assignee_fullname ?></div>
+                                                <div style="font-family:Poppins;font-size:14px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= gofast_mail_queue_fa_png($assigned_user_task["assignedDisplayType"], 14, "primary") ?>&nbsp;<?= $assigned_user_task["assignedDisplayName"] ?></div>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -308,7 +320,7 @@ switch ($step) {
                                                         <tbody>
                                                             <tr>
                                                                 <td>
-                                                                    <img src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'other-white.png' ?>" alt="<?= t("Information Icon", array(), array("context" => "gofast:gofast_workflows")) ?>" width="18" />
+                                                                    <img src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'other-white.png' ?>" alt="<?= t("Information Icon", array(), array("langcode" => $assignee_language, "context" => "gofast:gofast_workflows")) ?>" width="18" />
                                                                 </td>
                                                                 <td>
                                                                     <span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;<?= t("Documents", array(), array("langcode" => $assignee_language, "context" => "gofast:gofast_workflows")) ?></span>
@@ -386,7 +398,7 @@ switch ($step) {
                                                     <tbody>
                                                         <tr>
                                                             <td>
-                                                                <img src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'play-solid-white.png' ?>" alt="<?= t("Information Icon", array(), array("context" => "gofast:gofast_workflows")) ?>" width="18" />
+                                                                <img src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'play-solid-white.png' ?>" alt="<?= t("Information Icon", array(), array("langcode" => $assignee_language, "context" => "gofast:gofast_workflows")) ?>" width="18" />
                                                             </td>
                                                             <td>
                                                                 <span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;<?= t("Other ongoing tasks", array(), array("langcode" => $assignee_language, "context" => "gofast:gofast_workflows")) ?></span>
@@ -498,7 +510,7 @@ switch ($step) {
                                     <tbody>
                                         <tr>
                                             <td align="left" style="font-size:0px;padding:10px;word-break:break-word;">
-                                                <div style="font-family:Poppins;font-size:14px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= $task["assignedDisplayName"] ?></div>
+                                                <div style="font-family:Poppins;font-size:14px;font-weight:600;line-height:1;text-align:left;color:#000000;"><?= gofast_mail_queue_fa_png($task["assignedDisplayType"], 14, "primary") ?>&nbsp;<?= $task["assignedDisplayName"] ?></div>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -555,7 +567,7 @@ switch ($step) {
                                                     <tbody>
                                                         <tr>
                                                             <td>
-                                                                <img src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'history-solid-white.png' ?>" alt="<?= t("Information Icon", array(), array("context" => "gofast:gofast_workflows")) ?>" width="18" style="vertical-align: bottom;" />
+                                                                <img src="<?= $base_url . '/' . drupal_get_path('module', 'gofast_mail_queue') . '/icon/' . 'history-solid-white.png' ?>" alt="<?= t("Information Icon", array(), array("langcode" => $assignee_language, "context" => "gofast:gofast_workflows")) ?>" width="18" style="vertical-align: bottom;" />
                                                             </td>
                                                             <td><span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;<?= t("History", array(), array("langcode" => $assignee_language, "context" => "gofast:gofast_workflows")) ?></td>
                                                         </tr>
@@ -587,7 +599,7 @@ switch ($step) {
                                     <tbody>
                                         <tr>
                                             <td align="left" style="font-size:0px;padding:10px;word-break:break-word;">
-                                                <div style="font-family:Poppins;font-size:14px;font-weight:600;line-height:1;text-align:left;color:white;"><?= t("Action", array(), array("langcode" => $assignee_language, "context" => "gofast:gofast_workflows")) ?></div>
+                                                <div style="font-family:Poppins;font-size:14px;font-weight:600;line-height:1;text-align:left;color:white;"><?= t("Date", array(), array("langcode" => $assignee_language, "context" => "gofast:gofast_workflows")) ?></div>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -643,6 +655,22 @@ switch ($step) {
         if (strpos($history_item->actor_login, "__CUSTOM_STEP__") != FALSE) {
             $history_item->actor_login = explode("__CUSTOM_STEP__", $history_item->actor_login)[0];
         }
+        // In case we have the exclusion pattern : "translated|||not_translated|||translated"
+        $descriptions = explode("|||", $history_item->description);
+        $history_item_description = "";
+        foreach ($descriptions as $i => $description) {
+            if ($i == 1) {
+                $history_item_description .= $description;
+                continue;
+            }
+            $description = html_entity_decode(t(htmlentities($description), array(), array("langcode" => $assignee_language, "context" => "gofast:gofast_workflows")));
+            if (isset($history_item->new_actor_displayname)) {
+                $history_item_description = "";
+                $description = t("Task @description reassigned to @actor", ["@description" => $description, "@actor" => $history_item->new_actor_displayname], ["langcode" => $assignee_language, "context" => "gofast_workflows"]);
+            }
+            $history_item_description .= $description;
+
+        }
 ?>
     <!--[if mso | IE]></td></tr></table><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:992px;" width="992" bgcolor="white" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
     <div style="background:white;background-color:white;margin:0px auto;max-width:992px;">
@@ -682,7 +710,7 @@ switch ($step) {
                                     <tbody>
                                         <tr>
                                             <td align="left" style="font-size:0px;padding:10px;word-break:break-word;">
-                                                <div style="font-family:Poppins;font-size:14px;font-weight:400;line-height:1;text-align:left;color:#000000;"><?= html_entity_decode(t(htmlentities($history_item->description), array(), array("langcode" => $assignee_language, "context" => "gofast:gofast_workflows"))) ?></div>
+                                                <div style="font-family:Poppins;font-size:14px;font-weight:400;line-height:1;text-align:left;color:#000000;"><?= $history_item_description ?></div>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -694,7 +722,7 @@ switch ($step) {
                                     <tbody>
                                         <tr>
                                             <td align="left" style="font-size:0px;padding:10px;word-break:break-word;">
-                                                <div style="font-family:Poppins;font-size:14px;line-height:1;text-align:left;color:#000000;"><?= $history_item->comment ?></div>
+                                                <div style="font-family:Poppins;font-size:14px;line-height:1;text-align:left;color:#000000;"><?= str_replace("\n", "<br />", $history_item->comment) ?></div>
                                                 <div style="font-family:Poppins;font-size:14px;font-weight:400;line-height:1;text-align:left;color:#000000;"></div>
                                             </td>
                                         </tr>

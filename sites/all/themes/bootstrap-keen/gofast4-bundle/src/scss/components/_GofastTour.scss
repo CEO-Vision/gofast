@@ -1,0 +1,59 @@
+.gofast-shepherd-tour {
+    &.shepherd-element {
+        z-index: 10001;
+    }
+    & .shepherd-content{ 
+        background-color: $dark;
+        & .shepherd-header{ 
+            background-color: $white;
+            padding: .5rem;
+        }
+        & .shepherd-title {
+            font-weight: 600;
+            font-size: 1.5rem;
+        }
+        & .shepherd-text {
+            color: $white;
+            margin-inline: 1rem;
+            font-size: 1.25rem;
+        }
+    }
+}
+
+.aside-menu {
+    & .menu-link.hover {
+        background-color: #1F2433;
+        cursor: pointer !important;
+        & .menu-icon {
+            color: #3699FF !important;
+            & .menu-svg-img {
+                filter: invert(50%) sepia(80%) saturate(2219%) hue-rotate(190deg) brightness(101%) contrast(101%) !important;
+            }
+        }
+        & .menu-text {
+            color: #ffffff !important;
+        }
+    }
+}
+
+.header-mobile .burger-icon.hover span {
+    background-color: #3699FF !important;
+    &::before {
+        background-color: #3699FF !important;
+    }
+    &::after {
+        background-color: #3699FF !important;
+    }
+}
+
+.dropdown-item-hover{
+    background-color: #F3F6F9 !important;
+    transition: all 0.15s ease !important;
+    & > span{
+        color: #3699FF !important;
+        text-decoration: none !important;
+        & > i {
+            color: #3699FF !important;
+        }
+    }
+}

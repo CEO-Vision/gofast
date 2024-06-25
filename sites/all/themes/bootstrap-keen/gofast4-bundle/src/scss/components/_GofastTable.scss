@@ -4,14 +4,18 @@
         flex-direction: column;
         & table {
             flex-grow: 1;
-            height: 0 !important; // compensated by flex-grow; prevents wrong sizing of table (sizing is handled by the flex flow)
+            overflow-x: auto !important; // allow horizontal scrolling of the entire table
             & thead tr:first-of-type {
+                & th {
+                    text-align: center !important; // checkbox header alignment with cells
+                    & .contextual-actions-container {
+                        justify-content: start !important; // dropdown header alignment cells
+                    }
+                }
                 & th:not([data-field='']):not([data-field='checkbox']):not([data-field='picture']):not([data-field='buttons']):not([data-field^='actions']):not([data-field$='id']) > span {
-                    display: flex;
-                    align-items: center;
                     overflow: visible;
                 }
-                & th:not([data-field='']):not([data-field='checkbox']):not([data-field='picture']):not([data-field='buttons']):not([data-field^='actions']):not([data-field^='uid']):not([data-field^='gid']):not(.datatable-cell-sorted) > span:after {
+                & th:not([data-field='']):not([data-field='checkbox']):not([data-field='picture']):not([data-field='buttons']):not([data-field^='actions']):not([data-field^='uid']):not([data-field^='gid']):not([data-field='filters']):not([data-field='query']):not(.datatable-cell-sorted) > span:after {
                     font-family: "FontAwesome";
                     content: "\f078";
                     font-size: 13px;
@@ -36,19 +40,23 @@
                 width: 100%;
                 & > th {
                     width: 100%;
-                    & > form {
-                        width: 100% !important;
+                    & > form:not(.has-width), span:not(.has-width):not(.tagify__tag-text) {
+                        width: min-content !important;
+                    }
+                    .filter-option-inner-inner {
+                        text-align: center;
                     }
                 }
             }
             & tbody {
-                overflow: auto;
+                min-width: min-content; // otherwise in case of horizontal scrolling the table content will be cut before the scroll overflow
+                width: 100%;
+                overflow-y: auto;
                 height: calc(100% - 100px);
             }
             & .datatable-cell {
                 padding: 0.5rem 0.5rem !important;
                 & .dropdown {
-                    margin: auto !important;
                     & i {
                         font-size: 1rem !important;
                     }
@@ -56,6 +64,9 @@
             }
             & select.bs-select-hidden, .bootstrap-select > select.bs-select-hidden, select.selectpicker {
                 display: block !important;
+            }
+            & [data-nowrap] {
+                white-space: nowrap;
             }
         }
         & .datatable-pager {
@@ -65,16 +76,93 @@
     }   
 }
 
-#gofastSubscriptionsTable > table {
-    overflow-y: scroll;
+// if datatable is displayed in a modal
+#modal-content .datatable {
     width: max-content;
     & thead {
         width: max-content;
     }
+    & table {
+        overflow-y: scroll;
+    }
 }
 
-#gofastSpaceMembersTable {
-    & tbody {
-        height: calc(100% - 30px) !important;
+// if datatable is displayed in a browser tab
+.GofastNodeOg #gofastBrowserContentPanel .datatable {
+    & table {
+        height: 0 !important;
+        & tbody {
+            height: calc(100% - 30px) !important;
+            & td[data-field='actions'] {
+                height: 100%;
+            }
+        }
     }
+}
+
+// if datatable is displayed in an admin tab
+#gofastAdminTabContent .datatable {
+    & thead {
+        & .datatable-cell {
+            & > span {
+                justify-content: center !important;
+            }
+        }
+    }
+    & tags.tagify:not(.tagify--focus) {
+        max-height: calc(1.5em + 1.3rem + 2px);
+        overflow: scroll;
+    }
+    & [data-field='tag_nam'] > span.hasConfirmationButtons {
+        display: flex;
+        overflow: visible;
+    }
+}
+
+#gofastBrowserContentPanel{
+    #users_stats, #documents_stats{
+        overflow-y: scroll !important;
+    }
+}
+
+#gofastAuditTable[data-type='site'] {
+    height: calc(100% - 4rem) !important;
+}
+
+#gofastDirectoryUserlistsTable > table > thead > tr.datatable-row > th:not(:nth-child(1)) span {
+    display: table;
+    margin: 0 auto;
+    width: auto !important;
+}
+
+#gofastDirectorySpacesTable > table > thead > tr.datatable-row > th:not(:nth-child(1)) span {
+    display: table;
+    margin: 0 auto;
+    width: auto !important;
+}
+
+#gofastDirectoryContactListingTable > table > thead > tr.datatable-row > th span {
+    display: table;
+    text-align: center;
+    overflow: visible;
+}
+
+#gofastAdvancedSearchResults > table,
+.datatable > table {
+    & > thead > tr > th:not(.datatable-cell-left) {
+        text-align: center;
+        & > span {
+            text-align: center;
+            display: inline-block !important;
+        }
+    }
+    & > tbody > tr > td:not(.datatable-cell-left) {
+        & span {
+            margin: auto;
+        }
+    }
+}
+
+.datatable.no-datatable-subheader .datatable-subheader {
+    display: none !important;
 }

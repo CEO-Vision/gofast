@@ -69,7 +69,7 @@
 
               //Triger the file browser navigation when we are ready and connected
               function triggerNavigation(){
-                if(typeof Gofast.ITHit === "undefined" || Gofast.ITHit.ready === false){ //Not yet ready
+                if (typeof Gofast.ITHit === "undefined" || typeof Gofast.ITHit.Uploader === "undefined" || Gofast.ITHit.ready === false) { //Not yet ready
                   setTimeout(triggerNavigation, 1000);
                 }else{ //Ready !
                   //Get params from URL

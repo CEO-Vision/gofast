@@ -3,11 +3,11 @@
         <?php echo $item['format']; ?>      
     </div>
     <i class="fas fa-file-pdf d-none mr-2 text-<?php //echo $colors[rand(0,3)]?> icon-nm"></i>
-    <a href="#" class="gofast_activity_feed_title text-dark text-hover-primary font-weight-bolder font-size-lg text-truncate mr-2"><?php echo $item['title']; ?></a>
+    <a href="#" class="gofast_activity_feed_title text-dark text-hover-primary font-weight-bolder font-size-md text-truncate mr-5"><?php echo $item['title']; ?></a>
     <div class="gofast-node-actions btn-group dropdown ">
         <a class="btn btn-light btn-xs btn-icon mr-2 dropdown-placeholder" type="button" id="dropdown-placeholder-<?php echo $item['nid']; ?>" data-toggle="dropdown">
             <span class="fa fa-bars"></span>
-            <ul class="dropdown-menu gofast-dropdown-menu" role="menu" id="dropdownactive-placeholder-<?php echo $item['nid']; ?>">
+            <ul class="dropdown-menu" role="menu" id="dropdownactive-placeholder-<?php echo $item['nid']; ?>">
                 <li><div class="loader-activity-menu-active"></div></li>
             </ul>
         </a>

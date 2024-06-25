@@ -1,0 +1,463 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function gofast_mail_inbound_outbound_install() {
+
+  // Create mail metadata
+  gofast_mail_inbound_outbound_create_new_metadata();
+
+  // Create userlist field on group/organisation bundle
+  gofast_mail_inbound_outbound_create_field_userlist_id();
+
+  // Create subspace nid field
+  gofast_mail_inbound_outbound_create_field_mail_subspace_nid();
+
+  // Create new state taxonomy
+  gofast_mail_inbound_outbound_create_taxonomy_state();
+
+  $main_mail_gid = gofast_mail_inbound_outbound_create_wf_space('Traitement Courrier', 'Espace traitant les courriers');
+  
+  $inbound_mail_gid = gofast_mail_inbound_outbound_create_wf_space('Traitement Courrier Entrant', 'Espace traitant les courriers entrant', $main_mail_gid);
+  
+  $inbound_space = node_load($inbound_mail_gid);
+  $reference = $inbound_space->field_folder_reference[LANGUAGE_NONE][0]['value'];
+  gofast_cmis_item_folder_insert('A traiter', $reference);
+  gofast_cmis_item_folder_insert('En cours de traitement', $reference);
+  gofast_cmis_item_folder_insert('Traité', $reference);
+  
+  // Create userlist : "Traitement Courriers - Etape 1 : Reception / Imputation du Courrier"
+  $name_e1 = "Traitement Courriers - Etape 1 : Reception / Imputation du Courrier";
+  $description_e1 = "Liste d'utilisateurs des personnes qui recoient le courrier et l'impute";
+  
+  $ulid_e1 = gofast_mail_inbound_outbound_create_wf_userlists($name_e1, $description_e1);
+  gofast_mail_inbound_outbound_userlist_subscribe_space($ulid_e1, $inbound_mail_gid);
+  
+  // Create userlist : "Traitement Courriers - Etape 2 : Vérification du Courrier"
+  $name_e2 = "Traitement Courriers - Etape 2 : Vérification du Courrier";
+  $description_e2 = "Liste d'utilisateurs des personnes qui vérifient l'imputation et qui peuvent la modifier";
+  $ulid_e2 = gofast_mail_inbound_outbound_create_wf_userlists($name_e2, $description_e2);
+  gofast_mail_inbound_outbound_userlist_subscribe_space($ulid_e2, $inbound_mail_gid);
+  
+  // Create userlist : "Traitement Courriers - Etape 3 : Vérification / Distribution du Courrier"
+  $name_e3 = "Traitement Courriers - Etape 3 : Vérification / Distribution du Courrier";
+  $description_e3 = "List d'utilisateurs des personnes qui vérifient l'imputation, qui peuvent la modifier et qui distribue le courrier aux Responsables des differents services";
+  $ulid_e3 = gofast_mail_inbound_outbound_create_wf_userlists($name_e3, $description_e3);
+  gofast_mail_inbound_outbound_userlist_subscribe_space($ulid_e3, $inbound_mail_gid);
+  
+  
+  $outbound_mail_gid = gofast_mail_inbound_outbound_create_wf_space('Traitement Courrier Sortant', 'Espace traitant les courriers sortant', $main_mail_gid);
+  $outbound_space = node_load($outbound_mail_gid);
+  $outbound_reference = $outbound_space->field_folder_reference[LANGUAGE_NONE][0]['value'];
+  gofast_cmis_item_folder_insert('Accusé réception', $outbound_reference);
+  gofast_cmis_item_folder_insert('Courriers', $outbound_reference);
+}
+
+/* This function allows creation fields metadata
+
+ */
+function gofast_mail_inbound_outbound_create_fields($fieldObj, $fieldType, $widgetTypefield) {
+
+  // create field
+  $field = array(
+    'field_name' => 'field_' . $fieldObj->machine_name,
+    'type' => $fieldType,
+    'label' => $fieldObj->name,
+  );
+
+  field_create_field($field);
+
+  // create instance of field
+  $instance = array(
+    'field_name' => $field['field_name'],
+    'entity_type' => 'node',
+    'bundle' => 'alfresco_item',
+    'label' => $fieldObj->name,
+    'widget' => array(
+      'type' => $widgetTypefield,
+      'weight' => -10,
+    )
+  );
+  field_create_instance($instance);
+
+  $mail_metadata = json_decode(variable_get('gofast_mail_metadata'));
+  $mail_metadata[] = $field['field_name'];
+  variable_set('gofast_mail_metadata', json_encode($mail_metadata));
+
+  return;
+}
+
+
+function gofast_mail_inbound_outbound_create_field_userlist_id() {
+  if (!field_info_field('field_mail_ulid')) {
+
+    // Create the field base.
+    $field = array(
+      'field_name' => 'field_mail_ulid',
+      'type' => 'text'
+    );
+    field_create_field($field);
+
+    // Create the field instance on the bundle.
+    $bundles = array('group', 'organisation', 'extranet', 'public');
+    foreach ($bundles as $key => $bundle) {
+      $instance = array(
+        'field_name' => 'field_mail_ulid',
+        'entity_type' => 'node',
+        'label' => 'Mail userlist ID',
+        'bundle' => $bundle,
+        // If you don't set the "required" property then the field wont be required by default.
+        'required' => FALSE,
+        'settings' => array(
+          // Here you inform either or not you want this field showing up on the registration form.
+          'user_register_form' => 0,
+        ),
+        'widget' => array(
+          'type' => 'textfield',
+        ),
+        'display' => array(
+          'default' => array('label' => '')
+        )
+      );
+      field_create_instance($instance);
+    }
+  }
+}
+
+function gofast_mail_inbound_outbound_create_field_mail_subspace_nid() {
+  if (!field_info_field('field_mail_subspace_nid')) {
+
+    // Create the field base.
+    $field = array(
+      'field_name' => 'field_mail_subspace_nid',
+      'type' => 'text'
+    );
+    field_create_field($field);
+
+    // Create the field instance on the bundle.
+    $bundles = array('group', 'organisation', 'extranet', 'public');
+    foreach ($bundles as $key => $bundle) {
+      $instance = array(
+        'field_name' => 'field_mail_subspace_nid',
+        'entity_type' => 'node',
+        'label' => 'Mail subspace NID',
+        'bundle' => $bundle,
+        // If you don't set the "required" property then the field wont be required by default.
+        'required' => FALSE,
+        'settings' => array(
+          // Here you inform either or not you want this field showing up on the registration form.
+          'user_register_form' => 0,
+        ),
+        'widget' => array(
+          'type' => 'textfield',
+        ),
+        'display' => array(
+          'default' => array('label' => '')
+        )
+      );
+      field_create_instance($instance);
+    }
+  }
+}
+
+function gofast_mail_inbound_outbound_create_taxonomy_state() {
+  // Create new state Metadata
+  $new_terms = array(
+    (object) array(
+      'name' => 'Being transmitted',
+      'description' => '',
+      'format' => 'plain_text',
+      'weight' => 0,
+      'uuid' => 'd1771148-d81a-4099-824b-a6ce932486c9',
+      'language' => 'und',
+      'i18n_tsid' => 0,
+      'vid' => GOFAST_VID_STATE
+    ),
+    (object) array(
+      'name' => 'Pending charge',
+      'description' => '',
+      'format' => 'plain_text',
+      'weight' => 1,
+      'uuid' => '1e3c4721-a787-46bd-8bf6-03929e32ba33',
+      'language' => 'und',
+      'i18n_tsid' => 0,
+      'vid' => GOFAST_VID_STATE
+    )
+  );
+
+
+  foreach ($new_terms as $term) {
+    taxonomy_term_save($term);
+  }
+}
+
+/**
+ * Function in order to create mail spaces (with userlist)
+ *
+ * @return string $new_space_nid The space nid
+ */
+function gofast_mail_inbound_outbound_create_wf_space($name, $description, $parent = NULL) {
+  
+  if(!isset($parent)){
+    $parent = "4";
+  }
+  
+  $group_admin_uid = variable_get('gofast_user_administrator_id', '4');
+  // inbound mail space
+  $options = array(
+    'author' => $group_admin_uid,
+    'description' => t($description, array(), array('context' => 'gofast:gofast_mail_inbound_outbound')), // this field is required
+    'body' => '',
+    'parent' => $parent,
+  );
+  gofast_og_create($name, 'group', $options);
+
+  $new_space_nid = $_POST['new_space_nid'];
+  variable_set('outbound_mail_nid', $new_space_nid);
+
+  $space = node_load($new_space_nid);
+
+  // Insert "Traitement courrier entrant" userlist and remove current user from the space
+  $ulid = gofast_mail_inbound_outbound_create_wf_userlists($name, "Liste d'utilisateurs traitant des courriers");
+
+  // Add userlist to space with rid administrator member
+  $g_roles_query = og_roles('node', $space->type, $new_space_nid, FALSE, FALSE);
+  foreach ($g_roles_query as $rgkey => $role) {
+    if ($role == 'administrator member') {
+      $admin_rgid = $rgkey;
+    }
+  }
+
+  gofast_userlist_og_add_membership($new_space_nid, $ulid, $admin_rgid);
+
+  // Revoke current user role of new sub space
+  og_role_revoke('node', $new_space_nid, $group_admin_uid, $admin_rgid);
+  gofast_og_unsubscribe_user($new_space_nid, $group_admin_uid);
+
+  return $new_space_nid;
+}
+
+/**
+ * Create inbound mail userlist (used by workflow)
+ *
+ * @return string $ulid The id of the userlist
+ */
+function gofast_mail_inbound_outbound_create_wf_userlists($name, $description) {
+
+  $group_admin_uid = variable_get('gofast_user_administrator_id', '4');
+
+  // create userlist
+  $name_userlist = $name;
+  $description = $description;
+  $nid = gofast_userlist_create_userlist($name_userlist,  $description);
+  $mail_inbound_userlist = node_load($nid);
+
+  //Get userlist roles
+  $roles_query = og_roles('node', "userlist", $nid, FALSE, FALSE);
+  foreach ($roles_query as $rkey => $roles) {
+    if ($roles == GOFAST_OG_ROLE_ADMIN) {
+      $admin_rid = $rkey;
+    }
+    if ($roles == GOFAST_OG_ROLE_READ_ONLY) {
+      $readonly_rid = $rkey;
+    }
+    if ($roles == GOFAST_OG_ROLE_STANDARD) {
+      $contributor_rid = $rkey;
+    }
+  }
+
+  // Add role
+  gofast_og_subscribe_user($nid, $group_admin_uid);
+  og_role_grant('node', $nid, $group_admin_uid, $admin_rid);
+  $admins_uid[] = $group_admin_uid;
+
+  // Add members to userlist
+  gofast_userlist_add_members($nid, array_unique($admins_uid));
+
+  $ulid = $mail_inbound_userlist->field_userlist_ulid[LANGUAGE_NONE][0]['value'];
+  return $ulid;
+}
+
+function gofast_mail_inbound_outbound_userlist_subscribe_space($ulid, $space_id){
+  $space = node_load($space_id);
+  
+  // Add userlist to space with rid administrator member
+  $g_roles_query = og_roles('node', $space->type, $space_id, FALSE, FALSE);
+  foreach ($g_roles_query as $rgkey => $role) {
+    if ($role == 'administrator member') {
+      $admin_rgid = $rgkey;
+    }
+  }
+
+  gofast_userlist_og_add_membership($space_id, $ulid, $admin_rgid);
+
+}
+
+
+/**
+ * Create chief inbound mail userlist (user who import mail)
+ *
+ * @return string $ulid The id of the userlist
+ */
+function gofast_mail_inbound_outbound_create_chief_inbound_mail_userlist() {
+
+  $group_admin_uid = variable_get('gofast_user_administrator_id', '4');
+
+  // create userlist
+  $name_userlist = "Chefs des departements";
+  $description = "Chefs des departements";
+  $nid = gofast_userlist_create_userlist($name_userlist,  $description);
+  $mail_inbound_userlist = node_load($nid);
+
+  //Get userlist roles
+  $roles_query = og_roles('node', "userlist", $nid, FALSE, FALSE);
+  foreach ($roles_query as $rkey => $roles) {
+    if ($roles == GOFAST_OG_ROLE_ADMIN) {
+      $admin_rid = $rkey;
+    }
+    if ($roles == GOFAST_OG_ROLE_READ_ONLY) {
+      $readonly_rid = $rkey;
+    }
+    if ($roles == GOFAST_OG_ROLE_STANDARD) {
+      $contributor_rid = $rkey;
+    }
+  }
+
+  // Add role
+  gofast_og_subscribe_user($nid, $group_admin_uid);
+  og_role_grant('node', $nid, $group_admin_uid, $admin_rid);
+  $admins_uid[] = $group_admin_uid;
+
+  // Add members to userlist
+  gofast_userlist_add_members($nid, array_unique($admins_uid));
+
+  $ulid = $mail_inbound_userlist->field_userlist_ulid[LANGUAGE_NONE][0]['value'];
+  variable_set('chief_inbound_mail_space_ulid', $ulid);
+  return $ulid;
+}
+
+function gofast_mail_inbound_outbound_update_7401(){
+  // Create field_userlist_id & field_mail_subspace_nid for extranet and public
+  
+  if (field_info_field('field_mail_subspace_nid')) {
+
+    // Create the field instance on the bundle.
+    $bundles = array('extranet', 'public');
+    foreach ($bundles as $key => $bundle) {
+      $instance = array(
+        'field_name' => 'field_mail_subspace_nid',
+        'entity_type' => 'node',
+        'label' => 'Mail subspace NID',
+        'bundle' => $bundle,
+        // If you don't set the "required" property then the field wont be required by default.
+        'required' => FALSE,
+        'settings' => array(
+          // Here you inform either or not you want this field showing up on the registration form.
+          'user_register_form' => 0,
+        ),
+        'widget' => array(
+          'type' => 'textfield',
+        ),
+        'display' => array(
+          'default' => array('label' => '')
+        )
+      );
+      field_create_instance($instance);
+    }
+  }
+  
+  if (field_info_field('field_mail_ulid')) {
+
+    // Create the field instance on the bundle.
+    $bundles = array('extranet', 'public');
+    foreach ($bundles as $key => $bundle) {
+      $instance = array(
+        'field_name' => 'field_mail_ulid',
+        'entity_type' => 'node',
+        'label' => 'Mail userlist ID',
+        'bundle' => $bundle,
+        // If you don't set the "required" property then the field wont be required by default.
+        'required' => FALSE,
+        'settings' => array(
+          // Here you inform either or not you want this field showing up on the registration form.
+          'user_register_form' => 0,
+        ),
+        'widget' => array(
+          'type' => 'textfield',
+        ),
+        'display' => array(
+          'default' => array('label' => '')
+        )
+      );
+      field_create_instance($instance);
+    }
+  }
+  
+  
+  // Create "Accusé réception" & "Courrier" folders
+  $outbound_mail_nid = gofast_ajax_file_browser_get_nid_from_href("/Sites/_Groups/_Traitement Courrier/_Traitement Courrier Sortant");
+  $node = node_load($outbound_mail_nid);
+  $reference = $node->field_folder_reference['und'][0]['value'];
+  gofast_cmis_item_folder_insert('Accusé réception', $reference);
+  gofast_cmis_item_folder_insert('Courriers', $reference);
+
+}
+
+// Reconfigure mail progression folders
+function gofast_mail_inbound_outbound_update_7402() {
+
+  // Get existing "Traitement des courriers" subspace nid
+  $query = db_select('field_data_field_mail_subspace_nid', 'fsbnid')
+    ->fields('fsbnid', array('field_mail_subspace_nid_value'));
+  $result = $query->execute();
+
+  $array_subspace_mail_nid  = array();
+  while ($record = $result->fetchAssoc()) {
+    $array_subspace_mail_nid[] = $record['field_mail_subspace_nid_value'];
+  }
+
+  foreach ($array_subspace_mail_nid as $mail_nid) {
+    $mail_node = node_load($mail_nid);
+    $reference = $mail_node->field_folder_reference[LANGUAGE_NONE][0]['value'];
+
+    $mail_node_href = gofast_cmis_item_get($reference)->properties['cmis:path'];
+
+    // Remove useless folders (En cours de traitement, Traité)
+    $ip_folder = gofast_ajax_file_browser_get_reference_from_href($mail_node_href . '/En cours de traitement');
+    $done_folder = gofast_ajax_file_browser_get_reference_from_href($mail_node_href . '/Traité');
+    foreach(array($ip_folder, $done_folder) as $folder_reference){
+      gofast_cmis_item_remove_folder($folder_reference, TRUE);
+    }
+    
+    // Create inbound mail folder
+    $inbound_folder_item = gofast_cmis_item_folder_insert('Courrier entrant', $reference);
+    $inbound_folder_ref = $inbound_folder_item->properties['alfcmis:nodeRef'];
+
+    // Create outbound mail folder
+    $outbound_folder_item = gofast_cmis_item_folder_insert('Courrier sortant', $reference);
+    $outbound_folder_ref = $outbound_folder_item->properties['alfcmis:nodeRef'];
+
+    // Create progression folder 
+    foreach (array($inbound_folder_ref, $outbound_folder_ref) as $ref) {
+      gofast_cmis_item_folder_insert('A traiter', $ref);
+      gofast_cmis_item_folder_insert('En cours', $ref);
+      gofast_cmis_item_folder_insert('Traité', $ref);
+    }
+  }
+}
+
+/**
+ * Hook_update_7403
+ */
+function gofast_mail_inbound_outbound_update_7403(){
+
+  // Create acknowledge number field & instance
+  if (!field_info_field('field_mail_acknowledge_number')) {
+    $acknoledgeNumber = (object) array(
+      'name' => 'Acknoledge number',
+      'machine_name' => 'acknowledge_number',
+    );
+    gofast_mail_inbound_outbound_create_fields($acknoledgeNumber, 'text', 'text_textfield');
+  }
+}

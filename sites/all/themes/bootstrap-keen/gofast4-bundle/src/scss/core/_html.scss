@@ -13,8 +13,14 @@
     background: #ffffff00;
 }
 /* Firefox implementation */
-*,
-*::before,
-*::after {
-    scrollbar-width: thin !important;
+@supports (-moz-appearance:none) {
+    *,
+    *::before,
+    *::after {
+        scrollbar-width: thin !important;
+    }
+}
+
+.loader-overlay {
+    display: none !important;
 }

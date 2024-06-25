@@ -129,7 +129,13 @@
             
             function countSelectedEntries() {
                 let size = _table.getSelectedRecords().length;    
-                $("#gofast_adminLdap_importRowsLength").html(size + Drupal.t(' items selected', {}, {context: 'gofast:ldap'}));
+                $("#gofast_adminLdap_importRowsLength").html(size + " " + Drupal.t(' items selected', {}, {context: 'gofast:ldap'}));
+                // disable import button if no item is select
+                if (size == 0) {
+                    $("#gofast_adminLdap_importRows").addClass("disabled").css('cursor', 'not-allowed');
+                } else {
+                    $("#gofast_adminLdap_importRows").removeClass("disabled").css('cursor', 'auto');
+                }
             }
             countSelectedEntries();
             
@@ -148,7 +154,7 @@
                 _table.load();
             });
             
-            $('#gofastAdminLDAPTable').on('datatable-on-check datatable-on-uncheck', function(e) {
+            $('#gofastAdminLDAPTable').on('datatable-on-check datatable-on-uncheck datatable-on-layout-updated', function(e) {
                 countSelectedEntries()
             });
             

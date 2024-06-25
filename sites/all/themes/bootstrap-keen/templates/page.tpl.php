@@ -76,8 +76,8 @@
 global $conf;
 global $user;
 $detect = new Mobile_Detect();
-$is_mobile = ($detect->isMobile() || $detect->isTablet() || $detect->is('iPad') || gofast_mobile_is_mobile_domain());
-$is_mobile_device = ($detect->isMobile() || $detect->isTablet() || $detect->is('iPad'));
+$is_mobile = ($detect->isMobile() || $detect->isTablet() || $detect->is('iPad') || gofast_essential_is_essential());
+$is_mobile_device = ($detect->isMobile() && !$detect->isTablet());
 global $user;
 $gofast_url_doc = "https://gofast-docs.readthedocs.io/" . $user->language . "/4.0/docs-gofast-users/doc-gofast-guide-utilisateurs.html";
 ?>
@@ -95,34 +95,35 @@ if (!strpos($_SERVER['REQUEST_URI'], 'search/solr') === FALSE) {
   // this has to be the ugliest workaround ever
   if ($search_url !== str_replace("%20", " ", $_SERVER['REQUEST_URI'])) header("Location: $search_url");
 }
+$theme = variable_get('theme_bootstrap_gofast_settings');
+$position = $theme['position'];
+$enable = $theme['toggle_logo'];
+$logoPath = $theme['logo_path'];
+
+if ($enable == 1 && $logoPath !== null && $logoPath !== '') {
+  $imageUrl = file_create_url($logoPath);
+  switch ($position) {
+    case 1:
+      $containerClass = 'd-flex justify-content-end align-items-center';
+      break;
+    case 2:
+      $containerClass = 'd-flex justify-content-end align-items-end';
+      break;
+    case 3:
+      $containerClass = 'd-flex';
+      break;
+    default:
+      $containerClass = '';
+      break;
+  }
+}
 ?>
 
-<?php //if (FALSE) : ?>
-<?php if (isset($conf['gofast-atatus-key'])) : ?>
-    <script src="https://dmc1acwvwny3.cloudfront.net/atatus-spa.js"></script>
-  <script type="text/javascript">
-    atatus.config('<?php echo variable_get('gofast-atatus-key'); ?>', {
-      ignoreUrls: ['<?php echo $http_bind_url; ?>', '<?php echo $poll_url; ?>']
-    }).install();
+<link rel="preload" href="/sites/all/libraries/flag-icon-css/css/flag-icon.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<link rel="preload" href="/sites/all/themes/bootstrap-keen/keenv2/assets/plugins/custom/ckeditor/emoji.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
 
-    var atatusInterval = setInterval(function() {
-      if (typeof Gofast == "object" &&
-        typeof Gofast._settings == "object" &&
-        typeof Gofast._settings.gofast_version == "string" &&
-        typeof Gofast._settings.gofast == "object" &&
-        typeof Gofast._settings.gofast.user == "object" &&
-        typeof Gofast._settings.gofast.user.uid == "string") {
-        atatus.setVersion(Gofast._settings.gofast_version);
-        atatus.setUser(Gofast._settings.gofast.user.uid);
-        clearInterval(atatusInterval);
-      }
-    }, 500);
-  </script>
-<?php endif; ?>
-<link rel="stylesheet" href="/sites/all/libraries/flag-icon-css/css/flag-icon.css">
-
-<script src="/sites/all/modules/gofast/gofast_workflows/dynatable/jquery.dynatable.js" type="text/javascript"></script>
-<script src="/sites/all/modules/gofast/gofast_workflows/jquery-paginate.min.js" type="text/javascript"></script>
+<script src="/sites/all/modules/gofast/gofast_workflows/dynatable/jquery.dynatable.js" type="text/javascript" defer></script>
+<script src="/sites/all/modules/gofast/gofast_workflows/jquery-paginate.min.js" type="text/javascript" defer></script>
 
 <?php if (!$user->login) : ?>
   <div id="page" class="h-100">
@@ -130,36 +131,56 @@ if (!strpos($_SERVER['REQUEST_URI'], 'search/solr') === FALSE) {
       <!--begin::Login-->
       <div class="login login-1 login-signin-on d-flex flex-column flex-lg-row flex-column-fluid bg-white" id="kt_login">
         <!--begin::Aside-->
-          <?php if (!$is_mobile_device) : ?>
-        <div class="login-aside d-flex flex-column flex-row-auto" style="background-color: #337ab7;">
-          <!--begin::Aside Top-->
-          <div class="d-flex flex-column-auto flex-column pt-15">
-            <!--begin::Aside header-->
-            <a href="#" class="text-center mb-15">
-              <img src="/sites/all/themes/bootstrap-keen/Logo_GoFAST de CEO-Vision_fr_blanc.png" alt="logo" class="h-70px">
-            </a>
-            <!--end::Aside header-->
-            <!--begin::Aside title-->
-            <h3 class="font-weight-bolder text-center font-size-h4 font-size-h1-lg text-white">
-              TECHNOLOGY MADE SIMPLE
-            </h3>
-            <!--end::Aside title-->
+        <?php if (!$is_mobile_device) : ?>
+          <div class="login-aside d-flex flex-column flex-row-auto" style="background-color: #337ab7;">
+            <!--begin::Aside Top-->
+            <div class="d-flex flex-column-auto flex-column pt-15">
+              <!--begin::Aside header-->
+              <a href="#" class="text-center mb-15">
+                <img src="/sites/all/themes/bootstrap-keen/Logo_GoFAST de CEO-Vision_fr_blanc.png" alt="logo" class="h-70px">
+              </a>
+              <!--end::Aside header-->
+              <!--begin::Aside title-->
+              <h3 class="font-weight-bolder text-center font-size-h4 font-size-h1-lg text-white">
+                TECHNOLOGY MADE SIMPLE
+              </h3>
+              <!--end::Aside title-->
+            </div>
+            <!--end::Aside Top-->
+            <!--begin::Aside Middle-->
+            <div class="d-flex flex-column-auto flex-column pt-10">
+              <div  class="login.login-1 login-aside flex-column align-items-center <?php echo ($position == 3) ? ' ' . $containerClass : ' d-none'; ?>" >
+                  <img class="h-70px mb-8" src="<?php print $imageUrl; ?>" alt="Plateform logo" >
+                  <h3 class="font-weight-bolder text-center font-size-h4 font-size-h1-lg text-white" ><?php print variable_get('site_name', ''); ?></h3>
+              </div>
+            </div>
+            <!--end::Aside Middle-->
+            <!--begin::Aside Bottom-->
+            <div class="aside-img d-flex flex-row-fluid bgi-no-repeat bgi-position-y-bottom bgi-position-x-center" style="background-image: url(/sites/all/themes/bootstrap-keen/keenv2/assets/media/svg/illustrations/gofast-login.png); background-size: contain;">
+            </div>
+            <!--end::Aside Bottom-->
           </div>
-          <!--end::Aside Top-->
-          <!--begin::Aside Bottom-->
-          <div class="aside-img d-flex flex-row-fluid bgi-no-repeat bgi-position-y-bottom bgi-position-x-center" style="background-image: url(/sites/all/themes/bootstrap-keen/keenv2/assets/media/svg/illustrations/gofast-login.png);background-size: contain;"></div>
-          <!--end::Aside Bottom-->
-        </div>
-          <?php endif; ?>
+        <?php endif; ?>
         <!--end::Aside-->
         <!--begin::Content-->
         <div class="login-content flex-row-fluid d-flex flex-column justify-content-center position-relative overflow-hidden p-7 mx-auto">
+        <div class="flex-column <?php echo ($position == 2) ? ' ' . $containerClass : ' d-none'; ?>" >
+          <img class="h-70px mb-8" src="<?php print $imageUrl; ?>" alt="Plateform logo" >
+          <h3 class="font-weight-bolder text-center font-size-h4 font-size-h1-lg text-black" ><?php print variable_get('site_name', ''); ?></h3>
+        </div>
           <!--begin::Content body-->
           <div class="d-flex flex-column-fluid flex-center">
             <!--begin::Signin-->
-            <div class="content-main-contianer d-flex h-100 w-100 justify-content-center" id="content-main-container">
+            <div class="d-flex h-100 w-100 justify-content-center" id="content-main-container">
               <div class="my-20" style=" width: 100%;">
                 <div id="ajax_content">
+                  <div class="d-flex h-100 w-100 justify-content-center" id="content-main-container">
+                    <div class="flex-column mb-15 <?php echo ($position == 1) ? ' ' . $containerClass : ' d-none'; ?>" >
+                      <img class="h-70px mb-8" src="<?php print $imageUrl; ?>" alt="Plateform logo" >
+                      <h3 class="font-weight-bolder text-center font-size-h4 font-size-h1-lg text-black" ><?php print variable_get('site_name', ''); ?></h3>
+                    </div>
+                  </div>
+                  
                   <div id="block-user-login-messages">
                     <?php print $messages; ?>
                   </div>
@@ -176,7 +197,7 @@ if (!strpos($_SERVER['REQUEST_URI'], 'search/solr') === FALSE) {
           <!--end::Content body-->
           <div class="login-footer__container d-flex justify-content-center align-items-end py-7 py-lg-0">
            <span class="login-footer font-weight-bolder font-size-h6 mr-1 "><i class="fas fa-2x fa-comments mr-2 align-middle" aria-hidden="true"></i><a href="https://community.ceo-vision.com" target="#blank" class="text-primary font-weight-bolder font-size-h5"><?php print t('Any question?'); ?></a></span>
-           <span class="login-footer font-weight-bolder font-size-h6 ml-10 mr-2"> <i class="fas fa-2x fa-book mr-2 align-middle" aria-hidden="true"></i><a href="https://gofast-docs.readthedocs.io/<?= $user->language ?>/4.0/docs-gofast-users/doc-gofast-guide-utilisateurs.html" target="#blank" class="text-primary font-weight-bolder font-size-h5"><?php print t('Documentation') ?></a></span>
+           <span class="login-footer font-weight-bolder font-size-h6 ml-10 mr-2"> <i class="fas fa-2x fa-book mr-2 align-middle" aria-hidden="true"></i><a href="https://gofast-docs.readthedocs.io/<?= substr($_SERVER['HTTP_ACCEPT_LANGUAGE'], 0, 2);?>/latest/docs-gofast-users/doc-gofast-guide-utilisateurs.html" target="#blank" class="text-primary font-weight-bolder font-size-h5"><?php print t('Documentation') ?></a></span>
           </div>
         </div>
         <!--end::Content-->
@@ -188,66 +209,82 @@ if (!strpos($_SERVER['REQUEST_URI'], 'search/solr') === FALSE) {
   </div>
 <?php else : ?>
   <div id="page" class="h-100 overflow-hidden">
+
+    <?php if(!isset(user_load($user->uid)->field_version[LANGUAGE_NONE][0]['value'])) : ?>
+      <?php
+        if($detect->isMobile()){
+          //Set version to "Plus" if on phone because Essential interface is not working on this type of device
+          $version = "Plus";
+          if($detect->isTablet()){
+            $version = "Essential";
+          }
+          gofast_essential_choose_version($version);
+          drupal_goto(variable_get("site_frontpage", "activity"));
+        } else {
+          print theme('select_gofast_version');
+        }
+      ?>
+    <?php else: ?>
     <!--begin::Main-->
     <!--begin::Header Mobile-->
     <?php echo theme('gofast_menu_header_mobile'); ?>
-    <!--end::Header Mobile-->
-    <div class="d-flex flex-column flex-root h-100">
+      <!--end::Header Mobile-->
+      <div class="d-flex flex-column flex-root h-100">
       <!--begin::Page-->
       <div class="d-flex flex-row flex-column-fluid page h-100">
         <!--begin::Aside-->
-        <?php echo theme('gofast_menu_aside'); ?>
+        <?php if(!gofast_essential_is_essential() || $is_mobile_device) echo theme('gofast_menu_aside'); ?>
         <!--end::Aside-->
         <!--begin::Wrapper-->
-        <div class="d-flex flex-column flex-row-fluid wrapper" id="kt_wrapper" <?php if ($is_mobile) : ?>style="height: 100%;"<?php endif; ?>>
+        <div class="d-flex flex-column flex-row-fluid <?= (gofast_essential_is_essential()) == true ? "" : "wrapper"?>" id="kt_wrapper" <?php if ($is_mobile) : ?>style="height: 100%;"<?php endif; ?>>
           <!--begin::Header-->
           <?php echo theme('gofast_menu_header'); ?>
           <!--end::Header-->
-          <!--begin::Content-->
-          <div class="content-main-contianer d-flex h-100 position-relative" <?= $is_mobile_device ? "style='padding-right: 0;'" : "" ?> id="content-main-container">
+            <!--begin::Content-->
+          <div class="content-main-contianer d-flex h-100 position-relative" <?= $detect->isMobile() || $detect->isTablet() ? "style='padding-right: 0;'" : "" ?> id="content-main-container">
             <?php if (!$is_mobile) : ?>
             <!-- START EXPLORER -->
             <?php if($user->uid != 0): ?>
               <div id="explorer" class="explorer ">
                 <div id="explorer-toggle" class=""><i class="fas fa-chevron-right"></i></div>
 
-                <div class="explorer-main-container">
-                  <!-- Nav tabs -->
-                  <ul class="nav nav-tabs" role="tablist">
-                    <li class="nav-item active">
-                      <a class="nav-link py-6" id="explorer-file-browser" data-toggle="tab" href="#file-browser" role="tab" aria-controls="file-browser" aria-selected="true">Explorer</a>
-                    </li>
-                    <li class="nav-item">
-                      <a class="nav-link py-6" id="explorer-wiki" data-toggle="tab" href="#wiki" role="tab" aria-controls="wiki" aria-selected="false">Wikis</a>
-                    </li>
-                    <li class="nav-item">
-                      <a class="nav-link py-6" id="explorer-forum" data-toggle="tab" href="#expl-forum" role="tab" aria-controls="forum" aria-selected="false">Forums</a>
-                    </li>
-                  </ul>
-                  <?php $explorer = render($page['explorer']); ?>
-                  <!-- Tab panes -->
-                  <div class="tab-content pb-4 overflow-auto flex-fill">
-                    <div class="tab-pane active" id="file-browser" role="tabpanel" aria-labelledby="explorer-file-browser">
-                      <!-- START explorer region -->
-                      <?php print $explorer; ?>
-                      <!-- END explorer region -->
+                    <div class="explorer-main-container">
+                      <!-- Nav tabs -->
+                      <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item active">
+                          <a class="nav-link py-6" id="explorer-file-browser" data-toggle="tab" href="#file-browser" role="tab" aria-controls="file-browser" aria-selected="true">Explorer</a>
+                        </li>
+                        <li class="nav-item">
+                          <a class="nav-link py-6" id="explorer-wiki" data-toggle="tab" href="#wiki" role="tab" aria-controls="wiki" aria-selected="false">Wikis</a>
+                        </li>
+                        <li class="nav-item">
+                          <a class="nav-link py-6 cursor-pointer" id="explorer-forum" data-toggle="tab" data-target="#expl-forum" role="tab" aria-controls="forum" aria-selected="false">Forums</a>
+                        </li>
+                      </ul>
+                      <?php $explorer = render($page['explorer']); ?>
+                      <!-- Tab panes -->
+                      <div class="tab-content pb-4 overflow-auto flex-fill">
+                        <div class="tab-pane active" id="file-browser" role="tabpanel" aria-labelledby="explorer-file-browser">
+                          <!-- START explorer region -->
+                          <?php print $explorer; ?>
+                          <!-- END explorer region -->
+                        </div>
+                        <div class="tab-pane" id="wiki" role="tabpanel" aria-labelledby="explorer-wiki">
+                          <!-- START explorer region -->
+                          <div class="spinner spinner-track spinner-primary d-inline-flex gofast-spinner-xxl position-absolute" style="top: calc(50% - 6em); left: calc(50% - 4em);"></div>
+                          <!-- END explorer region -->
+                        </div>
+                        <div class="tab-pane position-relative" id="expl-forum" role="tabpanel" aria-labelledby="explorer-forum">
+                          <!-- START explorer region -->
+                          <?php
+                          // print gofast_forum_get_forums_view();
+                          ?>
+                          <!-- END explorer region -->
+                        </div>
+                        <!-- <div class="tab-pane" id="settings" role="tabpanel" aria-labelledby="settings-tab">...</div> -->
+                      </div>
                     </div>
-                    <div class="tab-pane" id="wiki" role="tabpanel" aria-labelledby="explorer-wiki">
-                      <!-- START explorer region -->
-                      <div class="spinner spinner-track spinner-primary d-inline-flex gofast-spinner-xxl position-absolute" style="top: calc(50% - 6em); left: calc(50% - 4em);"></div>
-                      <!-- END explorer region -->
-                    </div>
-                    <div class="tab-pane" id="expl-forum" role="tabpanel" aria-labelledby="explorer-forum">
-                      <!-- START explorer region -->
-                        <?php
-                           // print gofast_forum_get_forums_view();
-                        ?>
-                      <!-- END explorer region -->
-                    </div>
-                    <!-- <div class="tab-pane" id="settings" role="tabpanel" aria-labelledby="settings-tab">...</div> -->
                   </div>
-                </div>
-              </div>
             <?php endif; ?>
             <!-- END EXPLORER -->
             <?php endif; ?>
@@ -255,31 +292,41 @@ if (!strpos($_SERVER['REQUEST_URI'], 'search/solr') === FALSE) {
               <div id="ajax_content" class=" h-100">
                 <?php print render($page['content']); ?>
               </div>
-            </div>
+              </div>
               <?php if (!$is_mobile_device) : ?>
-            <!-- START RIOT -->
-            <div id="riot">
-              <?php print render($page['riot']); ?>
-            </div>
-            <!-- END RIOT -->
+                <!-- START RIOT -->
+                <div id="riot">
+                  <?php print render($page['riot']); ?>
+                </div>
+                <!-- END RIOT -->
               <?php endif; ?>
+            </div>
+            <!--end::Content-->
+            <!--begin::Footer-->
+            <footer class="footer container d-none">
+              <?php print render($page['footer']); ?>
+            </footer>
+            <!--end::Footer-->
           </div>
-          <!--end::Content-->
-          <!--begin::Footer-->
-          <footer class="footer container d-none">
-            <?php print render($page['footer']); ?>
-          </footer>
-          <!--end::Footer-->
+          <!--end::Wrapper-->
         </div>
-        <!--end::Wrapper-->
+        <!--end::Page-->
       </div>
-      <!--end::Page-->
-    </div>
-    <!--end::Main-->
+      <!--end::Main-->
   </div>
 <?php endif; ?>
+<?php endif; ?>
 
-
+<?php if(isset($conf['gofast-atatus-key'])) :?>
+  <div class="atatus-banner d-none">
+    <div class="atatus-banner">
+      <span class="atatus-message mb-5 w-100"><?= t('I accept that anonymized technical traces will be collected in order to improve the quality of the platform and monitor any performance problem ?', array(), array('context' => 'gofast'))?></span>
+      <span class="atatus-message mb-5 w-100"><?= t('If you regularly use %platform_name, we advise you to accept it to ensure better support.', array('%platform_name' => variable_get('site_name', 'GoFast')), array('context' => 'gofast'))?></span>
+      <button class="btn btn-sm btn-primary" onclick="Gofast.agreeToTracking()"><?= t('Accept')?></button>
+      <button class="btn btn-sm text-danger ml-2" onclick="Gofast.disagreeToTracking()"><?= t('Decline')?></button>
+    </div>
+  </div>
+<?php endif; ?>
 
 <div><?php print gofast_modal_prepare_modal(); ?></div>
 
@@ -303,49 +350,56 @@ if (!strpos($_SERVER['REQUEST_URI'], 'search/solr') === FALSE) {
 </div>
 <div id="tempContainerItHit"></div>
 
+<?php if ($detect->isTablet()) : ?>
+<?= theme("gofast_mobile_landscape_mode_page") ?>
+<?php endif; ?>
+
 
 <script>
-  //Triger the mobile file browser navigation when we are ready and connected
-  function triggerMobileNavigation() {
-    if (typeof Gofast.ITHit === "undefined" || Gofast.ITHit.ready === false || typeof Gofast.ITHitMobile === "undefined") { //Not yet ready
-      if (typeof Drupal.settings.pass_reset !== "undefined") {
-        //We are in password recovery mode, cancel action !
-        jQuery("#file_browser_mobile_container").remove();
-        jQuery("#ithit-toggle").remove();
-        return;
-      }
-      setTimeout(triggerMobileNavigation, 1000);
-    } else { //Ready !
-      if (typeof Drupal.settings.pass_reset !== "undefined") {
-        //We are in password recovery mode, cancel action !
-        jQuery("#file_browser_mobile_container").remove();
-        jQuery("#ithit-toggle").remove();
-        return;
-      }
-      if (!Gofast.mobileNavigationHandled) { //Navigation hasn't already been handled (by node themes for exemple)
-        Gofast.ITHitMobile.navigate(Gofast.ITHitMobile.currentPath);
-      }
-      //Set drag and drop zone for upload
-      if (jQuery("#file_browser_mobile_files").length !== 0) {
-        Gofast.ITHit.UploaderMobile.DropZones.AddById(
-          "file_browser_mobile_files"
-        );
-      }
-      //Add events handlers for upload queue
-      Gofast.ITHitMobile.attachUploadEvents();
-      //Attach browser events
-      Gofast.ITHitMobile.attachBrowserEvents();
-      //Set margin to main container if needed
-      if (Gofast.getCookie('mobile_browser_toggle') === "shown" && parseInt(jQuery('.main-container').css('margin-left')) <= 250 && parseInt(jQuery('.main-container').position().left) <= 250) {
-        jQuery(".main-container").css('margin-left', '250px');
+  jQuery(document).ready(function() {
+    //Trigger the mobile file browser navigation when we are ready and connected
+    function triggerMobileNavigation() {
+      if (typeof Gofast.ITHit === "undefined" || Gofast.ITHit.ready === false || typeof Gofast.ITHitMobile === "undefined") { //Not yet ready
+        if (typeof Drupal.settings.pass_reset !== "undefined") {
+          //We are in password recovery mode, cancel action !
+          jQuery("#file_browser_mobile_container").remove();
+          jQuery("#ithit-toggle").remove();
+          return;
+        }
+        setTimeout(triggerMobileNavigation, 1000);
+      } else { //Ready !
+        if (typeof Drupal.settings.pass_reset !== "undefined") {
+          //We are in password recovery mode, cancel action !
+          jQuery("#file_browser_mobile_container").remove();
+          jQuery("#ithit-toggle").remove();
+          return;
+        }
+        if (!Gofast.mobileNavigationHandled) { //Navigation hasn't already been handled (by node themes for exemple)
+          Gofast.ITHitMobile.navigate(Gofast.ITHitMobile.currentPath);
+        }
+        //Set drag and drop zone for upload
+        if (jQuery("#file_browser_mobile_files").length !== 0) {
+          Gofast.ITHit.UploaderMobile.DropZones.AddById(
+            "file_browser_mobile_files"
+          );
+        }
+        //Add events handlers for upload queue
+        Gofast.ITHitMobile.attachUploadEvents();
+        //Attach browser events
+        Gofast.ITHitMobile.attachBrowserEvents();
+        //Set margin to main container if needed
+        if (Gofast.getCookie('mobile_browser_toggle') === "shown" && parseInt(jQuery('.main-container').css('margin-left')) <= 250 && parseInt(jQuery('.main-container').position().left) <= 250) {
+          jQuery(".main-container").css('margin-left', '250px');
+        }
       }
     }
-  }
-  triggerMobileNavigation();
-  // some versions of FF seem to append "=" to the hash, breaking the navigation
-  if (location.hash.length && location.hash.slice(-1) == "=") {
-    location.hash = location.hash.slice(0, -1);
-  }
+    triggerMobileNavigation();
+    // some versions of FF seem to append "=" to the hash, breaking the navigation
+    if (location.hash.length && location.hash.slice(-1) == "=") {
+      location.hash = location.hash.slice(0, -1);
+    }
+    $(document).trigger("page-loaded");
+  });
 </script>
 
 <!-- Hidden chat actions triggered with JSXC menus -->
@@ -366,11 +420,40 @@ if (!strpos($_SERVER['REQUEST_URI'], 'search/solr') === FALSE) {
   ?>
 </div>
 
-<?php
-// import core scripts for bootstrap-keen theme
-drupal_add_js(drupal_get_path('theme', 'bootstrap_keen') . '/js/core/page.js');
-drupal_add_js(drupal_get_path('theme', 'bootstrap_gofast4') . '/js/components/dropdown.js');
-?>
+<div id="atatus-script-section">
+  <?php if (isset($conf['gofast-atatus-key']) && user_load($user->uid)->field_atatus_tracking[LANGUAGE_NONE]['0']['value'] == 2)  : ?>
+    <script src="https://dmc1acwvwny3.cloudfront.net/atatus-spa.js"></script>
+    <script type="text/javascript">
+      atatus.config('<?php echo variable_get('gofast-atatus-key'); ?>', {
+        ignoreUrls: ['<?php echo $http_bind_url; ?>', '<?php echo $poll_url; ?>']
+      }).install();
+
+      var atatusInterval = setInterval(function() {
+        if (typeof Gofast == "object" &&
+          typeof Gofast._settings == "object" &&
+          typeof Gofast._settings.gofast_version == "string" &&
+          typeof Gofast._settings.gofast == "object" &&
+          typeof Gofast._settings.gofast.user == "object" &&
+          typeof Gofast._settings.gofast.user.uid == "string") {
+          atatus.setVersion(Gofast._settings.gofast_version);
+          atatus.setUser(Gofast._settings.gofast.user.uid);
+          clearInterval(atatusInterval);
+        }
+      }, 500);
+    </script>
+    <?php if(gofast_essential_is_essential()) : ?>
+      <?php if(gofast_mobile_is_phone()) : ?>
+        <script type="text/javascript">atatus.setTags(['mobile']);</script>
+      <?php elseif($detect->isTablet()) : ?>
+        <script type="text/javascript">atatus.setTags(['tablet']);</script>
+      <?php else : ?>
+        <script type="text/javascript">atatus.setTags(['essential']);</script>
+      <?php endif; ?>
+    <?php else: ?>
+      <script type="text/javascript">atatus.setTags(['plus']);</script>
+    <?php endif; ?>
+  <?php endif; ?>
+</div>
 
 <style>
   ::-webkit-scrollbar{

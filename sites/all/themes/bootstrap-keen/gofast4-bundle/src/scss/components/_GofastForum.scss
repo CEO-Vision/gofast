@@ -30,3 +30,19 @@
         }
     }
 }
+
+.mainContent.gofast-content--fluid .gofast-content__node{
+    grid-template-columns: 100%;
+}
+.forum-actions > ul > li {
+    display: inline-block;
+    margin-right: .5rem;
+}
+
+.gofastHighlightedForum.bg-primary.text-white.rounded{
+    .forum-explorer-element-name{
+        .item-name{
+            text-decoration: underline !important;
+        }
+    }
+}

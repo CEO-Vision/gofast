@@ -1,0 +1,3572 @@
+:root {
+	--spritesheet-width: 2520;
+	--spritesheet-height: 2520;
+	--emoji-original-size: 72;
+	--display-emoji-size: 1.5em;
+}
+
+.emoji.emoji-grid__tiles > .em,
+span.em {
+	background-image: url("./emojis.png");
+	background-repeat: no-repeat;
+	display: inline-block;
+}
+
+span.em {
+	width: var(--display-emoji-size);
+	height: var(--display-emoji-size);
+	background-size: calc(
+			var(--display-emoji-size) / var(--emoji-original-size) *
+				var(--spritesheet-width)
+		)
+		auto;
+	vertical-align: middle;
+	margin-top: -4px;
+	text-indent: 100%;
+	white-space: nowrap;
+	overflow: hidden;
+}
+
+.em.em-grinning-face {
+	background-position: 0 0;
+}
+.em.em-grinning-face-with-big-eyes {
+	background-position: calc(-1 * 1.5em) 0;
+}
+.em.em-grinning-face-with-smiling-eyes {
+	background-position: 0 calc(-1 * 1.5em);
+}
+.em.em-beaming-face-with-smiling-eyes {
+	background-position: calc(-1 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-grinning-squinting-face {
+	background-position: calc(-2 * 1.5em) 0;
+}
+.em.em-grinning-face-with-sweat {
+	background-position: calc(-2 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-face-with-tears-of-joy {
+	background-position: 0 calc(-2 * 1.5em);
+}
+.em.em-slightly-smiling-face {
+	background-position: calc(-1 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-winking-face {
+	background-position: calc(-2 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-smiling-face-with-smiling-eyes {
+	background-position: calc(-3 * 1.5em) 0;
+}
+.em.em-smiling-face-with-halo {
+	background-position: calc(-3 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-smiling-face-with-heart-eyes {
+	background-position: calc(-3 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-face-blowing-a-kiss {
+	background-position: 0 calc(-3 * 1.5em);
+}
+.em.em-kissing-face {
+	background-position: calc(-1 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-smiling-face {
+	background-position: calc(-2 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-kissing-face-with-closed-eyes {
+	background-position: calc(-3 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-kissing-face-with-smiling-eyes {
+	background-position: calc(-4 * 1.5em) 0;
+}
+.em.em-face-savoring-food {
+	background-position: calc(-4 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-face-with-tongue {
+	background-position: calc(-4 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-winking-face-with-tongue {
+	background-position: calc(-4 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-squinting-face-with-tongue {
+	background-position: 0 calc(-4 * 1.5em);
+}
+.em.em-neutral-face {
+	background-position: calc(-1 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-expressionless-face {
+	background-position: calc(-2 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-face-without-mouth {
+	background-position: calc(-3 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-smirking-face {
+	background-position: calc(-4 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-unamused-face {
+	background-position: calc(-5 * 1.5em) 0;
+}
+.em.em-grimacing-face {
+	background-position: calc(-5 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-relieved-face {
+	background-position: calc(-5 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-pensive-face {
+	background-position: calc(-5 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-sleepy-face {
+	background-position: calc(-5 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-sleeping-face {
+	background-position: 0 calc(-5 * 1.5em);
+}
+.em.em-face-with-medical-mask {
+	background-position: calc(-1 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-dizzy-face {
+	background-position: calc(-2 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-smiling-face-with-sunglasses {
+	background-position: calc(-3 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-confused-face {
+	background-position: calc(-4 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-worried-face {
+	background-position: calc(-5 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-face-with-open-mouth {
+	background-position: calc(-6 * 1.5em) 0;
+}
+.em.em-hushed-face {
+	background-position: calc(-6 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-astonished-face {
+	background-position: calc(-6 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-flushed-face {
+	background-position: calc(-6 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-frowning-face-with-open-mouth {
+	background-position: calc(-6 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-anguished-face {
+	background-position: calc(-6 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-fearful-face {
+	background-position: 0 calc(-6 * 1.5em);
+}
+.em.em-anxious-face-with-sweat {
+	background-position: calc(-1 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-sad-but-relieved-face {
+	background-position: calc(-2 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-crying-face {
+	background-position: calc(-3 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-loudly-crying-face {
+	background-position: calc(-4 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-face-screaming-in-fear {
+	background-position: calc(-5 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-confounded-face {
+	background-position: calc(-6 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-persevering-face {
+	background-position: calc(-7 * 1.5em) 0;
+}
+.em.em-disappointed-face {
+	background-position: calc(-7 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-downcast-face-with-sweat {
+	background-position: calc(-7 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-weary-face {
+	background-position: calc(-7 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-tired-face {
+	background-position: calc(-7 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-face-with-steam-from-nose {
+	background-position: calc(-7 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-pouting-face {
+	background-position: calc(-7 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-angry-face {
+	background-position: 0 calc(-7 * 1.5em);
+}
+.em.em-smiling-face-with-horns {
+	background-position: calc(-1 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-angry-face-with-horns {
+	background-position: calc(-2 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-skull {
+	background-position: calc(-3 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-pile-of-poo {
+	background-position: calc(-4 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-ogre {
+	background-position: calc(-5 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-goblin {
+	background-position: calc(-6 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-ghost {
+	background-position: calc(-7 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-alien {
+	background-position: calc(-8 * 1.5em) 0;
+}
+.em.em-alien-monster {
+	background-position: calc(-8 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-grinning-cat {
+	background-position: calc(-8 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-grinning-cat-with-smiling-eyes {
+	background-position: calc(-8 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-cat-with-tears-of-joy {
+	background-position: calc(-8 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-smiling-cat-with-heart-eyes {
+	background-position: calc(-8 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-cat-with-wry-smile {
+	background-position: calc(-8 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-kissing-cat {
+	background-position: calc(-8 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-weary-cat {
+	background-position: 0 calc(-8 * 1.5em);
+}
+.em.em-crying-cat {
+	background-position: calc(-1 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-pouting-cat {
+	background-position: calc(-2 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-see-no-evil-monkey {
+	background-position: calc(-3 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-hear-no-evil-monkey {
+	background-position: calc(-4 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-speak-no-evil-monkey {
+	background-position: calc(-5 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-kiss-mark {
+	background-position: calc(-6 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-love-letter {
+	background-position: calc(-7 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-heart-with-arrow {
+	background-position: calc(-8 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-heart-with-ribbon {
+	background-position: calc(-9 * 1.5em) 0;
+}
+.em.em-sparkling-heart {
+	background-position: calc(-9 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-growing-heart {
+	background-position: calc(-9 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-beating-heart {
+	background-position: calc(-9 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-revolving-hearts {
+	background-position: calc(-9 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-two-hearts {
+	background-position: calc(-9 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-heart-decoration {
+	background-position: calc(-9 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-broken-heart {
+	background-position: calc(-9 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-red-heart {
+	background-position: calc(-9 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-yellow-heart {
+	background-position: 0 calc(-9 * 1.5em);
+}
+.em.em-green-heart {
+	background-position: calc(-1 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-blue-heart {
+	background-position: calc(-2 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-purple-heart {
+	background-position: calc(-3 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-hundred-points {
+	background-position: calc(-4 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-anger-symbol {
+	background-position: calc(-5 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-collision {
+	background-position: calc(-6 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-dizzy {
+	background-position: calc(-7 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-sweat-droplets {
+	background-position: calc(-8 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-dashing-away {
+	background-position: calc(-9 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-bomb {
+	background-position: calc(-10 * 1.5em) 0;
+}
+.em.em-speech-balloon {
+	background-position: calc(-10 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-thought-balloon {
+	background-position: calc(-10 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-zzz {
+	background-position: calc(-10 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-waving-hand {
+	background-position: calc(-10 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-waving-hand-light-skin-tone {
+	background-position: calc(-10 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-waving-hand-medium-light-skin-tone {
+	background-position: calc(-10 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-waving-hand-medium-skin-tone {
+	background-position: calc(-10 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-waving-hand-medium-dark-skin-tone {
+	background-position: calc(-10 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-waving-hand-dark-skin-tone {
+	background-position: calc(-10 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-raised-hand {
+	background-position: 0 calc(-10 * 1.5em);
+}
+.em.em-raised-hand-light-skin-tone {
+	background-position: calc(-1 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-raised-hand-medium-light-skin-tone {
+	background-position: calc(-2 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-raised-hand-medium-skin-tone {
+	background-position: calc(-3 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-raised-hand-medium-dark-skin-tone {
+	background-position: calc(-4 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-raised-hand-dark-skin-tone {
+	background-position: calc(-5 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-ok-hand {
+	background-position: calc(-6 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-ok-hand-light-skin-tone {
+	background-position: calc(-7 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-ok-hand-medium-light-skin-tone {
+	background-position: calc(-8 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-ok-hand-medium-skin-tone {
+	background-position: calc(-9 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-ok-hand-medium-dark-skin-tone {
+	background-position: calc(-10 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-ok-hand-dark-skin-tone {
+	background-position: calc(-11 * 1.5em) 0;
+}
+.em.em-victory-hand {
+	background-position: calc(-11 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-victory-hand-light-skin-tone {
+	background-position: calc(-11 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-victory-hand-medium-light-skin-tone {
+	background-position: calc(-11 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-victory-hand-medium-skin-tone {
+	background-position: calc(-11 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-victory-hand-medium-dark-skin-tone {
+	background-position: calc(-11 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-victory-hand-dark-skin-tone {
+	background-position: calc(-11 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-backhand-index-pointing-left {
+	background-position: calc(-11 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-backhand-index-pointing-left-light-skin-tone {
+	background-position: calc(-11 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-backhand-index-pointing-left-medium-light-skin-tone {
+	background-position: calc(-11 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-backhand-index-pointing-left-medium-skin-tone {
+	background-position: calc(-11 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-backhand-index-pointing-left-medium-dark-skin-tone {
+	background-position: 0 calc(-11 * 1.5em);
+}
+.em.em-backhand-index-pointing-left-dark-skin-tone {
+	background-position: calc(-1 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-backhand-index-pointing-right {
+	background-position: calc(-2 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-backhand-index-pointing-right-light-skin-tone {
+	background-position: calc(-3 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-backhand-index-pointing-right-medium-light-skin-tone {
+	background-position: calc(-4 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-backhand-index-pointing-right-medium-skin-tone {
+	background-position: calc(-5 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-backhand-index-pointing-right-medium-dark-skin-tone {
+	background-position: calc(-6 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-backhand-index-pointing-right-dark-skin-tone {
+	background-position: calc(-7 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-backhand-index-pointing-up {
+	background-position: calc(-8 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-backhand-index-pointing-up-light-skin-tone {
+	background-position: calc(-9 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-backhand-index-pointing-up-medium-light-skin-tone {
+	background-position: calc(-10 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-backhand-index-pointing-up-medium-skin-tone {
+	background-position: calc(-11 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-backhand-index-pointing-up-medium-dark-skin-tone {
+	background-position: calc(-12 * 1.5em) 0;
+}
+.em.em-backhand-index-pointing-up-dark-skin-tone {
+	background-position: calc(-12 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-backhand-index-pointing-down {
+	background-position: calc(-12 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-backhand-index-pointing-down-light-skin-tone {
+	background-position: calc(-12 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-backhand-index-pointing-down-medium-light-skin-tone {
+	background-position: calc(-12 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-backhand-index-pointing-down-medium-skin-tone {
+	background-position: calc(-12 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-backhand-index-pointing-down-medium-dark-skin-tone {
+	background-position: calc(-12 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-backhand-index-pointing-down-dark-skin-tone {
+	background-position: calc(-12 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-index-pointing-up {
+	background-position: calc(-12 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-index-pointing-up-light-skin-tone {
+	background-position: calc(-12 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-index-pointing-up-medium-light-skin-tone {
+	background-position: calc(-12 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-index-pointing-up-medium-skin-tone {
+	background-position: calc(-12 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-index-pointing-up-medium-dark-skin-tone {
+	background-position: 0 calc(-12 * 1.5em);
+}
+.em.em-index-pointing-up-dark-skin-tone {
+	background-position: calc(-1 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-thumbs-up {
+	background-position: calc(-2 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-thumbs-up-light-skin-tone {
+	background-position: calc(-3 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-thumbs-up-medium-light-skin-tone {
+	background-position: calc(-4 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-thumbs-up-medium-skin-tone {
+	background-position: calc(-5 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-thumbs-up-medium-dark-skin-tone {
+	background-position: calc(-6 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-thumbs-up-dark-skin-tone {
+	background-position: calc(-7 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-thumbs-down {
+	background-position: calc(-8 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-thumbs-down-light-skin-tone {
+	background-position: calc(-9 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-thumbs-down-medium-light-skin-tone {
+	background-position: calc(-10 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-thumbs-down-medium-skin-tone {
+	background-position: calc(-11 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-thumbs-down-medium-dark-skin-tone {
+	background-position: calc(-12 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-thumbs-down-dark-skin-tone {
+	background-position: calc(-13 * 1.5em) 0;
+}
+.em.em-raised-fist {
+	background-position: calc(-13 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-raised-fist-light-skin-tone {
+	background-position: calc(-13 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-raised-fist-medium-light-skin-tone {
+	background-position: calc(-13 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-raised-fist-medium-skin-tone {
+	background-position: calc(-13 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-raised-fist-medium-dark-skin-tone {
+	background-position: calc(-13 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-raised-fist-dark-skin-tone {
+	background-position: calc(-13 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-oncoming-fist {
+	background-position: calc(-13 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-oncoming-fist-light-skin-tone {
+	background-position: calc(-13 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-oncoming-fist-medium-light-skin-tone {
+	background-position: calc(-13 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-oncoming-fist-medium-skin-tone {
+	background-position: calc(-13 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-oncoming-fist-medium-dark-skin-tone {
+	background-position: calc(-13 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-oncoming-fist-dark-skin-tone {
+	background-position: calc(-13 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-clapping-hands {
+	background-position: 0 calc(-13 * 1.5em);
+}
+.em.em-clapping-hands-light-skin-tone {
+	background-position: calc(-1 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-clapping-hands-medium-light-skin-tone {
+	background-position: calc(-2 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-clapping-hands-medium-skin-tone {
+	background-position: calc(-3 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-clapping-hands-medium-dark-skin-tone {
+	background-position: calc(-4 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-clapping-hands-dark-skin-tone {
+	background-position: calc(-5 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-raising-hands {
+	background-position: calc(-6 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-raising-hands-light-skin-tone {
+	background-position: calc(-7 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-raising-hands-medium-light-skin-tone {
+	background-position: calc(-8 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-raising-hands-medium-skin-tone {
+	background-position: calc(-9 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-raising-hands-medium-dark-skin-tone {
+	background-position: calc(-10 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-raising-hands-dark-skin-tone {
+	background-position: calc(-11 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-open-hands {
+	background-position: calc(-12 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-open-hands-light-skin-tone {
+	background-position: calc(-13 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-open-hands-medium-light-skin-tone {
+	background-position: calc(-14 * 1.5em) 0;
+}
+.em.em-open-hands-medium-skin-tone {
+	background-position: calc(-14 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-open-hands-medium-dark-skin-tone {
+	background-position: calc(-14 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-open-hands-dark-skin-tone {
+	background-position: calc(-14 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-folded-hands {
+	background-position: calc(-14 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-folded-hands-light-skin-tone {
+	background-position: calc(-14 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-folded-hands-medium-light-skin-tone {
+	background-position: calc(-14 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-folded-hands-medium-skin-tone {
+	background-position: calc(-14 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-folded-hands-medium-dark-skin-tone {
+	background-position: calc(-14 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-folded-hands-dark-skin-tone {
+	background-position: calc(-14 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-nail-polish {
+	background-position: calc(-14 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-nail-polish-light-skin-tone {
+	background-position: calc(-14 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-nail-polish-medium-light-skin-tone {
+	background-position: calc(-14 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-nail-polish-medium-skin-tone {
+	background-position: calc(-14 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-nail-polish-medium-dark-skin-tone {
+	background-position: 0 calc(-14 * 1.5em);
+}
+.em.em-nail-polish-dark-skin-tone {
+	background-position: calc(-1 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-flexed-biceps {
+	background-position: calc(-2 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-flexed-biceps-light-skin-tone {
+	background-position: calc(-3 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-flexed-biceps-medium-light-skin-tone {
+	background-position: calc(-4 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-flexed-biceps-medium-skin-tone {
+	background-position: calc(-5 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-flexed-biceps-medium-dark-skin-tone {
+	background-position: calc(-6 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-flexed-biceps-dark-skin-tone {
+	background-position: calc(-7 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-ear {
+	background-position: calc(-8 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-ear-light-skin-tone {
+	background-position: calc(-9 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-ear-medium-light-skin-tone {
+	background-position: calc(-10 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-ear-medium-skin-tone {
+	background-position: calc(-11 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-ear-medium-dark-skin-tone {
+	background-position: calc(-12 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-ear-dark-skin-tone {
+	background-position: calc(-13 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-nose {
+	background-position: calc(-14 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-nose-light-skin-tone {
+	background-position: calc(-15 * 1.5em) 0;
+}
+.em.em-nose-medium-light-skin-tone {
+	background-position: calc(-15 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-nose-medium-skin-tone {
+	background-position: calc(-15 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-nose-medium-dark-skin-tone {
+	background-position: calc(-15 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-nose-dark-skin-tone {
+	background-position: calc(-15 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-eyes {
+	background-position: calc(-15 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-tongue {
+	background-position: calc(-15 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-mouth {
+	background-position: calc(-15 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-baby {
+	background-position: calc(-15 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-baby-light-skin-tone {
+	background-position: calc(-15 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-baby-medium-light-skin-tone {
+	background-position: calc(-15 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-baby-medium-skin-tone {
+	background-position: calc(-15 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-baby-medium-dark-skin-tone {
+	background-position: calc(-15 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-baby-dark-skin-tone {
+	background-position: calc(-15 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-boy {
+	background-position: calc(-15 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-boy-light-skin-tone {
+	background-position: 0 calc(-15 * 1.5em);
+}
+.em.em-boy-medium-light-skin-tone {
+	background-position: calc(-1 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-boy-medium-skin-tone {
+	background-position: calc(-2 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-boy-medium-dark-skin-tone {
+	background-position: calc(-3 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-boy-dark-skin-tone {
+	background-position: calc(-4 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-girl {
+	background-position: calc(-5 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-girl-light-skin-tone {
+	background-position: calc(-6 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-girl-medium-light-skin-tone {
+	background-position: calc(-7 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-girl-medium-skin-tone {
+	background-position: calc(-8 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-girl-medium-dark-skin-tone {
+	background-position: calc(-9 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-girl-dark-skin-tone {
+	background-position: calc(-10 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-person-blond-hair {
+	background-position: calc(-11 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-person-light-skin-tone-blond-hair {
+	background-position: calc(-12 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-person-medium-light-skin-tone-blond-hair {
+	background-position: calc(-13 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-person-medium-skin-tone-blond-hair {
+	background-position: calc(-14 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-person-medium-dark-skin-tone-blond-hair {
+	background-position: calc(-15 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-person-dark-skin-tone-blond-hair {
+	background-position: calc(-16 * 1.5em) 0;
+}
+.em.em-man {
+	background-position: calc(-16 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-man-light-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-man-medium-light-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-man-medium-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-man-medium-dark-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-man-dark-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-woman {
+	background-position: calc(-16 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-woman-light-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-woman-medium-light-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-woman-medium-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-woman-medium-dark-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-woman-dark-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-old-man {
+	background-position: calc(-16 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-old-man-light-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-old-man-medium-light-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-old-man-medium-skin-tone {
+	background-position: 0 calc(-16 * 1.5em);
+}
+.em.em-old-man-medium-dark-skin-tone {
+	background-position: calc(-1 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-old-man-dark-skin-tone {
+	background-position: calc(-2 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-old-woman {
+	background-position: calc(-3 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-old-woman-light-skin-tone {
+	background-position: calc(-4 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-old-woman-medium-light-skin-tone {
+	background-position: calc(-5 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-old-woman-medium-skin-tone {
+	background-position: calc(-6 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-old-woman-medium-dark-skin-tone {
+	background-position: calc(-7 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-old-woman-dark-skin-tone {
+	background-position: calc(-8 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-person-frowning {
+	background-position: calc(-9 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-person-frowning-light-skin-tone {
+	background-position: calc(-10 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-person-frowning-medium-light-skin-tone {
+	background-position: calc(-11 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-person-frowning-medium-skin-tone {
+	background-position: calc(-12 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-person-frowning-medium-dark-skin-tone {
+	background-position: calc(-13 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-person-frowning-dark-skin-tone {
+	background-position: calc(-14 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-person-pouting {
+	background-position: calc(-15 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-person-pouting-light-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-person-pouting-medium-light-skin-tone {
+	background-position: calc(-17 * 1.5em) 0;
+}
+.em.em-person-pouting-medium-skin-tone {
+	background-position: calc(-17 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-person-pouting-medium-dark-skin-tone {
+	background-position: calc(-17 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-person-pouting-dark-skin-tone {
+	background-position: calc(-17 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-person-gesturing-no {
+	background-position: calc(-17 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-person-gesturing-no-light-skin-tone {
+	background-position: calc(-17 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-person-gesturing-no-medium-light-skin-tone {
+	background-position: calc(-17 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-person-gesturing-no-medium-skin-tone {
+	background-position: calc(-17 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-person-gesturing-no-medium-dark-skin-tone {
+	background-position: calc(-17 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-person-gesturing-no-dark-skin-tone {
+	background-position: calc(-17 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-person-gesturing-ok {
+	background-position: calc(-17 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-person-gesturing-ok-light-skin-tone {
+	background-position: calc(-17 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-person-gesturing-ok-medium-light-skin-tone {
+	background-position: calc(-17 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-person-gesturing-ok-medium-skin-tone {
+	background-position: calc(-17 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-person-gesturing-ok-medium-dark-skin-tone {
+	background-position: calc(-17 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-person-gesturing-ok-dark-skin-tone {
+	background-position: calc(-17 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-person-tipping-hand {
+	background-position: calc(-17 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-person-tipping-hand-light-skin-tone {
+	background-position: 0 calc(-17 * 1.5em);
+}
+.em.em-person-tipping-hand-medium-light-skin-tone {
+	background-position: calc(-1 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-person-tipping-hand-medium-skin-tone {
+	background-position: calc(-2 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-person-tipping-hand-medium-dark-skin-tone {
+	background-position: calc(-3 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-person-tipping-hand-dark-skin-tone {
+	background-position: calc(-4 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-person-raising-hand {
+	background-position: calc(-5 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-person-raising-hand-light-skin-tone {
+	background-position: calc(-6 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-person-raising-hand-medium-light-skin-tone {
+	background-position: calc(-7 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-person-raising-hand-medium-skin-tone {
+	background-position: calc(-8 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-person-raising-hand-medium-dark-skin-tone {
+	background-position: calc(-9 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-person-raising-hand-dark-skin-tone {
+	background-position: calc(-10 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-person-bowing {
+	background-position: calc(-11 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-person-bowing-light-skin-tone {
+	background-position: calc(-12 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-person-bowing-medium-light-skin-tone {
+	background-position: calc(-13 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-person-bowing-medium-skin-tone {
+	background-position: calc(-14 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-person-bowing-medium-dark-skin-tone {
+	background-position: calc(-15 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-person-bowing-dark-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-police-officer {
+	background-position: calc(-17 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-police-officer-light-skin-tone {
+	background-position: calc(-18 * 1.5em) 0;
+}
+.em.em-police-officer-medium-light-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-police-officer-medium-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-police-officer-medium-dark-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-police-officer-dark-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-guard {
+	background-position: calc(-18 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-guard-light-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-guard-medium-light-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-guard-medium-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-guard-medium-dark-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-guard-dark-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-construction-worker {
+	background-position: calc(-18 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-construction-worker-light-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-construction-worker-medium-light-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-construction-worker-medium-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-construction-worker-medium-dark-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-construction-worker-dark-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-princess {
+	background-position: calc(-18 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-princess-light-skin-tone {
+	background-position: 0 calc(-18 * 1.5em);
+}
+.em.em-princess-medium-light-skin-tone {
+	background-position: calc(-1 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-princess-medium-skin-tone {
+	background-position: calc(-2 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-princess-medium-dark-skin-tone {
+	background-position: calc(-3 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-princess-dark-skin-tone {
+	background-position: calc(-4 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-person-wearing-turban {
+	background-position: calc(-5 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-person-wearing-turban-light-skin-tone {
+	background-position: calc(-6 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-person-wearing-turban-medium-light-skin-tone {
+	background-position: calc(-7 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-person-wearing-turban-medium-skin-tone {
+	background-position: calc(-8 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-person-wearing-turban-medium-dark-skin-tone {
+	background-position: calc(-9 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-person-wearing-turban-dark-skin-tone {
+	background-position: calc(-10 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-person-with-skullcap {
+	background-position: calc(-11 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-person-with-skullcap-light-skin-tone {
+	background-position: calc(-12 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-person-with-skullcap-medium-light-skin-tone {
+	background-position: calc(-13 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-person-with-skullcap-medium-skin-tone {
+	background-position: calc(-14 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-person-with-skullcap-medium-dark-skin-tone {
+	background-position: calc(-15 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-person-with-skullcap-dark-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-person-with-veil {
+	background-position: calc(-17 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-person-with-veil-light-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-person-with-veil-medium-light-skin-tone {
+	background-position: calc(-19 * 1.5em) 0;
+}
+.em.em-person-with-veil-medium-skin-tone {
+	background-position: calc(-19 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-person-with-veil-medium-dark-skin-tone {
+	background-position: calc(-19 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-person-with-veil-dark-skin-tone {
+	background-position: calc(-19 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-baby-angel {
+	background-position: calc(-19 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-baby-angel-light-skin-tone {
+	background-position: calc(-19 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-baby-angel-medium-light-skin-tone {
+	background-position: calc(-19 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-baby-angel-medium-skin-tone {
+	background-position: calc(-19 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-baby-angel-medium-dark-skin-tone {
+	background-position: calc(-19 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-baby-angel-dark-skin-tone {
+	background-position: calc(-19 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-santa-claus {
+	background-position: calc(-19 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-santa-claus-light-skin-tone {
+	background-position: calc(-19 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-santa-claus-medium-light-skin-tone {
+	background-position: calc(-19 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-santa-claus-medium-skin-tone {
+	background-position: calc(-19 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-santa-claus-medium-dark-skin-tone {
+	background-position: calc(-19 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-santa-claus-dark-skin-tone {
+	background-position: calc(-19 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-person-getting-massage {
+	background-position: calc(-19 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-person-getting-massage-light-skin-tone {
+	background-position: calc(-19 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-person-getting-massage-medium-light-skin-tone {
+	background-position: calc(-19 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-person-getting-massage-medium-skin-tone {
+	background-position: 0 calc(-19 * 1.5em);
+}
+.em.em-person-getting-massage-medium-dark-skin-tone {
+	background-position: calc(-1 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-getting-massage-dark-skin-tone {
+	background-position: calc(-2 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-getting-haircut {
+	background-position: calc(-3 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-getting-haircut-light-skin-tone {
+	background-position: calc(-4 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-getting-haircut-medium-light-skin-tone {
+	background-position: calc(-5 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-getting-haircut-medium-skin-tone {
+	background-position: calc(-6 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-getting-haircut-medium-dark-skin-tone {
+	background-position: calc(-7 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-getting-haircut-dark-skin-tone {
+	background-position: calc(-8 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-walking {
+	background-position: calc(-9 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-walking-light-skin-tone {
+	background-position: calc(-10 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-walking-medium-light-skin-tone {
+	background-position: calc(-11 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-walking-medium-skin-tone {
+	background-position: calc(-12 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-walking-medium-dark-skin-tone {
+	background-position: calc(-13 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-walking-dark-skin-tone {
+	background-position: calc(-14 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-running {
+	background-position: calc(-15 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-running-light-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-running-medium-light-skin-tone {
+	background-position: calc(-17 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-running-medium-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-running-medium-dark-skin-tone {
+	background-position: calc(-19 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-running-dark-skin-tone {
+	background-position: calc(-20 * 1.5em) 0;
+}
+.em.em-woman-dancing {
+	background-position: calc(-20 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-woman-dancing-light-skin-tone {
+	background-position: calc(-20 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-woman-dancing-medium-light-skin-tone {
+	background-position: calc(-20 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-woman-dancing-medium-skin-tone {
+	background-position: calc(-20 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-woman-dancing-medium-dark-skin-tone {
+	background-position: calc(-20 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-woman-dancing-dark-skin-tone {
+	background-position: calc(-20 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-people-with-bunny-ears {
+	background-position: calc(-20 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-horse-racing {
+	background-position: calc(-20 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-horse-racing-light-skin-tone {
+	background-position: calc(-20 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-horse-racing-medium-light-skin-tone {
+	background-position: calc(-20 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-horse-racing-medium-skin-tone {
+	background-position: calc(-20 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-horse-racing-medium-dark-skin-tone {
+	background-position: calc(-20 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-horse-racing-dark-skin-tone {
+	background-position: calc(-20 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-snowboarder {
+	background-position: calc(-20 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-snowboarder-light-skin-tone {
+	background-position: calc(-20 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-snowboarder-medium-light-skin-tone {
+	background-position: calc(-20 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-snowboarder-medium-skin-tone {
+	background-position: calc(-20 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-snowboarder-medium-dark-skin-tone {
+	background-position: calc(-20 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-snowboarder-dark-skin-tone {
+	background-position: calc(-20 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-person-surfing {
+	background-position: 0 calc(-20 * 1.5em);
+}
+.em.em-person-surfing-light-skin-tone {
+	background-position: calc(-1 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-surfing-medium-light-skin-tone {
+	background-position: calc(-2 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-surfing-medium-skin-tone {
+	background-position: calc(-3 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-surfing-medium-dark-skin-tone {
+	background-position: calc(-4 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-surfing-dark-skin-tone {
+	background-position: calc(-5 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-rowing-boat {
+	background-position: calc(-6 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-swimming {
+	background-position: calc(-7 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-swimming-light-skin-tone {
+	background-position: calc(-8 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-swimming-medium-light-skin-tone {
+	background-position: calc(-9 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-swimming-medium-skin-tone {
+	background-position: calc(-10 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-swimming-medium-dark-skin-tone {
+	background-position: calc(-11 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-swimming-dark-skin-tone {
+	background-position: calc(-12 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-biking {
+	background-position: calc(-13 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-biking-light-skin-tone {
+	background-position: calc(-14 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-biking-medium-light-skin-tone {
+	background-position: calc(-15 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-biking-medium-skin-tone {
+	background-position: calc(-16 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-biking-medium-dark-skin-tone {
+	background-position: calc(-17 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-biking-dark-skin-tone {
+	background-position: calc(-18 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-mountain-biking {
+	background-position: calc(-19 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-mountain-biking-light-skin-tone {
+	background-position: calc(-20 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-person-mountain-biking-medium-light-skin-tone {
+	background-position: calc(-21 * 1.5em) 0;
+}
+.em.em-person-mountain-biking-medium-skin-tone {
+	background-position: calc(-21 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-person-mountain-biking-medium-dark-skin-tone {
+	background-position: calc(-21 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-person-mountain-biking-dark-skin-tone {
+	background-position: calc(-21 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-person-taking-bath {
+	background-position: calc(-21 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-person-taking-bath-light-skin-tone {
+	background-position: calc(-21 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-person-taking-bath-medium-light-skin-tone {
+	background-position: calc(-21 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-person-taking-bath-medium-skin-tone {
+	background-position: calc(-21 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-person-taking-bath-medium-dark-skin-tone {
+	background-position: calc(-21 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-person-taking-bath-dark-skin-tone {
+	background-position: calc(-21 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-women-holding-hands {
+	background-position: calc(-21 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-woman-and-man-holding-hands {
+	background-position: calc(-21 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-men-holding-hands {
+	background-position: calc(-21 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-kiss {
+	background-position: calc(-21 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-kiss-man-man {
+	background-position: calc(-21 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-kiss-woman-woman {
+	background-position: calc(-21 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-couple-with-heart {
+	background-position: calc(-21 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-couple-with-heart-man-man {
+	background-position: calc(-21 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-couple-with-heart-woman-woman {
+	background-position: calc(-21 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-family {
+	background-position: calc(-21 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-family-man-woman-girl {
+	background-position: calc(-21 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-family-man-woman-girl-boy {
+	background-position: 0 calc(-21 * 1.5em);
+}
+.em.em-family-man-woman-boy-boy {
+	background-position: calc(-1 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-family-man-woman-girl-girl {
+	background-position: calc(-2 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-family-man-man-boy {
+	background-position: calc(-3 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-family-man-man-girl {
+	background-position: calc(-4 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-family-man-man-girl-boy {
+	background-position: calc(-5 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-family-man-man-boy-boy {
+	background-position: calc(-6 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-family-man-man-girl-girl {
+	background-position: calc(-7 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-family-woman-woman-boy {
+	background-position: calc(-8 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-family-woman-woman-girl {
+	background-position: calc(-9 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-family-woman-woman-girl-boy {
+	background-position: calc(-10 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-family-woman-woman-boy-boy {
+	background-position: calc(-11 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-family-woman-woman-girl-girl {
+	background-position: calc(-12 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-bust-in-silhouette {
+	background-position: calc(-13 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-busts-in-silhouette {
+	background-position: calc(-14 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-footprints {
+	background-position: calc(-15 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-monkey-face {
+	background-position: calc(-16 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-monkey {
+	background-position: calc(-17 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-dog-face {
+	background-position: calc(-18 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-dog {
+	background-position: calc(-19 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-poodle {
+	background-position: calc(-20 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-wolf {
+	background-position: calc(-21 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-cat-face {
+	background-position: calc(-22 * 1.5em) 0;
+}
+.em.em-cat {
+	background-position: calc(-22 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-tiger-face {
+	background-position: calc(-22 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-tiger {
+	background-position: calc(-22 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-leopard {
+	background-position: calc(-22 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-horse-face {
+	background-position: calc(-22 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-horse {
+	background-position: calc(-22 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-cow-face {
+	background-position: calc(-22 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-ox {
+	background-position: calc(-22 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-water-buffalo {
+	background-position: calc(-22 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-cow {
+	background-position: calc(-22 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-pig-face {
+	background-position: calc(-22 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-pig {
+	background-position: calc(-22 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-boar {
+	background-position: calc(-22 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-pig-nose {
+	background-position: calc(-22 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-ram {
+	background-position: calc(-22 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-ewe {
+	background-position: calc(-22 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-goat {
+	background-position: calc(-22 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-camel {
+	background-position: calc(-22 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-two-hump-camel {
+	background-position: calc(-22 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-elephant {
+	background-position: calc(-22 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-mouse-face {
+	background-position: calc(-22 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-mouse {
+	background-position: 0 calc(-22 * 1.5em);
+}
+.em.em-rat {
+	background-position: calc(-1 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-hamster {
+	background-position: calc(-2 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-rabbit-face {
+	background-position: calc(-3 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-rabbit {
+	background-position: calc(-4 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-bear {
+	background-position: calc(-5 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-koala {
+	background-position: calc(-6 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-panda {
+	background-position: calc(-7 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-paw-prints {
+	background-position: calc(-8 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-chicken {
+	background-position: calc(-9 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-rooster {
+	background-position: calc(-10 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-hatching-chick {
+	background-position: calc(-11 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-baby-chick {
+	background-position: calc(-12 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-front-facing-baby-chick {
+	background-position: calc(-13 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-bird {
+	background-position: calc(-14 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-penguin {
+	background-position: calc(-15 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-frog {
+	background-position: calc(-16 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-crocodile {
+	background-position: calc(-17 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-turtle {
+	background-position: calc(-18 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-snake {
+	background-position: calc(-19 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-dragon-face {
+	background-position: calc(-20 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-dragon {
+	background-position: calc(-21 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-spouting-whale {
+	background-position: calc(-22 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-whale {
+	background-position: calc(-23 * 1.5em) 0;
+}
+.em.em-dolphin {
+	background-position: calc(-23 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-fish {
+	background-position: calc(-23 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-tropical-fish {
+	background-position: calc(-23 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-blowfish {
+	background-position: calc(-23 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-octopus {
+	background-position: calc(-23 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-spiral-shell {
+	background-position: calc(-23 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-snail {
+	background-position: calc(-23 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-bug {
+	background-position: calc(-23 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-ant {
+	background-position: calc(-23 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-honeybee {
+	background-position: calc(-23 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-lady-beetle {
+	background-position: calc(-23 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-bouquet {
+	background-position: calc(-23 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-cherry-blossom {
+	background-position: calc(-23 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-white-flower {
+	background-position: calc(-23 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-rose {
+	background-position: calc(-23 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-hibiscus {
+	background-position: calc(-23 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-sunflower {
+	background-position: calc(-23 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-blossom {
+	background-position: calc(-23 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-tulip {
+	background-position: calc(-23 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-seedling {
+	background-position: calc(-23 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-evergreen-tree {
+	background-position: calc(-23 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-deciduous-tree {
+	background-position: calc(-23 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-palm-tree {
+	background-position: 0 calc(-23 * 1.5em);
+}
+.em.em-cactus {
+	background-position: calc(-1 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-sheaf-of-rice {
+	background-position: calc(-2 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-herb {
+	background-position: calc(-3 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-four-leaf-clover {
+	background-position: calc(-4 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-maple-leaf {
+	background-position: calc(-5 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-fallen-leaf {
+	background-position: calc(-6 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-leaf-fluttering-in-wind {
+	background-position: calc(-7 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-grapes {
+	background-position: calc(-8 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-melon {
+	background-position: calc(-9 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-watermelon {
+	background-position: calc(-10 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-tangerine {
+	background-position: calc(-11 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-lemon {
+	background-position: calc(-12 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-banana {
+	background-position: calc(-13 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-pineapple {
+	background-position: calc(-14 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-red-apple {
+	background-position: calc(-15 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-green-apple {
+	background-position: calc(-16 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-pear {
+	background-position: calc(-17 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-peach {
+	background-position: calc(-18 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-cherries {
+	background-position: calc(-19 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-strawberry {
+	background-position: calc(-20 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-tomato {
+	background-position: calc(-21 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-eggplant {
+	background-position: calc(-22 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-ear-of-corn {
+	background-position: calc(-23 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-mushroom {
+	background-position: calc(-24 * 1.5em) 0;
+}
+.em.em-chestnut {
+	background-position: calc(-24 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-bread {
+	background-position: calc(-24 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-meat-on-bone {
+	background-position: calc(-24 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-poultry-leg {
+	background-position: calc(-24 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-hamburger {
+	background-position: calc(-24 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-french-fries {
+	background-position: calc(-24 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-pizza {
+	background-position: calc(-24 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-cooking {
+	background-position: calc(-24 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-pot-of-food {
+	background-position: calc(-24 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-bento-box {
+	background-position: calc(-24 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-rice-cracker {
+	background-position: calc(-24 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-rice-ball {
+	background-position: calc(-24 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-cooked-rice {
+	background-position: calc(-24 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-curry-rice {
+	background-position: calc(-24 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-steaming-bowl {
+	background-position: calc(-24 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-spaghetti {
+	background-position: calc(-24 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-roasted-sweet-potato {
+	background-position: calc(-24 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-oden {
+	background-position: calc(-24 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-sushi {
+	background-position: calc(-24 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-fried-shrimp {
+	background-position: calc(-24 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-fish-cake-with-swirl {
+	background-position: calc(-24 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-dango {
+	background-position: calc(-24 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-soft-ice-cream {
+	background-position: calc(-24 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-shaved-ice {
+	background-position: 0 calc(-24 * 1.5em);
+}
+.em.em-ice-cream {
+	background-position: calc(-1 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-doughnut {
+	background-position: calc(-2 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-cookie {
+	background-position: calc(-3 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-birthday-cake {
+	background-position: calc(-4 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-shortcake {
+	background-position: calc(-5 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-chocolate-bar {
+	background-position: calc(-6 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-candy {
+	background-position: calc(-7 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-lollipop {
+	background-position: calc(-8 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-custard {
+	background-position: calc(-9 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-honey-pot {
+	background-position: calc(-10 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-baby-bottle {
+	background-position: calc(-11 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-hot-beverage {
+	background-position: calc(-12 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-teacup-without-handle {
+	background-position: calc(-13 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-sake {
+	background-position: calc(-14 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-wine-glass {
+	background-position: calc(-15 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-cocktail-glass {
+	background-position: calc(-16 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-tropical-drink {
+	background-position: calc(-17 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-beer-mug {
+	background-position: calc(-18 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-clinking-beer-mugs {
+	background-position: calc(-19 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-fork-and-knife {
+	background-position: calc(-20 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-kitchen-knife {
+	background-position: calc(-21 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-globe-showing-europe-africa {
+	background-position: calc(-22 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-globe-showing-americas {
+	background-position: calc(-23 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-globe-showing-asia-australia {
+	background-position: calc(-24 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-globe-with-meridians {
+	background-position: calc(-25 * 1.5em) 0;
+}
+.em.em-map-of-japan {
+	background-position: calc(-25 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-volcano {
+	background-position: calc(-25 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-mount-fuji {
+	background-position: calc(-25 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-house {
+	background-position: calc(-25 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-house-with-garden {
+	background-position: calc(-25 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-office-building {
+	background-position: calc(-25 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-japanese-post-office {
+	background-position: calc(-25 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-post-office {
+	background-position: calc(-25 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-hospital {
+	background-position: calc(-25 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-bank {
+	background-position: calc(-25 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-hotel {
+	background-position: calc(-25 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-love-hotel {
+	background-position: calc(-25 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-convenience-store {
+	background-position: calc(-25 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-school {
+	background-position: calc(-25 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-department-store {
+	background-position: calc(-25 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-factory {
+	background-position: calc(-25 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-japanese-castle {
+	background-position: calc(-25 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-castle {
+	background-position: calc(-25 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-wedding {
+	background-position: calc(-25 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-tokyo-tower {
+	background-position: calc(-25 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-statue-of-liberty {
+	background-position: calc(-25 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-church {
+	background-position: calc(-25 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-fountain {
+	background-position: calc(-25 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-tent {
+	background-position: calc(-25 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-foggy {
+	background-position: 0 calc(-25 * 1.5em);
+}
+.em.em-night-with-stars {
+	background-position: calc(-1 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-sunrise-over-mountains {
+	background-position: calc(-2 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-sunrise {
+	background-position: calc(-3 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-cityscape-at-dusk {
+	background-position: calc(-4 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-sunset {
+	background-position: calc(-5 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-bridge-at-night {
+	background-position: calc(-6 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-hot-springs {
+	background-position: calc(-7 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-carousel-horse {
+	background-position: calc(-8 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-ferris-wheel {
+	background-position: calc(-9 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-roller-coaster {
+	background-position: calc(-10 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-barber-pole {
+	background-position: calc(-11 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-circus-tent {
+	background-position: calc(-12 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-locomotive {
+	background-position: calc(-13 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-railway-car {
+	background-position: calc(-14 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-high-speed-train {
+	background-position: calc(-15 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-bullet-train {
+	background-position: calc(-16 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-train {
+	background-position: calc(-17 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-metro {
+	background-position: calc(-18 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-light-rail {
+	background-position: calc(-19 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-station {
+	background-position: calc(-20 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-tram {
+	background-position: calc(-21 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-monorail {
+	background-position: calc(-22 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-mountain-railway {
+	background-position: calc(-23 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-tram-car {
+	background-position: calc(-24 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-bus {
+	background-position: calc(-25 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-oncoming-bus {
+	background-position: calc(-26 * 1.5em) 0;
+}
+.em.em-trolleybus {
+	background-position: calc(-26 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-minibus {
+	background-position: calc(-26 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-ambulance {
+	background-position: calc(-26 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-fire-engine {
+	background-position: calc(-26 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-police-car {
+	background-position: calc(-26 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-oncoming-police-car {
+	background-position: calc(-26 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-taxi {
+	background-position: calc(-26 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-oncoming-taxi {
+	background-position: calc(-26 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-automobile {
+	background-position: calc(-26 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-oncoming-automobile {
+	background-position: calc(-26 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-sport-utility-vehicle {
+	background-position: calc(-26 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-delivery-truck {
+	background-position: calc(-26 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-articulated-lorry {
+	background-position: calc(-26 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-tractor {
+	background-position: calc(-26 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-bicycle {
+	background-position: calc(-26 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-bus-stop {
+	background-position: calc(-26 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-fuel-pump {
+	background-position: calc(-26 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-police-car-light {
+	background-position: calc(-26 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-horizontal-traffic-light {
+	background-position: calc(-26 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-vertical-traffic-light {
+	background-position: calc(-26 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-construction {
+	background-position: calc(-26 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-anchor {
+	background-position: calc(-26 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-sailboat {
+	background-position: calc(-26 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-speedboat {
+	background-position: calc(-26 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-ship {
+	background-position: calc(-26 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-airplane {
+	background-position: 0 calc(-26 * 1.5em);
+}
+.em.em-seat {
+	background-position: calc(-1 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-helicopter {
+	background-position: calc(-2 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-suspension-railway {
+	background-position: calc(-3 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-mountain-cableway {
+	background-position: calc(-4 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-aerial-tramway {
+	background-position: calc(-5 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-rocket {
+	background-position: calc(-6 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-hourglass-done {
+	background-position: calc(-7 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-hourglass-not-done {
+	background-position: calc(-8 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-watch {
+	background-position: calc(-9 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-alarm-clock {
+	background-position: calc(-10 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-twelve-oclock {
+	background-position: calc(-11 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-twelve-thirty {
+	background-position: calc(-12 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-one-oclock {
+	background-position: calc(-13 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-one-thirty {
+	background-position: calc(-14 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-two-oclocktime {
+	background-position: calc(-15 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-two-thirty {
+	background-position: calc(-16 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-three-oclock {
+	background-position: calc(-17 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-three-thirty {
+	background-position: calc(-18 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-four-oclock {
+	background-position: calc(-19 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-four-thirty {
+	background-position: calc(-20 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-five-oclock {
+	background-position: calc(-21 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-five-thirty {
+	background-position: calc(-22 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-six-oclock {
+	background-position: calc(-23 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-six-thirty {
+	background-position: calc(-24 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-seven-oclock {
+	background-position: calc(-25 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-seven-thirty {
+	background-position: calc(-26 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-eight-oclock {
+	background-position: calc(-27 * 1.5em) 0;
+}
+.em.em-eight-thirty {
+	background-position: calc(-27 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-nine-oclock {
+	background-position: calc(-27 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-nine-thirty {
+	background-position: calc(-27 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-ten-oclock {
+	background-position: calc(-27 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-ten-thirty {
+	background-position: calc(-27 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-eleven-oclock {
+	background-position: calc(-27 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-eleven-thirty {
+	background-position: calc(-27 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-new-moon {
+	background-position: calc(-27 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-waxing-crescent-moon {
+	background-position: calc(-27 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-first-quarter-moon {
+	background-position: calc(-27 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-waxing-gibbous-moon {
+	background-position: calc(-27 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-full-moon {
+	background-position: calc(-27 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-waning-gibbous-moon {
+	background-position: calc(-27 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-last-quarter-moon {
+	background-position: calc(-27 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-waning-crescent-moon {
+	background-position: calc(-27 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-crescent-moon {
+	background-position: calc(-27 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-new-moon-face {
+	background-position: calc(-27 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-first-quarter-moon-face {
+	background-position: calc(-27 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-last-quarter-moon-face {
+	background-position: calc(-27 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-sun {
+	background-position: calc(-27 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-full-moon-face {
+	background-position: calc(-27 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-sun-with-face {
+	background-position: calc(-27 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-star {
+	background-position: calc(-27 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-glowing-star {
+	background-position: calc(-27 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-shooting-star {
+	background-position: calc(-27 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-milky-way {
+	background-position: calc(-27 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-cloud {
+	background-position: 0 calc(-27 * 1.5em);
+}
+.em.em-sun-behind-cloud {
+	background-position: calc(-1 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-cyclone {
+	background-position: calc(-2 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-rainbow {
+	background-position: calc(-3 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-closed-umbrella {
+	background-position: calc(-4 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-umbrella-with-rain-drops {
+	background-position: calc(-5 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-high-voltage {
+	background-position: calc(-6 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-snowflake {
+	background-position: calc(-7 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-snowman-without-snow {
+	background-position: calc(-8 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-fire {
+	background-position: calc(-9 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-droplet {
+	background-position: calc(-10 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-water-wave {
+	background-position: calc(-11 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-jack-o-lantern {
+	background-position: calc(-12 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-christmas-tree {
+	background-position: calc(-13 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-fireworks {
+	background-position: calc(-14 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-sparkler {
+	background-position: calc(-15 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-sparkles {
+	background-position: calc(-16 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-balloon {
+	background-position: calc(-17 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-party-popper {
+	background-position: calc(-18 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-confetti-ball {
+	background-position: calc(-19 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-tanabata-tree {
+	background-position: calc(-20 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-pine-decoration {
+	background-position: calc(-21 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-japanese-dolls {
+	background-position: calc(-22 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-carp-streamer {
+	background-position: calc(-23 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-wind-chime {
+	background-position: calc(-24 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-moon-viewing-ceremony {
+	background-position: calc(-25 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-ribbon {
+	background-position: calc(-26 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-wrapped-gift {
+	background-position: calc(-27 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-ticket {
+	background-position: calc(-28 * 1.5em) 0;
+}
+.em.em-trophy {
+	background-position: calc(-28 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-soccer-ball {
+	background-position: calc(-28 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-baseball {
+	background-position: calc(-28 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-basketball {
+	background-position: calc(-28 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-american-football {
+	background-position: calc(-28 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-rugby-football {
+	background-position: calc(-28 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-tennis {
+	background-position: calc(-28 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-bowling {
+	background-position: calc(-28 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-flag-in-hole {
+	background-position: calc(-28 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-fishing-pole {
+	background-position: calc(-28 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-running-shirt {
+	background-position: calc(-28 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-skis {
+	background-position: calc(-28 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-direct-hit {
+	background-position: calc(-28 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-pool-8-ball {
+	background-position: calc(-28 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-crystal-ball {
+	background-position: calc(-28 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-video-game {
+	background-position: calc(-28 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-slot-machine {
+	background-position: calc(-28 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-game-die {
+	background-position: calc(-28 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-spade-suit {
+	background-position: calc(-28 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-heart-suit {
+	background-position: calc(-28 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-diamond-suit {
+	background-position: calc(-28 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-club-suit {
+	background-position: calc(-28 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-joker {
+	background-position: calc(-28 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-mahjong-red-dragon {
+	background-position: calc(-28 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-flower-playing-cards {
+	background-position: calc(-28 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-performing-arts {
+	background-position: calc(-28 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-artist-palette {
+	background-position: calc(-28 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-glasses {
+	background-position: 0 calc(-28 * 1.5em);
+}
+.em.em-necktie {
+	background-position: calc(-1 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-t-shirt {
+	background-position: calc(-2 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-jeans {
+	background-position: calc(-3 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-dress {
+	background-position: calc(-4 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-kimono {
+	background-position: calc(-5 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-bikini {
+	background-position: calc(-6 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-womans-clothes {
+	background-position: calc(-7 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-purse {
+	background-position: calc(-8 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-handbag {
+	background-position: calc(-9 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-clutch-bag {
+	background-position: calc(-10 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-backpack {
+	background-position: calc(-11 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-mans-shoe {
+	background-position: calc(-12 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-running-shoe {
+	background-position: calc(-13 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-high-heeled-shoe {
+	background-position: calc(-14 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-womans-sandal {
+	background-position: calc(-15 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-womans-boot {
+	background-position: calc(-16 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-crown {
+	background-position: calc(-17 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-womans-hat {
+	background-position: calc(-18 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-top-hat {
+	background-position: calc(-19 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-graduation-cap {
+	background-position: calc(-20 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-lipstick {
+	background-position: calc(-21 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-ring {
+	background-position: calc(-22 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-gem-stone {
+	background-position: calc(-23 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-muted-speaker {
+	background-position: calc(-24 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-speaker-low-volume {
+	background-position: calc(-25 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-speaker-medium-volume {
+	background-position: calc(-26 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-speaker-high-volume {
+	background-position: calc(-27 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-loudspeaker {
+	background-position: calc(-28 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-megaphone {
+	background-position: calc(-29 * 1.5em) 0;
+}
+.em.em-postal-horn {
+	background-position: calc(-29 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-bell {
+	background-position: calc(-29 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-bell-with-slash {
+	background-position: calc(-29 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-musical-score {
+	background-position: calc(-29 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-musical-note {
+	background-position: calc(-29 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-musical-notes {
+	background-position: calc(-29 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-microphone {
+	background-position: calc(-29 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-headphone {
+	background-position: calc(-29 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-radio {
+	background-position: calc(-29 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-saxophone {
+	background-position: calc(-29 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-guitar {
+	background-position: calc(-29 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-musical-keyboard {
+	background-position: calc(-29 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-trumpet {
+	background-position: calc(-29 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-violin {
+	background-position: calc(-29 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-mobile-phone {
+	background-position: calc(-29 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-mobile-phone-with-arrow {
+	background-position: calc(-29 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-telephone {
+	background-position: calc(-29 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-telephone-receiver {
+	background-position: calc(-29 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-pager {
+	background-position: calc(-29 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-fax-machine {
+	background-position: calc(-29 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-battery {
+	background-position: calc(-29 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-electric-plug {
+	background-position: calc(-29 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-laptop {
+	background-position: calc(-29 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-computer-disk {
+	background-position: calc(-29 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-floppy-disk {
+	background-position: calc(-29 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-optical-disk {
+	background-position: calc(-29 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-dvd {
+	background-position: calc(-29 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-movie-camera {
+	background-position: calc(-29 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-clapper-board {
+	background-position: 0 calc(-29 * 1.5em);
+}
+.em.em-television {
+	background-position: calc(-1 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-camera {
+	background-position: calc(-2 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-video-camera {
+	background-position: calc(-3 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-videocassette {
+	background-position: calc(-4 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-magnifying-glass-tilted-left {
+	background-position: calc(-5 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-magnifying-glass-tilted-right {
+	background-position: calc(-6 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-light-bulb {
+	background-position: calc(-7 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-flashlight {
+	background-position: calc(-8 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-red-paper-lantern {
+	background-position: calc(-9 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-notebook-with-decorative-cover {
+	background-position: calc(-10 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-closed-book {
+	background-position: calc(-11 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-open-book {
+	background-position: calc(-12 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-green-book {
+	background-position: calc(-13 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-blue-book {
+	background-position: calc(-14 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-orange-book {
+	background-position: calc(-15 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-books {
+	background-position: calc(-16 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-notebook {
+	background-position: calc(-17 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-ledger {
+	background-position: calc(-18 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-page-with-curl {
+	background-position: calc(-19 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-scroll {
+	background-position: calc(-20 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-page-facing-up {
+	background-position: calc(-21 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-newspaper {
+	background-position: calc(-22 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-bookmark-tabs {
+	background-position: calc(-23 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-bookmark {
+	background-position: calc(-24 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-money-bag {
+	background-position: calc(-25 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-yen-banknote {
+	background-position: calc(-26 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-dollar-banknote {
+	background-position: calc(-27 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-euro-banknote {
+	background-position: calc(-28 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-pound-banknote {
+	background-position: calc(-29 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-money-with-wings {
+	background-position: calc(-30 * 1.5em) 0;
+}
+.em.em-credit-card {
+	background-position: calc(-30 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-chart-increasing-with-yen {
+	background-position: calc(-30 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-envelope {
+	background-position: calc(-30 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-e-mail {
+	background-position: calc(-30 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-incoming-envelope {
+	background-position: calc(-30 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-envelope-with-arrow {
+	background-position: calc(-30 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-outbox-tray {
+	background-position: calc(-30 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-inbox-tray {
+	background-position: calc(-30 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-package {
+	background-position: calc(-30 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-closed-mailbox-with-raised-flag {
+	background-position: calc(-30 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-closed-mailbox-with-lowered-flag {
+	background-position: calc(-30 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-open-mailbox-with-raised-flag {
+	background-position: calc(-30 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-open-mailbox-with-lowered-flag {
+	background-position: calc(-30 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-postbox {
+	background-position: calc(-30 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-pencil {
+	background-position: calc(-30 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-black-nib {
+	background-position: calc(-30 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-memo {
+	background-position: calc(-30 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-briefcase {
+	background-position: calc(-30 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-file-folder {
+	background-position: calc(-30 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-open-file-folder {
+	background-position: calc(-30 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-calendar {
+	background-position: calc(-30 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-tear-off-calendar {
+	background-position: calc(-30 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-card-index {
+	background-position: calc(-30 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-chart-increasing {
+	background-position: calc(-30 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-chart-decreasing {
+	background-position: calc(-30 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-bar-chart {
+	background-position: calc(-30 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-clipboard {
+	background-position: calc(-30 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-pushpin {
+	background-position: calc(-30 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-round-pushpin {
+	background-position: calc(-30 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-paperclip {
+	background-position: 0 calc(-30 * 1.5em);
+}
+.em.em-straight-ruler {
+	background-position: calc(-1 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-triangular-ruler {
+	background-position: calc(-2 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-scissors {
+	background-position: calc(-3 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-locked {
+	background-position: calc(-4 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-unlocked {
+	background-position: calc(-5 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-locked-with-pen {
+	background-position: calc(-6 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-locked-with-key {
+	background-position: calc(-7 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-key {
+	background-position: calc(-8 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-hammer {
+	background-position: calc(-9 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-pistol {
+	background-position: calc(-10 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-wrench {
+	background-position: calc(-11 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-nut-and-bolt {
+	background-position: calc(-12 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-link {
+	background-position: calc(-13 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-microscope {
+	background-position: calc(-14 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-telescope {
+	background-position: calc(-15 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-satellite-antenna {
+	background-position: calc(-16 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-syringe {
+	background-position: calc(-17 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-pill {
+	background-position: calc(-18 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-door {
+	background-position: calc(-19 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-toilet {
+	background-position: calc(-20 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-shower {
+	background-position: calc(-21 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-bathtub {
+	background-position: calc(-22 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-cigarette {
+	background-position: calc(-23 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-moai {
+	background-position: calc(-24 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-atm-sign {
+	background-position: calc(-25 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-litter-in-bin-sign {
+	background-position: calc(-26 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-potable-water {
+	background-position: calc(-27 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-wheelchair-symbol {
+	background-position: calc(-28 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-mens-room {
+	background-position: calc(-29 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-womens-room {
+	background-position: calc(-30 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-restroom {
+	background-position: calc(-31 * 1.5em) 0;
+}
+.em.em-baby-symbol {
+	background-position: calc(-31 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-water-closet {
+	background-position: calc(-31 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-passport-control {
+	background-position: calc(-31 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-customs {
+	background-position: calc(-31 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-baggage-claim {
+	background-position: calc(-31 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-left-luggage {
+	background-position: calc(-31 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-warning {
+	background-position: calc(-31 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-children-crossing {
+	background-position: calc(-31 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-no-entry {
+	background-position: calc(-31 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-prohibited {
+	background-position: calc(-31 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-no-bicycles {
+	background-position: calc(-31 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-no-smoking {
+	background-position: calc(-31 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-no-littering {
+	background-position: calc(-31 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-non-potable-water {
+	background-position: calc(-31 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-no-pedestrians {
+	background-position: calc(-31 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-no-mobile-phones {
+	background-position: calc(-31 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-no-one-under-eighteen {
+	background-position: calc(-31 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-up-arrow {
+	background-position: calc(-31 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-up-right-arrow {
+	background-position: calc(-31 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-right-arrow {
+	background-position: calc(-31 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-down-right-arrow {
+	background-position: calc(-31 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-down-arrow {
+	background-position: calc(-31 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-down-left-arrow {
+	background-position: calc(-31 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-left-arrow {
+	background-position: calc(-31 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-up-left-arrow {
+	background-position: calc(-31 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-up-down-arrow {
+	background-position: calc(-31 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-left-right-arrow {
+	background-position: calc(-31 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-right-arrow-curving-left {
+	background-position: calc(-31 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-left-arrow-curving-right {
+	background-position: calc(-31 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-right-arrow-curving-up {
+	background-position: calc(-31 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-right-arrow-curving-down {
+	background-position: 0 calc(-31 * 1.5em);
+}
+.em.em-clockwise-vertical-arrows {
+	background-position: calc(-1 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-counterclockwise-arrows-button {
+	background-position: calc(-2 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-back-arrow {
+	background-position: calc(-3 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-end-arrow {
+	background-position: calc(-4 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-on-arrow {
+	background-position: calc(-5 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-soon-arrow {
+	background-position: calc(-6 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-top-arrow {
+	background-position: calc(-7 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-dotted-six-pointed-star {
+	background-position: calc(-8 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-aries {
+	background-position: calc(-9 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-taurus {
+	background-position: calc(-10 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-gemini {
+	background-position: calc(-11 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-cancer {
+	background-position: calc(-12 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-leo {
+	background-position: calc(-13 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-virgo {
+	background-position: calc(-14 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-libra {
+	background-position: calc(-15 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-scorpio {
+	background-position: calc(-16 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-sagittarius {
+	background-position: calc(-17 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-capricorn {
+	background-position: calc(-18 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-aquarius {
+	background-position: calc(-19 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-pisces {
+	background-position: calc(-20 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-ophiuchus {
+	background-position: calc(-21 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-shuffle-tracks-button {
+	background-position: calc(-22 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-repeat-button {
+	background-position: calc(-23 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-repeat-single-button {
+	background-position: calc(-24 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-play-button {
+	background-position: calc(-25 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-fast-forward-button {
+	background-position: calc(-26 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-reverse-button {
+	background-position: calc(-27 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-fast-reverse-button {
+	background-position: calc(-28 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-upwards-button {
+	background-position: calc(-29 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-fast-up-button {
+	background-position: calc(-30 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-downwards-button {
+	background-position: calc(-31 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-fast-down-button {
+	background-position: calc(-32 * 1.5em) 0;
+}
+.em.em-cinema {
+	background-position: calc(-32 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-dim-button {
+	background-position: calc(-32 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-bright-button {
+	background-position: calc(-32 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-antenna-bars {
+	background-position: calc(-32 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-vibration-mode {
+	background-position: calc(-32 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-mobile-phone-off {
+	background-position: calc(-32 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-multiply {
+	background-position: calc(-32 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-plus {
+	background-position: calc(-32 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-minus {
+	background-position: calc(-32 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-divide {
+	background-position: calc(-32 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-double-exclamation-mark {
+	background-position: calc(-32 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-exclamation-question-mark {
+	background-position: calc(-32 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-question-mark {
+	background-position: calc(-32 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-white-question-mark {
+	background-position: calc(-32 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-white-exclamation-mark {
+	background-position: calc(-32 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-exclamation-mark {
+	background-position: calc(-32 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-wavy-dash {
+	background-position: calc(-32 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-currency-exchange {
+	background-position: calc(-32 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-heavy-dollar-sign {
+	background-position: calc(-32 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-recycling-symbol {
+	background-position: calc(-32 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-trident-emblem {
+	background-position: calc(-32 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-name-badge {
+	background-position: calc(-32 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-japanese-symbol-for-beginner {
+	background-position: calc(-32 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-hollow-red-circle {
+	background-position: calc(-32 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-check-mark-button {
+	background-position: calc(-32 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-check-box-with-check {
+	background-position: calc(-32 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-check-mark {
+	background-position: calc(-32 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-cross-mark {
+	background-position: calc(-32 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-cross-mark-button {
+	background-position: calc(-32 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-curly-loop {
+	background-position: calc(-32 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-double-curly-loop {
+	background-position: calc(-32 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-part-alternation-mark {
+	background-position: 0 calc(-32 * 1.5em);
+}
+.em.em-eight-spoked-asterisk {
+	background-position: calc(-1 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-eight-pointed-star {
+	background-position: calc(-2 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-sparkle {
+	background-position: calc(-3 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-copyright {
+	background-position: calc(-4 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-registered {
+	background-position: calc(-5 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-trade-mark {
+	background-position: calc(-6 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-keycap-number-sign {
+	background-position: calc(-7 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-keycap-digit-zero {
+	background-position: calc(-8 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-keycap-digit-one {
+	background-position: calc(-9 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-keycap-digit-two {
+	background-position: calc(-10 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-keycap-digit-three {
+	background-position: calc(-11 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-keycap-digit-four {
+	background-position: calc(-12 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-keycap-digit-five {
+	background-position: calc(-13 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-keycap-digit-six {
+	background-position: calc(-14 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-keycap-digit-seven {
+	background-position: calc(-15 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-keycap-digit-eight {
+	background-position: calc(-16 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-keycap-digit-nine {
+	background-position: calc(-17 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-keycap-10 {
+	background-position: calc(-18 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-input-latin-uppercase {
+	background-position: calc(-19 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-input-latin-lowercase {
+	background-position: calc(-20 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-input-numbers {
+	background-position: calc(-21 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-input-symbols {
+	background-position: calc(-22 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-input-latin-letters {
+	background-position: calc(-23 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-a-button-blood-type {
+	background-position: calc(-24 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-ab-button-blood-type {
+	background-position: calc(-25 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-b-button-blood-type {
+	background-position: calc(-26 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-cl-button {
+	background-position: calc(-27 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-cool-button {
+	background-position: calc(-28 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-free-button {
+	background-position: calc(-29 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-information {
+	background-position: calc(-30 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-id-button {
+	background-position: calc(-31 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-circled-m {
+	background-position: calc(-32 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-new-button {
+	background-position: calc(-33 * 1.5em) 0;
+}
+.em.em-ng-button {
+	background-position: calc(-33 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-o-button-blood-type {
+	background-position: calc(-33 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-ok-button {
+	background-position: calc(-33 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-p-button {
+	background-position: calc(-33 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-sos-button {
+	background-position: calc(-33 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-up-button {
+	background-position: calc(-33 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-vs-button {
+	background-position: calc(-33 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-japanese-here-button {
+	background-position: calc(-33 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-japanese-service-charge-button {
+	background-position: calc(-33 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-japanese-monthly-amount-button {
+	background-position: calc(-33 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-japanese-not-free-of-charge-button {
+	background-position: calc(-33 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-japanese-reserved-button {
+	background-position: calc(-33 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-japanese-bargain-button {
+	background-position: calc(-33 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-japanese-discount-button {
+	background-position: calc(-33 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-japanese-free-of-charge-button {
+	background-position: calc(-33 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-japanese-prohibited-button {
+	background-position: calc(-33 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-japanese-acceptable-button {
+	background-position: calc(-33 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-japanese-application-button {
+	background-position: calc(-33 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-japanese-passing-grade-button {
+	background-position: calc(-33 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-japanese-vacancy-button {
+	background-position: calc(-33 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-japanese-congratulations-button {
+	background-position: calc(-33 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-japanese-secret-button {
+	background-position: calc(-33 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-japanese-open-for-business-button {
+	background-position: calc(-33 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-japanese-no-vacancy-button {
+	background-position: calc(-33 * 1.5em) calc(-24 * 1.5em);
+}
+.em.em-large-red-circle {
+	background-position: calc(-33 * 1.5em) calc(-25 * 1.5em);
+}
+.em.em-large-blue-circle {
+	background-position: calc(-33 * 1.5em) calc(-26 * 1.5em);
+}
+.em.em-black-circle {
+	background-position: calc(-33 * 1.5em) calc(-27 * 1.5em);
+}
+.em.em-white-circle {
+	background-position: calc(-33 * 1.5em) calc(-28 * 1.5em);
+}
+.em.em-black-large-square {
+	background-position: calc(-33 * 1.5em) calc(-29 * 1.5em);
+}
+.em.em-white-large-square {
+	background-position: calc(-33 * 1.5em) calc(-30 * 1.5em);
+}
+.em.em-black-medium-square {
+	background-position: calc(-33 * 1.5em) calc(-31 * 1.5em);
+}
+.em.em-white-medium-square {
+	background-position: calc(-33 * 1.5em) calc(-32 * 1.5em);
+}
+.em.em-black-medium-small-square {
+	background-position: 0 calc(-33 * 1.5em);
+}
+.em.em-white-medium-small-square {
+	background-position: calc(-1 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-black-small-square {
+	background-position: calc(-2 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-white-small-square {
+	background-position: calc(-3 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-large-orange-diamond {
+	background-position: calc(-4 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-large-blue-diamond {
+	background-position: calc(-5 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-small-orange-diamond {
+	background-position: calc(-6 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-small-blue-diamond {
+	background-position: calc(-7 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-red-triangle-pointed-up {
+	background-position: calc(-8 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-red-triangle-pointed-down {
+	background-position: calc(-9 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-diamond-with-a-dot {
+	background-position: calc(-10 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-radio-button {
+	background-position: calc(-11 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-white-square-button {
+	background-position: calc(-12 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-black-square-button {
+	background-position: calc(-13 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-chequered-flag {
+	background-position: calc(-14 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-triangular-flag {
+	background-position: calc(-15 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-crossed-flags {
+	background-position: calc(-16 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-united-arab-emirates {
+	background-position: calc(-17 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-austria {
+	background-position: calc(-18 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-australia {
+	background-position: calc(-19 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-belgium {
+	background-position: calc(-20 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-brazil {
+	background-position: calc(-21 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-canada {
+	background-position: calc(-22 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-switzerland {
+	background-position: calc(-23 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-chile {
+	background-position: calc(-24 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-china {
+	background-position: calc(-25 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-colombia {
+	background-position: calc(-26 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-germany {
+	background-position: calc(-27 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-denmark {
+	background-position: calc(-28 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-spain {
+	background-position: calc(-29 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-finland {
+	background-position: calc(-30 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-france {
+	background-position: calc(-31 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-united-kingdom {
+	background-position: calc(-32 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-hong-kong-sar-china {
+	background-position: calc(-33 * 1.5em) calc(-33 * 1.5em);
+}
+.em.em-flag-indonesia {
+	background-position: calc(-34 * 1.5em) 0;
+}
+.em.em-flag-ireland {
+	background-position: calc(-34 * 1.5em) calc(-1 * 1.5em);
+}
+.em.em-flag-israel {
+	background-position: calc(-34 * 1.5em) calc(-2 * 1.5em);
+}
+.em.em-flag-india {
+	background-position: calc(-34 * 1.5em) calc(-3 * 1.5em);
+}
+.em.em-flag-italy {
+	background-position: calc(-34 * 1.5em) calc(-4 * 1.5em);
+}
+.em.em-flag-japan {
+	background-position: calc(-34 * 1.5em) calc(-5 * 1.5em);
+}
+.em.em-flag-south-korea {
+	background-position: calc(-34 * 1.5em) calc(-6 * 1.5em);
+}
+.em.em-flag-macao-sar-china {
+	background-position: calc(-34 * 1.5em) calc(-7 * 1.5em);
+}
+.em.em-flag-mexico {
+	background-position: calc(-34 * 1.5em) calc(-8 * 1.5em);
+}
+.em.em-flag-malaysia {
+	background-position: calc(-34 * 1.5em) calc(-9 * 1.5em);
+}
+.em.em-flag-netherlands {
+	background-position: calc(-34 * 1.5em) calc(-10 * 1.5em);
+}
+.em.em-flag-norway {
+	background-position: calc(-34 * 1.5em) calc(-11 * 1.5em);
+}
+.em.em-flag-new-zealand {
+	background-position: calc(-34 * 1.5em) calc(-12 * 1.5em);
+}
+.em.em-flag-philippines {
+	background-position: calc(-34 * 1.5em) calc(-13 * 1.5em);
+}
+.em.em-flag-poland {
+	background-position: calc(-34 * 1.5em) calc(-14 * 1.5em);
+}
+.em.em-flag-puerto-rico {
+	background-position: calc(-34 * 1.5em) calc(-15 * 1.5em);
+}
+.em.em-flag-portugal {
+	background-position: calc(-34 * 1.5em) calc(-16 * 1.5em);
+}
+.em.em-flag-russia {
+	background-position: calc(-34 * 1.5em) calc(-17 * 1.5em);
+}
+.em.em-flag-saudi-arabia {
+	background-position: calc(-34 * 1.5em) calc(-18 * 1.5em);
+}
+.em.em-flag-sweden {
+	background-position: calc(-34 * 1.5em) calc(-19 * 1.5em);
+}
+.em.em-flag-singapore {
+	background-position: calc(-34 * 1.5em) calc(-20 * 1.5em);
+}
+.em.em-flag-turkey {
+	background-position: calc(-34 * 1.5em) calc(-21 * 1.5em);
+}
+.em.em-flag-united-states {
+	background-position: calc(-34 * 1.5em) calc(-22 * 1.5em);
+}
+.em.em-flag-vietnam {
+	background-position: calc(-34 * 1.5em) calc(-23 * 1.5em);
+}
+.em.em-flag-south-africa {
+	background-position: calc(-34 * 1.5em) calc(-24 * 1.5em);
+}

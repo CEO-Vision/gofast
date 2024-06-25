@@ -364,6 +364,9 @@ function get_db_connexion() {
 function write_log_info($info = null, $request = true) {
   $execution_date = date("Y-m-d H:i:s");
   $file = fopen("/var/www/d7/sites/default/files/logs/alfresco_script.log", "a+");
+  if (!$file) {
+    return;
+  }
   $request_data = $request ? " - Request = " . $_SERVER['REQUEST_URI'] : "";
   $informations = null !== $info ? " - Infos = " . $info : "";
   fwrite($file, $execution_date . $request_data . $informations . "\n");

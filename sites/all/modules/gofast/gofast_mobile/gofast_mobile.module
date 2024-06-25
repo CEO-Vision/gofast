@@ -16,35 +16,31 @@ function gofast_mobile_init()
     }
   }
 
-  $detect = new Mobile_Detect;
-
+  $detect = new Mobile_Detect();
+  global $user;
   //detect if the user_agent correspond to an old IE
   $IE_version = $detect->version('IE');
   if ($IE_version == "7.0" || $IE_version == "8.0" || $IE_version == "9.0" || $IE_version == "10.0") {
     drupal_set_message(t("You are using a non compatible Internet Explorer version (< IE11), or you are in Compatibility Mode", array(), array("context" => "gofast")), 'error');
   }
-
-  // If this is a phone (tablets excluded) display mobile-specific content.
-  if (($detect->isMobile() || $detect->isTablet()) &&  !gofast_mobile_is_mobile_domain()) {
-    $mobile_path = "";
-    $parts = explode('.', $_SERVER['HTTP_HOST']);
-    $mobile_prefix_url = variable_get_value('mobile_prefix_url');
-    // if mobile is a second-level subdomain, avoid duplicating the first-level subdomain
-    if ($parts[0] != explode(".", $mobile_prefix_url)[0]) {
-      $parts[0] = $mobile_prefix_url;
-    }
-    $mobile_path = $_SERVER["REQUEST_SCHEME"] . "://" . implode(".", $parts);
-    $current_path = $_SERVER['REQUEST_URI'];
-    drupal_goto($mobile_path . $current_path);
-  }
-  if (gofast_mobile_is_mobile_domain()) {
+  if(gofast_mobile_is_phone()){
     if (current_path() == 'activity') {
-      header('Location: /home_page_navigation#navBrowser');
+      header('Location: /home_page_navigation#navActivity');
     } elseif (current_path() == 'dashboard') {
+      header('Location: /home_page_navigation#navDashboard');
+    }else if($_SERVER['REQUEST_URI'] == "home_page_navigation" ){
       header('Location: /home_page_navigation#navBrowser');
     }
+  }
+  if (function_exists("gofast_essential_is_essential") && gofast_essential_is_essential()) {
+    // Make isEssential to true only if we are on Essential but not on phone (e.g. tablet)
     drupal_add_js(array(
-      'isMobile'  => TRUE
+      'isEssential'  => !gofast_mobile_is_phone()
+    ), 'setting');
+  }
+  if(gofast_mobile_is_phone()){
+    drupal_add_js(array(
+      'isMobileDevice'  => TRUE
     ), 'setting');
   }
   if ($detect->isMobile() || $detect->isTablet()) {
@@ -73,24 +69,11 @@ function gofast_mobile_enable()
     ->execute();
 }
 
-function gofast_mobile_is_mobile_domain()
-{
-  $mobile_prefix_url = variable_get_value('mobile_prefix_url');
-
-  $is_mobile_domain = FALSE;
-  $parts = explode('.', $_SERVER['HTTP_HOST']);
-  // mobile may be a second-level subdomain so by exploding the prefix we make sure we are not comparing a part of the subdomain against the whole
-  if ($parts[0] === explode(".", $mobile_prefix_url)[0]) {
-    $is_mobile_domain = TRUE;
-  }
-  return $is_mobile_domain;
-}
-
 function gofast_mobile_menu()
 {
   $items = array();
 
-  $items['browser'] = array(
+  $items["browser"] = array(
     'page callback' => 'gofast_mobile_load_ajax_file_browser',
     'type' => MENU_CALLBACK,
     'access arguments' => array('access content'),
@@ -98,14 +81,14 @@ function gofast_mobile_menu()
     'delivery_callback' => 'gofast_ajax_delivery'
   );
 
-  $items['calendar-mobile'] = array(
+  $items["calendar-mobile"] = array(
     'page callback' => 'gofast_mobile_load_calendar',
     'type' => MENU_CALLBACK,
     'access arguments' => array('access content'),
     'access_callback' => 'user_access',
     'delivery_callback' => 'gofast_ajax_delivery'
   );
-  $items['home_page_navigation'] = array(
+  $items["home_page_navigation"] = array(
     'page callback' => 'gofast_mobile_home_page_navigation',
     'type' => MENU_CALLBACK,
     'access arguments' => array('access content'),
@@ -134,6 +117,7 @@ function gofast_mobile_menu()
     'access_callback' => 'user_access',
     'access arguments' => array('access content'),
   );
+  
   $items['download_element'] = array(
     'title' => 'Download element mobile',
     'page callback' => 'gofast_download_element',
@@ -215,6 +199,15 @@ function gofast_mobile_theme()
         'view' => NULL,
       )
     ),
+    'gofast_mobile_simplified_calendar_table' => array(
+      'template' => 'tpl/gofast-mobile-simplified-calendar-table',
+    ),
+    'gofast_mobile_simplified_calendar_deadline_row' => array(
+      'template' => 'tpl/gofast-mobile-simplified-calendar-deadline-row',
+    ),
+    'gofast_mobile_simplified_calendar_meeting_row' => array(
+      'template' => 'tpl/gofast-mobile-simplified-calendar-meeting-row',
+    ),
     'gofast_mobile_element_download' => array(
       'template' => 'tpl/gofast-mobile-element-download'
     ),
@@ -223,6 +216,9 @@ function gofast_mobile_theme()
     ),
     'gofast_mobile_tasks_page' => array(
       'template' => 'tpl/gofast-mobile-tasks-page'
+    ),
+    'gofast_mobile_landscape_mode_page' => array(
+      'template' => 'tpl/gofast-mobile-landscape-mode-page'
     )
   );
 
@@ -363,10 +359,19 @@ function gofast_mobile_library()
   return $libraries;
 }
 
+/**
+ * Function to detect if we are only on phone device (because $detect->isMobile return true on Ipad device)
+ *
+ * @return bool
+ */
+function gofast_mobile_is_phone(){
+  $detect = new Mobile_Detect();
+  return $detect->isMobile() && !$detect->isTablet();
+}
 
 function gofast_mobile_load_ajax_file_browser()
 {
-  if (gofast_mobile_is_mobile_domain()) {
+  if (gofast_mobile_is_phone()) {
 
     global $user;
     $ticket = gofast_cmis_get_user_ticket();
@@ -497,6 +502,13 @@ function gofast_mobile_get_preserved_webform_actions($node)
 
 function gofast_mobile_get_node_format($node)
 {
+  if (is_numeric($node)) {
+    $nid = $node;
+    return db_select("field_revision_field_format", "fm")
+      ->fields("fm", array("field_format_tid"))
+      ->condition("entity_id", $nid)
+      ->execute()->fetchCol();
+  }
   $wrapper = entity_metadata_wrapper('node', $node);
   if (isset($wrapper->{'field_format'})) {
     $format = $wrapper->{'field_format'}->value();
@@ -1256,7 +1268,7 @@ function gofast_mobile_get_node_current_version($node, $infos)
           $attribute_title_publication .= " " . t("Comment") . ": " . $publication_history[$infos["last_version"]]["comment"];
         }
         $version_reference_publication = $publication_node->reference . ";" . $publication_history[$infos["last_version"]]["published_version"];
-        $link_published_version = l($publication_history[$infos["last_version"]]["published_version"], "/cmis/browser", array('attributes' => array('title' => $attribute_title_publication, 'style' => $style), 'query' => array("id" => $version_reference_publication)));
+        $link_published_version = l($publication_history[$infos["last_version"]]["published_version"], "/cmis/browser", array('attributes' => array('title' => $attribute_title_publication), 'query' => array("id" => $version_reference_publication)));
         $return_str = " (" . $link_published_version . ")";
       }
     } else {
@@ -1285,7 +1297,7 @@ function gofast_mobile_get_node_info($node)
   }
 
   $detect = new Mobile_Detect;
-  $isMobile = $detect->isMobile() == true && $detect->isTablet() == false ? true : false;
+  $isMobile = gofast_mobile_is_phone();
   $canEdit = node_access("update", $node) && $lock_state === "nolocked";
 
   if ($canEdit) {
@@ -1414,14 +1426,14 @@ function gofast_mobile_preserved_node_actions($node)
 
 function gofast_mobile_preprocess_node(&$variables)
 {
-  if (gofast_mobile_is_mobile_domain()) {
+  if (gofast_essential_is_essential()) {
     drupal_add_library('gofast_mobile', 'gofast_mobile_node', TRUE);
   }
 }
 
 function gofast_mobile_preprocess_page(&$variables)
 {
-  if (gofast_mobile_is_mobile_domain()) {
+  if (gofast_essential_is_essential()) {
     if (isset($variables['logo'])) {
       $variables['search_form_class'] = 'col-xs-6 col-sm-7';
     } else {
@@ -1438,7 +1450,7 @@ function gofast_mobile_preprocess_page(&$variables)
 
 function gofast_mobile_form_user_login_block_alter(&$form, &$form_state)
 {
-  if (gofast_mobile_is_mobile_domain()) {
+  if (gofast_essential_is_essential()) {
     $form['show_password'] = array(
       '#type' => 'checkbox',
       '#title' => t('Show password ?', array(), array('context' => 'gofast')),
@@ -1450,6 +1462,13 @@ function gofast_mobile_form_user_login_block_alter(&$form, &$form_state)
 
 function gofast_mobile_home_page_navigation()
 {
+  $detect = new Mobile_Detect();
+  $is_mobile = $detect->isMobile();
+  
+  if(!$is_mobile){
+    return gofast_dashboard_display();
+  }
+  
   //Add activity stream filter JS to display the activity feed
   $path = drupal_get_path('module', 'gofast_activity_feed');
   drupal_add_js($path . '/js/gofast_activity_stream_filters.js');
@@ -1471,14 +1490,14 @@ function gofast_mobile_home_page_navigation()
       'id' => 'mobileHomeTab_filebrowser',
       'label' => t('Spaces and documents', array(), array('context' => 'gofast:gofast_mobile')),
       'href' => 'navBrowser',
-      'content' => $detect->isMobile() && !$detect->isTablet() ? theme('gofast_mobile_ajax_file_browser') : theme('ajax_file_browser', array('browser' => TRUE))
+      'content' => gofast_mobile_is_phone() ? theme('gofast_mobile_ajax_file_browser') : theme('ajax_file_browser', array('browser' => TRUE))
     ],
     'activity' => [
       'icon' => 'fas fa-list-alt',
       'id' => 'mobileHomeTab_activity',
       'label' => t('Activity feed'),
       'href' => 'navActivity',
-      'content' => gofast_activity_feed_display(FALSE, FALSE)
+      'content' => gofast_activity_feed_display_page(FALSE)
     ]
   ];
 
@@ -1508,7 +1527,32 @@ function gofast_mobile_kanban_simplified_board()
 
 function gofast_calendar_simplified()
 {
-  return theme('gofast_mobile_simplified_calendar');
+  global $user;
+  // Documents deadlines
+  $available_gids = gofast_og_get_spaces_by_user($user);
+  $query = db_select('og_membership','og_m')->distinct()
+              ->fields('og_m',array('etid'))
+              ->condition('gid',$available_gids,'IN');
+  $query->leftJoin('node','n','og_m.etid = n.nid');
+  $query->leftJoin('field_data_field_date','fd','fd.entity_id = n.nid');
+  $query->leftJoin('field_data_field_format','ff','ff.entity_id = og_m.etid');
+  $query->leftJoin('field_data_field_icone','fi','fi.entity_id = ff.field_format_tid');
+  $query->condition('n.type','alfresco_item','=');
+  $query->isNotNull('fd.field_date_value');
+  $query->condition('fd.field_date_value',date('Y-m-d H:i:s',time()),'>');
+  $query->fields('fd',array('field_date_value'))
+          ->fields('n',array('title'))
+          ->fields('fi',array('field_icone_value'));
+  $deadlines = $query->execute()->fetchAll();
+
+  // Meetings
+  $private_space_gid = $user->{GOFAST_OG_USER_PRIVATE_SPACE}[LANGUAGE_NONE][0]['target_id'];
+  $filters = [["field" => "n.type", "value" => "conference"]];
+  $start_date = date('Y-m-d H:i:s', strtotime("-1 day"));
+  $end_date = date('Y-m-d H:i:s', strtotime("+1 year"));
+  $meetings = gofast_calendar_get_conferences_and_tasks_query($private_space_gid, $start_date, $end_date, TRUE, $available_gids, $filters);
+
+  return theme('gofast_mobile_simplified_calendar', array('deadlines'=> $deadlines, 'meetings' => $meetings));
 }
 
 function gofast_download_element()
@@ -1516,9 +1560,14 @@ function gofast_download_element()
   return theme('gofast_mobile_element_download');
 }
 
+function gofast_mobile_landscape_mode_page()
+{
+  return theme('gofast_mobile_landscape_mode_page');
+}
+
 function gofast_mobile_load_calendar()
 {
-  if (gofast_mobile_is_mobile_domain()) {
+  if (gofast_essential_is_essential()) {
     $_GET["q"] = "calendar-node-field-date/month-mobile/" . date("Y-m");
     return views_embed_view('calendar', 'page_4');
   }
@@ -1629,7 +1678,7 @@ function gofast_mobile_pre_render_text_format($element)
 function gofast_mobile_element_info_alter(&$types)
 {
 
-  if (gofast_mobile_is_mobile_domain() == TRUE) {
+  if (gofast_mobile_is_phone() == TRUE) {
     $types['text_format']['#pre_render'][] = 'gofast_mobile_pre_render_text_format';
   }
 }

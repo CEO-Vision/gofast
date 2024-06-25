@@ -1,16 +1,21 @@
 .document__editable {
     &--select {
-        .select2-selection__rendered{
-            line-height: 10px !important;
-        }
         &.select-langue{
             .select2-selection__rendered{
-                line-height: 21px !important;
                 padding: 0.25rem !important;
             }
         }
         & .select2-container--default .select2-selection--multiple .select2-selection__rendered .select2-selection__choice {
             margin: 5px 0 0 0;
+        }
+        // prevent select2 text from overflowing to the floating clear button
+        & .select2-selection__rendered  {
+            display: inline-block !important;
+            padding-right: 1rem !important;
+        }
+        & .select2-selection__clear {
+            transform: translateY(-50%);
+            top: 50%;
         }
     }
     &--input {

@@ -46,19 +46,16 @@ CKEDITOR.plugins.add('gofast_autotag', {
             var itemsArray = [];
 
             var nid = Drupal.settings.gofast.node.id;
-
             $.ajax({
                 type: "GET",
                 url: window.origin + "/gofast_og/" + nid + "/get_parents",
                 success: function (gids) {
-                    debugger;
                     gids = JSON.parse(gids);
                     $.each(gids, function (gid) {
                         $.ajax({
                             url: window.origin + "/gofast/get/user_from_space/" + gid,
                         })
                             .done(function (data) {
-                                debugger;
                                 usersArray = data;
                                 for (var i = 0; i < usersArray.length; i++) {
                                     uid = parseInt(usersArray[i]["value"], 10);
@@ -82,8 +79,8 @@ CKEDITOR.plugins.add('gofast_autotag', {
             // Returns (through its callback) the suggestions for the current query.
             function dataCallback(matchInfo, callback) {
                 // Remove the '#' tag.
-                var query = matchInfo.query.substring(1);
-
+                var query = matchInfo.query.substring(1).toLowerCase();
+                
                 // Simple search.
                 // Filter the entire items array so only the items that start
                 // with the query remain.

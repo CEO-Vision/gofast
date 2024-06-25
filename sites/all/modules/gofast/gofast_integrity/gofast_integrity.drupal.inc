@@ -80,7 +80,7 @@ function gofast_integrity_drupal_identify_documents_ogs($items){
         }
         
         //Retrieve Drupal OGs to compare them with found gids
-        $ogs = og_get_entity_groups("node", $item['nid'], array(OG_STATE_ACTIVE), GOFAST_OG_CONTENT_MEMBERSHIP_FIELD)['node'];
+        $ogs = (array) og_get_entity_groups("node", $item['nid'], array(OG_STATE_ACTIVE), GOFAST_OG_CONTENT_MEMBERSHIP_FIELD)['node'];
         
         //Find missing OG
         $missing_ogs = array_diff($gids, $ogs);
@@ -136,7 +136,7 @@ function gofast_integrity_drupal_identify_documents_metadata($items){
         }
         
         $title = $node->title;
-        $locations_array = array_merge($node->field_main_emplacement['und'], $node->field_emplacement['und']);
+        $locations_array = array_merge((array) $node->field_main_emplacement['und'], $node->field_emplacement['und']);
         $locations = array();
         foreach($locations_array as $location){
             $locations[] = $location['value'];
@@ -226,3 +226,58 @@ function gofast_integrity_drupal_identify_spaces($items){
         "invalid" => $invalid
     );
 }
+
+function gofast_integrity_check_create_space_drupal($nid, $node, &$failure) {
+    $messages = "";
+    if (!$node) {
+        $message = "Space with gid @gid has not been inserted in Drupal database.";
+        $messages .= $message;
+        watchdog("gofast_integrity_check_on_action", $message, array("@gid" => $nid), WATCHDOG_WARNING);
+        $failure = TRUE;
+    }
+    $reference = $node->{GOFAST_CMIS_FOLDER_REFERENCE_FIELD}[LANGUAGE_NONE][0]['value'];
+    if (!$reference) {
+        $message = "Alfresco reference is missing Drupal-side for space n°@gid.";
+        $messages .=  (!empty($messages) ? " " : "")  . $message; 
+        watchdog("gofast_integrity_check_on_action", $message, array("@gid" => $nid), WATCHDOG_WARNING);
+        $failure = TRUE;
+    }
+    $og_parent = $node->{GOFAST_OG_PARENT_GROUP_FIELD}[LANGUAGE_NONE][0]['target_id'];
+    if (!$og_parent) {
+        $message = "Parent reference is missing Drupal-side for space n°@gid.";
+        $messages .=  (!empty($messages) ? " " : "") . $message;
+        watchdog("gofast_integrity_check_on_action", $message, array("@gid" => $nid), WATCHDOG_WARNING);
+        $failure = TRUE;
+    }
+    // write to a zabbix item as well
+    if ($failure) {
+        return str_replace("@gid", $nid, $messages);
+    }
+}
+
+
+function gofast_integrity_check_rename_drupal($node, $old_title, $new_title, $is_space, $extension, $repair = FALSE) {
+  //First check : Node title should be set properly in the Drupal node object
+  if($node->title != $new_title && '_' . $node->title != $new_title && $node->title . $extension != $new_title){
+    watchdog("gofast_integrity_check_on_action", "Node : " . $node->nid . ", Old name : $old_title, New name : $new_title -- Drupal item title is wrong. Title reported is : " . $node->title, [], WATCHDOG_WARNING);
+    
+    // REPAIR if enabled
+    if ($repair) {
+        $node->title = $new_title;
+        $ruid = $node->revision_uid;
+        gofast_prepare_node_save_technically($node);
+        node_save($node);
+        db_update('node_revision')
+            ->fields(array('uid' => $ruid))
+            ->condition('nid', $node->nid)
+            ->execute();
+        cache_clear_all("field:node:$node->nid", 'cache_field');
+    }
+    
+    return 'ko';
+  }
+  
+  //All check passed
+  return "ok";
+}
+

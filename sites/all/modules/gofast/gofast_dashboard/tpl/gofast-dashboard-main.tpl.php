@@ -12,7 +12,7 @@
 ?>
 
 <div class="gofastDashboard py-4 h-100">
-    <div class="d-flex flex-wrap h-100 w-100 min-h-50" style="gap: 1rem 0;">
+    <div class="d-flex flex-wrap h-100 w-100 min-h-50" style="gap: .5rem 0;">
     <?php foreach ($dashboard_blocks as $pos => $block) : ?>
         <div class="col-12 col-md-6 col-xl-4 pb-2">
             <?php echo theme('gofast_dashboard_card', array('label' => $block['label'], 'toolbar' => $block['toolbar'], 'block_id' => $block['id'])); ?>

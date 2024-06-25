@@ -40,7 +40,7 @@
         Drupal.attachBehaviors();
         if (window.location.hash) {
             let kebabHash = window.location.hash.replace(/[A-Z]/g, x => "-" + x.toLowerCase());
-            jQuery(kebabHash.replace("panel", "tab")).trigger("tap");
+            jQuery(kebabHash.replace("panel", "tab")).trigger("tap"); // load tab content
         }
     });
 </script>

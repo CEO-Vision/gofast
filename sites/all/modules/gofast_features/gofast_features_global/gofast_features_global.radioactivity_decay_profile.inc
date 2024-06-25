@@ -19,7 +19,7 @@ function gofast_features_global_default_radioactivity_decay_profile() {
   $radioactivity_decay_profile->enable_decay = 2;
   $radioactivity_decay_profile->granularity = '600';
   $radioactivity_decay_profile->half_life = 345600;
-  $radioactivity_decay_profile->cut_off = '1';
+  $radioactivity_decay_profile->cut_off = '0.5';
   $radioactivity_decay_profile->storage = 'Deferred';
   $export['scoring'] = $radioactivity_decay_profile;
 

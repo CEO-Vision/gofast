@@ -3183,3 +3183,15 @@ function gofast_ldap_fields_definition() {
     ),
   );
 }
+
+function gofast_ldap_fields_set_default_values() {
+  $instances = field_info_instances("user");
+  foreach ($instances["user"] as $key=>$instance) {
+    if (!str_contains($key, "ldap")) {
+      continue;
+    }
+    $instance["default_value"] = "";
+    $instance["default_value_function"] = "";
+    field_update_instance($instance);
+  }
+}

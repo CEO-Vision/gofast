@@ -133,6 +133,23 @@ function gofast_calendar_menu(){
     'access callback' => 'user_access',
     'access arguments' => array('access content'),
   );
+  
+  $item['calendar/synchronize'] = array(
+    'page callback' => 'gofast_bluemind_trigger_sync',
+    'page arguments' => array(),
+    'type' => MENU_CALLBACK,
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+  );
+
+  $item['calendar/get_last_sync'] = array(
+    'page callback' => 'gofast_bluemind_get_last_sync',
+    'page arguments' => array(),
+    'type' => MENU_CALLBACK,
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+  );
+
 
   return $item;
 }
@@ -151,26 +168,13 @@ function gofast_calendar_get_calendar(){
   exit;
 }
 
-
-function gofast_calendar_get_events_query($nid, $fetchInfo){
+/**
+ * Separate handler to get conferences and tasks query e. g. for calendar.
+ */
+function gofast_calendar_get_conferences_and_tasks_query($nid, $start_date, $end_date, $is_private, $available_gids = [], $filters = []) {
   global $user;
-  if (isset($user->{GOFAST_OG_USER_PRIVATE_SPACE}[LANGUAGE_NONE][0]['target_id']) && $user->{GOFAST_OG_USER_PRIVATE_SPACE}[LANGUAGE_NONE][0]['target_id'] == $nid) {
-    $is_private = TRUE;
-  } else {
-    $is_private = FALSE;
-  }
-
   $events = [];
 
-  $fetchInfo_startDate = $fetchInfo['startStr'];
-  $fetchInfo_endDate = $fetchInfo['endStr'];
-
-  $startDate = date('Y-m-d H:i:s', strtotime($fetchInfo_startDate));
-  $endDate = date('Y-m-d H:i:s', strtotime($fetchInfo_endDate));
-  
-  if ($is_private) {
-    $available_gids = gofast_og_get_spaces_by_user($user);
-  }
   // Alfresco_item / Kanban task request
   $og_membership_subquery = new EntityFieldQuery();
   if ($is_private) {
@@ -185,38 +189,66 @@ function gofast_calendar_get_events_query($nid, $fetchInfo){
 
   $og_membership_subquery->join('node', 'n', 'og_m.etid = n.nid');
 
-  $og_membership_subquery->condition('fd.field_date_value', $startDate, ">");
-  $og_membership_subquery->condition('fd.field_date_value', $endDate, "<");
+  $og_membership_subquery->condition('fd.field_date_value', $start_date, ">");
+  $og_membership_subquery->condition('fd.field_date_value', $end_date, "<");
+  $og_membership_subquery->condition('n.status', 1);
+  if (!empty($filters)) {
+    foreach ($filters as $filter) {
+      $og_membership_subquery->condition($filter["field"], $filter["value"]);
+    }
+  }
   $og_membership_subquery->join('field_data_field_date', 'fd', 'og_m.etid = fd.entity_id');
   $result = $og_membership_subquery->execute()->fetchCol();
-
 
 
   if (!empty($result)) {
     $nodes = node_load_multiple($result);
 
-    //    'start' => $node->field_date[LANGUAGE_NONE][0]['value'],
-    //    'end' => $node->field_date[LANGUAGE_NONE][0]['value']
     foreach ($nodes as $node) {
-
-
-
       $myuser = gofast_get_user_by_id($node->uid);
       $userFormatted = [];
       $userFormatted['uid'] = $myuser->uid;
       $userFormatted['picture'] = gofast_get_url_picture_by_id($myuser->picture);
       $userFormatted['firstname'] = $myuser->firstname;
       $userFormatted['lastname'] = $myuser->lastname;
-      
-
 
       $field_date = $node->field_date[LANGUAGE_NONE][0]['value'];
       $field_date = format_date(strtotime(gofast_change_time_zone($field_date, 'UTC', $user->timezone)) , 'custom', 'Y-m-d H:i:s', date_default_timezone_get());
       $node->body[LANGUAGE_NONE][0]["value"] = substr(strip_tags($node->body[LANGUAGE_NONE][0]["value"]), 0, 250);
-      
+
       if($node->type == 'conference'){
         $field_end_date = $node->field_end_date[LANGUAGE_NONE][0]['value'];
         $field_end_date = format_date(strtotime(gofast_change_time_zone($field_end_date, 'UTC', $user->timezone)) , 'custom', 'Y-m-d H:i:s', date_default_timezone_get());       
+
+        // Get the event source
+        $ext_source_query = db_select('field_data_field_external_conference_source', 'f');
+        $ext_source_query->fields('f', array('field_external_conference_source_value'));
+        $ext_source_query->condition('f.entity_id', $node->nid);
+        $ext_source_result = $ext_source_query->execute()->fetchCol();
+        if(!empty($ext_source_result)){
+          $ext_source_result = json_decode($ext_source_result[0]);
+        }
+        $external_conference_source = $ext_source_result;
+
+        // Get the event all day status
+        $all_day_query = db_select('field_data_field_conference_is_all_day', 'f');
+        $all_day_query->fields('f', array('field_conference_is_all_day_value'));
+        $all_day_query->condition('f.entity_id', $node->nid);
+        $all_day_result = $all_day_query->execute()->fetchCol();
+
+        if(!empty($all_day_result)){
+          $is_all_day = $all_day_result[0] == 1 ? true : false;
+        }  
+
+        $hasCustomIcon = false;
+        $color = "#fff";
+        if(!empty($external_conference_source)){
+          $hasCustomIcon = true;
+          $icon = $external_conference_source->icon;
+          $color = $external_conference_source->color;
+        }else{
+          $icon = "fas fa-calendar-alt";
+        }
         $events[] = array(
           'title' => $node->title,
           'nid' => $node->nid,
@@ -225,28 +257,246 @@ function gofast_calendar_get_events_query($nid, $fetchInfo){
           'user' => $userFormatted,
           'description' =>  $node->body,
           'type' => $node->type,
-          'icon' => TRUE,
-          'className' => ""
-        );
+          'icon' =>isset($icon) ? $icon : TRUE,
+          'className' => "",
+          'allDay' => $is_all_day,
+          'hasCustomIcon' => $hasCustomIcon,
+          'color' => $color,
+        );  
       } else {
-        $events[] = array(
+        $icon = gofast_node_get_icon($node);
+        $event = array(
           'title' => $node->title,
           'nid' => $node->nid,
           'start' => $field_date,
           'user' => $userFormatted,
           'description' => $node->body,
           'type' => $node->type,
-          'icon' => 'pdf',
-          'className' => ""
-
+          'icon' => $icon,
+          'className' => "",
+          'allDay' => TRUE
         );
+        if (!empty($node->field_state)) {
+          $task_details = [];
+          $task_status_term = taxonomy_term_load($node->field_state[LANGUAGE_NONE][0]['tid']);
+          $task_details["state"] = $task_status_term->name;
+          if ($task_details["state"] == "Done") {
+            $task_details["localized_state_indicator"] = "success";
+          }
+          if ($task_details["state"] == "To Do") {
+            $task_details["localized_state_indicator"] = "danger";
+          }
+          $task_details["localized_state"] = i18n_taxonomy_localize_terms($task_status_term)->name;
+          $event["task_details"] = $task_details;
+        }
+        $events[] = $event;
+      }
+    }
+  }
+  return $events;
+}
+
+/**
+ * Get all events for calendar (conferences, tasks, deadlines, workflows).
+ */
+function gofast_calendar_get_events_query($nid, $fetch_info, $filters = []){
+  global $user;
+  $current_user = user_load($user->uid);
+  
+  if (isset($current_user->{GOFAST_OG_USER_PRIVATE_SPACE}[LANGUAGE_NONE][0]['target_id']) && $current_user->{GOFAST_OG_USER_PRIVATE_SPACE}[LANGUAGE_NONE][0]['target_id'] == $nid) {
+    $is_private = TRUE;
+  } else {
+    $is_private = FALSE;
+  }
+  $fetch_info_start_date = $fetch_info['startStr'];
+  $fetch_info_end_date = $fetch_info['endStr'];
+
+  $start_date = date('Y-m-d H:i:s', strtotime($fetch_info_start_date));
+  $end_date = date('Y-m-d H:i:s', strtotime($fetch_info_end_date));
+
+  $available_gids = [];
+  if ($is_private) {
+    $available_gids = gofast_og_get_spaces_by_user($user->uid);
+  }
+
+  $events = [];
+  $events = [...$events, ...gofast_calendar_get_conferences_and_tasks_query($nid, $start_date, $end_date, $is_private, $available_gids, $filters)];
+
+  //Kanban ToDO tasks
+  $todo_subquery = new EntityFieldQuery();
+  if ($is_private) {
+    $todo_subquery = db_select('gofast_kanban_checklist_item', 'ci')
+    ->fields('ci', array('label', 'deadline', 'uid'))
+    ->fields('c', array('task_nid'))
+    ->fields('n', array('title'))
+    ->condition('ogm.gid', $available_gids, 'IN')
+    ->condition('ci.uid', $user->uid, '=');
+  } else {
+    $todo_subquery = db_select('gofast_kanban_checklist_item', 'ci')
+    ->fields('ci', array('label', 'deadline', 'uid'))
+    ->fields('c', array('task_nid'))
+    ->fields('n', array('title'))
+    ->condition('ogm.gid', $nid, '=');
+  }
+
+  $todo_subquery->join('gofast_kanban_checklist', 'c', 'ci.cid = c.cid');
+  $todo_subquery->join('node', 'n', 'c.task_nid = n.nid');
+  $todo_subquery->join('og_membership', 'ogm', 'n.nid = ogm.etid');
+
+  $todo_subquery->condition('ci.deadline', strtotime($start_date), ">");
+  $todo_subquery->condition('ci.deadline', strtotime($end_date), "<");
+  $todo_subquery->condition('n.status', 1);
+  
+  $result = $todo_subquery->execute()->fetchAll();
+  
+  if (!empty($result)) {
+    foreach ($result as $todo) {
+      $myuser = $todo->uid ? gofast_get_user_by_id($todo->uid) : null;
+      $field_date = $todo->deadline;
+      $field_date = format_date(strtotime(gofast_change_time_zone(format_date($field_date, 'custom', 'Y-m-d H:i:s', date_default_timezone_get()), 'UTC', $user->timezone)) , 'custom', 'Y-m-d H:i:s', date_default_timezone_get());
+      
+      if($myuser){
+        $userFormatted = [];
+        $userFormatted['uid'] = $myuser->uid;
+        $userFormatted['picture'] = gofast_get_url_picture_by_id($myuser->picture);
+        $userFormatted['firstname'] = $myuser->firstname;
+        $userFormatted['lastname'] = $myuser->lastname;
+        $userFormatted['assigned_to'] = TRUE;
+      }else{
+        $userFormatted = [];
+        $userFormatted['uid'] = 0;
+        $userFormatted['picture'] = gofast_get_url_picture_by_id(0);
+        $userFormatted['firstname'] = "";
+        $userFormatted['lastname'] = "";
+        $userFormatted['assigned_to'] = TRUE;
+      }
+      
+      $icon = "far fa-flag";
+      $events[] = array(
+        'title' => $todo->label,
+        'nid' => $todo->task_nid,
+        'start' => $field_date,
+        'user' => $userFormatted,
+        'description' => [ //Fake how Drupal fields are constructed
+          'und' => [ 
+            [
+              'value' => $todo->title, 
+            ]
+          ]
+        ],
+        'type' => "kanban_todo",
+        'icon' => $icon,
+        'className' => "",
+        'allDay' => TRUE,
+      );
+    }
+  }
+  
+  $task_ids = array_keys(gofast_workflows_get_list_actives_tasks(user_uid: $current_user->uid));
+  if(!empty($task_ids)){
+    $user_tasks_infos = gofast_workflows_get_user_tasks_infos($task_ids);
+    $tasks = json_decode($user_tasks_infos, true);
+    $processes = [];
+    foreach($tasks["response"]["content"] as $case){
+      $processes[$case["rootCaseId"]] = $case;
+    }
+    $events = array_merge($events, gofast_calender_get_calendar_events_from_tasks($processes, $nid));
+  }
+  return $events;
+}
+
+/**
+ * Format tasks data to retrieve only wanted values
+ */
+function gofast_calendar_get_tasks_data($tasks){
+  $data = [];
+  foreach($tasks as $task){
+    $contents = $task["processCurrent"]["contents"];
+    $data[$task["rootCaseId"]]["endDate"] = $task["processCurrent"]["end_date"];
+    $data[$task["rootCaseId"]]["title"] = $task["processCurrent"]["title"];
+    foreach($contents as $content) {
+      if($content["type"] == "node"){
+        $data[$task["rootCaseId"]]["nids"][] = $content["content_value"];
+      }
+      if($content["type"] == "user"){
+        $task_data = json_decode($content["content_value"], true);
+        if($task_data[5] == null){
+          continue;
+        }
+        $data[$task["rootCaseId"]]["tasks"][$content["persistenceId"]]["username"] = $task_data[0];
+        $data[$task["rootCaseId"]]["tasks"][$content["persistenceId"]]["task_type"] = $task_data[1];
+        $data[$task["rootCaseId"]]["tasks"][$content["persistenceId"]]["endDate"] = $task_data[5];
       }
     }
   }
 
-  //Conference
+  return $data;
+}
 
-  # Todo
-
+/**
+ * Funtion used to get events from user's tasks in a specific space
+ */
+function gofast_calender_get_calendar_events_from_tasks($tasks, $gid){
+  global $user;
+  $events = [];
+  $current_user = user_load($user->uid);
+  $datas = gofast_calendar_get_tasks_data($tasks);
+  // loop through each task
+  foreach($datas as $data){
+    $label = $data["title"];
+    
+    $label = t($label, array(), array('context' => "gofast:gofast_workflows"));
+    $userFormatted = [];
+    $userFormatted['uid'] = $current_user->uid;
+    $userFormatted['picture'] = gofast_get_url_picture_by_id($current_user->picture->fid);
+    $userFormatted['firstname'] = gofast_user_display_name($current_user);
+    $userFormatted['lastname'] = "";
+    $userFormatted['assigned_to'] = TRUE;
+    foreach($data["nids"] as $nid){
+      $node = node_load($nid);
+      // Make an event only if the document is in the space
+      if(gofast_is_node_inside_space($node, $gid) || gofast_og_get_user_private_space(null, false) == $gid){
+        $events[] = array(
+          "title" => $node->title,
+          "nid" => $nid,
+          "start" => $data["endDate"],
+          "user" => $userFormatted,
+          'description' => [ //Fake how Drupal fields are constructed
+            'und' => [ 
+              [
+                'value' => $label,
+              ]
+            ]
+          ],
+          "tooltip_description" => t("You have tasks to perform on this document for the process \"@process_name\"", array("@task_type" => $label, "@process_name" => $data["title"]), array("context" => "gofast:gofast_workflows")),
+          "type" => $node->type,
+          "icon" => gofast_node_get_icon($node),
+          "className" => "",
+          "allDay" => true,
+        );
+        foreach($data["tasks"] as $task){
+          $translated_task_type = gofast_workflows_get_task_type_label($task["task_type"]);
+          $events[] = array(
+            "title" => $node->title,
+            "nid" => $nid,
+            "start" => $task["endDate"],
+            "user" => $userFormatted,
+            'description' => [ //Fake how Drupal fields are constructed
+              'und' => [ 
+                [
+                  'value' => $translated_task_type,
+                ]
+              ]
+            ],
+            "tooltip_description" => t("You have a \"@task_type\" task to perform on this document for the process \"@process_name\"", array("@task_type" => $translated_task_type, "@process_name" => $data["title"]), array("context" => "gofast:gofast_workflows")),
+            "type" => $node->type,
+            "icon" => gofast_node_get_icon($node),
+            "className" => "",
+            "allDay" => true,
+          );
+        }
+      }
+    }
+  }
   return $events;
 }

@@ -8,7 +8,6 @@ global $user;
  * Available variables:
  * - $title : name of the shared document
  * - $version : version of the shared document
- * - $link : cmis(Alfresco) URL to access the shared document
  *
  * @see template_preprocess_block()
  *
@@ -18,17 +17,23 @@ global $user;
 <!-- GoFast link Sharing - File-Details Template -->
 <div class="row d-flex justify-content-center ">
   <div class="<?php if($user->uid != 0){echo "w-75 ml-auto mr-auto mt-8";}?> p-6 rounded shadow d-flex flex-column align-items-center" style="gap: 3rem;">
-    <h2 class="display-2 text-primary"><?php print t('Shared Document', array(), array('context' => 'gofast:gofast_link_sharing')) ?></h2>
-    <div class="d-flex flex-column align-items-center">
-      <label class="h3" for="link_sharing_title"><?php print t('Title', array(), array('context' => 'gofast:gofast_link_sharing')) ?></label>
-      <span class="d-flex align-items-center" style="gap: .5rem;">
+    <div class="card-header w-75 pb-0">
+      <div class="card-title">
+        <h2 class="display-2 text-primary text-center"><?php print t('Shared Document', array(), array('context' => 'gofast:gofast_link_sharing')) ?></h2>
+      </div>
+      <div class="card-toolbar d-flex align-items-start justify-content-center">
+          <div class="w-50"><label class="h3 w-100 text-center"><?php print t('Title', array(), array('context' => 'gofast:gofast_link_sharing')) ?></label></div>
+          <div class="w-50"><label class="h3 w-100 text-center"><?php print t('Version', array(), array('context' => 'gofast')) ?></label></div>
+      </div>
+    </div>
+    <div class="card-body w-75 d-inline-flex">
+      <span class="d-flex justify-content-center w-50" style="gap: .5rem;">
         <?= theme("gofast_node_icon_format", array("node" => node_load($nid))) ?>
         <p id="link_sharing_title_<?= $nid ?>" class="mb-0 h4 font-weight-light"><span class="text-decoration-none"><?php print $title ?></span></p>
       </span>
-    </div>
-    <div class="d-flex flex-column align-items-center">
-      <label class="h3" for="link_sharing_version"><?php print t('Version', array(), array('context' => 'gofast')) ?></label>
-      <p id="link_sharing_version" class="h4 font-weight-light"><?php print $version ?></p>
+      <span class="d-flex justify-content-center w-50">
+        <p id="link_sharing_version" class="h4 font-weight-light"><?php print $version ?></p>
+      </span>
     </div>
     <div class="separator separator-solid separator-border-2 w-100"></div>
     <div class="d-flex align-items-center" style="gap: 2rem;">
@@ -47,9 +52,7 @@ global $user;
         <div class="row d-block m-2">
           <div class="mb-5">J’ai un compte</div>
           <div class="">
-            <a class="btn btn-primary gofast_link_sharing_button" href="<?php if (!empty($nid)) {
-                                                                          print "/?node=" . $nid;
-                                                                        } ?>" role="button"><?php print t('Login', array(), array("context" => 'gofast')) ?></a>
+            <a class="btn btn-primary gofast_link_sharing_button" href="<?php if (!empty($hash)) { print("/sharing/logged_in/".$hash); } ?>" role="button"><?php print t('Login', array(), array("context" => 'gofast')) ?></a>
           </div>
         </div>
       <?php } else { ?>
@@ -70,7 +73,15 @@ global $user;
         </p>
       <?php } else { ?>
         <p class="w-75 m-auto">
-          <?php print t('You are logged in, but you are not a member of the space(s) where documents are shared: you can download, but also request access to these spaces to be able to easily collaborate. In this case, a notification will be sent to the administrators to validate or deny your request.', array(), array("context" => "gofast_link_sharing")) ?>
+          <?php
+          $start_tag = $parent ? "" : '<a class="navi-link ctools-use-modal" href="/modal/nojs/ask/join/' . $parent . '/space">';
+          $end_tag = $parent ? "" : "</a>";
+          print html_entity_decode(t('You are logged in, but you are not a member of the space "@space" where the document is shared: you can download, @start_tagbut also request access to this space to easily collaborate@end_tag. In this case, a notification will be sent to the administrators to validate or deny your request.', array(
+            "@space" => $parent_name,
+            "@start_tag" => $start_tag,
+            "@end_tag" => $end_tag,
+          ), array("context" => "gofast_link_sharing")));
+          ?>
         </p>
       <?php } ?>
     </div>
@@ -93,3 +104,10 @@ global $user;
     background-color: white;
   }
 </style>
+<script>
+  jQuery(document).ready(function() {
+    $(".gofast_link_sharing_button").on("click", function() {
+      Gofast.toast(Drupal.t("Your download has started", {}, {context: "gofast:gofast_link_sharing"}), "info")
+    });
+  });
+</script>

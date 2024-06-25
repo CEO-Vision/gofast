@@ -76,7 +76,7 @@ function gofast_kanban_board_column_update($kanban_nid, $column_id) {
  * Move column in kanban
  * @param type $kanban_nid
  * @param type $column_id
- * @param type $newPosition
+ * @param int $newPosition
  */
 function gofast_kanban_board_column_move($kanban_nid, $column_id, $newPosition) {
 
@@ -91,8 +91,8 @@ function gofast_kanban_board_column_move($kanban_nid, $column_id, $newPosition) 
   $node_wrapper = entity_metadata_wrapper('node', $kanban);
   $columns = $node_wrapper->field_board_columns->value();
 
-  $column_to_move;
-  $column_to_move_index;
+  $column_to_move = NULL;
+  $column_to_move_index = NULL;
   
   foreach($columns as $key => $col){
     if($col->tid == $column_id){

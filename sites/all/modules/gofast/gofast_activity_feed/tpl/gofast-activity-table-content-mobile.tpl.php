@@ -2,51 +2,23 @@
 foreach ($items as $item) {
   if ($item['type'] !== 'blog' && $item['spaces_list'] != "<ul></ul>") {
 ?>
-    <tr>
-      <td class="views-field views-field-gofast-last-modifier">
-        <?php
-        if ($item['sticky']) {
-          echo '<i class="fa fa-thumb-tack" aria-hidden="true" style="position: absolute;left: 25px;color: #337ab7;"></i>';
-        }
-        echo $item['last_modifier'];
-        ?>
-      </td>
-      <td class="views-field views-field-gofast-last-event" style="width:25%; font-size:0.9em !important">
-        <?php echo $item['last_event']; ?>
-      </td>
-      <td class="views-field views-field-nothing">
-        <div class="gofast_activity_feed_title" style="font-weight: 700;">
-          <?php echo $item['format']; ?>
-          <?php echo $item['title']; ?>
-        </div>
-        <div class="gofast_activity_feed_handlers">
-          <span class="gofast_activity_feed_type"><?php echo $item['format_name']; ?></span>
-          <div class="gofast-node-actions btn-group ">
-            <a class="btn btn-default btn-xs dropdown-toggle dropdown-placeholder" type="button" id="dropdown-placeholder-<?php echo $item['nid']; ?>" data-toggle="dropdown">
-              <span class="fa fa-bars" style="color:#777;"></span>
-              <ul class="dropdown-menu gofast-dropdown-menu" role="menu" id="dropdownactive-placeholder-<?php echo $item['nid']; ?>">
-                <li>
-                  <div class="loader-activity-menu-active"></div>
-                </li>
-              </ul>
-            </a>
-          </div>
-        </div>
-      </td>
-      <td class="views-field views-field-og-group-content-ref">
-        <?php echo $item['spaces_list']; ?>
-      </td>
-      <td class="views-field views-field-expression">
-        <?php echo $item['popularity']; ?>
-      </td>
-      <td class="views-field views-field-gofast-taxo-state">
-        <?php echo $item['state']; ?>
-      </td>
+    <tr class="d-flex flex-row w-75">
+        <td class="pl-0 d-flex" style="position: relative;">
+          <?php
+          if ($item['sticky']) {
+            echo '<i class="fa fa-thumb-tack" aria-hidden="true" style="position: absolute;left: 40px;color: #337ab7;"></i>';
+          }
+          echo $item['last_modifier'];
+          ?>
+        </td>
+        <td style="max-width: 75vw">
+          <?php print theme('gofast_activity_table_content_event', ['item' => $item]); ?>
+        </td>
     </tr>
   <?php
   } else {
   ?>
-    <tr>
+    <tr class="d-flex flex-row w-75">
       <td>
         <?php
         if ($item['sticky']) {

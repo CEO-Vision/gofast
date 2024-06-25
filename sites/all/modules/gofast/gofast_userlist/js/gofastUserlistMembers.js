@@ -107,10 +107,9 @@
                         template: function(data) {
                             let image = ''
                             if (data.image) {
-                                image = "<img alt=\"Pic\" src=\"" + window.origin + "/sites/default/files/styles/thumbnail/public/pictures/" + data.image + "\"/>";
+                                image = data.image;
                             } else if(data.type == 'user') {
                                 image = "<span class=\"symbol-label\"><i class=\"fas fa-user\"></i></span>";
-
                             } else {
                                 image = "<span class=\"symbol-label\"><i class=\"fas fa-users\"></i></span>";
                             }
@@ -148,10 +147,39 @@
                                 var text = Drupal.t('Member', {}, {'context' : 'gofast:gofast_userlist'});
                             }else if(data.role == "admin"){
                                 var text = Drupal.t('Administrator', {}, {'context' : 'gofast:gofast_userlist'});
+                            }else if(data.role == "pending_member"){
+                                var text = Drupal.t('Pending member', {}, {'context' : 'gofast:userlist:preadd:role:label'});
                             }
                             return "<span>" + text + "</span>";
                         },
-                    },],
+                    },
+                    {
+                        field: 'Actions',
+                        title: Drupal.t('Accept / Refuse Pending Members', {}, {'context' : 'gofast:gofast_userlist:preadd:field_label'}),
+                        sortable: false,
+                        width: 150,
+                        overflow: 'visible',
+                        autoHide: false,
+                        template: function(data) {
+                            var output = '';
+                            if(data.role === "pending_member"){
+                                output = '<a href="#" class="btn btn-sm' +
+                                    ' btn-clean btn-icon btn-icon-md"' +
+                                    ' title="' + Drupal.t('Accept member', {}, {'context' : 'gofast:gofast_userlist:preadd:action:accept_member:button_tooltip'}) + '"' +
+                                    ' onclick="Gofast.userlist.handleAcceptRefuseButton(this, ' + data.uid + ', ' + table.dataset.id + ', \'accept\')"><i class="fas fa-user-check text-success"></i></a>';
+                                output += '<a href="#" class="btn btn-sm' +
+                                    ' ml-12' +
+                                    ' btn-clean btn-icon btn-icon-md"' +
+                                    ' title=" ' + Drupal.t('Refuse member', {}, {'context' : 'gofast:gofast_userlist:preadd_action:refuse_member:button_tooltip'}) + '"' +
+                                    ' onclick="Gofast.userlist.handleAcceptRefuseButton(this, ' + data.uid + ', ' + table.dataset.id + ', \'refuse\')"><i class="fas fa-user-times text-danger text-center"></i></a>';
+                            } else {
+                                output = '<a href="#" class="btn btn-sm' +
+                                    ' ml-12 btn-clean btn-icon btn-icon-md">-</a>';
+                            }
+                            return output;
+                        }
+                    }
+                ],
 
             });
             $('#kt_datatable_search_role').on('change', function() {

@@ -1,0 +1,8 @@
+name = Gofast Mail Inbound Outbound( Courrier )
+description = Standard mail module
+
+core = 7.x
+package = Gofast
+php = 7.4
+project = "gofast_mail"
+version = "7.x-3.9.1"

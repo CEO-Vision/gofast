@@ -36,8 +36,8 @@
                     <?php echo render($form['actions']); ?>
                     <?php if ($user->uid == '0') { ?>
                         <span class="h3"><?php print strtoupper(t("OR", array(), array("context" => "gofast"))) ?></span>
-                        <a class="btn btn-primary gofast_link_sharing_button" href="<?php if (!empty($nid)) {
-                                                                                        print "/?node=" . $nid;
+                        <a class="btn btn-primary gofast_link_sharing_button" href="<?php if (!empty($hash)) {
+                                                                                        print "/multi_sharing/logged_in/" . $hash;
                                                                                     } ?>" role="button"><?php print t('Login', array(), array("context" => 'gofast')) ?></a>
                     <?php } ?>
                 </div>
@@ -53,7 +53,14 @@
                     </p>
                 <?php } else { ?>
                     <p class="w-75 m-auto">
-                        <?php print t('You are logged in, but you are not a member of the space(s) where documents are shared: you can download, but also request access to these spaces to be able to easily collaborate. In this case, a notification will be sent to the administrators to validate or deny your request.', array(), array("context" => "gofast_link_sharing")) ?>
+                        <?php
+                            $start_tag = $ask_join_link ? "" : '<a class="navi-link ctools-use-modal" href="' . $ask_join_link . '">';
+                            $end_tag = $ask_join_link ? "" : "</a>";
+                            print html_entity_decode(t('You are logged in, but you are not a member of the space(s) where documents are shared: you can download, but also @start_tagrequest access to these spaces@end_tag to be able to easily collaborate. In this case, a notification will be sent to the administrators to validate or deny your request.', array(
+                            "@start_tag" => $start_tag,
+                            "@end_tag" => $end_tag,
+                            ), array("context" => "gofast_link_sharing")));
+                        ?>
                     </p>
                 <?php } ?>
             </div>
@@ -74,3 +81,29 @@
         box-shadow: rgba(50, 50, 93, 0.25) 0px 50px 100px -20px, rgba(0, 0, 0, 0.3) 0px 30px 60px -30px, rgba(10, 37, 64, 0.35) 0px -2px 6px 0px inset;
     }
 </style>
+<script>
+  jQuery(document).ready(function() {
+    // ajaxify form (needed to trigger the polling logic which prevents timeout with archives)
+    $("#gofast-multi-link-sharing-form").ajaxForm(async function(response, status) {
+        let filepath = "/";
+        // single file
+        if (typeof response == "string") {
+            const link = document.createElement("a");
+            link.href = response;
+            link.download = true;
+            link.click();
+            link.remove();
+        // multilink file
+        } else if (response.id) {
+            Gofast.ITHit._checkDownloadStatus(response, null, false);
+        }
+    });
+    $(".gofast_link_sharing_button").on("click", function() {
+        if (!$("#gofast-multi-link-sharing-form input[type='checkbox'][id^=edit-shares]:checked").length) {
+            Gofast.toast(Drupal.t("You must select at least 1 item in order to start the download", {}, {context: "gofast:gofast_link_sharing"}), "warning");
+            return;
+        }
+        Gofast.toast(Drupal.t("Your download has started", {}, {context: "gofast:gofast_link_sharing"}), "info")
+    });
+  });
+</script>

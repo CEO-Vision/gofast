@@ -30,8 +30,7 @@ apache_version=$(yum info httpd | grep "Version" | head -1)
 apache_version=${apache_version#*:}
 echo -e Apache: ' \t '' \t '  $apache_version ' \t ' Free and Open-source licence GPL-3.0
 
-tomcat_version=$(yum info tomcat | grep "Version" | head -1)
-tomcat_version=${tomcat_version#*:}
+tomcat_version=$(/usr/share/tomcat/bin/version.sh | grep "Server number:" | awk '{print $3}')
 echo -e Tomcat: ' \t '' \t '  $tomcat_version ' \t ' Free and Open-source licence Apache-2.0
 
 openldap_version=$(yum info openldap | grep "Version" | head -1)
@@ -42,12 +41,12 @@ libreoffice_version=$(find /opt -wholename *libreoffice7*program/soffice*)
 libreoffice_version=$($libreoffice_version --version | sed 's/[^0-9]*\([0-9.]*\).*/\1/')
 echo -e Libre Office: ' \t '' \t ' $libreoffice_version ' \t ' Free licence LGPL-3.0+ and MPL-2.0
 
-mysql_version=$(mysql --version | awk '{ print $5 }' | awk -F\, '{ print $1 }')
+mysql_version=$(mysql --version | sed 's/[^0-9]*\([0-9.]*\).*/\1/')
 echo -e MySQL: ' \t '' \t ' $mysql_version ' \t ' Free and Open-source licence GNU GPL
 
 jquery_last_version_folder=$(ls -r /var/www/d7/sites/all/modules/jquery_update/replace/jquery | head -n1)
 jquery_version=$(grep 'jQuery JavaScript Library v' /var/www/d7/sites/all/modules/jquery_update/replace/jquery/$jquery_last_version_folder/jquery.js | sed 's/[^0-9.]*\([0-9.]*\).*/\1/')
-echo -e jQuery: ' \t '' \t ' $jquery_version ' \t ' '\t '  Free licence MIT
+echo -e jQuery: ' \t '' \t ' $jquery_version ' \t ' '\t ' Free licence MIT
 
 pdfjs_version=$(grep 'pdfjsVersion' /var/www/d7/sites/all/libraries/pdf/build/pdf.js | head -n 1 | awk -F "'" '{print $2}')
 echo -e PDF.js: ' \t '' \t ' $pdfjs_version ' \t ' Free licence Apache License 2.0
@@ -70,16 +69,12 @@ tika_version=$(ls tika-app-* | sed 's/[^0-9.]*\([0-9.]*\).*/\1/' | head -c -2)
 echo -e Apache Tika: ' \t '' \t ' $tika_version ' \t ' Free licence Apache-2.0
 cd
 
-alfresco_build_name=$(grep 'Specification-Title' /var/lib/tomcats/alfresco/webapps/alfresco/META-INF/MANIFEST.MF)
-alfresco_build_name=${alfresco_build_name#*:}
-echo -e  Alfresco: ' \t ' ' \t ' ' \t '' \t ' Free licence LPGL-3.0 
-echo -e '(Build name)' ' \t ' $alfresco_build_name
-alfresco_build_date=$(grep 'Build-Date' /var/lib/tomcats/alfresco/webapps/alfresco/META-INF/MANIFEST.MF)
-alfresco_build_date=${alfresco_build_date#*:}
-echo -e '(Build date)' ' \t ' $alfresco_build_date
-alfresco_build_number=$(grep 'Specification-Version' /var/lib/tomcats/alfresco/webapps/alfresco/META-INF/MANIFEST.MF)
+alfresco_version_number=$(grep "ALF_VERSION" /opt/config/versions.conf | sed 's/[^0-9.]*\([0-9.]*\).*/\1/' | tr -d '\n\r')
+alfresco_build_number=$(grep 'Specification-Version' /var/lib/tomcats/alfresco/webapps/alfresco/META-INF/MANIFEST.MF | tr -d '\n\r') # remove end of lines otherwise it may break
 alfresco_build_number=${alfresco_build_number#*:}
-echo -e '(Build number)' '  ' $alfresco_build_number
+alfresco_build_number=$(echo "$alfresco_build_number" | sed 's/^[ \t]*//;s/[ \t]*$//') # remove whitespaces
+alfresco_version="${alfresco_version_number}-build${alfresco_build_number}" # we can't put whitespaces before the Drupal-side parsing has been entirely refactored
+echo -e Alfresco: ' \t '' \t ' $alfresco_version  ' \t ' Free licence LPGL-3.0
 
 test=`drush @d7 pm-info gofast_workflows | grep Status | sed -e "s/ Status           :  //g"` 
 if [ $test == 'enabled' ]

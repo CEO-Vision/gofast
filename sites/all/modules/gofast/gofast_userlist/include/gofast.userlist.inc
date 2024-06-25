@@ -101,7 +101,7 @@ function gofast_userlist_node_insert($node) {
       }
       
       // Add administrators on the userlist
-      $admins = explode(',',$node->fieldset_userlist['field_userlist_admincomplete']);
+      $admins = array_filter(explode(',',$node->fieldset_userlist['field_userlist_admincomplete']));
       foreach($admins as $admin){
         gofast_og_subscribe_user($entity->nid, $admin);
         og_role_revoke('node', $entity->nid, $admin, $readonly_rid);
@@ -112,9 +112,9 @@ function gofast_userlist_node_insert($node) {
     }
     
     //Send welcome message to members
-    $members=explode(',',$node->field_userlist_members);
+    $members = array_filter(explode(',',$node->field_userlist_members));
     foreach ($members as $uid) {
-      $member=user_load($uid);
+      $member = user_load($uid);
       $msg = t('Welcome to ' , array(), ['langcode' => $member->language, 'context' => 'gofast_userlist']).$node->title;   
       gofast_mail_add_user_to_userlist($uid,$node->nid, $msg, 'MEM');
     }

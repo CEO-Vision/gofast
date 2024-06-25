@@ -2,7 +2,7 @@
     <h4 class="dropdown-header font-weight-bolder font-size-lg"><?= t("Saved Searches", array(), array("context" => "gofast:search")) ?></h4>
     <?php if(!empty($searches)): ?>
         <?php foreach($searches as $search):?>
-            <a class="dropdown-item" href="#"><?php echo $search->title; ?></a>
+           <?php echo $search->href; ?>
         <?php endforeach ?>
     <?php else: ?>
         <div class="p-4 max-w-300px">

@@ -30,14 +30,13 @@
     <mj-section padding="0" padding-left="10px" padding-top="10px" background-color="white">
       <mj-column width="90%">
         <mj-text padding-bottom="5px" padding="0" align="left" font-size="14px" font-weight="600">
-          Here are your deadlines for the 12/24/2021
+          Here are your deadlines for the 12/24/2021 including 86 elements
         </mj-text>
       </mj-column>
     </mj-section>
     <mj-section padding="0" padding-left="10px" padding-top="10px" padding-bottom="10px" background-color="white" border-radius="0 0 10px 10px">
       <mj-column width="90%">
         <mj-text padding-bottom="5px" padding="0" align="left" color="#666666" font-size="14px" font-weight="600">
-          86 elements
         </mj-text>
       </mj-column>
     </mj-section>
@@ -63,49 +62,25 @@
         </mj-text>
       </mj-column>
     </mj-section>
+    <mj-section padding="0" padding-top="5px" background-color="white">
+      <mj-column padding-left="10px" width="100%">
+        <mj-text padding-bottom="0" font-size="14px" font-weight="600">
+           <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/conference-primary.png" style="vertical-align: bottom;" width="18">
+            <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Conference</a>
+        </mj-text>
+    </mj-section>
+    <mj-section padding="0" padding-top="5px" background-color="white">
+      <mj-column padding-left="10px" width="100%">
+        <mj-text padding-bottom="0" font-size="14px" font-weight="600">
+           <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/conference-primary.png" style="vertical-align: bottom;" width="18">
+            <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Conference</a>
+        </mj-text>
+    </mj-section>
     <mj-section padding="0" padding-top="5px" background-color="white" border-radius="0 0 10px 10px">
-      <mj-column width="90%">
-        <mj-text padding="0" padding-bottom="10px" font-size="14px" font-weight="600">
-          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
-            <tbody>
-              <tr>
-                <td>
-                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/conference-primary.png" width="18">
-                </td>
-                <td>
-                  <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Conference</a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </mj-text>
-        <mj-text padding="0" padding-bottom="10px" font-size="14px" font-weight="600">
-          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
-            <tbody>
-              <tr>
-                <td>
-                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/conference-primary.png" width="18">
-                </td>
-                <td>
-                  <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Conference</a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </mj-text>
-        <mj-text padding="0" padding-bottom="10px" font-size="14px" font-weight="600">
-          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
-            <tbody>
-              <tr>
-                <td>
-                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/conference-primary.png" width="18">
-                </td>
-                <td>
-                  <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Conference</a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <mj-column padding-left="10px" width="100%">
+        <mj-text font-size="14px" font-weight="600">
+           <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/conference-primary.png" style="vertical-align: bottom;" width="18">
+            <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Conference</a>
         </mj-text>
     </mj-section>
     <mj-section padding-top="10px" padding-bottom="10px" background-color="transparent">
@@ -127,50 +102,50 @@
         </mj-text>
       </mj-column>
     </mj-section>
+    <mj-section padding="0" padding-top="5px" background-color="white">
+      <mj-column padding-left="10px" width="50%">
+        <mj-text padding-bottom="0" font-size="14px" font-weight="600">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/trello-primary.png" style="vertical-align: bottom;" width="18">
+          <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Task</a>
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png" style="padding-left: 5px; vertical-align: bottom; border-radius: 50%;" width="18">
+        </mj-text>
+      </mj-column>
+      <mj-column padding="0" padding-left="10px" width="50%">
+        <mj-text padding-bottom="0"font-size="14px">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/flag.png" style="vertical-align: bottom;" width="14">
+          <a href="#" style="color: #000000; font-size: 14px; text-decoration: none;">&nbsp;Checklist item name</a>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-top="5px" background-color="white">
+      <mj-column padding-left="10px" width="50%">
+        <mj-text padding-bottom="0" font-size="14px" font-weight="600">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/trello-primary.png" style="vertical-align: bottom;" width="18">
+          <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Task</a>
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png" style="padding-left: 5px; vertical-align: bottom; border-radius: 50%;" width="18">
+        </mj-text>
+      </mj-column>
+      <mj-column padding="0" padding-left="10px" width="50%">
+        <mj-text padding-bottom="0"font-size="14px">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/flag.png" style="vertical-align: bottom;" width="14">
+          <a href="#" style="color: #000000; font-size: 14px; text-decoration: none;">&nbsp;Checklist item name</a>
+        </mj-text>
+      </mj-column>
+    </mj-section>
     <mj-section padding="0" padding-top="5px" background-color="white" border-radius="0 0 10px 10px">
-      <mj-column width="90%">
-        <mj-text padding="0" padding-bottom="10px" font-size="14px" font-weight="600">
-          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
-            <tbody>
-              <tr>
-                <td>
-                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/trello-primary.png" width="18">
-                </td>
-                <td>
-                  <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Task</a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <mj-column padding-left="10px" width="50%">
+        <mj-text font-size="14px" font-weight="600">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/trello-primary.png" style="vertical-align: bottom;" width="18">
+          <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Task</a>
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png" style="padding-left: 5px; vertical-align: bottom; border-radius: 50%;" width="18">
         </mj-text>
-        <mj-text padding="0" padding-bottom="10px" font-size="14px" font-weight="600">
-          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
-            <tbody>
-              <tr>
-                <td>
-                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/trello-primary.png" width="18">
-                </td>
-                <td>
-                  <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Task</a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      </mj-column>
+      <mj-column padding="0" padding-left="10px" width="50%">
+        <mj-text font-size="14px">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/flag.png" style="vertical-align: bottom;" width="14">
+          <a href="#" style="color: #000000; font-size: 14px; text-decoration: none;">&nbsp;Checklist item name</a>
         </mj-text>
-        <mj-text padding="0" padding-bottom="10px" font-size="14px" font-weight="600">
-          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
-            <tbody>
-              <tr>
-                <td>
-                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/trello-primary.png" width="18">
-                </td>
-                <td>
-                  <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Task</a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </mj-text>
+      </mj-column>
     </mj-section>
     <mj-section padding-top="10px" padding-bottom="10px" background-color="transparent">
     </mj-section>
@@ -191,51 +166,26 @@
         </mj-text>
       </mj-column>
     </mj-section>
+    <mj-section padding="0" padding-top="5px" background-color="white">
+      <mj-column padding-left="10px" width="100%">
+        <mj-text padding-bottom="0" font-size="14px" font-weight="600">
+           <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/word-primary.png" style="vertical-align: bottom;" width="18">
+            <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Document</a>
+        </mj-text>
+    </mj-section>
+    <mj-section padding="0" padding-top="5px" background-color="white">
+      <mj-column padding-left="10px" width="100%">
+        <mj-text padding-bottom="0" font-size="14px" font-weight="600">
+           <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/word-primary.png" style="vertical-align: bottom;" width="18">
+            <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Document</a>
+        </mj-text>
+    </mj-section>
     <mj-section padding="0" padding-top="5px" background-color="white" border-radius="0 0 10px 10px">
-      <mj-column width="90%">
-        <mj-text padding="0" padding-bottom="10px" font-size="14px" font-weight="600">
-          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
-            <tbody>
-              <tr>
-                <td>
-                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/word-primary.png" width="18">
-                </td>
-                <td>
-                  <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Document</a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <mj-column padding-left="10px" width="100%">
+        <mj-text font-size="14px" font-weight="600">
+           <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/word-primary.png" style="vertical-align: bottom;" width="18">
+            <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Document</a>
         </mj-text>
-        <mj-text padding="0" padding-bottom="10px" font-size="14px" font-weight="600">
-          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
-            <tbody>
-              <tr>
-                <td>
-                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/word-primary.png" width="18">
-                </td>
-                <td>
-                  <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Document</a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </mj-text>
-        <mj-text padding="0" padding-bottom="10px" font-size="14px" font-weight="600">
-          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
-            <tbody>
-              <tr>
-                <td>
-                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/word-primary.png" width="18">
-                </td>
-                <td>
-                  <a href="#" style="color: #000000; font-size: 18px; font-weight: 600; text-decoration: none;">&nbsp;Document</a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </mj-text>
-      </mj-column>
     </mj-section>
     <mj-section padding-top="10px" padding-bottom="10px" background-color="transparent">
     </mj-section>

@@ -9,31 +9,25 @@ var last_reconnect_session = d.getTime();
   Drupal.gofast_workflows = Drupal.gofast_workflows || {};
    Gofast.already_check_login = false;
 
-
-   Drupal.behaviors.gofast_workflows_tabs_document = {
+    Drupal.behaviors.gofast_workflows_tabs_document = {
         attach: function (context, settings) {
-           $("#lightDashboardDocumentMyParentTab:not(.tab_processed)").addClass("tab_processed").click(function(){
-              // alert("coucou");
-               $("#lightDashboardDocumentMyTab").click();             
-           });
-           
+            $("#lightDashboardDocumentMyParentTab:not(.tab_processed)").addClass("tab_processed").click(function(){
+                $("#lightDashboardDocumentMyTab").click();
+            });
+            
             $("#lightDashboardDocumentOtherParentTab:not(.tab_processed)").addClass("tab_processed").click(function(){
-              //  alert("coucou2");
-               $("#lightDashboardDocumentOtherTab").click();             
-           });
-             $("#lightDashboardDocumentHistoryParentTab:not(.tab_processed)").addClass("tab_processed").click(function(){
-              // alert("coucou");
-               $("#lightDashboardDocumentHistoryTab").click();             
-           });
-           
+                $("#lightDashboardDocumentOtherTab").click();
+            });
+                $("#lightDashboardDocumentHistoryParentTab:not(.tab_processed)").addClass("tab_processed").click(function(){
+                $("#lightDashboardDocumentHistoryTab").click();
+            });
+            
             $("#lightDashboardDocumentNewParentTab:not(.tab_processed)").addClass("tab_processed").click(function(){
-              //  alert("coucou2");
-               $("#lightDashboardDocumentNewTab").click();             
-           });
-         
+                $("#lightDashboardDocumentNewTab").click();
+            });
+            
     }
-   };
-
+    };
 
    $(document).ready(function(){
          var current_user = Gofast.get("user");
@@ -119,7 +113,7 @@ Drupal.gofast_workflows._ceo_vision_js_automatic_reload_dashboard = function(){
             var prefix_url = '/bonita/portal/resource/processInstance/';
             var iframe = '<iframe src="'+prefix_url+processName+'/'+processVersion+'/content?id='+processId+'&locale='+ Gofast.get("user").language +'" id="bonita_form" style="width:100%;height:550px;border:none;"></iframe>';
       }
-        /* if(Drupal.settings.isMobile){
+        /* if(Drupal.settings.isEssential){
              jQuery("#bonita_form_process").prop("src", $(iframe).attr("src"));
              Gofast.removeLoading();
             jQuery("#refresh-pagedashboard").removeClass("gofast_display_none");
@@ -333,6 +327,7 @@ Drupal.behaviors.changeWfButonHref = {
                 // show valdiation toast
                 Gofast.toast(Drupal.t("Workflow model successfully deleted", {}, { context: 'gofast:ajax_file_browser' }), "success");
                 Drupal.CTools.Modal.dismiss();
+                Drupal.gofast_workflows.reload_rapide_dashboard();
             },
             error: function (xhr, textStatus, error) {
                 var errMsg = textStatus;
@@ -347,31 +342,31 @@ Drupal.behaviors.changeWfButonHref = {
     }
 
 Drupal.gofast_workflows.ceo_vision_js_check_login = function(callback){
-        if(Gofast.already_check_login === true){
-            if(typeof callback === "function"){
-                 var executeCallbackAfterParallelLogin = setInterval(function() {
-                        if(Gofast.already_check_login === false){
-                                clearInterval(executeCallbackAfterParallelLogin);
-                    		callback();
-                        }
-                     }, 1000); // check every 1000ms
-            }
-            return;
+    if(Gofast.already_check_login === true){
+        if(typeof callback === "function"){
+            var executeCallbackAfterParallelLogin = setInterval(function() {
+                if(Gofast.already_check_login === false){
+                    clearInterval(executeCallbackAfterParallelLogin);
+                    callback();
+                }
+            }, 1000); // check every 1000ms
         }
-
-        Gofast.already_check_login = true;
-		 var URL = "/bonita/apps/appDirectoryBonita/home/";
-
-                $.ajax({
-                url: URL,
-
-                complete: function(xhr) {
-                    var status =xhr.status;
-                    var response_length = xhr.getResponseHeader('Content-Length');
-
-                   if(status !== 200 || response_length < 1){
-                      Drupal.gofast_workflows.ceo_vision_js_login(Drupal.settings.gofast_workflows.bonita_username, null, callback);
-                   }else{
+        return;
+    }
+    
+    Gofast.already_check_login = true;
+    var URL = "/bonita/apps/appDirectoryBonita/home/";
+    
+    $.ajax({
+        url: URL,
+        
+        complete: function(xhr) {
+            var status =xhr.status;
+            var response_length = xhr.getResponseHeader('Content-Length');
+            
+            if(status !== 200 || response_length < 1){
+                Drupal.gofast_workflows.ceo_vision_js_login(Drupal.settings.gofast_workflows.bonita_username, null, callback);
+            }else{
                        Gofast.already_check_login = false;
                        if(typeof callback === "function"){
                           callback();
@@ -478,15 +473,14 @@ Drupal.gofast_workflows.ceo_vision_js_login = function(myusername, mypassword, c
                                 Gofast.modal(iframe, Drupal.t("Execute the task", {}, {'context' : 'gofast:gofast_workflows'}), { allowStretch: true });
                             }else{
                                 var iframe = '<div id="bonita_form_container" style="padding:0px;height:310px;display:none;overflow:visible;"><iframe src="'+prefix_url+processName+'/'+taskName+'/content/?id='+taskID+'&locale='+ Gofast.get("user").language +'" id="bonita_form" style="width:100%;min-height:310px;border:none;float:left;"></iframe></div>';
-                                $("#document__infotab.active").removeClass("active");
                                 $('a[href$="#document__infotab"]').removeClass("active");
-                                $("#lightDashboardDocumentMyParentTab").click();                               
+                                $("#lightDashboardDocumentMyParentTab").click();
                                 $("#lightDashboardDocumentMy #bonita_form_process").css("min-height", "0px");
                                 //$("#lightDashboardDocumentMy #bonita_form_process").css("margin-bottom", "30px");
                                 $("#lightDashboardDocumentMy #bonita_form_process").after(iframe);
                                 $("#lightDashboardDocumentMy #bonita_form_process").addClass('forcefully-loaded');
                                 var task_name = $("#lightDashboardDocumentMy #bonita_form_process").contents().find(".fa-flag-o").next().html();
-                                var title_do_task = "<div style='width:100%;text-align:center;'><h4 style='display: block;margin-left: auto;margin-right: auto;'>"+Drupal.t("Do your task :", {}, {'context' : 'gofast:gofast_workflows'})+" "+task_name+"</h4></div>";
+                                var title_do_task = "<div id='bonita_form_title' style='width:100%;text-align:center;'><h4 style='display: block;margin-left: auto;margin-right: auto;'>"+Drupal.t("Do your task :", {}, {'context' : 'gofast:gofast_workflows'})+" "+task_name+"</h4></div>";
                                 $("#lightDashboardDocumentMy #bonita_form_process").after(title_do_task);
 
 
@@ -513,10 +507,14 @@ Drupal.gofast_workflows.ceo_vision_js_login = function(myusername, mypassword, c
                     var prefix_url = '/bonita/portal/resource/taskInstance/';
                      //var prefix_url = '/bonita/portal/homepage';
                    if(modal == true){
-                       var iframe = '<div style="padding:0px;height:100%;"><iframe src="'+prefix_url+processName+'/'+taskName+'/content/?id='+taskID+'&locale='+ Gofast.get("user").language +'" id="bonita_form" style="width:100%;height:100%;min-height:550px;border:none;float:left;"></iframe></div>';                     
+                        let iframeWidth = "100%"
+                        if(Gofast.isMobile()){
+                            iframeWidth = "95%"
+                        }
+                       var iframe = '<div style="padding:0px;height:100%;"><iframe src="'+prefix_url+processName+'/'+taskName+'/content/?id='+taskID+'&locale='+ Gofast.get("user").language +'" id="bonita_form" style="width:'+iframeWidth+';height:100%;min-height:550px;border:none;float:left;"></iframe></div>';                     
                        Gofast.modal(iframe, Drupal.t("Execute the task", {}, {'context' : 'gofast:gofast_workflows'}), { allowStretch: true });
                     }else{
-                        var iframe = '<div id="bonita_form_container" style="padding:0px;height:310px;display:none;overflow:visible;"><iframe src="'+prefix_url+processName+'/'+taskName+'/content/?id='+taskID+'&locale='+ Gofast.get("user").language +'" id="bonita_form" style="width:100%;min-height:310px;border:none;float:left;"></iframe></div>';
+                        var iframe = '<div id="bonita_form_container" style="padding:0px;height:310px;display:none;overflow:visible;"><iframe src="'+prefix_url+processName+'/'+taskName+'/content/?id='+taskID+'&locale='+ Gofast.get("user").language +'" id="bonita_form" onload="Drupal.gofast_workflows.hideWorkflowForm('+taskID+')" style="width:100%;min-height:310px;border:none;float:left;"></iframe></div>';
                         $("#node-tabsHeader a ").removeClass("active");
                         $(".header_tasks_tab").addClass("active");
                         $("#lightDashboardDocumentMyParentTab").click();  
@@ -525,7 +523,7 @@ Drupal.gofast_workflows.ceo_vision_js_login = function(myusername, mypassword, c
                         $("#lightDashboardDocumentMy #bonita_form_process").after(iframe);
                         $("#lightDashboardDocumentMy #bonita_form_process").addClass('forcefully-loaded');
                         var task_name = $("#lightDashboardDocumentMy #bonita_form_process").contents().find(".fa-flag-o").next().html();
-                        var title_do_task = "<div style='width:100%;text-align:center;'><h4 style='display: block;margin-left: auto;margin-right: auto;'>"+Drupal.t("Do your task :", {}, {'context' : 'gofast:gofast_workflows'})+" "+task_name+"</h4></div>";
+                        var title_do_task = "<div id='bonita_form_title' style='width:100%;text-align:center;'><h4 style='display: block;margin-left: auto;margin-right: auto;'>"+Drupal.t("Do your task :", {}, {'context' : 'gofast:gofast_workflows'})+" "+task_name+"</h4></div>";
                         $("#lightDashboardDocumentMy #bonita_form_process").after(title_do_task);
                        
                        
@@ -562,6 +560,33 @@ Drupal.gofast_workflows.ceo_vision_js_login = function(myusername, mypassword, c
              }, 2000);
  }
 
+ Drupal.gofast_workflows.ceo_vision_js_task_delegate = function(caseId, taskId, processName, taskName){
+    Drupal.gofast_workflows.ceo_vision_js_check_login(function(){
+        let iframeWidth = "100%"
+        if(Gofast.isMobile()){
+            iframeWidth = "95%"
+        }
+        var iframeUrl = '/bonita/portal/resource/app/GoFAST/taskDelegation/content?caseId=' + caseId + '&taskId=' + taskId + '&processName=' + btoa(processName) + '&taskName=' + btoa(taskName) + '&locale=' + Gofast.get("user").language;
+        var iframe = '<div style="padding:0px;height:100%;"><iframe src="' + iframeUrl + '" id="bonita_form" style="width:'+iframeWidth+';height:100%;min-height:550px;border:none;float:left;"></iframe></div>';                     
+        Gofast.modal(iframe, Drupal.t("Delegate the task @task", {'@task': taskName}, {'context' : 'gofast:gofast_workflows'}), { allowStretch: true });
+    });
+ }
+
+ Drupal.gofast_workflows.check_documents_tasks_after_async = function(){
+    var checkExistsDocumentTasksList = setInterval(function() {
+        if (jQuery("#lightDashboardDocumentMy #bonita_form_process").contents().find(".gofast_workflows_title_task_doit .fa-play").length) {
+           clearInterval(checkExistsDocumentTasksList);
+           setTimeout(function(){ 
+              if( ! jQuery("#lightDashboardDocumentMy #bonita_form_process").contents().find(".gofast_workflows_title_task_doit .fa-play").first().hasClass("current-task")){
+                jQuery("#lightDashboardDocumentMy #bonita_form_process").contents().find(".gofast_workflows_title_task_doit .fa-play").first().addClass("current-task");
+                jQuery("#lightDashboardDocumentMy #bonita_form_process").contents().find(".gofast_workflows_title_task_doit .fa-play").first().addClass("no-modal").click(); 
+                jQuery("#lightDashboardDocumentMy #bonita_form_process").contents().find(".gofast_workflows_title_task_doit .fa-play").first().removeClass("no-modal");
+              }
+           }, 100);  
+        }
+  }, 500);
+};
+
  /*Drupal.gofast_workflows.ceo_vision_js_process_pageflow = function(processName, processVersion, processId, taskId){
         if(taskId == ""){
             var task_parameter = '';
@@ -593,6 +618,7 @@ Drupal.gofast_workflows.ceo_vision_js_login = function(myusername, mypassword, c
 
         processName = processNameData[0].replace("--", "/");
         var processLabel = processNameData[1];
+        processLabel = processLabel.replace("Document broadcast",Drupal.t("Document broadcast", {}, {'context' : 'gofast:gofast_workflow'}));
         reference = reference.replace(/\+/g, " ");
          var iframe = '<div style="padding:0px;height:100%;"><iframe src="' + prefix_url + processName + '/content/?id=' + processID + '&locale=' + Gofast.get("user").language + '&nids=' + reference + '&id_profil=' + profil_id + '&action_profil=' + action_profil+'" id="bonita_form_process" style="width:100%;height:100%;min-height:550px;border:none;"></iframe></div>';
 
@@ -600,10 +626,10 @@ Drupal.gofast_workflows.ceo_vision_js_login = function(myusername, mypassword, c
         if(reference != ""){
         if(reference_liste != ""){
             var docname = Drupal.t("Documents from your cart");
-                var title_modal = Drupal.t('Workflow', {}, {'context' : 'gofast:gofast_workflow'}) +": "+processLabel+" - "+docname;
+                var title_modal = Drupal.t('Workflow', {}, {'context' : 'gofast:gofast_workflow'}) +": "+processLabel;
         }else{
                 var docname = (reference.split('`')[1]).replace('|', '');
-                var title_modal = Drupal.t('Workflow', {}, {'context' : 'gofast:gofast_workflow'}) +": "+processLabel+" - "+docname;
+                var title_modal = Drupal.t('Workflow', {}, {'context' : 'gofast:gofast_workflow'}) +": "+processLabel;
         }
         }else{
             var title_modal = Drupal.t('Workflow', {}, {'context' : 'gofast:gofast_workflow'}) +": "+processLabel ;
@@ -1138,7 +1164,7 @@ Drupal.behaviors.gofastWorkflowGetIconNode  = {
             if(container.size() != 0 && !container.hasClass("workflow_icone_processed")){
                  container.addClass("workflow_icone_processed");
                  var node = Gofast.get('node');
-                 if (typeof node !== 'undefined'){
+                 if (node !== false){
                  var lang = Drupal.settings.lang ? "/" + Drupal.settings.lang : "";
                 
                  $.get(lang + "/ajax/workflow/icone/node/"+node.id, function(data) {                   
@@ -1246,8 +1272,12 @@ Gofast.gofast_workflow_search = function(e){
         }
         data.custom = JSON.stringify(custom);
 
-        //Process the form to bonita
-        Gofast.gofast_workflow_search_execute(data);
+        if($("#wfdash_stats_header.active").length == 1){
+            Gofast.gofast_workflow_stats.generate();
+        }else{
+            //Process the form to bonita
+            Gofast.gofast_workflow_search_execute(data);
+        }
     });
 
 };
@@ -1392,12 +1422,31 @@ Gofast.gofast_workflow_dashboard_back = function(){
     
 };
 
+Drupal.gofast_workflows.reload_rapide_dashboard = function() {
+
+    if($("#gofastWorkflowContentPanel > #lightDashboardNew").length){
+        $.ajax({
+            url:"/workflow/rapiddashboard?async=true",
+            type: "GET",
+            dataType:'html',
+            success:function(response){
+                const newContent = $(response).find("#lightDashboardNew");
+                $("#lightDashboardNew").replaceWith(newContent)
+                $("#lightDashboardNew").addClass("active show")
+                Drupal.behaviors.changeWfButonHref.attach()
+            }
+        });
+    }
+}
+
+Drupal.gofast_workflows.hideWorkflowForm = function(task_id) {
+    $.get("/bonita/API/extension/getTasksAllInfos?taskids="+task_id).fail(()=> {
+        $("#lightDashboardDocumentMy [id='bonita_form']").addClass("d-none")
+    })
+}
 
 //Init hooks
 Gofast.hooks.gofast_workflows = [];
 Gofast.hooks.gofast_workflows.hook_after_display_search_details = [];
 
 })(jQuery, Gofast, Drupal);
-
-
-

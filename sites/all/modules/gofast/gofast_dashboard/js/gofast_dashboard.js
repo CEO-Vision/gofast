@@ -17,6 +17,11 @@
         $("#dashboard-block-mail").replaceWith(data);
       });
     }
+    $(window).on("unbookmark", (e, nodeCategory) => {
+      $.get(`/gofast/dashboard/get_bookmark_block_content/${nodeCategory}`).done((content) => {
+        $(`[id^=dashboard_block_favorites_${nodeCategory}]`).html(content)
+      })
+    })
   });
 })(jQuery, Drupal, Gofast);
 

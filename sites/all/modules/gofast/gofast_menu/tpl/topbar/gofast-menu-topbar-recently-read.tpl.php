@@ -3,7 +3,7 @@
     <li class="navi-item" id="">
         <a class="navi-link" href="/node/<?php echo $node->nid; ?>">
             <span class="navi-icon">
-                <?php echo theme("gofast_node_icon_format", array('node' => node_load($node->nid)));  ?>
+                <?php echo theme("gofast_node_icon_format", array('node' => $node));  ?>
             </span>
             <span class="navi-text"><?php echo $node->title; ?></span>
         </a>

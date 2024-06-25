@@ -7,3 +7,14 @@
         } 
     }  
 }
+
+// wikitree-specific styling
+#book_explorer_body .wiki-tree-widget-item.active {
+    background-color: $primary !important;
+    color: $white !important;
+    border-radius: 10px !important;
+    padding-right: 1rem !important;
+    & .wiki-tree-widget-item-name {
+        color: $white !important;
+    }
+}

@@ -1,0 +1,26 @@
+--- LdapUserConf.class.php
++++ LdapUserConf.class.php
+@@ -1028,7 +1028,7 @@ public function drupalUserToLdapEntry($account, $ldap_server, $params, $ldap_use
+    * Given a drupal account, query ldap and get all user fields and save user account
+    * (note: parameters are in odd order to match synchDrupalAccount handle)
+    *
+-   * @param array $account
++   * @param object|null $account
+    *   drupal account object or null.
+    * @param array $user_edit
+    *   drupal edit array in form user_save($account, $user_edit) would take.
+@@ -1038,12 +1038,12 @@ public function drupalUserToLdapEntry($account, $ldap_server, $params, $ldap_use
+    *   indicating if drupal user should be saved.  generally depends on where function is called from and if the.
+    *
+    * @return bool
+-   *   Resultof user_save() function is $save is true, otherwise return TRUE on
++   *   Result of user_save() function if $save is true, otherwise return TRUE on
+    *   success or FALSE on any problem
+    *
+    *   $user_edit data returned by reference
+    */
+-  public function provisionDrupalAccount($account = FALSE, &$user_edit, $ldap_user = NULL, $save = TRUE) {
++  public function provisionDrupalAccount($account = NULL, &$user_edit = [], $ldap_user = NULL, $save = TRUE) {
+ 
+     $watchdog_tokens = [];
+     /**

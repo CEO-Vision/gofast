@@ -60,6 +60,14 @@ function gofast_kanban_install() {
   }
 
   gofast_kanban_add_date_format();
+
+  //add some indexes to kanban checklist tables for better performances since those tables are used a lot
+  if(!db_index_exists("gofast_kanban_checklist", "gfindex_kanban_1")){
+    db_add_index("gofast_kanban_checklist", "gfindex_kanban_1", array('task_nid', 'label'));
+  }
+  if(!db_index_exists("gofast_kanban_checklist_item", "gfindex_kanban_2")){
+    db_add_index("gofast_kanban_checklist_item", "gfindex_kanban_2", array('ciid', 'cid', 'label', 'deadline', 'uid', 'status'));
+  }
 }
 
 /**
@@ -261,4 +269,16 @@ function gofast_kanban_update_7000(){
  */
 function gofast_kanban_update_7001(){
   gofast_set_default_date_formats();
+}
+
+/**
+ * GOFAST-9493 - Add some indexes to kanban checklist tables for better performances since those tables are used a lot
+ */
+function gofast_kanban_update_7002(){
+  if(!db_index_exists("gofast_kanban_checklist", "gfindex_kanban_1")){
+    db_add_index("gofast_kanban_checklist", "gfindex_kanban_1", array('task_nid', 'label'));
+  }
+  if(!db_index_exists("gofast_kanban_checklist_item", "gfindex_kanban_2")){
+    db_add_index("gofast_kanban_checklist_item", "gfindex_kanban_2", array('ciid', 'cid', 'label', 'deadline', 'uid', 'status'));
+  }
 }

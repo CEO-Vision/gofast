@@ -382,8 +382,14 @@ class CMISRepositoryWrapper {
 	static function extractObjectFeed($xmldata) {
 		//Assumes only one workspace for now
 		$doc=new DOMDocument();
-		$doc->loadXML($xmldata);
-		return CMISRepositoryWrapper::extractObjectFeedFromNode($doc);
+		//@patch @ceo-vision
+		if ($xmldata != "") {
+			$doc->loadXML($xmldata);
+			return CMISRepositoryWrapper::extractObjectFeedFromNode($doc);
+		} else {
+			return $doc;
+		}
+
 	}
 	static function extractObjectFeedFromNode($xmlnode) {
 		// Process a feed and extract the objects

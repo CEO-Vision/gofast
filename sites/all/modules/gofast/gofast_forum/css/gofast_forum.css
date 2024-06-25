@@ -557,7 +557,7 @@ background-color: #FFFFFF;
   padding-left: 5px;
 }
 
-.comment-form > div > div:first-child {
+.comment-form > div > div:first-child:not(.show) {
   display: none;
 }
 
@@ -668,7 +668,7 @@ pre code {
     border-left: 2px dotted #CCCED4 !important;
 }
 
-.timeline.timeline-3 .timeline-items .timeline-item .timeline-content img:not(.gofast__comment-tag-icon){
+.timeline.timeline-3 .timeline-items .timeline-item .timeline-content img:not(.gofast__comment-tag-icon):not(.ckeditor-emoji):not(.image_resized){
     width: 100% !important;
     height: 100% !important;
 }

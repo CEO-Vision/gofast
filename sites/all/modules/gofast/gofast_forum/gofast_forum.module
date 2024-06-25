@@ -121,6 +121,7 @@ function gofast_forum_theme() {
 }
 
 function template_preprocess_gofast_forum_node_header(&$variables) {
+    global $base_url;
     $user = user_load($variables['node']->uid);
     $variables['node']->creator_uid = $user->uid;
     $variables['node']->creator_picture = ($user->picture->uri == null) ? $base_url . '/sites/all/themes/bootstrap-keen/keenv2/assets/media/users/blank.png' : file_create_url($user->picture->uri);
@@ -145,14 +146,70 @@ function gofast_forum_preprocess_node(&$variables) {
 
   //check if all the comments are displayed or not
   $total_number_comments = $variables['node']->comment_count;
-  $displayed_comments = count($variables["elements"]["comments"]["comments"]) -2;
+  $displayed_comments = count((array) $variables["elements"]["comments"]["comments"]) -2;
 
   if($total_number_comments > $displayed_comments){
       $variables['must_load_remaining_comments'] = true;
   }
 }
 
-function gofast_forum_comment_publish($comment){
+/**
+ * Audit comment event create
+ * Implements hook_comment_publish
+ * @param $comment
+ */
+function gofast_forum_comment_publish($comment): void {
+  gofast_forum_notify_mentioned_users($comment);
+  $is_new = $comment->date === "now";
+  if ($is_new) {
+    gofast_forum_audit_comment($comment, 'comment_published');
+  } else {
+    gofast_forum_audit_comment($comment, 'comment_updated');
+  }
+}
+
+/**
+ * Audit comment event comment delete
+ * Implements hook_comment_delete
+ *
+ * @param $comment
+ */
+function gofast_forum_comment_delete($comment): void {
+  gofast_forum_audit_comment($comment, 'comment_deleted');
+}
+
+/**
+ * Adds an audit line to the system audit a new comment
+ * @param $comment
+ * @param string $event_type
+ *
+ * @return void
+ */
+function gofast_forum_audit_comment($comment, string $event_type): void {
+  
+  $last_event_unserialized["mod_timestamp"] = time();
+  $last_event_unserialized["mod_author"] = $comment->uid;
+  $event = array(
+    'mod_author' => $comment->uid,
+    'mod_timestamp' => time(),
+    'mod_comment_subject' => $comment->subject,
+    'mod_comment_body' => $comment->comment_body[LANGUAGE_NONE][0]['value'],
+    'event' => $event_type,
+    'nid' => $comment->nid,
+    'mod_comment_id' => $comment->cid,
+  );
+  
+  $event = serialize($event);
+  $last_event_serialized = rawurlencode($event);
+  gofast_audit_insert_line_audit($comment->nid, $event_type, $last_event_serialized, $last_event_unserialized);
+}
+
+
+/**
+ * Notifies users when they are mentioned in a comment
+ * @param $comment
+ */
+function gofast_forum_notify_mentioned_users($comment){
   global $user;
   global $base_url;
 
@@ -177,7 +234,7 @@ function gofast_forum_comment_publish($comment){
 
       // Body message
       $display_name = $init_user->ldap_user_displayname[LANGUAGE_NONE][0]['value'];
-      $message = t('@user mentionned you on ', array('@user' => $display_name)) . '<a href="' . $href . '">' . $node->title . "</a>";
+      $message = t('@user mentionned you on ', array('@user' => $display_name)) . '<a href="' . $href . '">&nbsp;' . $node->title . "</a>";
 
       // Send message
       gofast_riot_api_send_message(NULL, $id, $message);
@@ -206,7 +263,9 @@ function template_preprocess_gofast_forum_simple_author_pane(&$variables) {
  */
 function gofast_forum_comment_view_alter(&$build){
   global $base_url;
-
+  if (empty($build['comment_body'])) {
+    return;
+  }
   $comment = $build['comment_body']['#object'];
 
    $nid = $comment->nid;
@@ -443,6 +502,7 @@ function gofast_forum_form_forum_node_form_alter(&$form, &$form_state, $form_id)
   $form['field_criticity']['#attributes']['class'][] = 'gofast_display_none';
   $form['field_tags']['#attributes']['class'][] = 'gofast_display_none';
   $form['field_category']['#attributes']['class'][] = 'gofast_display_none';
+  $form['field_classification'][LANGUAGE_NONE]['add_more']['#attributes']['class'][] = 'gofast_display_none';
   // Set default date to empty
   $form['field_date'][LANGUAGE_NONE][0]['#default_value'] = array();
   //Hide preview button
@@ -451,6 +511,7 @@ function gofast_forum_form_forum_node_form_alter(&$form, &$form_state, $form_id)
   $form['actions']['delete']['#type'] = 'gofast_display_none';
   //For modal edit forum
   if (($form_state['modal']) == TRUE){
+      $form["#modal"] = TRUE;
       //Hide title textfield and selectfield language
       $form['wrapper']['#attributes']['class'][]= 'gofast_display_none';
       //Hide File Location/Sharing
@@ -459,6 +520,7 @@ function gofast_forum_form_forum_node_form_alter(&$form, &$form_state, $form_id)
   }
   $form['#attributes']['class'][] = 'GofastForm GofastForm__Forum';
   $form['#validate'][] = 'gofast_forum_form_node_form_validate';
+  gofast_add_cancel_button_to_form($form);
 }
 
 function gofast_forum_form_node_form_validate(&$form, &$form_state) {
@@ -506,8 +568,9 @@ $orderby = &$query->getOrderBy();
 
 function gofast_forum_get_forums_view($encoded = false, $nid = -1){
     $argument = ($nid==-1) ? arg(1) : $nid;
-    if($argument !== -1 && node_load($argument)->type === 'forum') {
+    if(!gofast_essential_is_essential() && $argument !== -1 && node_load($argument)->type === 'forum') {
         $n = node_load($argument);
+        $node = new stdClass();
         $node->subject = $n->title;
         $node->cid = -1;
         $node->uid = $n->uid;
@@ -523,6 +586,7 @@ function gofast_forum_get_forums_view($encoded = false, $nid = -1){
     $e = new EntityFieldQuery();
     $e->entityCondition('entity_type', 'node')->entityCondition('bundle', 'forum')->addTag('node_access');
     $r = $e->execute();
+    $output = "";
     foreach($r['node'] as $node) {
         $mynode = new stdClass();
         $result = db_select('node', 'n')

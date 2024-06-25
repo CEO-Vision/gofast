@@ -1,5 +1,3 @@
-<?php if (!gofast_og_is_entity_hide_members_tab($node)) : ?>
-  <?php //print $space_members; ?>
   <div class="d-flex h-100 w-100 flex-column">
     <div class="d-flex py-6">
       <div class="input-icon w-100">
@@ -14,6 +12,7 @@
           <option value="all"><?php echo t('All'); ?></option>
           <option value="admins"><?php echo t('Administrators', array(), array('context' => 'gofast:gofast_userlist')); ?></option>
           <option value="members"><?php echo t('Members', array(), array('context' => 'gofast:gofast_userlist')); ?></option>
+          <option value="pending"><?php echo t('Pending members', array(), array('context' => 'gofast:gofast_userlist')); ?></option>
         </select>
       </div>
     </div>
@@ -21,4 +20,3 @@
       <div id="gofastUserlistMembersTable" class="datatable datatable-bordered datatable-head-custom" data-id="<?php print $node->nid; ?>"></div>
     </div>
   </div>
-<?php endif ?>

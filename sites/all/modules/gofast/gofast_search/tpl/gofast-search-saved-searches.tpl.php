@@ -1,4 +1,4 @@
-<div class="card card-custom pb-4">
+<div class="card card-custom pb-4 <?php if(gofast_essential_is_essential() && !gofast_mobile_is_phone()){echo "d-none";} ?>">
     <!--begin::Header-->
     <div class="card-header border-0 pt-4 min-h-40px px-2">
         <ul class="nav nav-tabs nav-fill w-100" role="tablist" style="flex-wrap: nowrap;">
@@ -9,7 +9,7 @@
             </li>
             <li class="nav-item">
                 <a class="nav-link d-flex justify-content-between align-items-center px-3" id="searchtab_saved" href="#search_saved" data-toggle="tab" aria-controls="search_saved">
-                    <span class="nav-text"><?= t("My saved searches", array(), array("context" => "gofast:search")) ?></span><i class="fa fa-share-square text-primary" style="font-size: 12x;"></i>
+                <span class="nav-text"><?= t("Saved", array(), array("context" => "gofast:gofast_search")) ?></span><i class="fa fa-floppy-o text-primary" style="font-size: 12x;" aria-hidden="true"></i>
                 </a>
             </li>
         </ul>
@@ -22,12 +22,9 @@
                     <div class="card-label text-dark-75"><?= $results[0]['keywords'] ?: '' ?></div>
                     <div class="text-muted font-weight-bold font-size-sm"><?= format_plural($results_count, "@count result", "@count results") ?> </div>
                 </div>
-                <a class="ctools-use-modal" href="/modal/nojs/search/save"><button class="btn btn-icon btn-text-primary btn-hover-light-primary btn-sm"><i class="far fa-save"></i></button></a>
+                <a class="ctools-use-modal" href="/modal/nojs/search/save"><button class="btn btn-icon btn-text-primary btn-hover-light-primary btn-sm"><i class="fa fa-floppy-o text-primary" style="font-size: 12x;" aria-hidden="true"></i></button></a>
             </div>
             <?php $block = module_invoke("current_search", "block_view", "gofast_current_search_block");
-                // those unset don't work in preprocess hooks since the block is created here, but alternatively we can use a hook_block_alter
-                unset($block["content"]["results_count_label"]);
-                unset($block["content"]["gofast_active_facets"]["#items"][0]);
                 echo render($block["content"]);
             ?>
         </div>

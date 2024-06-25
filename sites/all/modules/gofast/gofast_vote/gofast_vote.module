@@ -271,7 +271,7 @@ function gofast_vote_vote($type, $entity_id, $value, $tag, $widget, $token, $aja
   else {
     // Invalid value.
     watchdog('vud', 'Invalid vote on @type @content_id, with value @value, tag @tag and token @token',
-      array('@type' => $type, '@content_id' => $content_id, '@value' => $value, '@tag' => $tag, '@token' => $token));
+      array('@type' => $type, '@content_id' => $entity_id, '@value' => $value, '@tag' => $tag, '@token' => $token));
     return;
   }
 

@@ -39,33 +39,27 @@
     },
 
     selectedTitle : "",
-    
+
+    // Will reload the wiki left panel only  if it is currently active
     gofast_book_refresh_file_browser : function() {
       //Ajax query possible changes in the explorer for forums and books views
       setTimeout(function(){
         if($("#explorer-wiki").hasClass("active") && $("#explorer-toggle").hasClass("open")){ 
-            $.get(window.origin + "/gofast/book/explorer")
-            .done(function(data){
-                $("#wiki").html(data);
-                Gofast.selectCurrentWikiArticle();
-            });
-            }
-        }, 5000);
+          Gofast.refreshWikiPanel();
+        }
+      }, 5000);
     },
 
+    // Will reload the forum left panel only if it is currently active
     gofast_forum_refresh_file_browser : function() {
       //Ajax query possible changes in the explorer for forums and books views
       setTimeout(function(){
-          const urlParam = window.location.pathname.split('/')[2] || "-1";
-         if($("#expl-forum").hasClass("active") && $("#explorer-toggle").hasClass("open")){
-            $.get(window.origin + "/gofast/forum/explorer/" + urlParam)
-            .done(function(data){
-                $("#expl-forum").html(data);
-            });
-          }else{            
-              Gofast.lastUrlForumTab =  urlParam;
+        if ($("#expl-forum").length) {
+          if($("#expl-forum").hasClass("active") && $("#explorer-toggle").hasClass("open")){
+            Gofast.reloadForums();
           }
-        }, 5000);
+        }
+      }, 5000);
     },
     
     /*
@@ -74,10 +68,10 @@
      * Sites folder
      */
     navigate: function (path) {
-          if(( !$("#explorer-file-browser").hasClass("active") || !$("#explorer-toggle").hasClass("open") ) && !$("#gofastMobileHomeContentPanel").length){
-               Gofast.ITHitMobile.memorizedPath = path;
-               return;
-          }
+      if(( !$("#explorer-file-browser").hasClass("active") || !$("#explorer-toggle").hasClass("open") ) && !$("#gofastMobileHomeContentPanel").length){
+            Gofast.ITHitMobile.memorizedPath = path;
+            return;
+      }
       //Make sure the path is well encoded
       path = encodeURI(decodeURIComponent(path));
       Gofast.ITHitMobile.gofast_forum_refresh_file_browser();
@@ -86,6 +80,13 @@
         path = "/alfresco/webdav" + path;
       }
       var fullPath = path;
+
+      //Don't display upload button on root spaces
+      if (fullPath != "/alfresco/webdav/Sites") {
+        $("#file_browser_mobile_upload_button").removeClass("d-none");
+      } else {
+        $("#file_browser_mobile_upload_button").addClass("d-none");
+      }
 
       if(Gofast.ITHitMobile.mobileVersion == true){
         Gofast.ITHit.updatePathParam(fullPath);
@@ -97,8 +98,6 @@
       } else { //Ready to navigate
           //A tab refresh triggers refresh for all, so all will have the laoding icon
         $('#file_browser_mobile_tooolbar_refresh').html("<div class='loader-mobile-filebrowser'></div>");
-        $('#file_browser_books_mobile_tooolbar_refresh').html("<div class='loader-mobile-filebrowser'></div>");
-        $('#file_browser_forums_mobile_tooolbar_refresh').html("<div class='loader-mobile-filebrowser'></div>");
         //Start the graphic processing of the queue at the 1st navigation
         if(!Gofast.ITHitMobile.queueProcessing){
           Gofast.ITHitMobile.queueProcessing = true;
@@ -128,8 +127,6 @@
                       $('#file_browser_mobile_container').replaceWith('<div style="text-align: center;font-size: 25px;"><i style="color: #dc3545;" class="fa fa-exclamation" aria-hidden="true"></i> ' + Drupal.t("Sorry, we are not able to load the file browser", {}, {context:'gofast:ajax_file_browser'}) + "</div>");
                     }
                     $('#file_browser_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
-                    $('#file_browser_books_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
-                    $('#file_browser_forums_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
                     return;
                   }
                   var folder = asyncResult.Result;
@@ -149,9 +146,7 @@
                             path = path.join('/') + "/";
                             Gofast.ITHitMobile.navigate(path);
                           }
-                            $('#file_browser_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
-                            $('#file_browser_books_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
-                            $('#file_browser_forums_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
+                          $('#file_browser_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
                           return;
                         }
 
@@ -179,8 +174,6 @@
                           Gofast.ITHitMobile.selectedTitle = "";
                         }
                         $('#file_browser_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
-                        $('#file_browser_books_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
-                        $('#file_browser_forums_mobile_tooolbar_refresh').html('<i class="fa fa-refresh" aria-hidden="true"></i>');
                       }
                   );
                 }
@@ -307,12 +300,14 @@
 
       //Update completed, clear the queue and process the item
       if(state === 4){
-        if(location.origin + Gofast.ITHitMobile.currentPath === change.Sender._UploadProvider.Url._BaseUrl){
-          Gofast.ITHitMobile.reload();
-        }
         Gofast.ITHit.queue[index].progression = 100;
         setTimeout(function(){
           Gofast.ITHit.queue[index] = null;
+          if(location.origin + Gofast.ITHitMobile.currentPath === change.Sender._UploadProvider.Url._BaseUrl){
+            let fileName = change.Sender._UploadProvider.ServerItem._Url._Name;
+            Gofast.toast(Drupal.t("File @file successfully uploaded.", {"@file": fileName}, {context: 'gofast:ajax_file_browser'}), 'success');
+            Gofast.ITHitMobile.reload();
+          }
         }, 1000);
       }
 
@@ -429,14 +424,6 @@
           domItem.find('li').last().attr('title', path.slice(0, k+1).join('/'));
         }
       });
-      let scrollableWidth = 0;
-      breadcrumbEl.find('li').each((i, e) => scrollableWidth += e.clientWidth);
-      if (breadcrumbEl.width() < scrollableWidth){
-        breadcrumbEl.css({position: 'relative', overflowX: 'scroll'});
-        const breadcrumbStr = breadcrumbEl.find('li:nth-last-of-type(2)').attr('title');
-        breadcrumbEl.find('li:last-of-type')[0].scrollIntoView();
-        breadcrumbEl.tooltip({title: breadcrumbStr, placement: "bottom"});
-      }
     },
     /*
      * Process items into the file browser when it's loaded
@@ -550,7 +537,7 @@
           if(item.ResourceType === "Resource"){
             //Go to node in ajax triggering at double click
             processedItem.dblclick(function(){
-              // if(!Gofast._settings.isMobile){
+              // if(!Gofast._settings.isEssential){
                 Gofast.addLoading();
               // }
               Gofast.ITHit.goToNode(item.Href);
@@ -616,7 +603,7 @@
               //Go to node in ajax triggering at single click
               processedItem.click(function(){
                 if(Gofast.ITHitMobile.mobileVersion !== true){
-                  // if(!Gofast._settings.isMobile){
+                  // if(!Gofast._settings.isEssential){
                     Gofast.addLoading();
                   // }
                   }
@@ -718,6 +705,8 @@
         }
       });
     },
+
+ 
     /*
      * Delete selected items
      */
@@ -780,7 +769,9 @@
               $('.bulk_mail_sharing').click();
             }else if($(element[0]).hasClass('bulk-archive') || $(element[0]).parentsUntil('ul').hasClass('bulk-archive')){
               $('.bulk_archive').click();
-	          }else{
+	          }else if ($(element[0]).hasClass('compress-files') || $(element[0]).parentsUntil('ul').hasClass('compress-files')) {
+              $('.compress_files').click();
+            } else{
               $('.bulk_add_to_cart').click();
             }
           });
@@ -966,14 +957,6 @@
       $('html').on('click', '#file_browser_mobile_tooolbar_refresh', function(){
         Gofast.ITHitMobile.reload();
       });
-      $('html').on('click', '#file_browser_books_mobile_tooolbar_refresh', function(){
-        // GOFAST-8125 - empty wiki filter input before reload
-        $("#file_browser_mobile_toolbar_search_input").val("");
-        Gofast.ITHitMobile.reload();
-      });
-      $('html').on('click', '#file_browser_forums_mobile_tooolbar_refresh', function(){
-        Gofast.ITHitMobile.reload();
-      });
 
 
       $('#ithit-toggle').click(function(){
@@ -1014,7 +997,7 @@
              var new_param_path = location.search.replace("?&path=", "");
              var old_param_path = oldLocation.params.path;
            // if(location.hash == oldLocation.hash && new_param_path != old_param_path){
-            if(location.hash == oldLocation.hash){
+            if(location.hash == oldLocation.hash && !Gofast._settings.isEssential){
                  Gofast.ITHit.navigate('/alfresco/webdav' + params.path, null, null, true);
             }
           }
@@ -1026,11 +1009,21 @@
         $('#size_header').trigger('resize');
         $('#type_header').trigger('resize');
         if ($('#toggle-fitscreen').find('i').hasClass('fa-compress')) {
+          $('.gofast-content__node').css('height','100%');
+          $('.gofast-content__node .mainContent').css('padding-bottom','0px');
+          $('#breadcrumb-alt-actions > .dropdown > .dropdown-menu > .navi > .collapsed > div > .navi-link').removeClass('flex-row-reverse');
+          $('#breadcrumb-alt-actions > .dropdown > .dropdown-menu > .navi > .collapsed > div > .navi-link > .navi-icon > i').removeClass('fa-arrow-right').addClass('fa-arrow-left');
+          $('#breadcrumb-alt-actions > .dropdown > .dropdown-menu > .navi > .collapsed').find('.dropdown > .dropdown-menu').addClass('dropleft')
           if($("#ithit-toggle").hasClass('hiddenithit')){
             Gofast.ITHitMobile.notShow = true;
           }
           Gofast.ITHitMobile.toggle('hide');
         } else {
+          $('.gofast-content__node').css('height','inherit');
+          $('.gofast-content__node .mainContent').css('padding-bottom','1rem');
+          $('#breadcrumb-alt-actions > .dropdown > .dropdown-menu > .navi > .collapsed > div > .navi-link').addClass('flex-row-reverse');
+          $('#breadcrumb-alt-actions > .dropdown > .dropdown-menu > .navi > .collapsed > div > .navi-link > .navi-icon > i').addClass('fa-arrow-right').removeClass('fa-arrow-left');
+          $('#breadcrumb-alt-actions > .dropdown > .dropdown-menu > .navi > .collapsed').find('.dropdown > .dropdown-menu').removeClass('dropleft')
           if(Gofast.ITHitMobile.notShow){
             Gofast.ITHitMobile.notShow = false;
           }else{
@@ -1053,15 +1046,6 @@
         clearTimeout(Gofast.ITHitMobile.searchProcess);
         Gofast.ITHitMobile.searchProcess = setTimeout(function(){
           Gofast.ITHitMobile.search($('#forum_explorer_toolbar_search_input').val(), true);
-        }, 300);
-      });
-
-      //Same block but we filter books in the explorer tab
-      $("html").on('keyup', '#book_explorer_toolbar_search_input', function(e){
-        //We set timeout to prevent JS engine overload (and we clear the timeout each time a key is pressed)
-        clearTimeout(Gofast.ITHitMobile.searchProcess);
-        Gofast.ITHitMobile.searchProcess = setTimeout(function(){
-          Gofast.ITHitMobile.search($('#book_explorer_toolbar_search_input').val(), false, true);
         }, 300);
       });
 
@@ -1088,8 +1072,11 @@
 
                 if(name.substr(0,1) !== '_'){
                     if(decodeURI(name) === "FOLDERS TEMPLATES"){
-                        Gofast.toast(Drupal.t("You can't delete FOLDERS TEMPLATES.", {}, {context: 'gofast:ajax_file_browser'}), "warning");
+                        Gofast.toast(Drupal.t("'FOLDERS TEMPLATES' folder cannot be deleled.", {}, {context: 'gofast:ajax_file_browser'}), "warning");
                         noDelete = true;
+                    }else if(decodeURI(name) === "TEMPLATES"){
+                      Gofast.toast(Drupal.t("'TEMPLATES' folder cannot be deleled.", {}, {context: 'gofast:ajax_file_browser'}), "warning");
+                      noDelete = true;
                     }else{
                         data.push(elem.innerText);
                     }
@@ -1129,15 +1116,26 @@
     /*
      * Search a string in displayed items
      */
-    search: function(pattern, for_forums=false, for_books=false){
+    search: function(pattern, for_forums = false, for_books = false, elements = false){
       if($("#rename-form").length !== 0){
         return;
       }
-      var elements = (for_forums) ? $(".forum-explorer-element") : (for_books) ? $('.book-explorer-element') : $(".file_browser_mobile_files_element").not('#file_browser_mobile_back_button');
+
+      if (!elements && for_books) {
+        elements =  $('.book-explorer-element');
+      } else if (!elements && for_forums) {
+        elements = $(".forum-explorer-element");
+      } else if (!elements) {
+        elements = $(".file_browser_mobile_files_element").not('#file_browser_mobile_back_button');
+      }
       
         if(pattern === ""){
             elements.removeClass('search-hidden');
-            elements.css('display', 'block');
+            if (for_books) {
+              elements.css('display', 'flex');
+            } else {
+              elements.css('display', 'block');
+            }
 
             //Remove bold
             $.each(elements.find('.item-name'), function(k, elem){
@@ -1154,7 +1152,12 @@
               $(element).find('.item-name').text($(element).find('.item-name').text());
             }else{
              $(element).removeClass('search-hidden');
-             $(element).css('display', 'block');
+             // open parents if item is nested
+             if (for_books) {
+              elements.css('display', 'flex');
+            } else {
+              elements.css('display', 'block');
+            }
 
              //Add bold
              $(element).find('.item-name').text($(element).find('.item-name').text());
@@ -1212,8 +1215,6 @@
     }
   }
 
-  Gofast.ITHitMobile.gofast_book_refresh_file_browser();
-
    Drupal.behaviors.marginContainer = {
     attach: function(context, settings) {
       if (window.innerWidth < 1600){
@@ -1238,16 +1239,20 @@
 
   Drupal.behaviors.marginContainer = {
     attach: function (context, settings) {
-    // $(document).ready(function(){
-    $(window).resize(function(){
-      //Handle resize event to resize the mobile file browser
-      $('#file_browser_mobile_files_table').height(jQuery("#content-main-container").outerHeight()-180-jQuery("#file_browser_mobile_queue").outerHeight());
-      $('#forum_explorer_body').height(jQuery("#content-main-container").outerHeight()-180);
-      $('#book_explorer_body').height(jQuery("#content-main-container").outerHeight()-180);
-    });
-    $('#file_browser_mobile_files_table').height(jQuery("#content-main-container").outerHeight()-180-jQuery("#file_browser_mobile_queue").outerHeight());
-    $('#forum_explorer_body').height(jQuery("#content-main-container").outerHeight()-180);
-    $('#book_explorer_body').height(jQuery("#content-main-container").outerHeight()-180);
+      const offset = Gofast._settings.isEssential ? 240 : 180;
+      $(window).resize(function(){
+        //Handle resize event to resize the mobile file browser
+        $('#file_browser_mobile_files_table').height(
+          jQuery("#content-main-container").outerHeight() - 180 -$("#file_browser_mobile_queue").outerHeight()
+        );
+        $('#book_explorer_body').height($("#gofast_file_browser_side_content").outerHeight() - 165);
+        $('#file_browser_full_tree').height($("#gofast_file_browser_side_content").outerHeight() - 45);
+      });
+      $('#file_browser_mobile_files_table').height(
+        $("#content-main-container").outerHeight() - 180 -$("#file_browser_mobile_queue").outerHeight()
+      );
+      $('#book_explorer_body').height($("#gofast_file_browser_side_content").outerHeight() - 165);
+      $('#file_browser_full_tree').height($("#gofast_file_browser_side_content").outerHeight() - 45);
     }
   };
   

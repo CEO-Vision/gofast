@@ -264,16 +264,16 @@ function og_ui_add_users_submit($form, &$form_state) {
   $og_membership->save();
   // Assign roles.
   if (!empty($form_state['values']['roles'])) {
-      //Patch CEO-Vision
-      //first we remove rôles that can be added during hook gofast_og_og_membership_insert
-        $og_roles = og_get_user_roles($group_type, $gid, $account->uid);
-        foreach (array_keys($og_roles) as $rid) {
-          if (!in_array($rid, $form_state['values']['roles'])) {
-            og_role_revoke($group_type, $gid, $account->uid, $rid);
-          }
-        } 
-        //end patch
-    foreach ($form_state['values']['roles'] as $rid) {     
+    //Patch CEO-Vision
+    //first we remove roles that can be added during hook gofast_og_og_membership_insert
+    $og_roles = og_get_user_roles($group_type, $gid, $account->uid);
+    foreach (array_keys($og_roles) as $rid) {
+      if (!in_array($rid, $form_state['values']['roles'])) {
+        og_role_revoke($group_type, $gid, $account->uid, $rid);
+      }
+    } 
+    //end patch
+    foreach ($form_state['values']['roles'] as $rid) {
       og_role_grant($group_type, $gid, $og_membership->etid, $rid);
     }
   }
@@ -320,6 +320,7 @@ function og_ui_edit_membership($form, &$form_state, $group_type, $gid, $og_membe
       '#options' => $og_roles,
       '#title' => t('Roles'),
       '#default_value' => array_keys(og_get_user_roles($group_type, $gid, $account->uid)),
+      '#disabled' => $og_membership->state != OG_STATE_ACTIVE,
     );
   }
 
@@ -375,7 +376,7 @@ function og_ui_edit_membership_submit($form, &$form_state) {
     }
   }
   if (!empty($form_state['values']['roles'])) {
-    foreach ($form_state['values']['roles'] as $rid) {      
+    foreach ($form_state['values']['roles'] as $rid) {
       og_role_grant($group_type, $gid, $og_membership->etid, $rid);
     }
   }
@@ -479,8 +480,8 @@ function og_ui_group_types_overview($type) {
  * Menu callback: administer roles.
  *
  * @ingroup forms
- * @see og_user_admin_roles_validate()
- * @see og_user_admin_roles_submit()
+ * @see og_ui_admin_roles_validate()
+ * @see og_ui_admin_roles_submit()
  * @see theme_group_user_admin_new_role()
  */
 function og_ui_admin_roles($form, $form_state, $group_type = '', $gid = 0, $bundle = '', $rid = 0) {

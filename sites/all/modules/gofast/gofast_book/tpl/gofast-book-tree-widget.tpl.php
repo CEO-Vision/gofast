@@ -1,0 +1,1 @@
+<?=  theme('gofast_book_file_browser', ['books' => $books, 'widget' => TRUE, 'has_links' => $has_links]) ?>

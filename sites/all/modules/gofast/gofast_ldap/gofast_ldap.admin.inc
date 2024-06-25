@@ -137,7 +137,7 @@ function gofast_ldap_fetch_entries() {
     );
                 
     //Filters
-    if (isset($filters) && $filters != "") {
+    if (isset($filters) && !empty($filters) && $filters[key($filters)] != "") {
         $key = key($filters);
         $defaults['filters'] = array(
             array(
@@ -220,8 +220,18 @@ function gofast_ldap_admin_entries_import_selected() {
 
   $all_users = $_POST["users"];
   $selected = $_POST["selected"];
+  if (!$selected) {
+    $msg = t('There is no selected user. Please select at least 1 user.', array() , array('context' => 'gofast'));
+    drupal_get_messages($type = 'status', TRUE);
+    drupal_set_message($msg, 'error');
+    exit;
+  }
   $ret = array();
-  foreach ($all_users as $user) {
+  foreach ($all_users as $key => $user) {
+    // skip pagination keys which may come from the front-end directory
+    if (!is_numeric($key)) {
+      continue;
+    }
     $username = $user[$server->user_attr];
     if (in_array($username, $selected)) {
 
@@ -532,6 +542,7 @@ function gofast_ldap_admin_query(LdapServer $LdapServer, $options) {
       
   $_filters = array();
   $__filter = "";
+  $filter = "";
       
   foreach ($filters as $key => $_filter) {
     // Escape meta characters except wildcard char, this allows user to take 

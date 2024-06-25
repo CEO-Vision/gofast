@@ -53,9 +53,9 @@ if (args.nodeRef !== null) {
 
       folderNode.setPermission("Standard", "GROUP_EVERYONE");
     } else if (grouptype === "folders_templates_folder") {
-      renderArray.permissions.standard = {"Standard": "GROUP_" + unique_name_group};
+      renderArray.permissions.coordinator = {"Coordinator": "GROUP_" + unique_name_group};
 
-      folderNode.setPermission("Standard", "GROUP_" + unique_name_group);
+      folderNode.setPermission("Coordinator", "GROUP_" + unique_name_group);
     } else if (grouptype === "root_space") {
 		renderArray.permissions.standard = {"Consumer": "GROUP_" + unique_name_group};
 		

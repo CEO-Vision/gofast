@@ -22,6 +22,6 @@
  * the view is modified.
  */
 ?>
-<span class="label label-inline label-light-primary font-weight-bold">
+<span class="label label-inline label-light-primary font-weight-bold h-100">
   <?php print gofast_audit_get_event_name_by_event_type($output); ?>
 </span>

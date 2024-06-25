@@ -68,7 +68,7 @@ function gofast_features_global_ckeditor_profile_defaults() {
         'theme_config_js' => 't',
         'js_conf' => 'config.disableNativeSpellChecker = false;
 config.browserContextMenuOnCtrl = true;
-config.height = 200; 
+config.height = 300; 
 
 ',
         'loadPlugins' => array(

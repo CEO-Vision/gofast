@@ -615,7 +615,7 @@ function locale_add_language($langcode, $name = NULL, $native = NULL, $direction
       'direction' => $direction,
       'domain' => $domain,
       'prefix' => $prefix,
-      'enabled' => $enabled,
+      'enabled' => $enabled ? 1 : 0,
     ))
     ->execute();
 
@@ -1593,6 +1593,18 @@ function _locale_parse_js_file($filepath) {
       );
     }
   }
+  
+  /** @patch CEO-Vision: implements parse_js_file _alter hook */
+  foreach (module_implements("parse_js_file_alter") as $module) {
+    $pattern = call_user_func($module . "_parse_js_file_alter", $matches);
+    preg_match_all($pattern, $file, $hook_matches);
+    foreach ($hook_matches[1] as $key => $string) {
+      $matches[] = array(
+        'string'  => $string,
+        'context' => $hook_matches[2][$key],
+      );
+    }
+  }
 
   foreach ($matches as $key => $match) {
     // Remove the quotes and string concatenations from the string.
@@ -1603,7 +1615,7 @@ function _locale_parse_js_file($filepath) {
     if ($source) {
       // We already have this source string and now have to add the location
       // to the location column, if this file is not yet present in there.
-      $locations = preg_split('~\s*;\s*~', $source->location);
+      $locations = preg_split('~\s*;\s*~', (string) $source->location);
 
       if (!in_array($filepath, $locations)) {
         $locations[] = $filepath;
@@ -2058,12 +2070,19 @@ function _locale_rebuild_js($langcode = NULL) {
     $translations[$data->context][$data->source] = $data->translation;
   }
 
+  $object_reference = "Drupal.locale";
+
+  /** @patch CEO-Vision: implements rebuild_js__alter hook */
+  foreach (module_implements("rebuild_js_alter") as $module) {
+    call_user_func_array($module . "_rebuild_js_alter", [&$language, &$object_reference]);
+  }
+
   // Construct the JavaScript file, if there are translations.
   $data_hash = NULL;
   $data = $status = '';
   if (!empty($translations)) {
 
-    $data = "Drupal.locale = { ";
+    $data = $object_reference . " = { ";
 
     if (!empty($language->formula)) {
       $data .= "'pluralFormula': function (\$n) { return Number({$language->formula}); }, ";

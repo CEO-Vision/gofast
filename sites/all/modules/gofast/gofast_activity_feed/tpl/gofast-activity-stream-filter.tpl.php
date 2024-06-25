@@ -15,7 +15,7 @@
         </div>
     </div>
 
-    <div class="card card-custom overflow-auto">
+    <div id="gofastActivityStreamFiltersCard" class="card card-custom overflow-auto">
         <!--begin::Header-->
         <div class="card-header border-0 px-4 pt-4 min-h-40px">
             <h3 class="card-title align-items-start flex-column">

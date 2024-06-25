@@ -1,0 +1,264 @@
+<mjml>
+  <mj-head>
+    <mj-style>
+      @font-face {
+      font-family: 'Poppins';
+      font-style: normal;
+      font-weight: 400;
+      src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-Regular.otf") format("opentype");
+      }
+
+      @font-face {
+      font-family: 'Poppins';
+      font-style: normal;
+      font-weight: 600;
+      src: url("https://gofast-dev-gf4.ceo-vision.com/sites/all/themes/bootstrap-keen/fonts/poppins/Poppins-SemiBold.otf") format("opentype");
+      }
+      .separate > table { border-collapse: separate; }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#EAF1F7" width="992px">
+    <mj-raw>
+      <!-- SubHeader -->
+    </mj-raw>
+    <mj-section padding="0" padding-left="30px" padding-top="10px" padding-bottom="10px" background-color="white">
+      <mj-group width="100%">
+        <mj-column width="60%">
+          <mj-text padding-left="0" font-size="18px" align="left" font-weight="600">
+            Hello User Name,
+          </mj-text>
+        </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-top="10px" background-color="white">
+      <mj-group width="90%">
+        <mj-column width="60%">
+          <mj-text padding-bottom="5px" padding="0" align="left" font-size="14px" font-weight="400">
+            Your last notifications as a space administrator (memberships)
+          </mj-text>
+        </mj-column>
+        <mj-column width="40%">
+          <mj-text padding-top="0" padding-right="10px" padding-bottom="5px" padding-left="10px" align="right" color="#666666" font-size="14px" font-weight="400">
+            <a href="#" style="text-decoration: none; color:#666666;">Manage your subscriptions</a>
+          </mj-text>
+        </mj-column>
+      </mj-group>
+    </mj-section>
+    <mj-section padding="0" padding-left="20px" padding-top="20px" padding-bottom="10px" background-color="white">
+      <mj-column width="90%">
+        <mj-text padding-bottom="5px" padding="0" align="left" font-size="14px" font-weight="400">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/users.png" alt="Information Icon" width="14" style="vertical-align: bottom;" />
+          <span><a style="text-decoration: none; color:#196ec2;">/Sites/_Groups/Espace 1</a></span>
+          <span>|</span>
+          <span style="color: green;">NEW MEMBERS (3)</span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="20px" padding-top="0" padding-bottom="10px" background-color="white">
+      <mj-column width="90%">
+        <mj-text padding-bottom="5px" padding="0" align="left" font-size="14px" font-weight="400">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/users.png" alt="Information Icon" width="14" style="vertical-align: bottom;" />
+          <span><a style="text-decoration: none; color:#196ec2;">/Sites/_Groups/Espace 2</a></span>
+          <span>|</span>
+          <span style="color: green;">NEW MEMBERS (1)</span>
+          <span>|</span>
+          <span style="color: red;"> REMOVED MEMBERS (2)</span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section border-radius="0px 0px 10px 10px" padding="0" padding-left="20px" padding-top="0" padding-bottom="10px" background-color="white">
+      <mj-column width="90%">
+        <mj-text padding-bottom="5px" padding="0" align="left" font-size="14px" font-weight="400">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/users.png" alt="Information Icon" width="14" style="vertical-align: bottom;" />
+          <span><a style="text-decoration: none; color:#196ec2;">/Sites/_Groups/Espace 3</a></span>
+          <span>|</span>
+          <span style="color: red;">REMOVED MEMBERS (3)</span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-top="10px" padding-bottom="10px" background-color="transparent">
+    </mj-section>
+    <mj-section padding="0" padding-bottom="10px" background-color="white" border-radius="10px 10px 0px 0px">
+      <mj-column width="100%" background-color="#666666" border-radius="10px 10px 0px 0px">
+        <mj-text color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/users-white.png" alt="Information Icon" width="18" style="vertical-align: bottom;" />
+                </td>
+                <td>
+                  <span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;/Sites/Groups/Espace 1</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+      <mj-column vertical-align="middle" width="100%" background-color="#337ab7" border-radius="0px 0px 10px 10px" padding-top="5px" padding-bottom="5px">
+        <mj-text color="white" font-size="18px" font-weight="600" align="center" padding="0">
+          <span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">INFO</span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-bottom="10px" padding-top="10px" background-color="white">
+      <mj-column css-class="separate" padding-left="10px" width="80%" padding-bottom="10px" padding-top="10px" border="1px solid black" border-radius="10px">
+        <mj-text padding-bottom="0" vertical-align="middle" padding="0" font-size="14px" font-weight="400" background-color="#337ab7">
+          <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr >
+                <td width="80%">
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" width="40" style="vertical-align:middle;padding-right:5px;" />
+                  <span>Username <b style="color: green;">added</b> by User</span>
+                </td>
+                <td width="20%">
+                  <div>05/09/2022</div>
+                  <div>15:45</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    
+    <mj-section padding="0" padding-left="10px" padding-bottom="10px" padding-top="10px" background-color="white">
+      <mj-column css-class="separate" padding-left="10px" width="80%" padding-bottom="10px" padding-top="10px" border="1px solid black" border-radius="10px">
+        <mj-text padding-bottom="0" vertical-align="middle" padding="0" font-size="14px" font-weight="400" background-color="#337ab7">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" width="40" style="vertical-align:middle;padding-right:5px;" />
+          <span>Username <b style="color: green;">added</b> by User</span>
+        </mj-text>
+        <mj-text align="right" padding-top="0px" font-size="14px" font-weight="400">
+          <span>lun, 05/09/2022 - 10:25</span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-bottom="10px" background-color="white" border-radius="0px 0px 10px 10px">
+      <mj-column css-class="separate" padding-left="10px" width="80%" padding-bottom="10px" padding-top="10px" border="1px solid black" border-radius="10px">
+        <mj-text padding-bottom="0" vertical-align="middle" padding="0" font-size="14px" font-weight="400" background-color="#337ab7">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" width="40" style="vertical-align:middle;padding-right:5px;" />
+          <span>Username <b style="color: green;">added</b> by User</span>
+        </mj-text>
+        <mj-text align="right" padding-top="0px" font-size="14px" font-weight="400">
+          <span>lun, 05/09/2022 - 10:25</span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-bottom="10px" background-color="white" border-radius="10px 10px 0px 0px">
+      <mj-column width="100%" background-color="#666666" border-radius="10px 10px 0px 0px">
+        <mj-text color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/users-white.png" alt="Information Icon" width="18" style="vertical-align: bottom;" />
+                </td>
+                <td>
+                  <span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;/Sites/Groups/Espace 2</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+      <mj-column vertical-align="middle" width="100%" background-color="#337ab7" border-radius="0px 0px 10px 10px" padding-top="5px" padding-bottom="5px">
+        <mj-text color="white" font-size="18px" font-weight="600" align="center" padding="0">
+          <span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">INFO</span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-bottom="10px" background-color="white">
+      <mj-column css-class="separate" padding-left="10px" width="80%" padding-bottom="10px" padding-top="10px" border="1px solid black" border-radius="10px">
+        <mj-text padding-bottom="0" vertical-align="middle" padding="0" font-size="14px" font-weight="400" background-color="#337ab7">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" width="40" style="vertical-align:middle;padding-right:5px;" />
+          <span>Username <b style="color: green;">added</b> by User</span>
+        </mj-text>
+        <mj-text align="right" padding-top="0px" font-size="14px" font-weight="400">
+          <span>lun, 05/09/2022 - 10:25</span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-bottom="10px" background-color="white">
+      <mj-column css-class="separate" padding-left="10px" width="80%" padding-bottom="10px" padding-top="10px" border="1px solid black" border-radius="10px">
+        <mj-text padding-bottom="0" vertical-align="middle" padding="0" font-size="14px" font-weight="400" background-color="#337ab7">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" width="40" style="vertical-align:middle;padding-right:5px;" />
+          <span>Username <b style="color: red;">removed</b> by User</span>
+        </mj-text>
+        <mj-text align="right" padding-top="0px" font-size="14px" font-weight="400">
+          <span>lun, 05/09/2022 - 10:25</span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-bottom="10px" background-color="white" border-radius="0px 0px 10px 10px">
+      <mj-column css-class="separate" padding-left="10px" width="80%" padding-bottom="10px" padding-top="10px" border="1px solid black" border-radius="10px">
+        <mj-text padding-bottom="0" vertical-align="middle" padding="0" font-size="14px" font-weight="400" background-color="#337ab7">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" width="40" style="vertical-align:middle;padding-right:5px;" />
+          <span>Username <b style="color: red;">removed</b> by User</span>
+        </mj-text>
+        <mj-text align="right" padding-top="0px" font-size="14px" font-weight="400">
+          <span>lun, 05/09/2022 - 10:25</span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <mj-section padding-top="10px" padding-bottom="10px" background-color="transparent">
+    </mj-section>
+    <mj-section padding="0" padding-bottom="10px" background-color="white" border-radius="10px 10px 0px 0px">
+      <mj-column width="100%" background-color="#666666" border-radius="10px 10px 0px 0px">
+        <mj-text color="white" font-size="18px" font-weight="600">
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:middle;">
+            <tbody>
+              <tr>
+                <td>
+                  <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/users-white.png" alt="Information Icon" width="18" style="vertical-align: bottom;" />
+                </td>
+                <td>
+                  <span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">&nbsp;/Sites/Groups/Espace 3</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </mj-text>
+      </mj-column>
+      <mj-column vertical-align="middle" width="100%" background-color="#337ab7" border-radius="0px 0px 10px 10px" padding-top="5px" padding-bottom="5px">
+        <mj-text color="white" font-size="18px" font-weight="600" align="center" padding="0">
+          <span style="color: #FFFFFF; font-size: 18px; font-weight: 600;">INFO</span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-bottom="10px" background-color="white">
+      <mj-column css-class="separate" padding-left="10px" width="80%" padding-bottom="10px" padding-top="10px" border="1px solid black" border-radius="10px">
+        <mj-text padding-bottom="0" vertical-align="middle" padding="0" font-size="14px" font-weight="400" background-color="#337ab7">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" width="40" style="vertical-align:middle;padding-right:5px;" />
+          <span>Username <b style="color: red;">removed</b> by User</span>
+        </mj-text>
+        <mj-text align="right" padding-top="0px" font-size="14px" font-weight="400">
+          <span>lun, 05/09/2022 - 10:25</span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-bottom="10px" background-color="white">
+      <mj-column css-class="separate" padding-left="10px" width="80%" padding-bottom="10px" padding-top="10px" border="1px solid black" border-radius="10px">
+        <mj-text padding-bottom="0" vertical-align="middle" padding="0" font-size="14px" font-weight="400" background-color="#337ab7">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" width="40" style="vertical-align:middle;padding-right:5px;" />
+          <span>Username <b style="color: red;">removed</b> by User</span>
+        </mj-text>
+        <mj-text align="right" padding-top="0px" font-size="14px" font-weight="400">
+          <span>lun, 05/09/2022 - 10:25</span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding="0" padding-left="10px" padding-bottom="10px" background-color="white" border-radius="0px 0px 10px 10px">
+      <mj-column css-class="separate" padding-left="10px" width="80%" padding-bottom="10px" padding-top="10px" border="1px solid black" border-radius="10px">
+        <mj-text padding-bottom="0" vertical-align="middle" padding="0" font-size="14px" font-weight="400" background-color="#337ab7">
+          <img src="https://gofast-dev-gf4.ceo-vision.com/sites/all/modules/gofast/gofast_mail_queue/icon/blank.png" width="40" style="vertical-align:middle;padding-right:5px;" />
+          <span>Username <b style="color: red;">removed</b> by User</span>
+        </mj-text>
+        <mj-text align="right" padding-top="0px" font-size="14px" font-weight="400">
+          <span>lun, 05/09/2022 - 10:25</span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section padding-top="10px" padding-bottom="10px" background-color="transparent">
+    </mj-section>
+  </mj-body>
+</mjml>

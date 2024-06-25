@@ -6,11 +6,8 @@
         <div class="GofastForm__Field GofastForm__Field--description">
             <?php echo render($form['field_description']); ?>
         </div>
-        <div class="GofastForm__Field GofastForm__Field--content">
-            <?php echo render($form['body']); ?>
-        </div>
-        <div class="GofastForm__Field GofastForm__Field--broadcast">
-            <?php echo render($form['og_group_ref']); ?>
+        <div class="GofastForm__Field GofastForm__Field--administrator">
+            <?php echo render($form['field_other_admin_uid']); ?>
         </div>
         <div class="GofastForm__Field GofastForm__Field--folder">
             <div class="d-flex" style="gap: 2rem;">
@@ -31,6 +28,13 @@
                 </div>
             </div>
         </div>
+        <div class="GofastForm__Field GofastForm__Field--content">
+            <?php echo render($form['body']); ?>
+        </div>
+        <div class="GofastForm__Field GofastForm__Field--broadcast">
+            <?php echo render($form['og_group_ref']); ?>
+        </div>
+      
     </div>
     <div class='card-footer pb-0 pt-3 d-flex GofastAddForms__buttons'>
         <?php echo render($form['actions']); ?>

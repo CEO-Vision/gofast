@@ -40,6 +40,16 @@
       $(this).find('.space-popup').children().remove();
   };
 
+  Gofast.og.getSpaceBookmarks = function(gid) {
+    jQuery.post(location.origin + "/gofast/bookmarks/favorites_contents", {
+      gid: gid,
+      flag_type: "flag_public",
+      from_home_page: true,
+    }).done(function(data) {
+        jQuery("#gofastOgHomeFavoritesContainer").html(data);
+    });
+  };
+
   Drupal.behaviors.gofastOGSpacePopup = {
       attach : function(context, settings) {
           var config = {
@@ -62,32 +72,37 @@
     var $ = jQuery;
     //Switch tab when hash change in url at navigation (back/fwd button)
     $(window).bind('hashchange', function(e){
+      const excludedHashes = ["#users_stats", "#documents_stats", "#ogaudit"];
+      if (excludedHashes.includes(location.hash)) {
+        return;
+      }
       if($(".gofast-og-page").length < 1){
           //Prevent doing these actions outside of a space page
           return;
       }
-        if(location.hash === ""){
-          history.replaceState(null, "Gofast", location.href + "#oghome");
-          $("#ogtab_home").click();
+      // remove active classes on previously active tab dropdown items
+      $("#gofastBrowserNavTabs .nav-item.dropdown a.dropdown-item").removeClass("active");
+      if(location.hash === ""){
+        history.replaceState(null, "Gofast", location.href + "#oghome");
+        $("#ogtab_home").click();
+      }
+      if(location.hash !== "#ogdocuments" && !Gofast._settings.isEssential){
+        clearInterval(Gofast.ITHit.refreshBreadcrumbTimeout);
+        //Get params
+        const urlParams = new URLSearchParams(location.search);
+        const path = urlParams.get("path");
+        if (!!path) {
+          Gofast.ITHit.refreshBreadcrumb(path, true);
         }
+      }
 
-        if(location.hash !== "#ogdocuments"){
-          clearInterval(Gofast.ITHit.refreshBreadcrumbTimeout);
-          //Get params
-          const urlParams = new URLSearchParams(location.search);
-          const path = urlParams.get("path");
-          if (!!path) {
-            Gofast.ITHit.refreshBreadcrumb(path, true);
-          }
-        }
-
-        $('.gofast-og-page a[href="' + location.hash + '"]').tab('show');
-        $(window).scrollTop(0);
-        if($("#file_browser_full_tree_element").length > 0){
-            $("#file_browser_full_tree_element").mCustomScrollbar('scrollTo', 'left');
-            $('.mCSB_scrollTools_vertical').css('visibility', 'visible');
-            $('.mCSB_scrollTools_horizontal').css('visibility', 'visible');
-        }
+      $('.gofast-og-page a[href="' + location.hash + '"]').tab('show');
+      $(window).scrollTop(0);
+      if($("#file_browser_full_tree_element").length > 0){
+          $("#file_browser_full_tree_element").mCustomScrollbar('scrollTo', 'left');
+          $('.mCSB_scrollTools_vertical').css('visibility', 'visible');
+          $('.mCSB_scrollTools_horizontal').css('visibility', 'visible');
+      }
     });
     $('#tabs_og_group').tabs();
     $('#panel_ztree_og').css('max-height', $(window).height()*0.7);
@@ -199,12 +214,12 @@
       });
 
       //[GOFAST-6199]
+      Drupal.CTools.Modal.dismiss();
       var str = parent_path.split("*");
-      var url = str[0];
+      var url = "/" + str[0];
       url += "?&path=/Sites" + str[1] + "#ogdocuments";
       Gofast.processAjax(url);
       Gofast.toast(Drupal.t("Your space has been deleted", {}, {context : 'gofast:og'}));
-      Drupal.CTools.Modal.dismiss();
     };
   });
 
@@ -222,16 +237,22 @@
    */
   Drupal.behaviors.gofastOGAdminRolesStates = {
     attach: function (context, settings) {
-      var $roles = $('.og-roles-force-single input[type=checkbox]', context);
-      $roles.once('single-role', function () {
-        $(this).on('change', function () {
-          if ($(this).hasClass("role_contributor")) {
-            $roles.not(this).not(':disabled').prop('checked', false);
+      $('.og-roles-force-single:not(".processed")').addClass('processed').on('change', function(e){        
+        // Check if single role is selected
+        var item_checked = $('.og-roles-force-single .form-checkbox:checked');
+        // if item is empty disabled submit button and add message to the right
+        if(item_checked.length == 0){
+          $('.form-submit').prop('disabled', true);
+          $('.form-submit').addClass('disabled');
+          if($('.form-item-submit-message') != undefined){
+            $('#modal-footer #edit-submit').after('<div class="form-item form-type-textfield form-item-submit-message"><i class="fas fa-exclamation-triangle mr-2" style="color:#FFA800"></i>'+ Drupal.t('Please select at least one role') +'</div>');
           }
-          if ($(this).hasClass("role_administrator") || $(this).hasClass("role_business_adm")) {
-            $('.role_contributor').prop('checked', false);
-          }
-        });
+        }else{
+          $('.og-roles-force-single .form-checkbox:checked:not(#' + e.target.id + ')').prop('checked', false);
+          $('.form-submit').prop('disabled', false);
+          $('.form-submit').removeClass('disabled');
+          $('.form-item-submit-message').remove();
+        }
       });
     }
   };
@@ -274,7 +295,6 @@
        $('#panel_ztree_og').css('max-height', $(window).height()*0.7);
        //In case of non-membership
        $('.joinbtn').not(".processed").on('click', function(caller){ //Click on join button
-        debugger;
          if($(caller.target).hasClass("clicked")){ // Check if the button was already clicked
            return;
          }
@@ -702,12 +722,12 @@ Drupal.behaviors.gofast_og_grid_ztree = {
         Drupal.behaviors.gofast_home_page_async = {
         attach: function (context, settings) {
               setTimeout(function(){
-                if($('#ogtab_home:not(.activity_processed)').parent().hasClass('active')){
+                if($('#ogtab_home:not(.activity_processed)').hasClass('active')){
                     $("#ogtab_home:not(.activity_processed)").addClass("activity_processed");
                     var nid = $(".gofast-og-page").attr("id").replace("node-", "");
                      $("#oghome").load( "/gofast_og/home_async/" + nid, function (response, status, xhr){
                          if(status == "success"){
-                             Drupal.attachBehaviors();
+                            Drupal.attachBehaviors();
                          }
                      });
                 }
@@ -737,6 +757,7 @@ Drupal.behaviors.gofast_og_grid_ztree = {
         var it = $(this);    
             //Retrieve nid
             var nid = it.find('#nid').text();
+            var type = it.find('#type').text();
             if (nid > 0) { } else {
               it.find('.panel-body').find(".preadd-validation-info").html("<i class='fa fa-times' style='color:red' aria-hidden='true'></i> " + Drupal.t("This modification cannot be done currently. Please try again later.", {}, { context: 'gofast:taxonomy' }));
               return true;
@@ -766,19 +787,20 @@ Drupal.behaviors.gofast_og_grid_ztree = {
                   type: "POST",
                   async: false,
                   url: location.origin + "/og/preadd/process",
-                  data: {nid: nid, action: actionPost, user_to_add: userPreaAdd, message: message, role_id : rid },
+                  data: {nid: nid, action: actionPost, user_to_add: userPreaAdd.id, message: message, role_id : rid, type: type, entity_type: userPreaAdd.type},
                   timeout: timeoutPreadd,
                   success: function (data) {
                     var returnData = jQuery.parseJSON(data);
                     if (returnData.success == false) {
-                      it.find("span.user-preadd-span#" + returnData.uid).append(" - " + returnData.message + " <i class='fa fa-info' style='color:red' aria-hidden='true'></i>");
+                      it.find(`span.user-preadd-span[data-type=${returnData.entity_type}]#${returnData.entity_id}`).append(" - " + returnData.message + " <i class='fa fa-info' style='color:red' aria-hidden='true'></i>");
                     } else {
-                      it.find("span.user-preadd-span#" + returnData.uid).append("<i class='fa fa-check' style='color:green' aria-hidden='true'></i>");
+                      it.find(`span.user-preadd-span[data-type=${returnData.entity_type}]#${returnData.entity_id}`).append("<i class='fa fa-check' style='color:green' aria-hidden='true'></i>");
                     }
 
                     var barProgressValue = 100 / barWidth;
-                    $('#modal-content .progress-bar').width(barProgressValue * 10);
-                    $('#modal-content .progress-bar').html(Math.floor(barProgressValue) + "%");
+                    const progressValue = Math.floor(barProgressValue) + "%";
+                    $('#modal-content .progress-bar').width(progressValue);
+                    $('#modal-content .progress-bar').html(progressValue);
                     if (Math.floor(barProgressValue) === 100) {
                       $('.progress-bar').removeClass('progress-bar-striped');
                       $('.progress-bar').addClass('progress-bar-success');
@@ -791,5 +813,38 @@ Drupal.behaviors.gofast_og_grid_ztree = {
             });
       });
   };
+  
+  // Define a JavaScript function for removing a space identified by 'gid' from the list.
+  Gofast.og.remove_space_from_contact_admin_modal_form = function(button, gid) {
+
+    // Retrieve the current JSON-formatted data from an input field with the name attribute "spaces."
+    var currentSpaces = JSON.parse($('input[name="spaces"]').val());
+
+    // Initialize a new array to store the updated list of spaces.
+    let newCurrentSpaces = [];
+
+    if (currentSpaces.length > 1) {
+      // Iterate through each element ('space') in the current spaces array.
+      currentSpaces.forEach(function(space) {
+        // If the 'space' does not equal 'gid', add it to the 'newCurrentSpaces' array.
+        if (space != gid) {
+          newCurrentSpaces.push(space);
+        }
+      });
+
+      // Find the closest table row containing the clicked button and remove it from the UI.
+      var row = button.closest("tr");
+      row.remove();
+
+      // Update the value attribute of the input field with the name "spaces" to contain
+      // the JSON stringified version of the 'newCurrentSpaces' array.
+      $('input[name="spaces"]').attr('value', JSON.stringify(newCurrentSpaces));
+
+    }else{
+      Gofast.toast(Drupal.t("You can't delete the last space", {}, {context : 'gofast:og::contact_admin'}), 'error');
+    }
+
+  }
+
 
 })(jQuery, Gofast, Drupal);

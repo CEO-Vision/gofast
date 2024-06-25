@@ -1,3 +1,8 @@
+<?php if($is_confidential): ?>
+  <div class="alert alert-custom alert-light-warning fade show mb-5" role="alert">
+    <div class="alert-text"><?= t("This document is confidential: you can't download and share it", array(), array('context' => 'gofast:gofast_cmis')); ?></div>
+  </div>
+<?php endif; ?>
 <?php if($async){ ?> <div class="tab-pane" id="document__historytab" role="tabpanel" aria-labelledby="nav-info-tab"> <?php } ?>
   <div class="historytab__revision mt-4">
     <div class="font-weight-bolder font-size-sm mb-4 mr-4"><?php print  t('Revision by', array(), array('context' => 'gofast:gofast_cmis')) ?> : </div>

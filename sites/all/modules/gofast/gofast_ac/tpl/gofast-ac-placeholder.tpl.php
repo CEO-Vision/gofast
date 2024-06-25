@@ -1,0 +1,1 @@
+<span class="d-flex align-items-center m-auto" style="gap: .5rem; width: fit-content;"><i class="fas fa-plus"></i><?= t("Define", [], ["context" => "gofast:gofast_ac"]) ?></span>

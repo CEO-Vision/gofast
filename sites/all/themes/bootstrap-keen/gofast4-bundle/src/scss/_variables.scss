@@ -16,6 +16,8 @@ $gray-700: #495057 !default;
 $gray-800: #343a40 !default;
 $gray-900: #212529 !default;
 $black:    #000 !default;
+$dark:     #181c32 !default;
+
 
 $grays: () !default;
 // stylelint-disable-next-line scss/dollar-variable-default
@@ -34,7 +36,7 @@ $grays: map-merge(
   $grays
 );
 
-$blue:    #007bff !default;
+$blue:    #3699FF !default;
 $indigo:  #6610f2 !default;
 $purple:  #6f42c1 !default;
 $pink:    #e83e8c !default;

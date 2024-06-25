@@ -1,5 +1,9 @@
 <?php
 
+if (!defined('VAR_RADIOACTIVITY_MEMCACHED_PREFIX')) {
+  define('VAR_RADIOACTIVITY_MEMCACHED_PREFIX', '');
+}
+
 /**
  * @file Memcached incident storage class
  */
@@ -22,7 +26,7 @@ class RadioactivityMemcachedIncidentStorage extends RadioactivityIncidentStorage
       $extension = 'Memcached';
     }
     if (empty($extension)) return FALSE;
-    
+
     $mc = new $extension();
     $connected = @$mc->addServer(VAR_RADIOACTIVITY_MEMCACHED_HOST, VAR_RADIOACTIVITY_MEMCACHED_PORT);
     if ($connected) {
@@ -40,12 +44,12 @@ class RadioactivityMemcachedIncidentStorage extends RadioactivityIncidentStorage
     if (!$mc) {
       return;
     }
-    $i = $mc->get("radioactivity_top");
+    $i = $mc->get(VAR_RADIOACTIVITY_MEMCACHED_PREFIX . "radioactivity_top");
     if (!$i) {
       $i = 0;
     }
-    $mc->set("radioactivity_top", $i + 1);
-    $mc->set("radioactivity_incident_" . $i, $incident);
+    $mc->set(VAR_RADIOACTIVITY_MEMCACHED_PREFIX . "radioactivity_top", $i + 1);
+    $mc->set(VAR_RADIOACTIVITY_MEMCACHED_PREFIX . "radioactivity_incident_" . $i, $incident);
   }
 
   /**
@@ -58,13 +62,13 @@ class RadioactivityMemcachedIncidentStorage extends RadioactivityIncidentStorage
     }
     $i = 0;
     // get and reset top
-    $to = $mc->get("radioactivity_top");
-    $mc->set("radioactivity_top", 0);
+    $to = $mc->get(VAR_RADIOACTIVITY_MEMCACHED_PREFIX . "radioactivity_top");
+    $mc->set(VAR_RADIOACTIVITY_MEMCACHED_PREFIX . "radioactivity_top", 0);
     if (!$to) {
       $to = 0;
     }
     while ($i < $to) {
-      $incident = $mc->get("radioactivity_incident_" . $i);
+      $incident = $mc->get(VAR_RADIOACTIVITY_MEMCACHED_PREFIX . "radioactivity_incident_" . $i);
       if ($incident && $incident->floodCheck()) {
         $incident->updateEnergy();
       }

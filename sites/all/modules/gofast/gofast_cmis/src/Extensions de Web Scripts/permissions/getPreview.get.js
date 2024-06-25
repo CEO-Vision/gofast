@@ -5,7 +5,10 @@ var response = {};
 if (args.reference !== null) {
   var node = search.findNode(args.reference);
 
-  var thumbnail = node.getThumbnail("pdf");
+  var thumbnail = null;
+  if (node !== null) {
+    thumbnail = node.getThumbnail("pdf");
+  }
   var force_recreate = false;
    if(thumbnail !== null){
        if(thumbnail.properties["modified"] < node.properties["modified"]){

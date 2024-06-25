@@ -1,0 +1,536 @@
+<?php
+
+module_load_include('inc', 'gofast_mail_inbound_outbound', 'gofast_mail_inbound_outbound.utils');
+module_load_include('inc', 'gofast_mail_inbound_outbound', 'gofast_mail_inbound_outbound.form');
+module_load_include('inc', 'gofast_mail_inbound_outbound', 'gofast_mail_inbound_outbound.api');
+module_load_include('inc', 'gofast_mail_inbound_outbound', 'gofast_mail_inbound_outbound.facetapi');
+
+function gofast_mail_inbound_outbound_menu() {
+  $items = array();
+  $items['modal/%ctools_js/mail_space_options'] = array(
+    'title' => t('Mail module options', array(), array('context' => 'gofast')),
+    'page callback' => 'gofast_modal_mail_space_options',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['mail/download_zip'] = array(
+    'title' => 'Download all documents on zip file',
+    'page callback' => 'gofast_mail_inbound_outbound_download_zip',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+ /**
+  * Implements hook_poll_info().
+  */
+function gofast_mail_inbound_outbound_poll_info(){
+  $items = array();
+
+  $items['mail_infos'] = array(
+    'label' => 'Mail info update',
+    'description' => 'Gathers and change mail metadata information',
+    'interval' => 2,
+    'context' => 'node',
+    'selector' => '#document__extra_metadata__mail_informations_tab'
+  );
+
+  return $items;
+}
+
+
+/**
+ * Implements hook_apachesolr_index_document_build_ENTITY_TYPE().
+ */
+function gofast_mail_inbound_outbound_apachesolr_index_document_build_node(ApacheSolrDocument $document, $node, $env_id) {
+  if ($env_id !== GOFAST_SEARCH_ENV_ID) {
+    return;
+  }
+  $mail_metadatas = gofast_mail_inbound_outbound_get_extra_metadatas($node);
+  if (count($mail_metadatas) > 0) {
+    foreach ($mail_metadatas as $key => $value) {
+      if ($value != "") {
+        watchdog("debug Mail index", "index field sm_unr_" . $value['machine_name'] . " with value " . $value['value']);
+        $document->addField('sm_unr_' . $value['machine_name'], $value['value']);
+        $document->addField('tos_unr_' . $value['machine_name'], $value['value']);
+      }
+    }
+  }
+}
+
+
+/**
+ * Implements hook_node_update().
+ */
+function gofast_mail_inbound_outbound_node_update($node){
+  $reference = $node->reference;
+  $category_inbound_mail = gofast_xeditable_terms_get_from_array(GOFAST_VID_CATEGORY, array('Courrier entrant'))[0];
+  $category_outbound_mail = gofast_xeditable_terms_get_from_array(GOFAST_VID_CATEGORY, array('Courrier sortant'))[0];
+  if($node->{'field_category'}[LANGUAGE_NONE][0]["tid"] == $category_inbound_mail->tid || $node->{'field_category'}[LANGUAGE_NONE][0]["tid"] == $category_outbound_mail->tid  ){
+   gofast_mail_inbound_outbound_cmis_set_mail_aspect($reference);
+  }else{
+    gofast_mail_inbound_outbound_cmis_remove_mail_aspect($reference);
+  }
+}
+
+
+/**
+ * Alter search query
+ *
+ * @param array $qf
+ * @return array $qf
+ */
+function gofast_mail_inbound_outbound_gofast_search_alter_qf($qf) {
+  $mail_metadatas = json_decode(variable_get('gofast_mail_metadata'));
+
+  foreach ($mail_metadatas as $key => $metadata) {
+    $qf[] = "sm_unr_" . str_replace('field_','',$metadata) . "^6.0";
+  }
+  return $qf;
+}
+
+/**
+ * Alter search highlighting
+ *
+ * @param array $qf
+ * @return array $qf
+ */
+function gofast_mail_inbound_outbound_gofast_search_alter_hl_fl($hl_fl) {
+  $mail_metadatas = json_decode(variable_get('gofast_mail_metadata'));
+
+  foreach ($mail_metadatas as $key => $metadata) {
+    $hl_fl[] = "sm_unr_" . str_replace('field_','',$metadata) . "^6.0";
+  }
+  return $hl_fl;
+}
+
+function gofast_mail_inbound_outbound_apachesolr_query_alter($query){
+
+  $env_id = $query->solr('getId');
+  $solr = apachesolr_get_solr($env_id);
+  $data = $solr->getLuke();
+
+
+  $fl = $query->getParam('fl');
+
+  //add SDMA specific fields into fl
+  $mail_metadatas = json_decode(variable_get('gofast_mail_metadata'));
+  foreach ($mail_metadatas as $key => $metadata) {
+      $fl[] = "sm_unr_" . str_replace('field_','',$metadata);
+  }
+  $query->replaceParam('fl', $fl);
+}
+
+/**
+ * Display actions into space contextuel menu
+ */
+function gofast_mail_inbound_outbound_node_available_actions($node) {
+  $actions['mail_options'] = [
+      'text' => t('Mail module options', array(), array('context' => 'gofast')),
+      'link_id' => '',
+      'link_class' => 'ctools-use-modal toggle_mail_options',
+      'href' => '/modal/nojs/mail_space_options?nid=' . $node->nid,
+      'icon_class' => 'fa fa-exchange',
+      'onClick' => '',
+      'title' => t('Ouvre une fenetre avec les options du module Courrier'),
+      'page' => array('gofast_contextual_menu_all_pages', 'gofast_contextual_menu_node_is_not_delete'),
+      'type' => array('group', 'organisation', 'extranet', 'public'),
+      'access_function' => array('gofast_contextual_menu_user_is_administrator'),
+      'divider' => TRUE
+  ];
+  return $actions;
+}
+
+
+function gofast_modal_mail_space_options($js) {
+  $form_id = 'gofast_mail_inbound_outbound_mail_space_options_form';
+  ctools_include('modal');
+  ctools_include('ajax');
+
+  if (isset($_GET['nid'])) {
+    $nid = $_GET['nid'];
+  } else {
+    $nid = "";
+  }
+
+  $form_state = array(
+    'build_info' => array(
+      'args' => array(
+        "node",
+        $nid,
+      ),
+    ),
+    'title' => 'Options courrier',
+    'ajax' => TRUE,
+    're_render' => FALSE,
+    'no_redirect' => TRUE,
+  );
+
+  $commands = ctools_modal_form_wrapper($form_id, $form_state);
+
+  if ($form_state['executed']) {
+    $commands[] = ctools_modal_command_dismiss();
+  }
+
+  print ajax_render($commands);
+}
+
+/**
+ * Implement hook_extra_metadata
+ */
+function gofast_mail_inbound_outbound_extra_metadata($node) {
+  $category = $node->field_category[LANGUAGE_NONE]['0']['tid'];
+  $inbound_mail_taxonomy_term = taxonomy_get_term_by_name("Inbound (e)mail", 'category');
+  $inbound_mail_taxonomy_term_id = array_shift($inbound_mail_taxonomy_term)->tid;
+  $outbound_mail_taxonomy_term = taxonomy_get_term_by_name("Outbound (e)mail", 'category');
+  $outbound_mail_taxonomy_term_id = array_shift($outbound_mail_taxonomy_term)->tid;
+  if ($category != $outbound_mail_taxonomy_term_id && $category != $inbound_mail_taxonomy_term_id) {
+    return;
+  }
+
+  $loaded = libraries_load('x-editable');
+  drupal_add_js(drupal_get_path('module', 'gofast') . '/js/gofast_xeditable.js', array('type' => 'file', 'weight' => 5));
+
+  $info = array();
+  $wrapper = entity_metadata_wrapper("node", $node);
+
+  // Origin
+  $mail_sender = $wrapper->{'field_mail_sender'}->value();
+  $info['mailSender'] = $mail_sender ? $mail_sender : t('None');
+
+  // Object
+  $mail_object = $wrapper->{'field_mail_object'}->value();
+  $info['mailObject'] = $mail_object ? $mail_object : t('None');
+
+  // Register number
+  $mail_reference_id = $wrapper->{'field_mail_rid'}->value();
+  $info['mailRid'] = $mail_reference_id ? $mail_reference_id : t('None');
+
+  // Arrival/Departure Date
+  $arrival_departure_date = $wrapper->{'field_arrival_departure_date'}->value();
+  $info['arrivalDepartureDate'] = $arrival_departure_date ? $arrival_departure_date : t('None');
+
+
+  if($category != $outbound_mail_taxonomy_term_id){
+
+    // Imputation
+    $impute_to = $wrapper->{'field_impute_to'}->value();
+    $info['imputeTo'] = $impute_to ? $impute_to : t('None');
+
+    // Service recipient
+    $service_recipient = $wrapper->{'field_service_recipient'}->value();
+    $info['serviceRecipient'] = $service_recipient ? $service_recipient : t('None');
+
+    // Copy
+    $mandatory_answer = $wrapper->{'field_mandatory_answer'}->value();
+    $info['mandatoryAnswer'] = $mandatory_answer ? $mandatory_answer : t('None');
+  }else{
+
+    // Recipient (mail or person)
+    $user_recipient = $wrapper->{'field_user_recipient'}->value();
+    $info['userRecipient'] = $user_recipient ? $user_recipient : t('None');
+
+    // Acknowledge Number
+    $acknowledge_number = $wrapper->{'field_acknowledge_number'}->value();
+    $info['acknowledgeNumber'] = $acknowledge_number ? $acknowledge_number : t('None');
+
+  }
+
+  $info['mailObject'] = array(
+    'type' => 'input',
+    'name' => 'field_mail_object',
+    'node_pk' => $node->nid,
+    'value' => $info['mailObject'],
+    'info' => $info['mailObject'],
+    'title' => t('Objet du courrier', array(), array('context' => 'gofast')),
+  );
+
+  $info['mailRid'] = array(
+    'type' => 'input',
+    'name' => 'field_mail_rid',
+    'node_pk' => $node->nid,
+    'value' => $info['mailRid'],
+    'info' => $info['mailRid'],
+    'title' => t('Numéro d\'enregistrement', array(), array('context' => 'gofast')),
+  );
+
+  // Inbound mail specific metadatas
+  if($category != $outbound_mail_taxonomy_term_id){
+
+    $mailSender = is_numeric($info['mailSender']) ? gofast_get_node_title($info['mailSender']) : $info['mailSender'];
+    $info['mailSender'] = array(
+      'type' => 'input',
+      'name' => 'field_mail_sender',
+      'node_pk' => $node->nid,
+      'value' => $mailSender,
+      'info' => $mailSender,
+      'title' => t('Origine du courrier', array(), array('context' => 'gofast')),
+    );
+
+    $info['arrivalDepartureDate'] = array(
+      'type' => 'input',
+      'name' => 'field_arrival_departure_date',
+      'node_pk' => $node->nid,
+      'class' => "gofastDatepicker",
+      'value' => $info['arrivalDepartureDate'],
+      'info' => $info['arrivalDepartureDate'],
+      'title' => t('Date d\'arrivée du courrier', array(), array('context' => 'gofast')),
+    );
+
+  $info['imputeTo'] = array(
+     'type' => 'input',
+     'name' => 'field_impute_to',
+     'node_pk' => $node->nid,
+     'value' => $impute_to ? gofast_get_node_title($info['imputeTo']) : $info['imputeTo'],
+     'info' => $impute_to ? gofast_get_node_title($info['imputeTo']) : $info['imputeTo'],
+     'title' => t('Imputation', array(), array('context' => 'gofast')),
+   );
+
+   $info['serviceRecipient'] = array(
+      'type' => 'input',
+      'name' => 'field_service_recipient',
+      'node_pk' => $node->nid,
+      'value' => $info['serviceRecipient'],
+      'info' => $info['serviceRecipient'],
+      'title' => t('Copie(s)', array(), array('context' => 'gofast')),
+    );
+
+  $mandatory_fields = [
+    [
+      'id' => '2',
+      'text' => t('Yes')
+    ],
+    [
+      'id' => '1',
+      'text' => t('No')
+    ],
+    [
+      'id' => '0',
+      'text' => t('None')
+    ]
+    ];
+
+  $info['mandatoryAnswer'] = array(
+    'type' => 'select',
+    'fields' => $mandatory_fields,
+    'name' => 'field_mandatory_answer',
+    'node_pk' => $node->nid,
+    'value' => $info['mandatoryAnswer'],
+    'info' => $info['mandatoryAnswer'],
+    'title' => t('Nécessité de répondre', array(), array('context' => 'gofast')),
+  );
+
+  }else{ // Outbound mail specific metadatas
+
+    $mailSender = is_numeric($info['mailSender']) ? gofast_get_node_title($info['mailSender']) : $info['mailSender'];
+    $info['mailSender'] = array(
+      'type' => 'input',
+      'name' => 'field_mail_sender',
+      'node_pk' => $node->nid,
+      'value' => $mailSender,
+      'info' => $mailSender,
+      'title' => t('Departement de provenance', array(), array('context' => 'gofast')),
+    );
+
+
+    $info['arrivalDepartureDate'] = array(
+      'type' => 'input',
+      'name' => 'field_arrival_departure_date',
+      'node_pk' => $node->nid,
+      'class' => "gofastDatepicker",
+      'value' => $info['arrivalDepartureDate'],
+      'info' => $info['arrivalDepartureDate'],
+      'title' => t('Date de depart du courrier', array(), array('context' => 'gofast')),
+    );
+
+    $info['userRecipient'] = array(
+      'type' => 'input',
+      'name' => 'field_user_recipient',
+      'node_pk' => $node->nid,
+      'value' => $info['userRecipient'],
+      'info' => $info['userRecipient'],
+      'title' => t('Destinataire du courrier', array(), array('context' => 'gofast')),
+    );
+
+    $info['acknowledgeNumber'] = array(
+      'type' => 'input',
+      'name' => 'field_acknowledge_number',
+      'node_pk' => $node->nid,
+      'value' => $info['acknowledgeNumber'],
+      'info' => $info['acknowledgeNumber'],
+      'title' => t('Numéro d\'accusé récéption', array(), array('context' => 'gofast')),
+    );
+  }
+
+
+  $info['userRecipient'] = array(
+    'type' => 'input',
+    'name' => 'field_user_recipient',
+    'node_pk' => $node->nid,
+    'value' => $info['userRecipient'],
+    'info' => $info['userRecipient'],
+    'title' => t('Personne destinaire', array(), array('context' => 'gofast')),
+  );
+
+
+
+
+  // $node_links = $info['arrivalDepartureLink'];
+  // $target_links = array_map(function($element) {
+  //   if($element->status == "1"){
+  //     $element_icon = gofast_node_get_icon($element);
+  //     $element_link = '/node/'.$element->nid;
+  //     $element_title = $element->title;
+  //     return theme('gofast_metadata_node_link', array('icon' => $element_icon, 'link' => $element_link,'title' => $element_title));
+  //   }else{
+  //     return;
+  //   }
+  // }, $node_links);
+
+  // foreach($node_links as $node_link){
+  //   $json_target_links = gofast_ac_format_value_json('node', $node_link, null);
+  //   $array_data[] = $json_target_links;
+  // }
+  // $info['arrivalDepartureLink'] = array(
+  //   'type' => 'ac',
+  //   'name' => 'field_arrival_departure_link',
+  //   'node_pk' => $node->nid,
+  //   'value' => $target_links,
+  //   'info' => '',
+  //   'json_target_links' => json_encode($array_data),
+  //   'title' => t('Lien entre courrier entrant/sortant', array(), array('context' => 'gofast')),
+  // );
+  $output = array(
+    'title' => t('Mail informations'),
+    'id' => 'document__extra_metadata__mail_informations_tab',
+    'theme' => theme('gofast_node_extra_metadatas', ['extra_infos' => $info])
+  );
+
+  return $output;
+
+}
+
+/**
+ * Implement hook_node_access
+ */
+function gofast_mail_inbound_outbound_node_access($node, $op, $account){
+  if (isset($node)) {
+    if($op != 'view'){
+      $category_outbound_mail = gofast_xeditable_terms_get_from_array(GOFAST_VID_CATEGORY, array('Courrier sortant'))[0];
+      if($node->{'field_category'}[LANGUAGE_NONE][0]["tid"] == $category_outbound_mail->tid){
+        $node_reference = gofast_cmis_node_get_item_id($node);
+        $permissions = gofast_cmis_webservice_item_get_permissions($node_reference);
+        foreach($permissions as $permission){
+          if(strpos($permission, 'DUA_Archived')){
+            return NODE_ACCESS_DENY;
+          }
+        }
+        return NODE_ACCESS_ALLOW;
+      }
+    }
+  }
+  return NODE_ACCESS_IGNORE;
+}
+
+
+/**
+ * Implement HOOK_node_view
+ */
+function gofast_mail_inbound_outbound_node_view($node, $view_mode, $langcode){
+  if (isset($node)) {
+    $category_outbound_mail = gofast_xeditable_terms_get_from_array(GOFAST_VID_CATEGORY, array('Courrier sortant'))[0];
+    if($node->{'field_category'}[LANGUAGE_NONE][0]["tid"] == $category_outbound_mail->tid){
+      $node_reference = gofast_cmis_node_get_item_id($node);
+      $permissions = gofast_cmis_webservice_item_get_permissions($node_reference);
+
+      foreach($permissions as $permission){
+        if(strpos($permission, 'DUA_Archived')){
+          drupal_set_message(t("[Outbound mail] This mail has been stamped, so it is now in read-only mode"), 'info', FALSE);
+        }
+      }
+    }
+  }
+
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function gofast_mail_inbound_outbound_node_insert($node) {
+  global $user;
+  $path = $node->field_main_emplacement[LANGUAGE_NONE][0]['value'];
+  if($path == "/Sites/_Groups/_Traitement Courrier/_Traitement Courrier Entrant/A traiter"){
+    gofast_mail_inbound_outbound_start_workflow($node);
+  }
+  if(is_string($path) && strpos($path, "/_Traitement des courriers/Courrier sortant/A traiter")){
+    $bonita_uids = gofast_workflows_get_bonitaids_from_uids([$user->uid]);
+    gofast_mail_start_outbound_workflow([], '', [], [$node->nid], FALSE, json_encode($bonita_uids));
+  }
+}
+
+
+function gofast_mail_inbound_outbound_start_workflow($node){
+
+  global $user;
+
+  watchdog("debug start workflow mail factures", $node->nid);
+  //we search for the processDefinitionId corresponding to our workflow
+
+  $cookie_name = "cookie_bonita" . BONITA_TECHNICAL_LOGIN . ".txt";
+  gofast_workflows_delete_cookie($cookie_name);
+  gofast_workflows_get_cookie(true);
+
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_HEADER, 0);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_POST, 0);
+  curl_setopt($ch, CURLOPT_COOKIEFILE, "sites/default/files/swf/$cookie_name");
+
+  $url = URL_BONITA . "API/bpm/process?p=0&c=10&o=displayName%20ASC&f=name%3dCourrier%20entrant";
+  curl_setopt($ch, CURLOPT_URL, $url);
+  $array_results = json_decode(gofast_workflows_curl_exec($ch), true);
+  $workflow_process_id = end($array_results)['id'];
+
+  $variables = array(
+    "comment_e1" => "",
+    "documents" => [$node->nid],
+    "register_date" => "2022-10-06T08:03:07.734Z",
+    "register_number" => "",
+    "origin" => "",
+    "object" => "",
+    "imputation" => "",
+    "copy" => [],
+    "current_deadline" => "",
+    "needAnswer" => false,
+    "auto_launch" => true,
+    "uids_types" => [],
+    "nid_auto_launch" => $node->nid . '`' . $node->title
+  );
+
+  $url = URL_BONITA . "API/bpm/process/" . $workflow_process_id . "/instantiation";
+  $data_string = json_encode((object)$variables);
+
+  //connect
+  $ch = curl_init();
+
+  $cookie_name = "cookie_bonita" . $user->name . ".txt";
+
+  curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+      'Content-Type: application/json',
+      'Content-Length: ' . strlen($data_string)
+    ));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_VERBOSE, true);
+
+
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+    curl_setopt($ch, CURLOPT_COOKIEFILE, "sites/default/files/swf/" . $cookie_name);
+
+    curl_setopt($ch, CURLOPT_URL, $url);
+
+    $result = json_decode(gofast_workflows_curl_exec($ch), true);
+    watchdog('debug_avanhove', json_encode($result));
+}

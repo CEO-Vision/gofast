@@ -10,7 +10,7 @@
             <?php else: ?>
                 <i class="menu-bullet menu-bullet-dot"><span></span></i>
             <?php endif ?>
-            <span class="menu-text"><?php echo $link['label'] ?></span>
+            <span class="menu-text" style="overflow-wrap: anywhere;"><?php echo $link['label'] ?></span>
             <i class="menu-arrow"></i>
         </a>
         <?php if (!empty($link['menu']) ): ?>
@@ -24,7 +24,7 @@
         <?php endif;?>
     </li>
 <?php else: ?>
-    <li class="menu-item <?php echo $link['class']; ?>" aria-haspopup="true" id="<?php echo $link['id'] ?>" <?php if(isset($link['attrs']['gid'])):?> data-gid="<?php echo $link['attrs']['gid'] ?>" <?php endif; ?>>
+    <li <?= isset($link['onClick']) ? "onClick=\"" . $link['onClick'] . "\"" : "" ?>  class="menu-item <?php echo $link['class']; ?>" aria-haspopup="true" id="<?php echo $link['id'] ?>" <?php if(isset($link['attrs']['gid'])):?> data-gid="<?php echo $link['attrs']['gid'] ?>" <?php endif; ?>>
         <a href="<?php echo $link['href'] ?>" target="<?php echo $link['target'] ?>" class="menu-link <?php echo $link['linkClass'] ?>">
             <?php if(isset($link['icon'])): ?>
                 <?php if(!empty($link['icon'])): ?>
@@ -37,14 +37,14 @@
             <?php else: ?>
                 <i class="menu-bullet menu-bullet-dot"><span></span></i>
             <?php endif ?>
-            <span class="menu-text"><?php echo $link['label'] ?></span>
+            <span class="menu-text" style="overflow-wrap: anywhere;"><?php echo $link['label'] ?></span>
         </a>
     </li>
 <?php endif; ?>
 <script>
 jQuery(document).ready(function() {
-    if(document.URL.includes(Drupal.settings.mobile_prefix_url)) {
-        jQuery("#kt_aside_menu .menu-item a").click(function () { 
+    if(Gofast._settings.isEssential) {
+        jQuery("#kt_aside_menu .menu-item a:not(.menu-toggle)").click(function () { 
             jQuery("#kt_aside").removeClass('aside-on');
         });
     }

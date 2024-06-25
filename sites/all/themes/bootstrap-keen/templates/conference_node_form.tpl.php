@@ -20,6 +20,13 @@
     </div>
     <div class="Conference__Field GofastForm__Field GofastForm__Field--members">
       <?php echo render($form['list_participants']); ?>
+      <?php echo render($form['notify_added_removed_only']); ?>
+    </div>
+    <div class="Conference__Field GofastForm__Field GofastForm__Field--password">
+      <?php echo render($form['field_conference_password']); ?>
+    </div>
+    <div class="Conference__Field GofastForm__Field GofastForm__Field--lobby">
+      <?php echo render($form['field_conference_has_lobby_room_bs_switch']); ?>
     </div>
     <div class="Conference__Field GofastForm__Field GofastForm__Field--folders">
       <?php echo render($form['folders']); ?>
@@ -51,6 +58,9 @@
   jQuery(document).ready(function() {
     jQuery('#edit-field-date-und-0-value .gofastDatetimepicker').on("change.datetimepicker", (e) => {
       jQuery('#edit-field-end-date-und-0-value .gofastDatetimepicker').datetimepicker("date", moment(e.date).add(1, "hours"));
+      let defaultFormat =  window.GofastConvertDrupalDatePattern("bootstrap", Drupal.settings.date_format_short, false);
+      jQuery('#edit-field-end-date-und-0-value .gofastDatetimepicker').data("datetimepicker").format(defaultFormat);
+      jQuery('#edit-field-end-date-und-0-value .gofastDatetimepicker').data("datetimepicker").locale(GofastLocale);
     });
   });
 </script>

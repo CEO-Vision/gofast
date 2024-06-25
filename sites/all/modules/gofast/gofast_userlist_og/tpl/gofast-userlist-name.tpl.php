@@ -20,7 +20,7 @@
 if(gofast_userlist_is_visible($userlist->ulid)){
 ?>
 
-<span about="/userlist/<?php print $userlist->ulid ?>">
+<span about="/node/<?php print $userlist->nid ?>">
   <i class="fa fa-users userlist"> </i> 
   <?php print $userlist->name?>
 </span>

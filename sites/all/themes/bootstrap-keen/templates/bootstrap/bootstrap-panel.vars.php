@@ -124,7 +124,7 @@ function bootstrap_keen_process_bootstrap_panel(array &$variables) {
       $variables['attributes']=isset($variables['element']['#attributes']) ? $variables['element']['#attributes'] : array();
       // so it's easier to select the fieldset
       $variables['attributes']['class'][] = 'gofastBoostrapPanel';
-      $variables['body_attributes']=isset($variables['element']['body_attributes']) ? $variables['element']['body_attributes'] : array();
+      $variables['body_attributes']=isset($variables['element']['#body_attributes']) ? $variables['element']['#body_attributes'] : array();
   }
   $variables['attributes'] = drupal_attributes($variables['attributes']);
   $variables['body_attributes'] = drupal_attributes($variables['body_attributes']);

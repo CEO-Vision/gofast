@@ -7,12 +7,6 @@
  */
 
 (function ($, tab, Gofast, Drupal) {
-
-  Gofast.kanban_update_tasks = function (kanban_update_tasks) {
-    // replace kanban context columns because it dosen't works with drupal settings commands
-    Drupal.settings.gofast.context.gofast_kanban_task.node.kanban_tasks_updated = kanban_update_tasks;
-  };
-
   Gofast.Poll = {
     status: 0, // 1 = initialized, does not mean a poll request is actually running.
 

@@ -1,6 +1,11 @@
  <?php
   $node_path = gofast_cmis_space_get_webdav_path_node_page($node->nid);
-  print theme('ajax_file_browser', ["node" => $node]);
+  if(gofast_essential_is_essential() && !gofast_mobile_is_phone()){
+    print theme('essential_ajax_file_browser', ['node' => $node]);
+  } else {
+
+    print theme('ajax_file_browser', ["node" => $node]);
+  }
   ?>
 
  <script>
@@ -9,7 +14,7 @@
 
    //Triger the file browser navigation when we are ready and connected
    function triggerNavigation() {
-     if (typeof Gofast.ITHit === "undefined" || Gofast.ITHit.ready === false) { //Not yet ready
+    if (typeof Gofast.ITHit === "undefined" || typeof Gofast.ITHit.Uploader === "undefined" || Gofast.ITHit.ready === false) { //Not yet ready
        setTimeout(triggerNavigation, 1000);
      } else { //Ready !
        //Get params from URL
@@ -24,13 +29,28 @@
          }
        }
        Gofast.ITHit.loadTree();
-       if (typeof params.path === "undefined") { //No path provided, navigate to default path
-         Gofast.ITHit.navigate("<?php print $node_path; ?>");
-         Gofast.ITHitMobile.navigate("<?php print $node_path; ?>");
-       } else { //Path provided, navigate to path
-         Gofast.ITHit.navigate(params.path);
-         Gofast.ITHitMobile.navigate(params.path);
-       }
+       if (typeof params.path !== "undefined") { //Path provided, navigate to path
+        if(Gofast._settings.isMobileDevice){
+          Gofast.ITHitMobile.navigate(params.path);
+        } else {
+          Gofast.ITHit.navigate(params.path, false, false, null, null, null, "backgroundNavigation");
+        }
+      } else if(!isNaN(location.pathname.split("/")[2]) && Gofast._settings.isEssential){
+        let targetHash = location.hash || "#ogdocuments";
+        Gofast.Essential.navigateFileBrowser(location.pathname.split("/")[2], targetHash, "load")
+      } else { 
+        if(Gofast._settings.isEssential){
+          if(window.location.pathname == "/activity"){ // Navigate to /Sites to have no selected space on activity page load
+            Gofast.ITHit.navigate("/Sites", false, false, null, null, null, "backgroundNavigation");
+          }
+        } else {
+          if(Gofast._settings.isMobileDevice){
+            Gofast.ITHitMobile.navigate("<?php print $node_path; ?>");
+          } else {
+            Gofast.ITHit.navigate("<?php print $node_path; ?>", false, false, null, null, null, "backgroundNavigation"); //No path provided, navigate to default path
+          }
+        }
+      }
        //Attach events to the browser
        Gofast.ITHit.attachBrowserEvents();
        //Init queue mechanism if needed

@@ -1,31 +1,23 @@
 (function($, Drupal, Gofast) {
+  Gofast = Gofast || {};
+
+  Gofast.tabletOrientationHandler = function(e, showBackdrop = false) {
+    // don't show landscape mode backdrop on document pages
+    if (!showBackdrop && Gofast.get("node").type == "alfresco_item" && new RegExp(/^\/node\/(\d)+$/).test(location.pathname)) {
+      $("#landscape-backdrop").addClass("d-none");
+    } else {
+      $("#landscape-backdrop").removeClass("d-none");
+    }
+  };
+
   $(document).ready(function() {
+
     $('#edit-show-password').removeAttr('checked');
 
     $(document).on('change', '#edit-show-password', function(e) {
       var type = $('#edit-pass').attr('type');
       $('#edit-pass').attr('type', type === 'password' ? 'text' : 'password');
     });
-
-    //    $('div.gofast_mobile_field_activity_feed').swipe({
-    //      threshold: 20,
-    //      tap: function(e) {
-    //
-    //
-    //      },
-    //      swipeRight:function(e) {
-    //
-    //      },
-    //      swipeLeft:function(e) {
-    //        $(this).find('div:first').removeClass('col-xs-12 col-sm-12').addClass('col-xs-10 col-sm-10');
-    //        $(this).find('div:last').css('display', 'block');
-    //        $(this).find('div:last').addClass('col-xs-2 col-sm-2');
-    //      }
-    //    });
-
-    /* window.alert = function(message) {
-      //console.log(message);
-    };*/
 
     $('.gofast_mobile_link[href="/browser"]').click(function(e){
       if($(window).width() >= 768){
@@ -34,14 +26,12 @@
       }
     });
 
-
-  /*   RMA : I comment this code it create emty field in prevew page and broken div of comment on doc pages
-    if(typeof Gofast._settings.isMobile != "undefined"){
-          var height = $(window).height();
-          var new_height = height - 100;
-          $("body").append("<style type='text/css'>#alfresco_content {height: "+new_height+"px;}</style>");
-      }
-  */
+    if (Gofast.isTablet()) {
+      // init
+      Gofast.tabletOrientationHandler();
+      // update
+      $(document).on('ajax-navigate ajax-browser-navigate', Gofast.tabletOrientationHandler);
+    }
   });
 
   Drupal.behaviors.annotateButonShowHide = {
@@ -50,7 +40,7 @@
           var isNode = pathname.indexOf("node/"); // path exist
           if (isNode >= 0) { // 0 or more = we are in the node path
             // show "Mode Annotate" when we are in node path
-            if (Drupal.settings.isMobile) {
+            if (Drupal.settings.isEssential) {
               setTimeout(function () { $("#pdf_frame").contents().find("#gfPresentationMode").show(); }, 3000);
             }
           }

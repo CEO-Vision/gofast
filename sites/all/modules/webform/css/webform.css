@@ -110,8 +110,3 @@ fieldset.fieldset-invisible > table {
   top: 10px;
   margin: 0 -10em;
 }
-
-label.option {
-  border: none;
-  padding: 0;
-}

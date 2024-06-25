@@ -7,9 +7,12 @@ define('GOFAST_OG_EXCEL_ADMIN', 'ADMIN');
 define('GOFAST_OG_EXCEL_STANDARD', 'RW');
 
 function gofast_og_mass_users_import_interface(){
-    
-    $form .= drupal_render(drupal_get_form("gofast_og_mass_users_importform"));   
-    return $form;
+    $form = drupal_render(drupal_get_form("gofast_og_mass_users_importform")); 
+    $output = '<div class="container-fluid h-100 py-0" id="kt_content"><div class="gofast-content h-100"><div id="gofastContainer" class="gofast-content--full mainContent fullScreen"><div class="mainContent">'; 
+    $output .= '<div class="card card-custom GofastForm__CardContainer"><div class="card-body">'; 
+    $output .= $form; 
+    $output .= '</div></div></div></div></div></div>'; 
+    return $output;  
 }
 
 function gofast_og_mass_users_importform($form,&$form_state){
@@ -23,7 +26,7 @@ function gofast_og_mass_users_importform($form,&$form_state){
         '#multiple' => false,       
       );
     
-    $form["file"] = array(
+   /* $form["file"] = array(
         '#type'   => "file",
         '#title' => t('XLS File'),
         '#size' => 20,       
@@ -31,15 +34,31 @@ function gofast_og_mass_users_importform($form,&$form_state){
         '#required' => FALSE,
         '#upload_validators'  => array("file_validate_extensions" => array("xlsx")),
         '#attributes' => array('style' => array('padding:0px 0px;'))
+    );*/
+    $form["file"] = array(
+    '#type' => 'file',
+    '#title' => t('Choose a file', array(), array('context' => 'gofast:gofast_cmis')),
+    '#description' => t('Maximum size : !filesize', array('!filesize' => '35M'), array('context' => 'gofast')),
+    '#default_value' => isset($form['#node']->reference) ? $form['#node']->reference : '',
+    '#required' => FALSE,
+    '#size' => 20,
+    '#suffix' => theme('gofast_cmis_upload_suffix'),
+    '#upload_validators'  => array("file_validate_extensions" => array("xlsx")),
     );
-    
+
+    $attributes = [    
+        'class' => [' form-control-tags js-tagify'],    
+        'data-get-spaces' => '',
+        'data-exclude-root-spaces' => '', 
+        'data-user' => ''
+      ]; 
      $form["space"] = array(
       '#title' => t("Space or users", array(), array("context" => "gofast")),
       '#type' => 'textfield',
       '#default_value' => "",
       '#maxlength' => '', // no maxlength
-      '#autocomplete_path' => 'gofast_user_space_autocomplete',
-      '#attributes' => array('class' => array('labelize-autocomplete'))
+      '#attributes' => $attributes,
+      '#name' => 'ac-list-tags-list-spaces',
       );
      
     $form['submit'] = array(
@@ -60,7 +79,7 @@ function gofast_og_mass_users_importform_validate($form,&$form_state){
     if($action == 0){
         $validators = array();
         $validators['file_validate_extensions'] = array();
-        $file = file_save_upload('file', $validators, "public://");
+        $file = file_save_upload('file', $validators, "public://", FILE_EXISTS_REPLACE);
         if($file == NULL){
                 form_set_error("file", t("You must select a file", array(),array("context" => "gofast")));
         }
@@ -77,9 +96,10 @@ function gofast_og_mass_users_importform_validate($form,&$form_state){
 function gofast_og_mass_users_import_file_decode($file){
     set_time_limit(3000);
    
-    require_once libraries_get_path('excel_reader').'/Classes/PHPExcel/IOFactory.php';   
+    /** PHPSpreadSheet */
+    require_once libraries_get_path('phpspreadsheet').'/vendor/autoload.php';
     $file_path = file_stream_wrapper_get_instance_by_uri('public://')->realpath();
-    $objPHPExcel = PHPExcel_IOFactory::load($file_path."/".$file->filename);
+    $objPHPExcel = \PhpOffice\PhpSpreadsheet\IOFactory::load($file_path."/".$file->filename);
     $sheet = $objPHPExcel->getSheet(0);
     
     $data = array();
@@ -90,10 +110,10 @@ function gofast_og_mass_users_import_file_decode($file){
         $login = "";
         foreach ($row->getCellIterator() as $key_cell=>$cell) {          
                  switch($key_cell){
-                    case 0:
+                    case 'A':
                         $login = $cell->getValue();                      
                     break;
-                    case 7:
+                    case "H":
                         $group_id = $cell->getValue();
                         if($group_id !== ""){
                             $group = node_load($group_id);                         
@@ -103,10 +123,10 @@ function gofast_og_mass_users_import_file_decode($file){
                                 $data[$login][$gid]["title"] = $group->title;
                             }
                         }
-                     case 9:
+                     case "J":
                         $permission = $cell->getValue();
                         $data[$login][$gid]["permission"] = gofast_og_excel_get_role_name_from_alias($permission);
-                    case 10:
+                    case "K":
                         $modification = $cell->getValue();
                         if($modification == "0"){
                             unset($data[$login][$gid]);
@@ -116,9 +136,9 @@ function gofast_og_mass_users_import_file_decode($file){
         }
     }
     $data_converted = array();
-    if(count($data) > 0){
+    if(count((array)$data) > 0){
         foreach($data as $login=>$infos){
-            if($login != "Login" && count($infos) > 0){
+            if($login != "Login" && count((array)$infos) > 0){
                 $data_converted[] = array($login=>$infos);
             }
         }
@@ -132,11 +152,10 @@ function gofast_og_mass_users_importform_submit($form,&$form_state){
   set_time_limit(3000);
     $action = $form_state["values"]["action"];
     $spaces = $form_state["values"]["space"];
-    $array_spaces = json_decode($form_state['input']['edit-' . str_replace("_", "-", $form['space']['#name']) . '-hidden-values']);
-
+    $array_spaces = json_decode($form_state['input']['ac-list-tags-list-spaces']);
+    
     //export action
     if($action == 1){
-     $_GET["spaces"] = $array_spaces;
       //export simple
        $_GET["export_type"] = "mini";
        $_GET["spaces"] = $array_spaces;
@@ -192,7 +211,7 @@ function gofast_og_batch_excel_users_file($array_spaces,$type,&$context) {
   if (empty($context['sandbox'])) {
     $context['sandbox']['progress'] = 0;
     $context['sandbox']['current_node'] = 0;
-    if(count($array_spaces) == 0){
+    if(count((array)$array_spaces) == 0){
         $query = db_select('users', 'u')
                 ->fields('u', array('name', 'uid'))
                 ->condition('status', 1)
@@ -204,9 +223,9 @@ function gofast_og_batch_excel_users_file($array_spaces,$type,&$context) {
         $all_uids = array();
         foreach($array_spaces as $array_space){
              if($array_space->type == "node"){
-                $all_uids = array_merge_recursive(gofast_og_get_members(node_load($array_space->id)), $all_uids);
+                $all_uids = array_merge_recursive(gofast_og_get_members(node_load($array_space->value)), $all_uids);
             }else{
-                 $all_uids[] = $array_space->id;
+                 $all_uids[] = $array_space->value;
             }
         }
         $all_uids = array_unique($all_uids);
@@ -216,7 +235,7 @@ function gofast_og_batch_excel_users_file($array_spaces,$type,&$context) {
   }
 
   
- if(count($array_spaces) == 0){
+ if(count((array)$array_spaces) == 0){
         $query = db_select('users', 'u')
                 ->fields('u', array('name', 'uid'))
                 ->condition('status', 1)
@@ -228,9 +247,9 @@ function gofast_og_batch_excel_users_file($array_spaces,$type,&$context) {
          $all_uids = array();
         foreach($array_spaces as $array_space){
             if($array_space->type == "node"){
-                $all_uids = array_merge_recursive(gofast_og_get_members(node_load($array_space->id)), $all_uids);
+                $all_uids = array_merge_recursive(gofast_og_get_members(node_load($array_space->value)), $all_uids);
             }else{
-                 $all_uids[] = $array_space->id;
+                 $all_uids[] = $array_space->value;
             }
         }
         $all_uids = array_unique($all_uids);
@@ -262,7 +281,7 @@ function gofast_og_batch_excel_users_file($array_spaces,$type,&$context) {
         continue;
      }
      
-    if(count($all_og) == 0){
+    if(count((array)$all_og) == 0){
      //iterate all spaces the user is member of
      foreach($myuser->og_user_node[LANGUAGE_NONE] as $group_object){     
         $space = node_load($group_object["target_id"]);
@@ -334,13 +353,12 @@ function gofast_og_batch_excel_users_file($array_spaces,$type,&$context) {
 function gofast_og_batch_excel_users_file_finished($success, $results, $operations){
     ini_set("memory_limit", "1024M");
     set_time_limit(3000);
-    require_once libraries_get_path('excel_reader').'/Classes/PHPExcel.php';   
-    /** PHPExcel_Writer_Excel2007 */
-    require_once libraries_get_path('excel_reader').'/Classes/PHPExcel/Writer/Excel2007.php';
+    /** PHPSpreadSheet */
+    require_once libraries_get_path('phpspreadsheet').'/vendor/autoload.php';
 
     $filename = "liste_users";
 
-    $objPHPExcel = new PHPExcel();
+    $objPHPExcel = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
     $objPHPExcel->setActiveSheetIndex(0);
     $objPHPExcel->getActiveSheet()->SetCellValue('A1', "Login");
     $objPHPExcel->getActiveSheet()->SetCellValue('B1', "Nom");
@@ -373,7 +391,7 @@ function gofast_og_batch_excel_users_file_finished($success, $results, $operatio
         $objPHPExcel->getActiveSheet()->SetCellValue('K'.$i, 0);
         $i++;     
     }
-    $objWriter = new PHPExcel_Writer_Excel2007($objPHPExcel);
+    $objWriter = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($objPHPExcel);
     $objWriter->save("/var/tmp/$filename.xlsx");
     
       $file = "/var/tmp/$filename.xlsx";
@@ -403,7 +421,7 @@ function gofast_og_batch_excel_users_file_import($data,&$context) {
   if (empty($context['sandbox'])) {
     $context['sandbox']['progress'] = 0;
     $context['sandbox']['current_node'] = 0; 
-    $context['sandbox']['max'] = count($data);
+    $context['sandbox']['max'] = count((array)$data);
   }
 
 
@@ -419,12 +437,16 @@ function gofast_og_batch_excel_users_file_import($data,&$context) {
         $gids[$infos["gid"]] = array("role" => $infos["permission"], "space_name" => $infos["title"]);
     }
 
-    if(count($gids) > 0){
+    if(count((array)$gids) > 0){
         //manage user role on each space
-        foreach($gids as $gid => $role_info){          
+        foreach($gids as $gid => $role_info){  
+             // check if gid really exists
+             $node = node_load($gid);
+             if(!isset($node->nid)){
+               continue;
+             }        
             //get current role on the current space for this user
-            $current_role = og_get_user_roles('node', $gid, $myuser->uid, FALSE, TRUE);
-             //var_dump($gid);var_dump($current_role);var_dump(" separator ");var_dump($role_info);exit;
+            $current_role = og_get_user_roles('node', $gid, $myuser->uid, FALSE, TRUE);           
             if( array_shift(array_values($current_role)) == $role_info["role"]){
                  $context['results'][] = t("The user !user_name already have role !role into the space !space_name", array('!user_name' => $myuser->name, '!role' => $role_info["role"], "!space_name" => $role_info["space_name"]), array("context" => "gofast"));
             }else{
@@ -466,13 +488,12 @@ function gofast_og_batch_excel_users_file_import($data,&$context) {
 
 function gofast_og_batch_excel_users_file_import_finished($success, $results, $operations){   
     set_time_limit(3000);
-    require_once libraries_get_path('excel_reader').'/Classes/PHPExcel.php';   
-    /** PHPExcel_Writer_Excel2007 */
-    require_once libraries_get_path('excel_reader').'/Classes/PHPExcel/Writer/Excel2007.php';
+    /** PHPSpreadSheet */
+    require_once libraries_get_path('phpspreadsheet').'/vendor/autoload.php';
 
     $filename = "result_import_liste_users";
 
-    $objPHPExcel = new PHPExcel();
+    $objPHPExcel = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
     $objPHPExcel->setActiveSheetIndex(0);
     $objPHPExcel->getActiveSheet()->SetCellValue('A1', "Login");
   
@@ -482,7 +503,7 @@ function gofast_og_batch_excel_users_file_import_finished($success, $results, $o
         $objPHPExcel->getActiveSheet()->SetCellValue('A'.$i, $result);    
         $i++;     
     }
-    $objWriter = new PHPExcel_Writer_Excel2007($objPHPExcel);
+    $objWriter = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($objPHPExcel);
     $objWriter->save("/var/tmp/$filename.xlsx");
     
       $file = "/var/tmp/$filename.xlsx";

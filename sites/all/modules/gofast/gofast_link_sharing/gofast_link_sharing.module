@@ -49,6 +49,16 @@ function gofast_link_sharing_menu() {
     'access callback' => TRUE,
     'delivery callback' => 'gofast_link_sharing_delivery_callback'
   );
+  
+  $items['sharing/logged_in/%'] = array(
+    'title' => 'Share',
+    'description' => 'Share a link to a File',
+    'page callback' => 'gofast_link_sharing',
+    'page arguments' => array(2),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'type' => MENU_NORMAL_ITEM,
+  );
 
   //send mail
   $items['public/sharing_dl'] = array(
@@ -88,13 +98,31 @@ function gofast_link_sharing_menu() {
     'type' => MENU_CALLBACK,
   );
 
+  $items['public/multi_sharing/dl'] = array(
+    'title' => 'Share',
+    'description' => 'Share a link to a file',
+    'page callback' => 'gofast_link_sharing_folder_dl',
+    'page arguments' => array(3),
+    'access callback' => TRUE,
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+
   //access to document
   $items['public/multi_sharing'] = array(
     'title' => 'Share',
     'description' => 'Share a link to a file',
     'page callback' => 'gofast_link_sharing_multi_link_page',
-    'page arguments' => array('gofast_multi_link_sharing_form'), //put the name of the form here
+    'page arguments' => array(2),
     'access callback' => TRUE,
+  );
+  
+  $items['multi_sharing/logged_in/%'] = array(
+    'title' => 'Share',
+    'description' => 'Share a link to a file',
+    'page callback' => 'gofast_link_sharing_multi_link_page',
+    'page arguments' => array(2),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
   );
 
   return $items;
@@ -115,6 +143,10 @@ function gofast_link_sharing_theme(){
   $theme['gofast-link-sharing-multi-file-details'] = array(
     'template' => 'tpl/gofast-link-sharing-multi-file-details'
   );
+  
+  $theme['gofast-link-sharing-multi-folder-details'] = array(
+    'template' => 'tpl/gofast-link-sharing-multi-folder-details'
+  );
 
   $theme['gofast-sharing-download'] = array(
     'template' => 'tpl/gofast-sharing-download'
@@ -127,15 +159,117 @@ function gofast_link_sharing_theme(){
   $theme['gofast_manage_linksharing_body'] = array(
      'template'  => 'tpl/gofast-manage-linksharing-body'
   );
+  
+  $theme['gofast_link_sharing_share_folder_contents'] = array(
+     'template'  => 'tpl/gofast-link-sharing-share-folder-contents'
+  );  
+  
+  $theme['gofast_link_sharing_folder_body'] = array(
+     'template'  => 'tpl/gofast-manage-linksharing-folder-body'
+  );
 
   return $theme;
 }
 
-function gofast_link_sharing_multi_link_page($multi_link_form_name){
-  $multi_link_form = drupal_get_form($multi_link_form_name);
-  $content = theme('gofast-link-sharing-multi-file-details', ['form' => $multi_link_form]);
-  $pageContent = gofast_create_page_content($content);
-  return $pageContent;
+/**
+ * @throws \Exception
+ */
+function gofast_link_sharing_multi_link_page($hash){
+  if(!empty($hash)){
+    
+    $hash_code = $hash;
+  } else {
+    $hash_code = $_GET['hash'];
+  }
+  
+  if(array_key_exists('workspace', $_GET)){
+    $folder_store_id = $_GET['workspace'];
+
+    $multi_link_form = drupal_get_form("gofast_multi_link_sharing_form", $hash_code, $folder_store_id);
+    $data = ['form' => $multi_link_form, 'ask_join_link' => FALSE, 'hash' => $hash_code];
+    $data['folder_store_id'] = $folder_store_id;
+    $data['folder_contents'] = gofast_link_sharing_get_shared_folder_content($folder_store_id);
+    
+    $content = theme('gofast-link-sharing-multi-folder-details', $data);
+    return gofast_create_page_content($content);
+  }
+  
+  $multi_link_form = drupal_get_form("gofast_multi_link_sharing_form", $hash_code );
+  $nids = array_keys($multi_link_form["shares"]["#options"]);
+  $parents = array_unique(array_map(function($nid) {
+    $node = node_load($nid);
+    if ($node) {
+      $og_parent = gofast_og_get_parent($node);
+      $parent = reset($og_parent);
+      $is_private = gofast_og_is_user_private_space($parent);
+    }
+    if ($node && !$is_private) {
+      return $parent;
+    }
+  }, $nids));
+  
+  if (empty($parents))
+    $ask_join_link = FALSE;
+  else 
+    $ask_join_link = "/modal/nojs/directory/bulk_action/space/ask_join/" . implode("-", $parents);
+  
+  $data = ['form' => $multi_link_form, 'ask_join_link' => $ask_join_link, 'hash' => $hash_code];
+  $content = theme('gofast-link-sharing-multi-file-details', $data);
+  return gofast_create_page_content($content);
+}
+
+function gofast_link_sharing_get_shared_folder_content($store_id): stdClass {
+
+  $store_id= "workspace://SpacesStore/".$store_id;
+  // this usurp is mandatory since gofast_cmis_get_repository will return null for anonymous users
+  usurp(1);
+  $item = gofast_cmis_item_get($store_id, TRUE);
+  usurp(FALSE);
+  
+  $node_description  = gofast_link_sharing_get_folder_description($item);
+
+  //convert properties to array
+  if(gettype($item) != "boolean" && is_object($item)){
+    $item->properties = (array) $item->properties;
+    $node_description->title = $item->properties["cmis:name"] ?? $item->title;
+  } else {
+    $node_description->title = t('This folder could not be be found.',
+      [], ['context' => 'gofast_link_sharing']);
+  }
+   
+  $node_description->locations = [];
+
+  return $node_description;
+}
+
+/**
+ * Gets the content of a folder
+ * @param mixed $item
+ *
+ * @return \stdClass
+ */
+function gofast_link_sharing_get_folder_description(mixed $item): stdClass {
+  $node_description = new stdClass();
+  $node_description->children = [];
+
+  $node_description->icon = "fa fa-folder";
+  $children = gofast_cmis_webservice_item_get_descendants($item->id);
+
+  foreach ($children as $child) {
+    $child_object = new stdClass();
+    if (is_numeric($child)) {
+      $child_node = node_load($child);
+      $child_object->icon = gofast_node_get_icon($child_node);
+      $child_object->title = $child_node->title;
+    }
+    else {
+      $array = explode("/", $child);
+      $child_object->title = array_pop($array);
+      $child_object->icon = "fa fa-file";
+    }
+    $node_description->children[] = $child_object;
+  }
+  return $node_description;
 }
 
 /**
@@ -174,7 +308,12 @@ function gofast_link_sharing_form_modal($js, $node=null){
 
   $commands = ctools_modal_form_wrapper('gofast_link_sharing_form', $form_state);
   if (!isset($commands[0])) {
-    $values_sharing = json_decode($form_state['input']['edit-to-hidden-values']);
+    $form_state['input']['to'] = array_map(function($item) {
+      $formatted_item = new stdClass();
+      $formatted_item->type = $item->type;
+      $formatted_item->value = $item->value;
+      return $formatted_item;
+    }, json_decode((string) $form_state['input']['ac-list-tags-to']));
     if (!empty($form_state['input']['to'])){
       $values_sharing[] = $form_state['input']['to'];
     }
@@ -184,10 +323,10 @@ function gofast_link_sharing_form_modal($js, $node=null){
     $commands = array_merge($commands, gofast_ajaxification_get_toast_messages());
 
     //Insert linksharing into audit
-    gofast_audit_linksharing($node,$values_sharing);
+    gofast_audit_linksharing($node, $values_sharing);
 
     //Insert last event linksharing into news feed
-    gofast_message_ext_create_linksharing_entity($node,$values_sharing);
+    //gofast_message_ext_create_linksharing_entity($node,$values_sharing);
 
 
 
@@ -209,65 +348,40 @@ function gofast_link_sharing_form_modal($js, $node=null){
  *
  * @return string (HTML)
  */
-function gofast_link_sharing(){
-
+function gofast_link_sharing($hash){
+  global $base_url;
   global $user;
   $curr_user = $user;
-
-  //Use admin user to be able to access cmis object
-  //usurp(false);
-  //usurp(1);
-  $decrypt_datas = gofast_link_sharing_link_decrypt($_GET["hash"]);
-  $nid = $decrypt_datas['nid'];
-  $exp_date = $decrypt_datas['exp_date'];
-
-  //Check node exist
-  $node = node_load($nid);
-  $node_exists = isset($node->nid);
-
-  $l = array('langcode' => $user->language, 'context' => 'gofast:gofast_link_sharing');
-
-  //Check sharing expiry date
-  $link_still_valid = ( $exp_date > time())? TRUE : FALSE ;
-
+  $node = gofast_multi_sharing_check_session($hash);
   //Check if there is already a gofast session
   $is_gofast_user = gofast_link_sharing_is_gofast_user($curr_user);
-  $output = '';
-  if( ! $node_exists || ( !$link_still_valid && !$is_gofast_user) ){
-      global $base_url;
-      $ddl_link = $base_url.":443".'/';
-      drupal_set_message(t("Sorry this sharing link is not valid", array(), array('context' => 'sharing_dl')), 'error');
-      drupal_goto("/");
-      exit;
-    //$output = MENU_ACCESS_DENIED;
-  }else{
-    global $user;
-    global $base_url;
-    usurp(1);
     $user_has_access = gofast_link_sharing_usr_has_access($node, $curr_user);
+    // this usurp is mandatory since gofast_cmis_get_repository will return null for anonymouse users
+    usurp(1);
     $cmis_id = gofast_cmis_node_get_item_id($node);
     $object = gofast_cmis_item_get($cmis_id, TRUE);
-
-    $alfresco_ticket = gofast_cmis_retrieve_and_store_ticket($user);
-    usurp(false);
-    gofast_cmis_unset_user_ticket();
-    $link = $object->links["edit-media"];
+    usurp(FALSE);
 
     if($is_gofast_user && $user_has_access){
-      $ddl_link = $base_url.":443".'/node/'.$nid;
+    $ddl_link = $base_url.":443".'/node/'.$node->nid;
       header('Location:'.$ddl_link);
       exit;
 
     }else{
-      $ddl_link = str_replace("http://localhost:8080",$base_url.":443" , $link).'&alf_ticket='.$alfresco_ticket;
+      $parent = reset(gofast_og_get_parent($node));
+      $parent_name = gofast_get_node_title($parent);
+      $is_private = gofast_og_is_user_private_space($parent);
+      if ($is_private) {
+        $parent = FALSE;
+      }
       $output = theme('gofast-link-sharing-file-details', array(
                 'title' => $object->properties['cmis:name'],
                 'version' => empty($version) ? $object->properties['cmis:versionLabel']: $version,
-                'link' => $ddl_link,
                 'hash' => $_GET['hash'],
-		'nid' => $node->nid,
+                'parent' => $parent,
+                'parent_name' => $parent_name,
+		            'nid' => $node->nid,
               ));
-    }
   }
 
   return $output;
@@ -287,8 +401,8 @@ function gofast_sharing_download(){
 
     global $base_url;
     $decrypt_datas = gofast_link_sharing_link_decrypt($_GET['hash']);
-    $nid = $decrypt_datas['nid'];
-    $emetteur = user_load($decrypt_datas['emetteur']);
+    $nid = $decrypt_datas['nids'];
+    $transmitter = user_load($decrypt_datas['transmitter']);
     $version = $decrypt_datas['version'];
     $dest_id = $decrypt_datas['dest_id'];
     if(!is_numeric($dest_id)){
@@ -301,9 +415,6 @@ function gofast_sharing_download(){
     }
 
     $version_share = $version;
-
-    usurp(1);
-
     $node = node_load($nid);
     $nodes_informations[0]['title'] = $node->title;
     $node_icon = str_replace('<span>', '<span style="display:none;">', theme('node_title', array('node' => $node, 'link' => FALSE)));
@@ -314,21 +425,20 @@ function gofast_sharing_download(){
     $author_pic_url = gofast_get_url_picture_by_id($destinataire->uid);
     $author_pic = '<img src="' . $author_pic_url . '" style="padding-right: 5px; border-radius; 5px;" width="25">';
 
-    $l = array('langcode' => $emetteur->language, 'context' => 'gofast:gofast_link_sharing');
+    $destination_user = user_load($destinataire->uid);
+    $l = array('langcode' => $transmitter->language, 'context' => 'gofast:gofast_link_sharing');
     $body = theme('gofast-sharing-download', array(
-      'message' => str_replace("{tag}", $message_tag, t("{tag} downloaded your document on the GoFAST plateform", array(), array('context' => 'gofast:gofast_link_sharing'))),
-      'author_pic' => $author_pic,
-      'recip_name' => $emetteur->ldap_user_givenname[LANGUAGE_NONE][0]['value'],
+      'message' => str_replace("{tag}", $message_tag, t("{tag} downloaded your document on the GoFAST platform", array(), array('context' => 'gofast:gofast_link_sharing'))),
+      'author_pic' =>  $destination_user !== FALSE ? theme('user_picture', array('account' => user_load($destinataire->uid), 'dimensions' => 40, 'attributes' => ['width' => 40, 'style' => "border-radius: 5px; width:40px;"])): '', 'recip_name' => $transmitter->ldap_user_givenname[LANGUAGE_NONE][0]['value'],
       'nodes_informations' => $nodes_informations,
       'l' => $l,
     ));
-    usurp(false);
 
-    $subject = t("@destinaire downloaded your document on the GoFAST plateform", array('@destinaire' => $nameDestinaire), array('langcode' => $emetteur->language, 'context' => 'sharing_dl'));
-    $title = t("Sharing Download",array(),array('langcode' => $emetteur->language, 'context' => 'sharing_dl'));
+    $subject = t("@destinaire downloaded your document on the GoFAST platform", array('@destinaire' => $nameDestinaire), array('langcode' => $transmitter->language, 'context' => 'sharing_dl'));
+    $title = t("Sharing Download",array(),array('langcode' => $transmitter->language, 'context' => 'sharing_dl'));
     $footer = t('Message sent from ', array(), $l)." ".variable_get('site_name');
     $dest_mail=array();
-    $dest_mail['0']['recpt'] = $emetteur->mail;
+    $dest_mail['0']['recpt'] = $transmitter->mail;
     $dest_mail['0']['method'] = 'to';
 
     $mail = array(
@@ -350,26 +460,24 @@ function gofast_sharing_download(){
     $event = array('mod_author' => 0, 'mod_timestamp' => time(), "event" => $event_type, 'mod_version' => $version_share, 'mod_ip' => $addr_ip);
     $event = serialize($event);
     $last_event_serialized = rawurlencode($event);
-    gofast_audit_insert_line_audit($node->nid,$event_type,$last_event_serialized, $last_event_unserialized );
+    gofast_audit_insert_line_audit($node->nid,$event_type,$last_event_serialized, $last_event_unserialized);
 
     try{
         global $user;
         usurp(1);
-        $alfresco_ticket = gofast_cmis_retrieve_and_store_ticket($user);
-        usurp(false);
+        $alfresco_ticket = gofast_cmis_webservice_generate_alfresco_ticket("admin");
         $title = $node->title;
         $version = str_replace('.','_',$node->field_current_version['und']['0']['value']);
         $extension = gofast_cmis_node_get_extension($node);
         $cmis_id = gofast_cmis_node_get_item_id($node);
-        $object = gofast_cmis_item_get($cmis_id, TRUE);
+        $object = gofast_cmis_item_get($cmis_id, TRUE);      
         $link = $object->links["edit-media"];
         $ddl_link = $link .'&alf_ticket='.$alfresco_ticket;
         str_replace('.','_',$node->field_current_version['und']['0']['value']);
         $full_title = str_replace('.' . $extension , '_v' . $version . '.' . $extension,$title);
-
         //Clear the user ticket
         gofast_cmis_unset_user_ticket();
-        
+        usurp(false);
         //Prepare buffer for stream
         while (ob_get_level()) ob_end_clean();
         set_time_limit(0);

@@ -16,6 +16,8 @@
         let _modalFooter;
         let _cardDetail = null;
         let _selfUpdate = false;
+        const delay = 1000; //ms
+        let lastExecutionReloadKanban = 0;
 
         /*
          *   KANBAN INIT
@@ -79,9 +81,9 @@
                 return '\n<div class="card card-custom p-4"> <!--begin::Header--> <div class=""> <!--begin::Info--> <div class="d-flex align-items-center justify-content-between"> <div class="d-flex flex-column w-100"> <div class="d-flex justify-content-between w-100"> <a href="#" class="text-dark-75 text-hover-primary font-weight-bolder font-size-lg">' +
                 this.title +
                 "</a> " +
-                (this.state
-                  ? ' <span class="label label-sm label-outline-warning label-pill label-inline">' +
-                    this.state +
+                (this.localized_state
+                  ? ' <span class="h-100 label label-sm label-outline-' + this.localized_state_indicator + ' label-pill label-inline">' +
+                    this.localized_state +
                     "</span> "
                   : "") +
                 " </div> " +
@@ -153,12 +155,6 @@
 
             // buttonContent: null,
 
-            itemAddOptions: {
-                enabled: true, // add a button to board for easy item creation
-                content: '<i class="fas fa-plus"></i>', // text or html content of the board button
-                class: 'kanban-title-button btn btn-default btn-xs', // default class of the button
-                footer: true                                                // position the button on footer
-            },
             itemHandleOptions: {
                 enabled: false, // if board item handle is enabled or not
                 handleClass: "item_handle", // css class for your custom item handle
@@ -273,25 +269,26 @@
             }
             
             //Open given card Id
-            const queryString = window.location.search;
+            var url_params = new URLSearchParams(window.location.search);
 
-            const params = queryString.split('&');
-            var new_params = [];
             var card_id = null;
-            //Remove card_id from url params
-            params.forEach(function(param){
-                if(! param.startsWith('card_id') && param != "?"){
-                    new_params.push(param);
-                }else if (param.startsWith('card_id')){
-                     card_id = param.replace('card_id=', '');
-                }
-            });
+            if (url_params.has("card_id")) {
+                card_id = url_params.get("card_id");
+                //Remove card_id from url params
+                url_params.delete("card_id");
+            }
 
             if(card_id !== null){
-                _openCard(card_id);
-                var new_url = window.location.pathname+'?'+ new_params.join('&');
-                window.history.replaceState(window.location.hostname,document.title,new_url);
-                // window.location.hash = '';
+                var new_url = window.location.pathname+'?'+ url_params.toString() + window.location.hash;
+                if($(".modal-taskDetail").html() == ""){
+                    _openCard(card_id);
+                }
+                const initModalInterval = setInterval(()=>{
+                    if($(".modal-taskDetail").html() != ""){
+                        clearInterval(initModalInterval);
+                        history.pushState({}, "", new_url);
+                    }
+                },50)
             }
         }
 
@@ -392,6 +389,8 @@
 
         var _reloadKanbanBoards = function (data) {
 
+            _deleteAllKanbanBoards();
+
             kanban.options.canEdit = data.canEditBoards;
             kanban.options.canAddCard = data.canAddCard;
             kanban.options.dragBoards = data.canEditBoards;
@@ -426,8 +425,6 @@
             }else{
                 _setLoadingState(true);
             }
-
-            _deleteAllKanbanBoards()
 
             const res = await fetch(window.origin + "/kanban/" + kanbanId + "/view");
             const data = await res.json()
@@ -738,7 +735,25 @@
             try {
 
                 if (!taskId) {
-                    throw Error('Task id not finded');
+                    throw Error('Task id not found');
+                }else{
+                    let url = window.origin + "/kanban/task/" + taskId + "/get_status";
+                    var status = 0;
+                    
+                    $.ajax({
+                        url: url,
+                        type: 'POST',
+                        dataType: 'json',
+                        async: false,
+                        success: function (content) {
+                            status = content;
+                            if(status == 0){
+                                window.ktKanbanItem.reload(); 
+                                Gofast.toast(Drupal.t('Your modification could not be saved: the card had been deleted.', {}, { 'context': 'gofast' }), 'error');
+                                throw Error('Card has been deleted.');
+                            }
+                        }
+                    });
                 }
 
                 if (sibling) {
@@ -856,6 +871,13 @@
                 // default columns are replaced by new ones to avoid modifying their taxonomy names, so we need to keep track
                 if (data.newColumnId) {
                     const originalBoard = document.querySelector(".kanban-board[data-id='" + boardId + "']");
+                    // Update the id in the object to prevent duplicate column
+                    kanban.options.boards.map(board => {
+                        if(board.id === originalBoard.dataset.id){
+                            board.id = data.newColumnId;
+                        }
+                        return board;
+                    })
                     originalBoard.dataset.id = data.newColumnId;
                 } 
             } catch (error) {
@@ -1017,7 +1039,7 @@
 
             Gofast.addLoading()
             if (_modalContent) {
-            _modalContent.innerHTML = _getTaskModelContent()
+            _modalContent.innerHTML = _getTaskModelContent(el.dataset.eid)
             }
             if (_modalTitle) {
             _modalTitle.innerText = Drupal.t('Card detail', {}, {context: "gofast:gofast_kanban"});
@@ -1070,9 +1092,8 @@
             Gofast.removeLoading()
         }
 
-        var _getTaskModelContent = function () {
-
-            return '\n<div class="gofastKanbanCardDetail pt-1 pb-8 px-8"> <div class ="row"> <div class="col-lg-8 KanbanCard_leftCol"> <div class="row mb-8"> <div class="col-lg-12"> <div class="KanbanCard__title Detail__container"> <div class="KanbanCard__InputEditable EditableInput"></div> </div> </div> </div> <div class="row mb-8"> <div class="col-lg-4"> <div class="KanbanCard__created Detail__container inline-label"> <span class="font-weight-bolder">' +
+        var _getTaskModelContent = function (tid) {
+            return '\n<div class="gofastKanbanCardDetail pt-1 pb-8 px-8"> <div class ="row"> <div class="col-lg-8 KanbanCard_leftCol"> <div class="row mb-8"> <div class="d-flex mw-100"> <div class="KanbanCard__title Detail__container"> <div class="KanbanCard__InputEditable EditableInput"></div> </div><a  href="' + window.location.origin + "/node/" + tid + '" style="padding: 2px 7px; vertical-align: middle; color:#3498db; margin-left:10px;" class="btn-sm btn btn-default btn-outline-secondary btn-icon permalink m-auto"><i class="fas fa-link"></i></a></div></div> <div class="row mb-8"> <div class="col-lg-4"> <div class="KanbanCard__created Detail__container inline-label"> <span class="font-weight-bolder">' +
             window.parent.Drupal.t("Created", {}, { context: "gofast_kanban" }) +
             ':</span> <div class="KanbanCard__InputEditable EditableInput"></div> </div> </div> <div class="col-lg-4"> <div class="KanbanCard__deadline Detail__container inline-label"> <span class="font-weight-bolder">' +
             window.parent.Drupal.t("Deadline", {}, { context: "gofast_kanban" }) +
@@ -1086,7 +1107,7 @@
             window.parent.Drupal.t("Description", {}, { context: "gofast_kanban" }) +
             ':</label> <div class="KanbanCard__InputEditable EditableInput"></div> </div> </div> </div> <div class="separator separator-solid my-3"></div> <div class="row"> <div class="col-lg-12"> <div class="KanbanCard__documents Detail__container"> <label class="font-weight-bolder">' +
             window.parent.Drupal.t("Documents", {}, { context: "gofast_kanban" }) +
-            ':</label> <div class="KanbanCard__InputEditable EditableInput"></div> </div> </div> </div> <div class="separator separator-solid my-3"></div> <div class="row"> <div class="col-lg-12"> <div class="KanbanCard__todolist  Detail__container "> <label class="font-weight-bolder">' +
+            ':</label> <div data-tid="' + tid + '"class="KanbanCard__InputEditable EditableInput"></div> </div> </div> </div> <div class="separator separator-solid my-3"></div> <div class="row"> <div class="col-lg-12"> <div class="KanbanCard__todolist  Detail__container "> <label class="font-weight-bolder">' +
             window.parent.Drupal.t("Tasks List", {}, { context: "gofast_kanban" }) +
             ':</label> <div class="GofastTodoList"></div> </div> </div> </div> </div> <div class="col-lg-4 KanbanCard_rightCol"> <div class="row"> <div class="col-lg-12"> <div class="KanbanCard__timeline Detail__container"> <div class="GofastKanbanTimeLine"></div> </div> </div> </div> </div> </div>\n</div>\n';          
         }
@@ -1144,7 +1165,12 @@
                 _deleteAllKanbanBoards()
             },
             reload() {
-                _reloadKanban()
+                //prevent rebound
+                if((lastExecutionReloadKanban + delay) < Date.now() ){
+                    _reloadKanban();
+                    lastExecutionReloadKanban = Date.now();
+                }
+                
             },
             kanban() {
                 return _getKanban()
@@ -1171,7 +1197,7 @@
                 var hash = window.location.hash;
 
                 //For "Essential" version:
-                if(location == '/tasks_page_navigation/' && hash == '#navKanban'){
+                if(location.startsWith('/tasks_page_navigation') && hash == '#navKanban'){
 
                   //remove modal backdrop
                   jQuery('.modal-backdrop.fade').remove();

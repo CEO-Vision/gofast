@@ -27,7 +27,15 @@ function gofast_breadcrumb_theme(){
   $themes['gofast_global_breadcrumb'] = [
     'template' => 'tpl/gofast-breadcrumb',
   ];
-  
+  $themes['gofast_document_breadcrumb'] = [
+    'template' => 'tpl/gofast-doc-breadcrumb',
+  ];
+  $themes['gofast_crumbs'] = [
+    'template' => 'tpl/gofast-crumbs',
+  ];
+  $themes['gofast_crumbs_simplified'] = [
+    'template' => 'tpl/gofast-crumbs_simplified',
+  ];
   return $themes;
 } 
 
@@ -41,23 +49,51 @@ function gofast_breadcrumb_theme(){
  * options
  * 
  */ 
-function gofast_breadcrumb_get_breadcrumb($nid, $options = []){
+function gofast_breadcrumb_get_breadcrumb($nid, &$options = []){
   //Retrieve node without cache
   $node = node_load($nid, NULL, TRUE);
-  
-  //Merge options
-  $options = gofast_breadcrumb_options($options);
   
   //Search for an handler
   $breadcrumb = [];
   if(function_exists("gofast_breadcrumb_handle_" . $node->type)){
     //Call the handler
-    $breadcrumb = call_user_func_array("gofast_breadcrumb_handle_" . $node->type, [$node, $options]);
+    $breadcrumb = call_user_func_array("gofast_breadcrumb_handle_" . $node->type, [$node, &$options]);
   }
   
   return $breadcrumb;
 }
 
+/*
+ * CORE Function
+ * Take a nid in parameter and return a simplified breadcrumb
+ * 
+ * @params
+ * nid => Entity ID
+ * account_id => User account ID || User list ID
+ * webdav_path => Webdav path for spaces
+ * is_user => Boolean to know if we are in case with userlist or a user 
+ */ 
+function gofast_breadcrumb_get_simplified_breadcrumb($nid, $account_id,$webdav_path,$is_user = TRUE){
+$node = node_load($nid, NULL, TRUE);
+  if($is_user){
+    $roles_list = gofast_og_get_user_final_roles_for_space('node', $node->nid, $account_id);
+    if (!empty($roles_list)) {
+      $role = t(array_shift($roles_list), array(), array('context' => 'gofast:gofast_userlist'));
+    }
+  }else{
+    $roles_list = gofast_userlist_og_get_userlist_roles('node', $node->nid, $account_id, FALSE, TRUE);
+    if (!empty($roles_list)) {
+      $role = t(array_shift($roles_list), array(), array('context' => 'gofast:gofast_userlist'));
+    }
+  }
+  $role = " (" . $role . ")";
+  $parts = explode("/", $webdav_path);
+  if (count($parts) > 2) {
+      $remaining_parts = array_slice($parts, 2);
+      $webdav_path = '/' . implode("/", $remaining_parts);
+  }
+  return theme('gofast_crumbs_simplified', array('nid' => $nid, 'ulid' => $nid, 'title' => $webdav_path,'section' => "node", "role" => $role));
+}
 /*
  * CORE Function
  * Take a nid in parameter, get the corresponding breadcrumb and theme it
@@ -71,16 +107,20 @@ function gofast_breadcrumb_get_breadcrumb($nid, $options = []){
 function gofast_breadcrumb_display_breadcrumb($nid, $options = []){
   //Merge options
   $options = gofast_breadcrumb_options($options);
+  $node = node_load($nid);
   
   //Get webdav path for spaces (GOFAST-8093)
-  $webdav_path = gofast_og_is_space(node_load($nid), TRUE) ? gofast_cmis_space_get_webdav_path($nid) : null;
+  $webdav_path = gofast_og_is_space($node, TRUE) ? gofast_cmis_space_get_webdav_path($nid) : null;
   
   $breadcrumb = gofast_breadcrumb_get_breadcrumb($nid, $options);
-  $breadcrumb = theme('gofast_global_breadcrumb', [
+  $target_theme = $options['alt_theme'] ?: 'gofast_global_breadcrumb';
+  $breadcrumb = theme($target_theme, [
     'breadcrumb' => $breadcrumb, 
     "options" => $options,
     "webdav_path" => $webdav_path,
     "nid" => $nid,
+    "node" => $node,
+    "type" => gofast_get_node_type($nid, TRUE),
   ]);
   
   if($options['return']){

@@ -2,13 +2,15 @@
 
   Gofast.exclude_ajax_url.push("/user/password");
   Gofast.exclude_ajax_url.push("/space/admin/members");
-  Gofast.processAjax = function (href, isStateChange) {
+  Gofast.processAjax = function (href, isStateChange, isFromHistoryNavigation = false) {
     if (href.indexOf('javascript') != -1 || href == "#") {
       return;
     }
 
     //each module can fill this global variable to excluse some url from ajaxification
-    if (Gofast.exclude_ajax_url.indexOf(href) != -1) {
+    let endpoint = href.split("?")[0].replace(location.origin, "");
+    //we want excluded urls to be excluded even if they have query params or base url
+    if (Gofast.exclude_ajax_url.indexOf(endpoint) != -1) {
       window.location.href = href;
       return;
     }
@@ -18,7 +20,12 @@
       $('.aside-overlay').click();
     }
 
-    href = decodeURI(decodeURI(href));
+    href = decodeURI(href);
+    // Encode all '%' that are alone 
+    // because it's not possible to decodeURI on '%' when there is not two digit after
+    href = href.replaceAll(/%(?!\w{2})/gm, "%25")
+    href = decodeURI(href);
+    href = href.replaceAll(/%(?!\w{2})/gm, "%25")
     href = href.replace(/\+/g, '%2B');
     var href_ajax = "gofast_ajaxification/nojs";
 
@@ -26,6 +33,21 @@
       $('.popover').popover('hide');
     }
     $("[data-toggle='tooltip']").tooltip("dispose");
+    if (Gofast.tour.components.fakeCursor.cursor != null) {
+      Gofast.tour.components.fakeCursor.destroy();
+    }
+
+    // search case
+    if(Drupal.settings.gofast_search_path && href.startsWith("/" + Drupal.settings.gofast_search_path)) {
+      let terms = href.replace("/" +  Drupal.settings.gofast_search_path + "/", "");
+      terms = terms.split("?")[0]; // remove query string from search query if any
+      // GOFAST-10214 - prevent search query if query contains a slash
+      let hasSlash = !!terms.match(new RegExp(/\/|%2F/g))
+      if (hasSlash) {
+        Gofast.toast(Drupal.t("It is forbidden to make a search query with slashes"), "error");
+        return;
+      }
+    }
 
     // var url_callback = "gofast_ajax/nojs";
     $('.gofast-clipboard').after('<span id="ajax_button"></span>');
@@ -55,18 +77,10 @@
 
       //Register any URL change
       var params = {};
-
-      if (location.search) {
-        var parts = location.search.substring(1).split('&');
-
-        for (var i = 0; i < parts.length; i++) {
-          var nv = parts[i].split('=');
-          if (!nv[0])
-            continue;
-          params[nv[0]] = nv[1] || true;
-        }
+      if(location.search) {
+        let searchParams = new URLSearchParams(location.search)
+        params = Object.fromEntries(searchParams)
       }
-      Gofast.History.push({href: location.href, pathname: location.pathname, hash: location.hash, params: params});
 
     };
     $("#ajax_button").trigger("click"); // triggers the ajax object that handles the xhr.
@@ -75,44 +89,24 @@
 
     $("#ajax_button").remove();
 
-    var title = "GoFast";
-    Gofast.currentPageTitle = Drupal.settings.title ? Drupal.settings.title : title;
-    
-    const targetPath = window.location.pathname;
-    // GOFAST-6737 - Double escape forward slashes
-    if (href.startsWith('/search/solr/')) {
-      var terms = href.replace(/^\/search\/solr\//, '');
-      terms = terms.replace(/\/|%2F/g, '%252F');
-      terms = terms.replace(/\+/g, '%2B');
-      terms = terms.replace(/\:/g, '%3A');
-      
-      href = '/search/solr/' + terms;
-    }
-
-    if (History.pushState && (href.indexOf(location.origin + "/gofast/node-info") == -1 && href.indexOf(location.origin + "/gofast/delete_space") == -1)) {
+    if ((href.indexOf(location.origin + "/gofast/node-info") == -1 && href.indexOf(location.origin + "/gofast/delete_space") == -1) && !isFromHistoryNavigation) {
       if (href.indexOf('?') !== -1) { //Need to push the path without parameters, and then, the parameters
-        History.pushState(null, "", href.substring(0, href.indexOf('?')));
-        History.pushState(null, "", href.substring(href.indexOf('?')));
+        window.history.pushState(null, "", href.substring(0, href.indexOf('?')) + encodeURI(href.substring(href.indexOf('?'))));
       }
       else {
-        History.pushState(null, "", href);
+        window.history.pushState(null, document.title, href);
       }
     }
-
-    document.title = Gofast.currentPageTitle;
-
+    
     if ($("#expl-forum").length) {
-      const urlParam = window.location.pathname.split('/')[2] || "-1";
-     if($("#expl-forum").hasClass("active") && $("#explorer-toggle").hasClass("open")){
-            $.get(window.origin + "/gofast/forum/explorer/" + urlParam).done((data) => $("#expl-forum").html(data));
-        }else{        
-           Gofast.lastUrlForumTab =  urlParam;
+      if($("#expl-forum").hasClass("active") && $("#explorer-toggle").hasClass("open")){
+        Gofast.reloadForums();
       }
     }
 
-    if (Drupal.settings.gofast_selected_book) {
+    if (Drupal.settings.gofast_selected_book && Gofast.get("node").type != "article") {
       delete Drupal.settings.gofast_selected_book;
-      Gofast.ITHitMobile.gofast_book_refresh_file_browser();
+      Gofast.selectCurrentWikiArticle();
     }
 
     setTimeout(function () {
@@ -127,6 +121,27 @@
   };
 
   $(document).ready(function () {
+    // override to handle signaling when pushState is called
+    if (typeof window.history.originalPushState == "undefined") {
+      window.history.originalPushState = window.history.pushState;
+      window.history.pushState = function (state, title, url) {
+        if(!url.startsWith(location.origin)){
+          url = location.origin + url
+        }
+        // Don't make push state if it's the same url
+        if(decodeURI(url) == decodeURI(location.href)){
+          return;
+        }
+        let urlObj = new URL(url);
+        if(location.pathname == urlObj.pathname){
+          window.history.replaceState(state, title, url);
+          return
+        }
+        window.history.originalPushState(state, title, url);
+        Gofast.updateHistory()
+      };
+    }
+
     //Will contain the last URL to use in navigation events
     var params = {};
 
@@ -135,50 +150,36 @@
     if(typeof Drupal.settings.pass_reset != "undefined"){
         return;
     }
-
-    if (location.search) {
-      var parts = location.search.substring(1).split('&');
-      for (var i = 0; i < parts.length; i++) {
-        var nv = parts[i].split('=');
-        if (!nv[0])
-          continue;
-        params[nv[0]] = nv[1] || true;
-      }
-    }
-    Gofast.History = [{href: location.href, pathname: location.pathname, hash: location.hash, params: params}];
+    Gofast.updateHistory()
 
     $(window).bind('hashchange', function (event) { //Register any URL change
-      var params = {};
-
-      if (location.search) {
-        var parts = location.search.substring(1).split('&');
-
-        for (var i = 0; i < parts.length; i++) {
-          var nv = parts[i].split('=');
-          if (!nv[0])
-            continue;
-          params[nv[0]] = nv[1] || true;
-        }
-      }
-      Gofast.History.push({href: location.href, pathname: location.pathname, hash: location.hash, params: params});
+      Gofast.updateHistory()
     });
-
     // ajax_call when user use back/next on the browser
     window.addEventListener('popstate', function (event) {
-      var oldHistory = {};
-      if (typeof Gofast.History[Gofast.History.length - 1] !== "undefined") {
-        oldHistory = Gofast.History[Gofast.History.length - 1];
-      }
-
+      var oldHistory = Gofast.History;
+      var searchParams = new URLSearchParams(location.search)
+      
       //Check if we have to process an ajax navigation
-      if (oldHistory.pathname !== location.pathname) {
-        //We need to navigate in ajax to another page
-        Gofast.processAjax(location.href);    
-      }
-      else {
+      if (searchParams.has("path") && oldHistory.params.hasOwnProperty("path")) {
         //A navigation occured but we don't need to switch page. Call module to handle this event
-        $(document).trigger('urlChanged', oldHistory);
+        if(Gofast._settings.isEssential){
+          Gofast.Essential.processEssentialAjax(location.href.replace(this.location.origin, ""))
+        } else {
+          Gofast.ITHit.navigate('/alfresco/webdav' + searchParams.get("path"), null, null, true);
+        }
+      } else if(Gofast.History.pathname == window.location.pathname){ //Check if URI has really changed (Prevent Hash changes to trigger navigation)
+        //GOFAST-10522 Pathnames are the same, do nothing in that case
+      } else{
+        //We need to navigate in ajax to another page
+        if (Gofast._settings.isEssential) {
+          //processEssentialAjax just need the path (ex: /node/...) so remove the start of the full href
+          Gofast.Essential.processEssentialAjax(location.href.replace(location.origin, ""));
+        } else {
+          Gofast.processAjax(location.href, null, true);
+        }
       }
+      Gofast.updateHistory()
     }, false);
 
     $(document).on('submit', '#search-block-form ', function (e) {
@@ -188,16 +189,16 @@
       // GOFAST-7605 - we use the original form input as reference to avoid "undefined" retain filters
       var retain_filters = $("[name=retain-filters]").val();
       if (retain_filters === "1") {
-        var uri = decodeURIComponent(decodeURIComponent($(document)[0].URL));
-        var fq = decodeURIComponent(uri).lastIndexOf('?f[0]');
-        if (fq != -1) {
-          params = uri.substr(fq);
-        }
+        params = location.search
       }
       var terms = $(this).find('input').filter('[type="text"][name="search_block_form"]').val();
       // GOFAST-6737
       terms = encodeURIComponent(terms);
-      Gofast.processAjax('/search/solr/' + terms + params, true);
+      if(!Gofast._settings.isEssential || Gofast._settings.isMobileDevice){
+        Gofast.processAjax('/search/solr/' + terms + params, true);
+      } else {
+        Gofast.Essential.solrSearch(terms + params);
+      }
     });
 
     $(document).on('submit', '#search-form', function (e) {
@@ -207,7 +208,12 @@
       // GOFAST-7605 - we use the original form input as reference to avoid "undefined" retain filters
       var retain_filters = $("[name=retain-filters]").val();
       if (retain_filters === "1") {
-        var uri = decodeURIComponent(decodeURIComponent($(document)[0].URL));
+        var uri = decodeURIComponent($(document)[0].URL);
+        // Encode all '%' that are alone 
+        // because it's not possible to decodeURI on '%' when there is not two digit after
+        uri = uri.replaceAll(/%(?!\w{2})/gm, "%25")
+        uri = decodeURIComponent(uri)
+        uri = uri.replaceAll(/%(?!\w{2})/gm, "%25")
         var fq = decodeURIComponent(uri).lastIndexOf('?f[0]');
         if (fq != -1) {
           params = uri.substr(fq);
@@ -216,7 +222,12 @@
       var terms = $(this).find('[name=keys]').val();
       // GOFAST-6737
       terms = encodeURIComponent(terms);
-      Gofast.processAjax('/search/solr/' + terms + params, true);
+      if(!Gofast._settings.isEssential || Gofast._settings.isMobileDevice){
+        Gofast.processAjax('/search/solr/' + terms + params, true);
+      } else {
+        Gofast.Essential.solrSearch(terms + params);
+      }
+      Drupal.attachBehaviors();
     });
 
     var saml = "";
@@ -225,7 +236,7 @@
         //Don't ajaxify logout if SAML is enabled for CORS issues purpose
         saml = ', a[href="/user/logout"]';
     }
-    $(document).on('click', 'a:not(li#gofast-flag-lang-switch a, #block-gofast-views-activity-stream-filters a, a.gofast-callto, #report_result a, .gofast_search_link, .gofast_space_filters.gofast_search_submit, .gofast_user_filters, .auto-refresh a, .form-wrapper .panel-heading a, .delete_message_ajax, .fivestar-widget a, .permalink, .forum-post-number a, .flag-link-toggle, .jsxc_menu a, .alert-block a, .field-revisions a, #block-gofast-test-handler-activity-stream-filters a, .cke_dialog a, .cke a, .nav.nav-tabs a, .nav.nav-pills a, #gofast-admin-settings a, .ui-popup-container a, .ui-footer a, :has(i.fa-cloud-download), .alfresco_download_edit_url, .mCSB_scrollTools_vertical.mCSB_scrollTools a, div#fullscreen-node > div.forum-post a, a.ctools-use-modal, a.use-ajax, #toolbar a, .xeditable-field, a[target=\"_blank\"], #revision-list a, #gofast-ldap-admin-entries button, .feed-icon a, #link_start_replication, .dynatable-sort-header, .gofast-non-ajax' + saml + ', #edit-saml-sp-drupal-login-links > a, .gofast-node-actions > a, .document__editable--field > a, .document__editable--label, #dropdown-node-dropdown, .contextual-actions > a, #gf-topbar-menu > ul > li > a:not(.brand-logo, .menu-profile), .menu-toggle:not(.mega-menu-item, .menu-profile), #blog-placeholder)', function (e) {
+    $(document).on('click', 'a:not(li#gofast-flag-lang-switch a, #block-gofast-views-activity-stream-filters a, a.gofast-callto, #report_result a, .gofast_search_link, .gofast_space_filters.gofast_search_submit, .gofast_user_filters, .auto-refresh a, .form-wrapper .panel-heading a, .delete_message_ajax, .fivestar-widget a, .permalink, .forum-post-number a, .flag-link-toggle, .jsxc_menu a, .alert-block a, .field-revisions a, #block-gofast-test-handler-activity-stream-filters a, .cke_dialog a, .cke a, .nav.nav-tabs a, .nav.nav-pills a, #gofast-admin-settings a, .ui-popup-container a, .ui-footer a, :has(i.fa-cloud-download), .alfresco_download_edit_url, .mCSB_scrollTools_vertical.mCSB_scrollTools a, div#fullscreen-node > div.forum-post a, a.ctools-use-modal, a.use-ajax, #toolbar a, .xeditable-field, a[target=\"_blank\"], #revision-list a, #gofast-ldap-admin-entries button, .feed-icon a, #link_start_replication, .dynatable-sort-header, .gofast-non-ajax' + saml + ', #edit-saml-sp-drupal-login-links > a, .gofast-node-actions > a, .document__editable--field > a, .document__editable--label, #dropdown-node-dropdown, .contextual-actions > a, #gf-topbar-menu > ul > li > a:not(.brand-logo, .menu-profile), .menu-toggle:not(.mega-menu-item, .menu-profile), #blog-placeholder, li#gofast-mobile-lang-switch a)', function (e) {
       Gofast.xhrPool.abortAll();
       var href = $(this).attr('href') ? $(this).attr('href') : '';
 
@@ -270,23 +281,35 @@
               && window.location.pathname.indexOf('gofast/browser') < 0
               && href.indexOf('#') < 0
               )) {
-                Gofast.processAjax(href, true);
+                if (Gofast._settings.isEssential && !Gofast._settings.isMobileDevice){
+                  Gofast.Essential.processEssentialAjax(href);
+                }else{
+                  Gofast.processAjax(href, true);
+                }
               }
               else {
-                // This if is used to fix ajaxification when clicking on the "search string" in the search popup
-                if ((href.indexOf('#') === 0 && $(e.target).parents('#search-block-form').length === 1)) {
-                  Gofast.processAjax('/search/solr/' + $(e.target).text(), true);
+                if(Gofast._settings.isEssential && href.startsWith("/node/") && !Gofast._settings.isMobileDevice){
+                  // avoid triggering twice essential navigation if there is a double-click
+                  if (e.detail == 2) {
+                    return;
+                  }
+                  Gofast.Essential.processEssentialNodeAjax(href);
+                } else {
+                  // This if is used to fix ajaxification when clicking on the "search string" in the search popup
+                  if ((href.indexOf('#') === 0 && $(e.target).parents('#search-block-form').length === 1)) {
+                    Gofast.processAjax('/search/solr/' + $(e.target).text(), true);
                 }
                 else {
-                    //spacial case for search snipper hash
+                    //special case for search snippet hash
                     var hash = href.substr(href.indexOf('#'));
                     if (hash == '#search=') {
                       var searched_word = $(this).text();
                       var original_url = href.split(/[?#]/)[0];
                       href = original_url + "?search=" + searched_word;
-
-                    }
-                    Gofast.processAjax(href, true);
+  
+                      }
+                      Gofast.processAjax(href, true);
+                  }
                 }
               }
             }
@@ -306,5 +329,19 @@
       }
     });
   };
+  Gofast.updateHistory = function(){
+    let params = {}
+    if(location.search){
+      params = new URLSearchParams(location.search)
+      params = Object.fromEntries(params)
+    }
+    Gofast.History = Gofast.History || [];
+    Gofast.History = {href: location.href, pathname: location.pathname, hash: location.hash, params: params};
+  }
+  $(document).on("page-loaded", () => {
+    if(location.pathname.startsWith("/subscriptions")){
+      Drupal.CTools.Modal.showCtoolsModal("/modal/nojs/subscriptions", "/activity");
+    }
+  })
 })(jQuery, Gofast, Drupal);
 

@@ -5,10 +5,9 @@
     <?php
     print '<a ';
 
-    print 'class="navi-link ' . $link_class . '" '
+    print 'class="navi-link ' . $link_class .' '. (!empty($disabled) ? "disabled" : "").'" '
       . 'id="' . $link_id . '" '
       . (isset($href) ? 'href="' . $href . '" ' : '')
-      . (isset($disabled) ? 'disabled="disabled" ' : '')
       . (isset($onClick) ? 'onClick="' . $onClick . '" ' : '')
       . (isset($alt) ? 'alt="' . $alt . '" ' : '')
       . (isset($target) ? 'target="' . $target . '" ' : '')

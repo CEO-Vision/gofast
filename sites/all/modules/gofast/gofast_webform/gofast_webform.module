@@ -73,6 +73,9 @@ function gofast_webform_form_webform_node_form_alter(&$form, &$form_state) {
   $form['#validate'][] = 'gofast_webform_form_webform_node_form_validate';
   $form['#submit'][] = 'gofast_webform_form_webform_node_form_submit';
   $form['#attributes']['class'][] = 'GofastForm GofastForm__Webform';
+  $form['actions']['#attributes'] = array('class' => array('d-flex'), 'style' => array('gap:1rem'));
+  $form['actions']['cancel']['#suffix'] = '<a href="" onclick="Gofast.customHistoryBackOrBase()" class="btn btn-default ml-2">' . t('Cancel') . '</a>';
+  $form['actions']['cancel']['#weight'] = 11;
 }
 
 function gofast_webform_form_webform_node_form_validate($form, &$form_state) {
@@ -113,6 +116,10 @@ function gofast_webform_theme() {
     'gofast_webform_panels_submissionPanel' => array(
       'template' => 'tpl/components/panels/webform-panels-submissionPanel'
     ),
+    'gofast_webform_file' => array(
+      'render element' => 'element',
+      'template' => 'tpl/components/inputs/webform-file'
+    ),
     'page_webform_node_form' => array(
       'template' => 'tpl/webform-page',
       'variables' => array('form' => NULL)
@@ -136,6 +143,34 @@ function template_preprocess_gofast_webform(&$variables) {
 function gofast_webform_init(){
   drupal_add_js(drupal_get_path('module', 'gofast_webform') . "/gofast_webform.js");
 }
+
+/**
+ * Implements hook webform_component_defaults_alter().
+ * @warning this will work on a fresh install but will have no effect if the component is already inserted in the webform_component table
+ */
+function gofast_webform_webform_component_defaults_alter(&$defaults, $type) {
+  // Add or alter defaults for specific component types:
+  switch ($type) {
+    case 'file':
+      // add "jpeg" to allowed file types in webforms
+      $defaults['extra']['filtering']['types'][] = "jpeg";
+      break;
+  }
+}
+
+/**
+ * Implements hook webform_submission_render().
+ */
+function gofast_webform_webform_submission_render_alter(&$renderable) {
+  // Override webform file theming for our custom theming
+  /** @info if needed to retemplate the whole submissions, use the hook webform_component_display_alter to alter the wrapper for each component  */
+  foreach (element_children($renderable) as $key) {
+    if ($renderable[$key]['#webform_component']['type'] == 'file') {
+      $renderable[$key]["#theme"] = "gofast_webform_file";
+    }
+  }
+}
+
 
 function gofast_webform_get_builder($node){
   include_once drupal_get_path("module", "webform") . '/includes/webform.pages.inc';
@@ -306,9 +341,8 @@ function gofast_webform_form_webform_results_download_form_gofast_submit(&$form,
 function gofast_webform_form_form_builder_webform_save_form_gofast_submit(&$form, &$form_state){
   $commands = array();
   
-  //Reload the page, display a toast and get to "Your submissions" tab
-  $commands[] = gofast_command_processAjax("/node/" . $form['#node']->nid);
-  $commands[] = ajax_command_append("#webform-submissions-content", "<script>Drupal.CTools.Modal.dismiss();</script>");
+  //Reload the form
+  $commands[] = ajax_command_html('#ctools-add-js', "<script> $('#manage-tab').mouseup();$('#manage-tab').click();</script>");
   $message_commands = gofast_messages_to_commands(TRUE);
   foreach($message_commands as $message_command){
     $commands[] = $message_command;
@@ -324,19 +358,21 @@ function gofast_webform_form_form_builder_webform_save_form_gofast_submit(&$form
  */
 function gofast_webform_form_alter(&$form, &$form_state, $form_id){
   if(strpos($form_id, "webform_client_form_") !== FALSE){
+    $form["#action"] = "/node/".$form["#node"]->nid;
     $form['#submit'][] = 'gofast_webform_form_webform_client_gofast_submit';
     $form['#validate'][] = 'gofast_webform_form_webform_client_gofast_validate';
+    $form['actions']['submit']['#attributes']['id'] = 'save-webform-submit';
   }
 }
 
 function gofast_webform_form_webform_client_gofast_submit($form){
-  if(gofast_mobile_is_mobile_domain()){
+  if(gofast_mobile_is_phone()){
       return;
   }
   $commands = array();
   
   //Reload the page, display a toast and get to "Your submissions" tab
-  $commands[] = gofast_command_processAjax("/node/" . $form['#node']->nid);
+  $commands[] = ajax_command_html('#ctools-add-js', "<script> $('#submission-tab').mouseup();$('#submission-tab').click();</script>");
   $commands[] = gofast_command_toast_message(t("The form has been successfully submitted", array(), array('context' => 'gofast:gofast_webform')), 'success');
   $commands[] = ajax_command_append("#webform-submissions-content", "<script>Drupal.CTools.Modal.dismiss();</script>");
   $message_commands = gofast_messages_to_commands(TRUE);
@@ -403,10 +439,10 @@ function gofast_webform_get_results($node){
   
   //Get stats, exports and submissions to seed our collapsible panels
   $content = drupal_render(webform_results_analysis($node));
-  $commands[] = ajax_command_append(".webformResultsStats", $content);
+  $commands[] = ajax_command_replace(".webformResultsStats", $content);
   
   $content = drupal_render(drupal_get_form("webform_results_download_form", $node));
-  $commands[] = ajax_command_append(".webformResultsExports", $content);
+  $commands[] = ajax_command_replace(".webformResultsExports", $content);
 
   $content = webform_results_submissions($node, FALSE, 99999);
   
@@ -504,6 +540,12 @@ function gofast_webform_form_webform_configure_form_alter(&$form){
   $form['submission']['submit_limit']["#description"] = substr($form['submission']['submit_limit']["#description"], 0, strpos($form['submission']['submit_limit']["#description"], ".")+1);
   
   $form['#submit'][] = 'gofast_webform_form_webform_configure_gofast_submit';
+
+  unset($form['submission']['total_submit_limit']['#theme']);
+  $form['submission']['total_submit_limit']['enforce_total_limit']['#options'] = array('no' => t('Unlimited'), 'yes' => t('Limit of submissions :'));
+
+  unset($form['submission']['submit_limit']['#theme']);
+  $form['submission']['submit_limit']['enforce_limit']['#options'] = array('no' => t('Unlimited'), 'yes' => t('Limit of submissions per user :'));
 }
 
 /*
@@ -620,10 +662,10 @@ function gofast_webform_webform_results_access($node, $account){
 function gofast_webform_ajax_node_delete($form = null, $form_state = null) {
   $node = isset($form_state['build_info']['args'][0]->nid) ? $form_state['build_info']['args'][0] : node_load($_GET["nid"]);
   if (node_access('delete', $node) === TRUE && $node->status != 0) {
-    webform_node_delete($node->nid);
-    $commands = "done";
+    webform_node_delete($node); // only remove reference in webform-specific tables
+    node_delete($node->nid);
+    drupal_set_message(t("The webform has been deleted", array(), array('context' => 'gofast:gofast_webform')));
   }  else {
-    $commands = t("you don't have permission to do this");
+    drupal_set_message(t("You don't have permission to do this action", array(), array("context" => "gofast")), "error");
   }
-  if (isset($_GET["nid"])) print $commands;
 }

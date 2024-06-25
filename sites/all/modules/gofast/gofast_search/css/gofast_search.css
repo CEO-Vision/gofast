@@ -183,7 +183,26 @@ a.go-search-snippet.gofast-button {
 }
 
 .gofast-search-facet-active{
-    padding-left: 0px;
+  list-style-type: none;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0;
+}
+.facetapi-facet.facetapi-active{
+  background-color: #ebedf3;
+  padding: 0.5rem;
+  border-radius: 0.42rem;
+  margin: 5px 0 5px 5px;
+  width: fit-content;
+}
+.facetapi-facet.facetapi-active .navi-text {
+  padding:1rem;
+  color: #7e8299;
+  font-weight: 400;
+}
+.fa.fa-times.facetapi-icon:hover {
+  color: red;
 }
 
 #facetapi_search_filters .bootstrap-switch{
@@ -271,4 +290,14 @@ a.go-search-snippet.gofast-button {
 .leaf .navi-link .navi-icon {
     flex: 0 0 2rem;
     text-align: center;
-} 
+}
+
+.sortby-item-hover{
+  color: #3699FF !important;
+  background-color: #F3F6F9 !important;
+  border-color: #F3F6F9 !important;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease !important;
+  z-index: 1 !important;
+  text-decoration: none !important;
+  
+}

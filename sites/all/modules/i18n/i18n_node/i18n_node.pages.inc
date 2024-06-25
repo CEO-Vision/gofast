@@ -148,6 +148,12 @@ function i18n_node_select_translation($form, &$form_state, $node, $translations)
         '#type' => 'value',
         '#value' => $language_name,
       );
+      $form['translations']['node'][$langcode] = array(
+        '#type' => 'textfield',
+        '#maxlength' => 255,
+        '#autocomplete_path' => 'i18n/node/autocomplete/' . $node->type . '/' . $langcode,
+        '#default_value' => $nid ? i18n_node_nid2autocomplete($nid) : '',
+      );
     }
   }
   $form['actions'] = array('#type' => 'actions');
@@ -181,13 +187,10 @@ function i18n_node_select_translation_submit($form, &$form_state) {
   $op = isset($form_state['values']['op']) ? $form_state['values']['op'] : NULL;
   $node = $form_state['values']['node'];
   $translations = $node->tnid ? translation_node_get_translations($node->tnid) : array($node->language => $node);
-
   foreach ($translations as $trans) {
     $current[$trans->language] = $trans->nid;
   }
-
   $update = array($node->language => $node->nid) + array_filter($form_state['values']['translations']['nid']);
-
   // Compute the difference to see which are the new translations and which ones to remove
   $new = array_diff_assoc($update, $current);
   $remove = array_diff_assoc($current, $update);
@@ -241,7 +244,7 @@ function i18n_node_autocomplete($type, $language, $string = '') {
 }
 
 /**
- * Generates json for the autocomplete field
+ * Generates 'title [nid:$nid]' for the autocomplete field
  */
 function i18n_node_nid2autocomplete($nid) {
   if ($node = node_load($nid)) {
@@ -257,7 +260,7 @@ function i18n_node_nid2autocomplete($nid) {
  *
  * We also handle autocomplete values (title [nid:x]) and validate the form
  */
-function i18n_node_autocomplete2nid($name, $field = NULL, $type, $language) {
+function i18n_node_autocomplete2nid($name, $field, $type, $language) {
   if (!empty($name)) {
     preg_match('/^(?:\s*|(.*) )?\[\s*nid\s*:\s*(\d+)\s*\]$/', $name, $matches);
     if (!empty($matches)) {

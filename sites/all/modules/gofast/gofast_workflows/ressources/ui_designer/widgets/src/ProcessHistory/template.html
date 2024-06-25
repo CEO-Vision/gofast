@@ -11,7 +11,7 @@
                 <h4 ng-bind-html="event.title | gfdTranslate"></h4>
             </timeline-heading>
             <small class="text-muted ng-binding"> <i class="glyphicon glyphicon-time"></i>
-                    {{event.infos_date|date:"dd/MM/yyyy HH:mm"}}
+                    {{event.infos_date|date: date_format_full}}
             </small>
             &nbsp;
             <small class="text-muted ng-binding"> <i class="glyphicon glyphicon-user"></i>
@@ -35,7 +35,7 @@
                 {{process.title}}
                 <br />
                 <small class="text-muted ng-binding"> <i class="glyphicon glyphicon-time"></i>
-                    {{process.start_date|date:"dd/MM/yyyy HH:mm"}}
+                    {{process.start_date|date: date_format_full}}
                 </small>
                  &nbsp;
                 <small class="text-muted ng-binding"> <i class="glyphicon glyphicon-user"></i>

@@ -2,9 +2,9 @@
 global $conf;
 
 /**
- * Implements hook_init()
+ * Implements hook_preprocess_page().
  */
-function gofast_ac_init(){
+function gofast_ac_preprocess_page(){
   drupal_add_library('gofast_ac', 'gofast_ac_lib', TRUE);
 }
 
@@ -23,17 +23,24 @@ function gofast_ac_library(){
       $lib . '/js/gofast_ac.js' => array(
         'group' => JS_LIBRARY,
         'every_page' => TRUE,
-        'weight' => 1
+        'weight' => 10,
+        'scope' => 'footer',
+      ),
+      $lib . '/js/gofast_ac_drag.js' => array(
+        'group' => JS_LIBRARY,
+        'every_page' => TRUE,
+        'weight' => 10,
+        'scope' => 'footer',
       )
     ),
-     'css' => array(
+    'css' => array(
       $lib . '/css/gofast_ac.css' => array(
         'type' => 'file',
         'media' => 'screen',
         'group' => CSS_DEFAULT,
-        'weight' => 1
+        'weight' => 10,
       )
-    )
+    ),
   );
   return $libraries;
 }
@@ -76,6 +83,40 @@ function gofast_ac_menu() {
   return $items;
 }
 
+function gofast_ac_preprocess_gofast_ac_drag_input(&$variables) {
+  if (!$variables["value"]) {
+    return;
+  }
+  $value = $variables["value"];
+  // make a fake tag for the input placeholder
+  $templated_value = preg_replace_callback('/{{(.*?)}}/', function ($matches) {
+        // $matches[1] contains the content between {{ and }}: replace it with custom template to fake tags
+        $themed_tag = theme("gofast_ac_tag_placeholder", ["value" => $matches[1]]);
+        return $themed_tag;
+    },
+    $value);
+  // tagify expects content to be put directly between [[ and ]] to parse it as a tag
+  $value = preg_replace('/{{(.*?)}}/', '[[\1]]', $value);
+  $variables["value"] = $value;
+  $variables["templated_value"] = $templated_value;
+}
+
+/**
+ * Implements hook_theme()
+ */
+function gofast_ac_theme() {
+  $themes = [];
+  $themes['gofast_ac_drag_input'] = array(
+    'template' => 'tpl/gofast-ac-drag-input',
+  );
+  $themes['gofast_ac_tag_placeholder'] = array(
+    'template' => 'tpl/gofast-ac-tag-placeholder',
+  );
+  $themes['gofast_ac_placeholder'] = array(
+    'template' => 'tpl/gofast-ac-placeholder',
+  );
+  return $themes;
+}
 
 function gofast_ac_config()
 {
@@ -130,6 +171,9 @@ function gofast_ac_config()
   if (isset($_POST['get_spaces'])){
     $get_spaces = $_POST['get_spaces'];
   }
+  if(isset($_POST['exclude-current-members']) && $_POST['exclude-current-members'] != false){
+    $exclude_members = json_decode($_POST['exclude-current-members']);
+  }
 
   $str = trim($str);
 
@@ -156,9 +200,14 @@ function gofast_ac_config()
    switch ($input_id) {
         case 'edit-field-target-link-autocomplete':
         case (preg_match('/^edit-list-documents/i', $input_id) ? true : false):
+        case (preg_match('/^edit.*nodes/i', $input_id) ? true : false):
+        case (preg_match('/edit.*taget-link/i', $input_id) ? true : false):
         case 'edit-field-taget-link':
           $options_ac_space['bundle'] = ['alfresco_item', 'article'];
           break ;
+        case str_starts_with($input_id, "edit-bundles"):
+          $options_ac_space['bundle'] = explode("-", str_replace("edit-bundles", "", $input_id));
+          break;
         case 'edit-field-members-autocomplete': // kanban/autocomplete/user
           $options_ac_user['roles_filter']['roles'] = ['administrator member', 'group contributor', 'read only member'];
           $options_ac_user['roles_filter']['space_nid'] = $space_nid;
@@ -203,9 +252,23 @@ function gofast_ac_config()
       }
 
       if($get_userlist === "true"){
-      $matches_userlist = gofast_ac_get_query($str, 'userlist', $options_ac_userlist);
-      $matches = array_merge($matches, $matches_userlist);
-     }
+        $matches_userlist = gofast_ac_get_query($str, 'userlist', $options_ac_userlist);
+        $matches = array_merge($matches, $matches_userlist);
+      }
+
+      if ($exclude_members) {
+        $matches = array_filter($matches, function($match) use ($exclude_members) {
+            if ($match['type'] == 'userlist') {
+                $value = isset($match['ulvalue']) ? $match['ulvalue'] : null;
+            } else {
+                $value = isset($match['value']) ? $match['value'] : null;
+            }
+            return !in_array($value, array_column($exclude_members, 'etid')) ||
+                   !in_array($match['type'], array_column($exclude_members, 'entity_type'));
+        });
+    }
+    
+  
 
     if($get_taxonomy_term === "true"){
       if(isset($vid)){
@@ -228,7 +291,7 @@ function gofast_ac_config()
     }
 
     if($get_email === "true" && valid_email_address($str) && empty($matches_user)) {
-      $match_complete_email = array(
+      $match_complete_email[] = array(
         'type' => 'email',
         'name' => $str,
         'value' => $str
@@ -244,18 +307,16 @@ function gofast_ac_config()
 
     if($enforce === "true" && !in_array($str, $matches)){
       $matches[] = array(
-        'name' => $str,
-        'value' => $str
+        'name' => gofast_xss_clean($str, false, array("iframe")),
+        'value' => gofast_xss_clean($str, false, array("iframe")),
       );
     }
 
     echo json_encode($matches);
 }
 
-
 function gofast_ac_get_query($str, $entity_type, $options = array(), $broadcast = false, $option_format_json= array())
 {
-
   global $user;
 
   $options += array(
@@ -311,8 +372,17 @@ function gofast_ac_get_query($str, $entity_type, $options = array(), $broadcast 
     // prevent showing up blocked users.
     $EFQuery->propertyCondition('status', 1)
     ->addTag('oring');
+    if ($_POST["filter_extranet"] == "true") {
+      $EFQuery->addTag("users_condition");
+    }
   } elseif (!empty($options['bundle'])) {
     $EFQuery->entityCondition('bundle', $options['bundle'], is_array($options['bundle']) ? 'IN' : '=');
+    if (isset($_POST['exclude_root_spaces']) && $_POST['exclude_root_spaces']) {
+      $EFQuery->entityCondition('entity_id', [GOFAST_CMIS_LOCATIONS_FIELD_PUBLIC_GID, GOFAST_CMIS_LOCATIONS_FIELD_EXTRANET_GID, GOFAST_CMIS_LOCATIONS_FIELD_ORGANISATIONS_GID, GOFAST_CMIS_LOCATIONS_FIELD_GROUPS_GID ], "NOT IN");
+    }
+    if($entity_type == "node"){
+      $EFQuery->addTag('popularity');
+    }
     if (in_array('contact', $options['bundle'])) {
       $EFQuery->addTag('first_and_last_name');
     } else $EFQuery->addTag('oring');
@@ -327,7 +397,9 @@ function gofast_ac_get_query($str, $entity_type, $options = array(), $broadcast 
   if (!empty($taxonomy_output)) {
     $entities = array();
     foreach ($taxonomy_output as $val) {
-      $entities[] = taxonomy_term_load($val['id']);
+      $entity = taxonomy_term_load($val['id']);
+      $entity->name = $val['text'];
+      $entities[] = $entity;
     }
   } else {
     if (empty($ids) || empty($ids[$entity_type])) {
@@ -336,7 +408,6 @@ function gofast_ac_get_query($str, $entity_type, $options = array(), $broadcast 
 
     $entities = entity_load($entity_type, array_keys($ids[$entity_type]));
   }
-
 
   ///filter by role for user and userlist if required
   if (
@@ -389,7 +460,10 @@ function gofast_ac_get_query($str, $entity_type, $options = array(), $broadcast 
         continue;
       }
     }
-
+    // Check if the userlist is deleted
+    if($entity_type == "userlist" && node_load($entity->nid)->status == 0){
+      continue;
+    }
     //Check userlist permissions if partitionning is enabled
     if ($entity_type == "userlist" && !gofast_userlist_is_visible($entity->ulid)) {
       continue;
@@ -474,7 +548,7 @@ function gofast_ac_format_value_json($entity_type, $entity, $str=null,$option_fo
     case 'taxonomy_term':
           $item = [
             "type" => $entity_type,
-            'taxonomy_type' => 'taxonomy/term',
+            'taxonomy_type' => $entity->vocabulary_machine_name,
             'value' => $entity->tid,
             'name' => $entity->name,
             //'field_format' => array(LANGUAGE_NONE => array(array('tid' => $entity->tid))),
@@ -526,7 +600,7 @@ function gofast_ac_get_subscribe_term_link($term_id,$js_process = true)
 }
 
 
-function gofast_ac_get_user_from_space($space_id){
+function gofast_ac_get_user_from_space($space_id, $return = FALSE){
     global $base_url;
     global $user;
     //TODO PERFORM NODE ACCESS
@@ -566,6 +640,10 @@ function gofast_ac_get_user_from_space($space_id){
         "request" => '',
       );
     }
+    if($return){
+      return $result;
+    }
+    
     drupal_json_output($result);
  }
 
@@ -581,4 +659,39 @@ function gofast_ac_get_user_from_mail() {
     return;
   }
   drupal_json_output(array('error' => 'No user found'));
+}
+
+/**
+ * Implements hook_query_TAG_alter(). Perform alterations to a structured query
+ * for a given tag.
+ *
+ * @param QueryAlterableInterface $query
+ */
+function gofast_ac_query_users_condition_alter(QueryAlterableInterface $query) {
+  $query->leftJoin('field_data_is_extranet', 'e', 'e.entity_id = uid');
+  if(isset($_POST['space_type'])){
+    $space_type = $_POST['space_type'];
+    $spaces_config = variable_get("spaces_defaults");
+    if($space_type === 'group'){
+      if($spaces_config['group_add_external_user'] == '1'){
+        $query->condition('e.is_extranet_value', 1, '<>');
+      }
+    }
+    if($space_type === 'organisation'){
+      if($spaces_config['organization_add_external_user'] == '1'){
+        $query->condition('e.is_extranet_value', 1, '<>');
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_query_TAG_alter(). Perform alterations to a structured query
+ */
+function gofast_ac_query_popularity_alter(QueryAlterableInterface $query) {
+  
+  // Order by popularity in case of document node autocomplete
+  $query->leftJoin('field_data_field_popularity', 'p', 'p.entity_id = nid');
+  $query->orderBy('p.field_popularity_radioactivity_energy', 'DESC');
+  
 }

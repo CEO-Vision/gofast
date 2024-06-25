@@ -37,14 +37,13 @@
 
         jQuery.post(location.origin + "/rssfeed/add", {rssfeed_title : title, url : link}, function(response){
             Gofast.removeLoading();
-            
-            if(response === "true") {
+            if(response.trim() === "true") {
                 Gofast.toast(Drupal.t("The rss feed has been added", {}, {context: 'gofast:gofast_rssfeed'}), "success");
                 jQuery('a[href="#edit-rssfeeds"]').remove('processed')
                 Gofast.loadSettingsTab('edit-rssfeed');
                 jQuery('a[href="#edit-rssfeeds"]').addClass('processed');
             } else {
-                Gofast.toast(Drupal.t("The feed URL is invalid. Please enter a fully-qualified URL, such as<br /><br /><blockquote>http://fr.news.yahoo.com/?format=rss</blockquote>", {}, {context: 'gofast:gofast_rssfeed'}), "warning");
+                Gofast.toast(Drupal.t("The feed URL is invalid. Please enter a fully-qualified URL, such as<br /><br /><blockquote>https://fr.news.yahoo.com/?format=rss</blockquote>", {}, {context: 'gofast:gofast_rssfeed'}), "warning");
             }
         }, "text");
     };
@@ -58,13 +57,13 @@
 
         jQuery.post(location.origin + "/rssfeed/edit", {rssfeed_title : title, url : link, rssfeed_fid : fid}, function(response){
             Gofast.removeLoading();
-            if(response === "true") {
+            if(response.trim() === "true") {
                 Gofast.toast(Drupal.t("The rss feed has been edited", {}, {context: 'gofast:gofast_rssfeed'}), "success");
                 jQuery('a[href="#edit-rssfeeds"]').remove('processed')
                 Gofast.loadSettingsTab('edit-rssfeed');
                 jQuery('a[href="#edit-rssfeeds"]').addClass('processed');
             } else {
-                Gofast.toast(Drupal.t("The feed URL is invalid. Please enter a fully-qualified URL, such as<br /><br /><blockquote>http://fr.news.yahoo.com/?format=rss</blockquote>", {}, {context: 'gofast:gofast_rssfeed'}), "warning");
+                Gofast.toast(Drupal.t("The feed URL is invalid. Please enter a fully-qualified URL, such as<br /><br /><blockquote>https://fr.news.yahoo.com/?format=rss</blockquote>", {}, {context: 'gofast:gofast_rssfeed'}), "warning");
             }
         }, "text");
     };
@@ -75,7 +74,7 @@
 
         jQuery.post(location.origin + "/rssfeed/delete", {rssfeed_fid : fid}, function(response){
             Gofast.removeLoading();
-            if(response === "true") {
+            if(response.trim() === "true") {
                 Gofast.toast(Drupal.t("The rss feed has been deleted", {}, {context: 'gofast:gofast_rssfeed'}), "success");
                 jQuery('a[href="#edit-rssfeeds"]').remove('processed')
                 Gofast.loadSettingsTab('edit-rssfeed');

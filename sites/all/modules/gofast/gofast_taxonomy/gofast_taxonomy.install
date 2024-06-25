@@ -1,5 +1,16 @@
 <?php
 
+/**
+ * Implements hook_install()
+ */
+function gofast_taxonomy_install() {
+  $template_tag_name = variable_get("gofast_taxonomy_tags_forced_cases", 0) ? "TEMPLATE" : "Template";
+  $tags = taxonomy_get_term_by_name($template_tag_name, 'tags');
+  if (count($tags) == 0) {
+    gofast_taxonomy_vocabulary_add_term(GOFAST_VID_TAGS, $template_tag_name);
+  }
+}
+
 /*
  * Add new terms to criticity
  */
@@ -106,4 +117,74 @@ function gofast_taxonomy_update_7007()
     );
 
   taxonomy_term_save($new_term);
+}
+
+/**
+ * Migrate previously existing allowed spaces by category to og memberships
+ * in order to make querying those memberships possible
+ */
+function gofast_taxonomy_update_7008()
+{
+  $allowed_spaces = variable_get('gofast_map_category_spaces', array());
+  foreach ($allowed_spaces as $tid => $gids) {
+    // allowed in all spaces = no membership
+    if (empty($gids)) {
+      continue;
+    }
+    foreach ($gids as $gid) {
+      $og_membership = og_membership_create('node', $gid, 'taxonomy_term', $tid, GOFAST_TAXONOMY_CATEGORY_MEMBERSHIP_FIELD, array());
+      $og_membership->state = 1;
+      $og_membership->save();
+    }
+  }
+}
+
+/**
+ * Add "template" tag if not exists
+ */
+function gofast_taxonomy_update_7009()
+{
+  $template_tag_name = variable_get("gofast_taxonomy_tags_forced_cases", 0) ? "TEMPLATE" : "Template";
+  $tags = taxonomy_get_term_by_name($template_tag_name, 'tags');
+  if (count($tags) == 0) {
+    gofast_taxonomy_vocabulary_add_term(GOFAST_VID_TAGS, $template_tag_name);
+  }
+}
+
+/**
+ * Enforce features uuids in state vocabulary to avoid duplicate termes when gofast_features_taxonomy is reverted.
+ */
+function gofast_taxonomy_update_7010() {
+  $all_state_terms = [
+    "Done" => "1bdfdf50-f460-4600-9662-ff1870d8db29",
+    "To Validate" => "1ce68f6c-068b-4242-bd46-904bbf7eaecc",
+    "Rejected" => "26badcce-87b0-4b93-9c90-c66e3df7f27c",
+    "Awaiting signature" => "1e3c4721-a787-46bd-8bf7-03929e32ba32",
+    "Signed" => "d1771148-d81a-4099-824b-a6ce932486c6",
+    "Draft" => "35ec26c0-10f4-41ed-8373-9e260f9a8c94",
+    "Obsolete" => "592d5a53-1bbe-428c-bfee-67e5111c947b",
+    "Validated" => "6b81ccdf-1c26-4432-a067-daf1504acba7",
+    "Pre-Archived" => "856899f7-6792-40c3-84d1-4d10e5fd4a2b",
+    "In Progress" => "b5dcca31-9dfa-4ea1-b51d-d128ea0a5196",
+    "To Do" => "e35313b5-c593-4fe9-9992-7aae53335e29",
+    
+  ];
+  foreach ($all_state_terms as $term_name => $term_uuid) {
+    $terms = taxonomy_get_term_by_name($term_name, 'state');
+    $term = reset($terms);
+    $term->uuid = $term_uuid;
+    taxonomy_term_save($term);
+  }
+}
+
+/*
+ * Add new format to Picture
+ */
+function gofast_taxonomy_update_7011() {
+  $term = reset(taxonomy_get_term_by_name("Picture", "format"));
+
+  $term->field_extensions[LANGUAGE_NONE][0]["value"] = $term->field_extensions[LANGUAGE_NONE][0]["value"] . "webp;";
+  $term->field_extensions[LANGUAGE_NONE][0]["safe_value"] = $term->field_extensions[LANGUAGE_NONE][0]["safe_value"] . "webp;";
+
+  taxonomy_term_save($term);
 }

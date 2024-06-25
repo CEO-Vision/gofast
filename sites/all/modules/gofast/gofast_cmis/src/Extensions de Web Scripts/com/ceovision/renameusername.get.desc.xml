@@ -1,0 +1,7 @@
+
+<webscript>
+  <shortname>Rename Username</shortname>
+  <description>Renames a user's username</description>
+  <url>/renameusername?old_username={old_username}&amp;new_username={new_username}</url>
+  <authentication>user</authentication>
+</webscript>

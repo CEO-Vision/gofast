@@ -1,0 +1,514 @@
+<?php
+
+/**
+ * @file
+ * gofast_essential.module
+ */
+
+ module_load_include('inc', 'gofast_essential', 'gofast_essential.utils');
+ 
+/**
+ * Implements hook_menu().
+ */
+function gofast_essential_menu() {
+  $items = array();
+
+  $items["essential/get_node_page/%/%"] = array(
+    'page callback' => 'gofast_essential_get_node_page',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(2,3),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+  $items["essential/get_node_content_part/%/%"] = array(
+    'page callback' => 'gofast_essential_get_node_content_part',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(2,3),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+  $items["essential/get_node/%"] = array(
+    'page callback' => 'gofast_essential_get_node',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(2),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+  $items["essential/get_contextual_actions/%"] = array(
+    'page callback' => 'gofast_essential_get_contextual_actions',
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(2),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'delivery callback' => 'gofast_ajax_delivery'
+
+  );
+  $items['essential/get_space_contents'] = array(
+    'page callback' => 'gofast_essential_get_space_contents',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+
+  $items["essential/get_node_first_location/%"] = array(
+    "page callback" => "gofast_essential_get_node_first_location",
+    "type" => MENU_CALLBACK,
+    "page arguments" => array(2),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+
+  $items["essential/get_href_from_nid/%"] = array(
+    "page callback" => "gofast_essential_get_href_from_nid",
+      "type" => MENU_CALLBACK,
+    "page arguments" => array(2),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+  
+  $items["gofast/user/login/choose_version/%"] = array(
+    "page callback" => "gofast_essential_choose_version",
+    "type" => MENU_CALLBACK,
+    "page arguments" => array(4),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+
+  $items["essential/update_contextual_space_actions/%"] = array(
+    "page callback" => "gofast_get_essential_space_actions",
+    "type" => MENU_CALLBACK,
+    "page arguments" => array(2),
+    'access arguments' => array('access content'),
+    'access callback' => 'user_access',
+    'delivery callback' => 'gofast_ajax_delivery'
+  );
+  
+  return $items;
+}
+
+
+function gofast_essential_poll_info() {
+  $items = array();
+
+  $items["version_update"] = array(
+    "label" => "Version update",
+    "description" => "Check user plateform version",
+    "interval" => 15,
+    "context" => TRUE,
+    "selector" => "#page",
+  );
+
+  return $items;
+}
+
+function gofast_essential_poll($poll_name, $poll_info, $context) {
+  $commands = array();
+  ctools_include('ajax');
+
+  switch($poll_name){
+    case "version_update":
+      $old_version = $context["version_update"]["user"]["field_version"];
+      $account = user_load($context["version_update"]["user"]["uid"]);
+      $version = $account->field_version[LANGUAGE_NONE][0]["value"];
+
+      if($old_version != $version){
+        $commands[] = ctools_ajax_command_reload();
+      }
+      break;
+  }
+
+  return $commands;
+}
+
+/**
+ * Implements hook_library
+ */
+function gofast_essential_library() {
+  $libraries = array();
+  $path = drupal_get_path('module', 'gofast_essential');
+  $libraries['gofast_essential'] = array(
+    'title' => 'Gofast Essential Libs',
+    'version' => '1.0',
+    'js' => array(
+      $path . '/js/gofast_essential.js' => array(
+        'group' => JS_LIBRARY, // JS_DEFAULT
+        'every_page' => TRUE,
+        'weight' => 10
+      )
+    ),
+    'css' => array(
+      $path . '/css/gofast_essential.css' => array(
+        'group' => CSS_THEME,
+        'every_page' => TRUE,
+        'weight' => 10
+      )
+    )
+  );
+  return $libraries;
+}
+
+/**
+ * Implements hook_init().
+ */
+function gofast_essential_init() {
+  if(gofast_essential_is_essential()){
+    drupal_add_library('gofast_essential', 'gofast_essential', TRUE);
+  }
+  gofast_essential_set_context();
+}
+
+function gofast_essential_set_context() {
+
+  global $user;
+  $account = user_load($user->uid);
+  $version = $account->field_version[LANGUAGE_NONE][0]["value"];
+  $version_context = array(
+    'version_update' => array(
+      "user" => array(
+        "uid" => $account->uid, 
+        "field_version" => $version
+      )
+    )
+  );
+
+  gofast_set_context($version_context);
+}
+
+/**
+ * Implements hook_theme().
+ */
+function gofast_essential_theme() {
+  $themes = array(
+    'essential_ajax_file_browser' => [
+      'template' => 'tpl/gofast-essential-ajax-file-browser',
+    ],
+    'essential_header_topbar' => [
+      'template' => 'tpl/gofast-essential-header-topbar',
+      'arguments' => [
+        'leftSection' => [],
+        'rightSection' => [],
+      ]
+    ],
+    'essential_page_content' => [
+        "template" => "tpl/gofast-essential-page-content",
+        'arguments' => [
+          "content" => "",
+        ],
+    ],
+    'select_gofast_version' => [
+      'template'  => 'tpl/select-gofast-version',
+    ],
+    'essential_node_og_file_browser_tab_menu' => [
+      'template' => 'tpl/gofast-essential-node-og-file-browser-tab-menu',
+    ],
+    'essential_file_browser_history' => [
+      'template' => 'tpl/gofast-essential-file-browser-history',
+    ],
+    'essential_node_og_file_browser_content_panel' => [
+      'template' => 'tpl/gofast-essential-node-og-file-browser-content-panel',
+    ],
+
+  );
+  
+  
+
+  return $themes;
+}
+
+function gofast_essential_error_handler_alter(&$info) {
+  if(!gofast_essential_is_essential()) {
+    return;
+  }
+  foreach ($info as $key => $tpl) {
+    $info[$key] = theme("essential_page_content", ["content" => $tpl]);
+  }
+}
+
+/**
+ * Access callback for essential/get_node_page/%/%.
+ */
+function gofast_essential_get_node_page($nid, $hasContext = true){
+  $node = node_load($nid);
+
+  if($hasContext == "true"){
+    $hasContext = true;
+  } else if($hasContext == "false") {
+    $hasContext = false;
+  }
+  $side_content = theme('gofast_node_sidebar', array('node' => $node));
+  $content = theme('gofast_node_content', array('node' => $node, 'isAjax' => false, "hasContext" => $hasContext));
+  if($node->type == "article"){
+    $page = theme('gofast_node',array('content' => $content, "node" => $node, "side_content" => $side_content));
+    $page_content = theme("gofast_content_container_custom", array("content" => $page, "node"=>$node));
+  }
+  if($node->type == "alfresco_item" || $node->type == "webform"){
+    $page_content = theme('gofast_node',array('content' => $content, 'side_content' => $side_content, 'node' => $node));
+  }
+  
+  node_tag_new($node);
+
+  echo $page_content;
+}
+
+/**
+ * Access callback for essential/get_node_content_part/%/%.
+ */
+function gofast_essential_get_node_content_part($part, $nid){
+
+
+  if(!isset($part)){
+    $part = "";
+  }
+  if($nid == "all"){
+
+    $text = "";
+  } else {
+    
+    //use nid parameter for search param
+    if($part == "search"){
+      $text = $nid;
+    } else if($nid != 0) {
+      $node = node_load($nid);
+    }
+  }
+
+  if(isset($_GET["path"])){
+    $path = gofast_xss_clean($_GET["path"]);
+  }
+  
+  global $user;
+  $account = $user;
+  $is_space_admin = false;
+  if (in_array('administrator member', gofast_og_get_user_final_roles_for_space('node', $nid, $user->uid), true)) {
+    $is_space_admin = true;
+  }
+
+  $partContent = "";
+
+  switch($part){
+    case "pageContent":
+      $partContent = theme("essential_page_content");
+      break;
+    case "sideContent":
+      $partContent = theme('gofast_node_sidebar', array('node' => $node));
+      break;
+    case "content":
+      $partContent = theme('gofast_node_content', array('node' => $node, 'isAjax' => true));
+      break;
+    case "subHeader":
+      $partContent = theme('gofast_menu_header_subheader', array('node' => $node));
+      break;
+    case "ogcalendar":
+      if(!gofast_og_is_space($node)){
+        $partContent = "";
+      } else {
+        $partContent = theme('gofast_node_og_calendar', array('node'=> $node));
+      }
+      break;
+    case "ogkanban":
+      if(!gofast_og_is_space($node)){
+        $partContent = "";
+      } else {
+        $partContent = theme('gofast_kanban_og_container', array('node'=> $node));
+      }
+      break;
+    case "gofastSpaceMembers":
+      if(gofast_og_is_entity_hide_members_tab($node)){
+        $partContent = "";
+      } else {
+        $partContent = theme('gofast_node_og_members', ['node' => $node, 'is_space_admin' => $is_space_admin]);
+     }
+      break;
+    case "ogconversation":
+      $partContent = theme("gofast_node_og_riot", array("node" => $node));
+      break;
+    case "oghome":
+      if(gofast_og_is_entity_hide_home_tab($node)) {
+        $partContent = "disabled";
+      } else {
+        $partContent = '<div class="loader-blog"></div>';
+      }
+      break;
+    case "filebrowser":
+      $partContent = theme('gofast_node_og', array('node' => gofast_og_get_user_private_space($account)));
+      break;
+    case "hidden_filebrowser":
+      $partContent = theme('gofast_node_og', array('node' =>
+        gofast_og_get_user_private_space($account), 'hidden_filebrowser' =>
+        true));
+      break;
+    case "dashboard":
+      $partContent = gofast_dashboard_display();
+      break;
+    case "search":
+      
+      module_load_include('inc', 'apachesolr','apachesolr_search.pages');
+      $_GET["content_part"] = TRUE;
+      $partContent = drupal_render(apachesolr_search_custom_page("core_search", $text));
+      break;
+    case "forumTab": 
+      $partContent = gofast_forum_get_forums_view(true);
+      break;
+    case "forum":
+      foreach(module_implements("node_view") as $module) {
+        call_user_func_array($module . '_node_view', array(&$node, "full", $account->language));
+      }
+      // we don't want to trigger the whole page_hook to trigger logic from flag module so we do it manually
+      $flag = flag_get_flag("subscribe_node");
+      $node->content['links']['comment']['#links']['flag-subscribe_node'] = array(
+        'title' => $flag->theme($flag->is_flagged($node->nid) ? 'unflag' : 'flag', $node->nid),
+        'html' => TRUE,
+      );
+      $node->content['links']['comment']['#links']['comment-add']['href'] = "gofast/nojs/comment/reply/" . $node->nid;
+      $node->content['links']['comment']['#links']['comment-add']['attributes']['class'][] = "ctools-use-modal";
+      
+      $partContent = theme("gofast_forum", array("node" => $node, "links" => $node->content['links']));
+      break;
+  }
+
+  echo $partContent;
+}
+
+/**
+ * Access callback for essential/get_node/%.
+ */
+function gofast_essential_get_node($nid){
+  $node = node_load($nid);
+  
+  $js_node = ["id" => $node->nid, "type" => $node->type, "title" => $node->title];
+  print(json_encode($js_node));
+}
+
+/**
+ * Access callback for essential/get_space_contents.
+ */
+function gofast_essential_get_space_contents(){
+
+  $href = $_GET["href"];
+
+  $href = gofast_xss_clean($href);
+
+  $nid = gofast_ajax_file_browser_get_nid_from_href($href);
+  $contents = gofast_og_get_content($nid, FALSE, FALSE, TRUE);
+
+  echo json_encode($contents);
+}
+
+/**
+ * Access callback for essential/get_contextual_actions/%.
+ */
+function gofast_essential_get_contextual_actions($nid){
+  $node = node_load($nid);
+
+  drupal_json_output(gofast_get_breadcrumbs_alt($node));
+
+}
+
+/**
+ * Access callback for essential/get_node_first_location/%.
+ */
+function gofast_essential_get_node_first_location($nid, $is_ajax = TRUE){
+  $node = node_load($nid);
+  
+  if($node->type == "webform" || $node->type == "forum"){
+    $location = gofast_og_get_first_available_space_location($node);
+  } else {
+    $location = gofast_cmis_get_first_available_location($node);
+  }
+  if($is_ajax){
+    echo $location;
+    exit;
+  } else {
+    return $location;
+  }
+}
+
+/**
+ * Access callback for essential/get_href_from_nid/%.
+ */
+function gofast_essential_get_href_from_nid($nid){
+  if (in_array(gofast_get_node_type($nid, TRUE), array('group', 'organisation', 'extranet', 'public', 'private_space'))) {
+    echo gofast_cmis_space_get_webdav_path($nid);
+    exit();
+  } else {
+    echo gofast_essential_get_node_first_location($nid, FALSE);
+    exit();
+  }
+}
+
+/**
+ * Access callback for gofast/user/login/choose_version/%.
+ */
+function gofast_essential_choose_version($version = "Essential"){
+
+  global $user;
+  $front_page = variable_get("site_frontpage", "activity");
+
+  $account = user_load($user->uid);
+  if($version == "Essential" || $version == "Plus"){
+    $account->field_version[LANGUAGE_NONE][0]["value"] = $version;
+  }
+  user_save($account);
+  echo $front_page;
+
+}
+
+
+
+function template_preprocess_essential_header_topbar(&$variables){
+
+  global $user;
+  $rightSection = [];
+  $leftSection = [];
+
+  $rightSection[] = gofast_create_menu_workflow(true);
+
+  $othersMenus = gofast_create_menu_others_menus();
+
+  foreach($othersMenus as $menu){
+    $rightSection[] = $menu;
+  }
+
+  $variables['language'] = gofast_get_flag_lang_switcher_content();
+  $leftSection[] = gofast_create_menu_about();
+
+  $variables['rightSection'] = $rightSection;
+  $variables['leftSection'] = $leftSection;
+
+  $variables['user'] = $user;
+
+}
+
+/**
+ * Gets the essential space actions if the user is an admin of the space.
+ *
+ * @param Object $node (space node)
+ * @return String|NULL|Boolean
+ */
+
+ function gofast_get_essential_space_actions($nid){
+  global $user;
+  $isAjax = FALSE;
+  if(isset($_POST['isAjax']))
+    $isAjax = $_POST['isAjax'];
+  $all_admins_space = get_all_admin_group($nid);
+  $is_admin = in_array($user->uid, $all_admins_space);
+  if($is_admin){
+    $essential_space_actions = gofast_og_get_essential_space_actions($nid);
+    $theme = theme('contextual_links', array('buttons' => $essential_space_actions, 'isSpace' => TRUE, 'btn_group_id' => 'gofast_essential_space_actions')); 
+    if($isAjax){
+      echo $theme;
+      exit; 
+    }else{
+      return $theme;
+    }
+  }
+  return FALSE;
+}

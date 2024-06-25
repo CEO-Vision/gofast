@@ -1,0 +1,132 @@
+<?php
+
+module_load_include('inc', 'gofast_naming_rules', 'gofast_naming_rules.metadata');
+module_load_include('inc', 'gofast_naming_rules', 'gofast_naming_rules.form');
+module_load_include('inc', 'gofast_naming_rules', 'gofast_naming_rules.theme');
+
+/**
+ * Implements hook_library().
+ */
+function gofast_naming_rules_library(){
+    $path = drupal_get_path('module', 'gofast_naming_rules');
+    $libraries['gofast_naming_rules_hooks'] = array(
+      'title' => 'GoFAST naming rules JS hooks library',
+      'version' => '1.0',
+      'js' => array(
+        $path . '/js/hooks.js' => array(
+          'group' => JS_THEME,
+          'every_page' => TRUE,
+          'weight' => 1
+        )
+      ),
+    );
+    $libraries['gofast_naming_rules_utils'] = array(
+        'title' => 'GoFAST naming rules JS utils library',
+        'version' => '1.0',
+        'js' => array(
+          $path . '/js/utils.js' => array(
+            'group' => JS_THEME,
+            'every_page' => TRUE,
+            'weight' => 1
+          )
+        ),
+      );
+    return $libraries;
+}
+
+/**
+ * Implements hook_init().
+ */
+function gofast_naming_rules_init()
+{
+    drupal_add_library("gofast_naming_rules", "gofast_naming_rules_hooks", TRUE);
+    drupal_add_library("gofast_naming_rules", "gofast_naming_rules_utils", TRUE);
+}
+
+/**
+ * Implements hook_menu().
+ */
+function gofast_naming_rules_menu()
+{
+    $items = array();
+    $items['taxonomy/naming_rules/apply_category_confirm'] = array(
+        'page callback' => 'gofast_naming_rules_apply_category_confirm',
+        'access arguments' => array('access content'),
+        'access callback' => 'user_access',
+        'type' => MENU_CALLBACK,
+        'delivery callback' => 'gofast_ajax_delivery',
+    );
+    $items['taxonomy/%taxonomy_term/naming_rules/get'] = array(
+        'page callback' => 'gofast_naming_rules_get_rule',
+        'page arguments' => array(1),
+        'access arguments' => array('access content'),
+        'access callback' => 'user_access',
+        'type' => MENU_CALLBACK,
+        'delivery callback' => 'gofast_ajax_delivery',
+    );
+    $items['taxonomy/%taxonomy_term/naming_rules/post'] = array(
+        'page callback' => 'gofast_naming_rules_post_rule',
+        'page arguments' => array(1),
+        'access arguments' => array('administer categories configuration'),
+        'access callback' => 'user_access',
+        'type' => MENU_CALLBACK,
+        'delivery callback' => 'gofast_ajax_delivery',
+    );
+    return $items;
+}
+
+/**
+ * Implements hook_contextual_menu_alter().
+ */
+function gofast_naming_rules_gofast_contextual_menu_alter(&$items) {
+    if (isset($items["rename"])) {
+        $items["rename"]["access_function"][] = "gofast_naming_rules_node_has_no_naming_rule";
+    }
+    if (isset($items["more"]["rename"])) {
+      $items["more"]["rename"]["access_function"][] = "gofast_naming_rules_node_has_no_naming_rule";
+    }
+    if (isset($items["rename_browser"])) {
+        $items["rename_browser"]["access_function"][] = "gofast_naming_rules_node_has_no_naming_rule";
+    }
+    if (isset($items["more"]["rename_browser"])) {
+      $items["more"]["rename_browser"]["access_function"][] = "gofast_naming_rules_node_has_no_naming_rule";
+    }
+}
+
+/**
+ * Implements hook_alter_cmis_update_aspect_properties().
+ * On node presave, insert or update, if the node has a category bound to a naming rule, prevent renaming Alfresco-side
+ */
+function gofast_naming_rules_alter_cmis_update_aspect_properties($wrapper, $properties, $node){
+  if (is_string(gofast_naming_rules_node_has_no_naming_rule($node))) {
+      $properties['gofast:preventRename'] = "true";
+    } else if (!isset($properties['gofast:preventRename']) || $properties['gofast:preventRename'] != "true") {
+      // if another hook implementation has not prevented rename, we can greenlight it again
+      $properties['gofast:preventRename'] = "false";
+    }
+    return $properties;
+}
+
+function gofast_naming_rules_node_presave($node) {
+  $has_naming_rule = is_string(gofast_naming_rules_node_has_no_naming_rule($node));
+  if (!$has_naming_rule) {
+    return;
+  }
+  $term = taxonomy_term_load($node->field_category[LANGUAGE_NONE][0]["tid"]);
+  $ruled_value = gofast_naming_rule_get_node_ruled_value($node, $term, TRUE, FALSE);
+  // Don't apply naming rule if all rule-related fields are not filled
+  if (!$ruled_value) {
+    return;
+  }
+  $node_title = explode(".", $node->title);
+  $extension = array_pop($node_title);
+  $node_title = implode(".", $node_title);
+  // node is already named according to its naming rule
+  if ($ruled_value == $node_title) {
+    return;
+  }
+  // allow rename for the current transaction (preventRename will be set again after all transactions are done)
+  $item_id = gofast_cmis_node_get_item_id($node);
+  gofast_cmis_webservice_item_update_properties($item_id, ["gofast:preventRename" => "false"]);
+  $node->title = $ruled_value . "." . $extension;
+}

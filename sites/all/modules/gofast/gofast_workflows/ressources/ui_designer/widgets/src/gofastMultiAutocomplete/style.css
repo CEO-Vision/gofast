@@ -1,0 +1,9 @@
+.tagify {
+    height: 100%;
+}
+
+.tagify__tag > div, .tagify__dropdown__item {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}

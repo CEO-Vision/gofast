@@ -28,7 +28,7 @@
                 </a>
                 <div class="dropdown-menu">
                   <?php foreach ($link['dropdown-menu'] as $dropdown_link) : ?>
-                    <a class="dropdown-item" data-toggle="tab" id="<?php print $dropdown_link['id']; ?>" aria-controls="<?php print $dropdown_link['href']; ?>" href="#<?php print $dropdown_link['href']; ?>">
+                    <a class="dropdown-item<?php if($dropdown_link['hidden'] == true){ echo ' d-none'; } ?>" data-toggle="tab" id="<?php print $dropdown_link['id']; ?>" aria-controls="<?php print $dropdown_link['href']; ?>" href="#<?php print $dropdown_link['href']; ?>">
                       <span class="navi-icon pr-2">
                         <i class="<?php print $dropdown_link['icon'] ?>"></i>
                       </span>
@@ -38,14 +38,8 @@
                 </div>
               </li>
             <?php else : ?>
-              <li class="nav-item <?php if ($link['dropdown']) {
-                                    echo 'dropdown';
-                                  } ?><?php if ($link['disabled'] == true) {
-                                                                                      echo 'disabled';
-                                                                                    } ?>">
-                <a class="nav-link px-2 d-flex justify-content-center <?php if ($link['disabled'] == true) {
-                                                                        echo 'disabled';
-                                                                      } ?>" id="<?php print $link['id']; ?>" aria-controls="<?php print $link['href']; ?>" data-toggle="tab" href="#<?php print $link['href']; ?>">
+              <li class="nav-item <?php if ($link['dropdown']) { echo 'dropdown'; } ?><?php if ($link['disabled'] == true) { echo 'disabled'; } ?>">
+                <a class="nav-link px-2 d-flex justify-content-center <?php if ($link['disabled'] == true) { echo 'disabled'; } ?>" id="<?php print $link['id']; ?>" aria-controls="<?php print $link['href']; ?>" data-toggle="tab" href="#<?php print $link['href']; ?>">
                   <span class="nav-icon">
                     <i class="<?php print $link['icon'] ?>"></i>
                   </span>
@@ -92,12 +86,14 @@
           jQuery("#contextual-actions-loading").replaceWith(data);
           Drupal.attachBehaviors();
         });
-        jQuery(".breadcrumb-gofast").append("<div class='loader-breadcrumb'></div>");
-        jQuery.get(location.origin + "/gofast/node-breadcrumb/<?php echo $node->nid; ?>", function(data) {
-          jQuery(".loader-breadcrumb").remove();
-          jQuery(".breadcrumb-gofast").replaceWith(data);
-          Drupal.attachBehaviors();
-        });
+        if(Gofast._settings.isEssential && <?= $node->type != "article" ?> == "true"){
+          jQuery(".breadcrumb-gofast").append("<div class='loader-breadcrumb'></div>");
+          jQuery.get(location.origin + "/gofast/node-breadcrumb/<?php echo $node->nid; ?>", function(data) {
+            jQuery(".loader-breadcrumb").remove();
+            jQuery(".breadcrumb-gofast").replaceWith(data);
+            Drupal.attachBehaviors();
+          });
+        }
         Drupal.behaviors.gofast_node_actions_breadcrumb = null;
       }
     }
