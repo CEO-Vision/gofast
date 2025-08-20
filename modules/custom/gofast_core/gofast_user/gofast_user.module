@@ -1,0 +1,38 @@
+<?php
+
+/**
+ * @file
+ * Contains gofast_user.module.
+ */
+
+use Drupal\user\Entity\User;
+
+/**
+ * Implements template_preprocess_THEME().
+ */
+function template_preprocess_gofast_user_account_menu(&$variables) {
+
+  // Get the avatar theme.
+  $variables['avatar'] = \Drupal::service('renderer')->render([
+    '#theme' => 'gofast_user_picture',
+  ]);
+
+}
+
+/**
+ * Implements template_preprocess_THEME().
+ */
+function template_preprocess_gofast_user_picture(&$variables) {
+  $account = \Drupal::currentUser();
+
+  // Get the user image src.
+  $user_picture = User::load($account->id())->get('user_picture')->entity;
+
+  // Get the user image alt (name)
+  $user_picture_alt = User::load($account->id())->get('name')->value;
+
+  $variables['avatar'] = [
+    'src' => $user_picture->entity->getFileUri(),
+    'alt' => $user_picture_alt,
+  ];
+}

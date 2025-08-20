@@ -1,0 +1,22 @@
+uuid: 67c54204-5dd8-4699-9f80-dea47e815428
+langcode: en
+status: true
+dependencies:
+  module:
+    - basic_auth
+    - gofast_webform
+    - serialization
+    - user
+id: webform_submissions
+plugin_id: webform_submissions
+granularity: resource
+configuration:
+  methods:
+    - GET
+    - POST
+  formats:
+    - json
+    - xml
+  authentication:
+    - basic_auth
+    - cookie

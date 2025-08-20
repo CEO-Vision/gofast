@@ -1,0 +1,3 @@
+identity: gofast_drupal
+facility: 128
+format: '!base_url|!timestamp|!ip|!request_uri|!uid|!severity|!message'

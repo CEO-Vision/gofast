@@ -1,0 +1,17 @@
+uuid: 82b1a793-c72e-4a55-be36-7819d459640d
+langcode: und
+status: true
+dependencies:
+  config:
+    - group.type.organic_group
+    - node.type.webform
+  module:
+    - gnode
+    - node
+id: organic_group-group_node-webform
+group_type: organic_group
+content_plugin: 'group_node:webform'
+plugin_config:
+  group_cardinality: 0
+  entity_cardinality: 1
+  use_creation_wizard: false

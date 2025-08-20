@@ -1,0 +1,29 @@
+{%
+  set body_classes = [
+    logged_in ? 'user-logged-in',
+    not root_path ? 'path-frontpage' : 'path-' ~ root_path|clean_class,
+    node_type ? 'page-node-type-' ~ node_type|clean_class,
+    db_offline ? 'db-offline',
+    (b5_body_schema == 'light' ? ' text-dark' : (b5_body_schema == 'dark' ? ' text-light' :  ' ')),
+    (b5_body_bg_schema != 'none' ? " bg-#{b5_body_bg_schema}" : ' '),
+    'd-flex flex-column h-100'
+  ]
+%}
+<!DOCTYPE html>
+<html lang="en" {{ html_attributes }}>
+    <head>
+        <head-placeholder token="{{ placeholder_token }}">
+        <title>{{ head_title|safe_join(' | ') }}</title>
+        <css-placeholder token="{{ placeholder_token }}">
+        <js-placeholder token="{{ placeholder_token }}">
+    </head>
+    
+    {# <body {{ attributes.addClass(body_classes) }} id="kt_app_body" data-kt-app-page-loading-enabled="true" data-kt-app-page-loading="on" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" data-kt-app-sidebar-hoverable="true" data-kt-app-sidebar-push-header="true" data-kt-app-sidebar-push-toolbar="true" data-kt-app-sidebar-push-footer="true" data-kt-app-toolbar-enabled="true" > #}
+    <body>
+        {% include '@gofast/templates/misc/_page-loader.html.twig' %}
+        {{ page_top }}
+        {{ page }}
+        {{ page_bottom }}
+        <js-bottom-placeholder token="{{ placeholder_token }}">
+    </body>
+</html>

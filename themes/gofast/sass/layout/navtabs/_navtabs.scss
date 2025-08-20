@@ -1,0 +1,16 @@
+.nav-link {
+  color: #7E8299;
+
+  &:hover,
+  &.active,
+  &:hover .nav-icon,
+  &:hover .nav-icon span,
+  &.active .nav-icon span {
+    color: #3498db !important;
+  }
+
+  .nav-icon,
+  .nav-icon span {
+    color: #7E8299;
+  }
+}

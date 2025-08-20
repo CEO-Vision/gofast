@@ -1,0 +1,27 @@
+# code spell checker config
+$schema: https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json
+version: '0.2'
+language: en,fr,en-GB
+import:
+  # we extend the configuration of core drupal which defines already a bunch
+  # of drupal-related terms, dictionaries and more
+  - ./core/.cspell.json
+dictionaries:
+  - gofast
+  # built-in dictionaries
+  - companies
+  - fonts
+  - html
+  - php
+  - softwareTerms
+
+dictionaryDefinitions:
+  - name: gofast
+    description: >
+      GoFAST project custom dictionary with GoFAST-specific words and technology
+      names. Choose this one when adding words.
+    addWords: true
+    path: ./misc/cspell/gofast.txt
+
+# words to flag as incorrect every time
+flagWords: []

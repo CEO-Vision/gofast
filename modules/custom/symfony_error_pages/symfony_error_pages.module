@@ -1,0 +1,11 @@
+<?php
+
+/**
+ * Implements hook_help().
+ */
+function symfony_error_pages_help($route_name, $route_match) {
+  switch ($route_name) {
+    case 'help.page.symfony_error_pages':
+      return '<p>' . t('Provides Symfony-like error pages for Drupal.') . '</p>';
+  }
+}

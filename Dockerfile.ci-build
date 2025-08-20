@@ -1,0 +1,144 @@
+# CEO-Vision S.A.S
+# Project : gofast-ng-template
+# Template version : 2.1
+# Modification date : 13.01.2025
+
+############################################
+######### USAGE AND INSTRUCTIONS ###########
+############################################
+
+# - Replace the following :
+#   - !USER => Our final user, root is not allowed
+#   - !WORKDIR_PATH => The directory path of our final user
+#   - !BASE_TAG => Replace with the tag of our latest gofast-ng-baseos image
+#   - !GOFAST_COLOR => Replace with a custom color for this container, like \033[0;33m
+#
+# - Fill the different parts
+# - Do your customizations, but keep in mind :
+#   - All tasks that can be performed before instanciation must be done in this file
+#   - In this file, you can download ressources from Internet or Repo-GoFAST, this won't be allowed in other scripts
+
+############################################
+############# CONTAINER INIT ###############
+############################################
+
+# Base image, always based on custom build image
+# See https://gitlab.com/ceo-vision/gofast-ng-baseos
+FROM registry.gitlab.com/ceo-vision/gofast-ng-baseos_php:1.1.1-beta
+
+# Specific container color
+ENV GOFAST_COLOR='\033[97;48;5;202m'
+
+# Declare contextual environment variables
+ENV NODE_NVM_VERSION='0.40.1'
+ENV NODE_VERSION='22'
+
+# Create user and group if needed
+# This is ofter not needed as packages installation will create a user for you
+# RUN groupadd -r builder && useradd -mr -d /home/builder -s /bin/bash -g builder builder
+
+# Declare Working Directory (aka user home directory)
+# This directory will be used to store configurations and sources
+# Please don't use other WORKDIR directives or revert the change immediately after
+# If needed, you can create a folder in /usr/share or /home
+# RUN mkdir -p /home/builder && chown -R builder:builder /home/builder
+# WORKDIR /home/builder
+
+
+############################################
+######## CONFIGURATIONS AND SOURCES ########
+############################################
+
+# Create directories in our WORKDIR
+# RUN mkdir -p !WORKDIR_PATH/sources
+# RUN mkdir -p !WORKDIR_PATH/config
+
+# Retrieve our files
+#COPY sources/ !WORKDIR_PATH/sources/
+#COPY config/ !WORKDIR_PATH/config/
+
+############################################
+##### REPOSITORY PACKAGES INSTALLATION #####
+############################################
+
+# Install ...
+#RUN dnf install ... -y
+
+# Install composer and DRUSH
+RUN wget https://getcomposer.org/installer && \
+    php installer --2.2 --install-dir=/usr/local/bin --filename=composer && \
+    composer require drush/drush:8.x && \
+    mkdir -p /usr/share/httpd/drush-rsync/dumps/
+
+# Install Node.js and npm
+RUN touch ~/.bashrc && \
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v${NODE_NVM_VERSION}/install.sh | bash && \
+    source ~/.bashrc && \
+    nvm install "${NODE_VERSION}" && \
+    nvm alias default "${NODE_VERSION}" && \
+    npm install -g npm@latest
+
+
+# ALWAYS : Clean the dnf local repository
+# We are not installing any dnf packages, if we were this cleanup should be done
+# in the same RUN as the installation to not create a layer with the packages registry
+# RUN dnf clean all
+
+############################################
+################# BINARIES #################
+############################################
+
+#Copy entrypoint and other scripts, then make them executable with our user
+# COPY bin/ /usr/local/bin/
+# RUN chown -R builder:builder /usr/local/bin/* && \
+#     chmod ugo+x /usr/local/bin/* && \
+#     dos2unix /usr/local/bin/*.sh
+
+############################################
+############## CUSTOMIZATIONS ##############
+############################################
+
+# Description
+#RUN .....
+
+############################################
+############### PERMISSIONS ################
+############################################
+
+# Change permissions of directories and files for our user
+# RUN chown -R builder:builder /home/builder # moved up to fix npm install
+#RUN chown -R builder:builder /my/other/path
+#RUN chmod -R ...
+
+############################################
+############### CAPABILITIES ###############
+############################################
+
+# Give capabilities to our container
+# Capabilities are potential security weakeaning, usage shoud be validated and restricted
+
+#RUN setcap cap_xxx=yyy /my/path
+
+############################################
+################ FINALIZE ##################
+############################################
+
+#Expose ports
+#EXPOSE 0000
+
+# Declare volumes if needed
+# These volumes should also be declared in our docker-compose with proper naming
+# See https://gitlab.com/ceo-vision/gofast-ng-compose
+#VOLUME /internal/path/to/volume
+
+#Define our final user
+# USER builder:builder
+
+# Initialize our container entrypoint
+ENTRYPOINT ["/bin/bash"]
+
+# Send a command to the entrypoint, asking to launch our startup script
+# CMD ["gofast-startup.sh"]
+
+# No entrypoint, Start bash - Used for base images only
+#CMD ["/bin/bash"]

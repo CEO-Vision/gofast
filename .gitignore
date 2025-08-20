@@ -1,0 +1,128 @@
+# This file contains default .gitignore rules. To use it, copy it to .gitignore,
+# and it will cause files like your settings.php and user-uploaded files to be
+# excluded from Git version control. This is a common strategy to avoid
+# accidentally including private information in public repositories and patch
+# files.
+#
+# Because .gitignore can be specific to your site, this file has a different
+# name; updating Drupal core will not override your custom .gitignore file.
+
+# Ignore core when managing all of a project's dependencies with Composer
+# including Drupal core.
+# core
+
+# Ignore dependencies that are managed with Composer.
+# Generally you should only ignore the root vendor directory. It's important
+# that core/assets/vendor and any other vendor directories within contrib or
+# custom module, theme, etc., are not ignored unless you purposely do so.
+/vendor/
+/core/
+/modules/contrib/
+/libraries/
+
+# Ignore configuration files that may contain sensitive information.
+sites/*/settings*.php
+sites/*/services*.yml
+
+# Ignore paths that contain user-generated content.
+sites/*/files/*
+sites/*/private/*
+# Do not ignore gitkeep for config and private that need to exist
+!sites/*/files/config/
+!sites/*/files/config/**
+!sites/*/files/private/
+!sites/*/files/private/.gitkeep
+
+# Ignore multi-site test environment.
+sites/simpletest
+
+# Ignore DDEV configuration files.
+/.ddev
+
+# Ignore dist folders
+dist/
+
+# If you prefer to store your .gitignore file in the sites/ folder, comment
+# or delete the previous settings and uncomment the following ones, instead.
+
+# Ignore configuration files that may contain sensitive information.
+# */settings*.php
+
+# Ignore paths that contain user-generated content.
+# */files
+# */private
+
+# Ignore multi-site test environment.
+# simpletest
+
+# Ignore IDE conf
+.idea
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+*.komodoproject
+*.komodotools
+*.komodotool
+*.sublime-project
+*.sublime-workspace
+*.idea
+*.DS_Store
+*.code-workspace
+.vscode/*
+node_modules
+
+# Custom project ignores
+/test-results/
+
+## use "settings.local.json" for local "per user" workspace settings
+!.vscode/settings.json
+!.vscode/extensions.json
+
+#####################################################################
+##################### GoFAST CONFIGURATIONS #########################
+#####################################################################
+
+# Ignore unwanted configurations from preinstalled themes
+sites/default/gofast_config/*claro*
+sites/default/gofast_config/*olivero*
+
+# Manual exclusions, may be reverted if needed
+sites/default/gofast_config/*announcements_feed*
+sites/default/gofast_config/*automated_cron*
+sites/default/gofast_config/*comment*
+sites/default/gofast_config/*contact*
+sites/default/gofast_config/*block*
+sites/default/gofast_config/*core*
+sites/default/gofast_config/*dblog*
+sites/default/gofast_config/*devel*
+sites/default/gofast_config/*editor*
+sites/default/gofast_config/*field*
+sites/default/gofast_config/*file*
+sites/default/gofast_config/*filter*
+sites/default/gofast_config/*image*
+sites/default/gofast_config/*language*
+sites/default/gofast_config/*locale*
+sites/default/gofast_config/*menu_ui*
+sites/default/gofast_config/*taxonomy*
+sites/default/gofast_config/*text*
+sites/default/gofast_config/*views*
+sites/default/gofast_config/*update*
+sites/default/gofast_config/*user*
+sites/default/gofast_config/*search*
+sites/default/gofast_config/*shortcut*
+sites/default/gofast_config/*syslog*
+sites/default/gofast_config/*system*
+
+# Manual inclusions
+!sites/default/gofast_config/*language.entity*
+!sites/default/gofast_config/*user.role*
+!sites/default/gofast_config/*system.performance*
+!sites/default/gofast_config/*system.theme*
+!sites/default/gofast_config/*system.maintenance*
+!sites/default/gofast_config/*syslog.settings*
+!sites/default/gofast_config/core.extension.yml
+
+# Manual exclusions with precise targets
+sites/default/gofast_config/user.role.content_editor.yml

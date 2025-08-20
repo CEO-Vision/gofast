@@ -1,0 +1,18 @@
+id: webform_submissions
+plugin_id:  webform_submissions
+status: true
+granularity: resource
+configuration:
+  methods:
+    GET:
+      supported_formats:
+        - json
+      supported_auth:
+        - basic_auth
+        - cookie
+    POST:
+      supported_formats:
+        - json
+      supported_auth:
+        - basic_auth
+        - cookie

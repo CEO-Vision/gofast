@@ -1,0 +1,15 @@
+<?php
+
+/**
+ * @file
+ * Contains gofast_og.install.
+ */
+
+use Drupal\gofast_core\Utils\DatabaseUtils;
+
+/**
+ * Implements hook_install().
+ */
+function gofast_og_install() {
+  DatabaseUtils::setAutoIncrementValue("groups", 10000001);
+}

@@ -1,0 +1,90 @@
+<?php
+
+/**
+ * @file
+ * Contains gofast_core.module.
+ */
+
+use Drupal\Core\Logger\RfcLogLevel;
+use Symfony\Component\Yaml\Yaml;
+
+/**
+ * Implements hook_module_implements_alter().
+ */
+function gofast_core_module_implements_alter(&$implementations, $hook) {
+  $moduleIdentifier = 'gofast_core';
+
+  // We need to remove a useless div from the page element.
+  // https://www.drupal.org/forum/support/theme-development/2019-08-08/how-to-safely-remove-dialog-off-canvas-main-canvas-class
+  if ($hook == 'element_info_alter') {
+    $implementation = $implementations[$moduleIdentifier];
+    unset($implementations[$moduleIdentifier]);
+    $implementations[$moduleIdentifier] = $implementation;
+  }
+}
+
+/**
+ * Implements hook_element_info_alter().
+ */
+function gofast_core_element_info_alter(&$type) {
+  unset($type['page']['#theme_wrappers']['off_canvas_page_wrapper']);
+}
+
+/**
+ * Implements hook_theme().
+ */
+function gofast_core_theme($existing, $type, $theme, $path) {
+  $theme_definitions = [];
+
+  // Get all module paths.
+  $module_paths = \Drupal::moduleHandler()->getModuleList();
+  foreach ($module_paths as $module_name => $module_info) {
+    $module_path = $module_info->getPath();
+    $theme_files = glob($module_path . "/*.theme.yml");
+    foreach ($theme_files as $theme_file) {
+      if (file_exists($theme_file)) {
+        $yaml_data = Yaml::parseFile($theme_file);
+
+        foreach ($yaml_data as $theme_key => $theme_info) {
+          // Check if necessary keys are present.
+          if (isset($theme_info['template'], $theme_info['path'])) {
+            $theme_definitions[$theme_key] = [
+              'template' => $theme_info['template'],
+              'path' => $module_path . '/' . $theme_info['path'],
+              'render element' => $theme_info['render_element'] ?? 'children',
+            ];
+
+            // If variables are defined, add them.
+            if (isset($theme_info['variables'])) {
+              $theme_definitions[$theme_key]['variables'] = $theme_info['variables'];
+            }
+          }
+          else {
+            // Log an error message if the theme declaration is not conform.
+            \Drupal::logger($module_name)->log(RfcLogLevel::ERROR, 'Theme @theme_key is not correctly defined in the .theme.yml file.', ['@theme_key' => $theme_key]);
+          }
+        }
+      }
+      else {
+        // Log an error message if the .theme.yml file is not found.
+        \Drupal::logger($module_name)->log(RfcLogLevel::ERROR, 'The .theme.yml file was not found.');
+      }
+    }
+  }
+  return $theme_definitions;
+}
+
+/**
+ * Implements hook_library_info_alter().
+ */
+function gofast_core_library_info_alter(&$libraries, $extension) {
+  if ($extension === 'gofast' && isset($libraries['app'])) {
+    $dist_dir = 'themes/gofast/js/gofast/dist';
+    $files = glob($dist_dir . '/*.js');
+    \Drupal::logger('gofast_core')->log(RfcLogLevel::INFO, json_encode($files));
+    foreach ($files as $file) {
+      $relative_path = str_replace('themes/gofast/', '', $file);
+      $libraries['app']['js'][$relative_path] = [];
+    }
+  }
+}

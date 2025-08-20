@@ -1,0 +1,6 @@
+gofast_webform.page_content:
+  path: '/survey/{nid}'
+  defaults:
+    _controller: '\Drupal\gofast_webform\Controller\WebformPageController::index'
+  requirements:
+    _access: 'TRUE'

@@ -1,0 +1,6 @@
+services:
+    gofast_webform.survey_service:
+        class: Drupal\gofast_webform\Service\SurveyService
+        arguments: ['@entity_type.manager']
+    gofast_webform.survey_service_d7:
+        class: Drupal\gofast_webform\Service\SurveyServiceD7

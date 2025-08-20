@@ -1,0 +1,14 @@
+uuid: 3b0728b7-69fd-42be-bdc4-dc8a20424ac2
+langcode: und
+status: true
+dependencies:
+  config:
+    - group.type.organic_group
+id: organic_group-administrator
+label: Administrator
+weight: null
+admin: true
+scope: individual
+global_role: null
+group_type: organic_group
+permissions: {  }

@@ -1,0 +1,17 @@
+id: node_access
+plugin_id:  node_access
+granularity: resource
+configuration:
+  methods:
+    GET:
+      supported_formats:
+        - json
+      supported_auth:
+        - basic_auth
+        - cookie
+    POST:
+      supported_formats:
+        - json
+      supported_auth:
+        - basic_auth
+        - cookie

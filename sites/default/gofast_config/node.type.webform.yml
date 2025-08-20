@@ -1,0 +1,16 @@
+uuid: 39f5aa87-3e06-4955-a3fc-e52a6672480e
+langcode: fr
+status: true
+dependencies:
+  enforced:
+    module:
+      - webform_node
+_core:
+  default_config_hash: BuY_3PjmYtRTSuvyFORJZUe0-TQiNXEE6yYQ_dkjxW8
+name: Webform
+type: webform
+description: 'Une page de base avec un formulaire attaché.'
+help: null
+new_revision: false
+preview_mode: 1
+display_submitted: true

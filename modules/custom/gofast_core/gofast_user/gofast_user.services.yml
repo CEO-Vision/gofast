@@ -1,0 +1,9 @@
+services:
+  request_subscriber:
+    class: Drupal\gofast_user\EventSubscriber\RequestSubscriberD7
+    arguments: ['@current_user', '@current_route_match', '@request_stack', '@logger.channel.gofast_user']
+    tags:
+      - {name: event_subscriber}
+  logger.channel.gofast_user:
+    class: Drupal\Core\Logger\LoggerChannel
+    arguments: ['gofast_user']

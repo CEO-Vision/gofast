@@ -1,0 +1,47 @@
+{
+  "recommendations": [
+    // Enables parsing of .editorconfig file provided by Drupal 10 to have
+    // common editor configurations for any editor supporting the format.
+    "EditorConfig.EditorConfig",
+    // PHP LSP extension, provides completions, symbols and other general features.
+    // free tier is alright, premium is one-time payment and affordable
+    "bmewburn.vscode-intelephense-client",
+    // Adds improved auto-completion of PHP array keys and infer some types from code.
+    "klesun.deep-assoc-completion-vscode",
+    // Improved documentation comment generation and auto complete (Drupal recommendation)
+    "neilbrayfield.php-docblocker",
+    // Snippets for Drupal 10, smart enough to add module names in hook names (Drupal recommendation)
+    "andrewdavidblum.drupal-smart-snippets",
+    // Twig LSP (syntax highlight, etc), snippets (Drupal recommentation)
+    "mblode.twig-language-2",
+    // YAML language LSP (Drupal recommendation)
+    "redhat.vscode-yaml",
+    // Composer file intellisense and inline hints
+    "muath-ye.composer-Intelephense",
+    // Linter extension for JS/Vue to show linter errors in the editor and
+    // provide quick fixes
+    "dbaeumer.vscode-eslint",
+    // JS/Vue formatter to run using the format document command
+    "esbenp.prettier-vscode",
+    // PHP CodeSniffer extension to get diagnostics in-editor and use it as
+    // formatter (phpcbf, same as running lint-fix composer script on single
+    // file). If the diagnostics do not show up in the editor, try using
+    // shevaua.phpcs as well
+    "valeryanm.vscode-phpsab",
+    // Shows PHPUnit tests in test explorer and adds gutter buttons to run tests
+    "recca0120.vscode-phpunit",
+    // Shows Jest tests in test explorer and adds gutter buttons to run tests
+    "orta.vscode-jest",
+    // Code spell checker extension, helps keeping the code comments and
+    // identifiers well spelled reducing errors (helpful for drupal magic
+    // string values representing module names for example). Shows speeling
+    // mistakes in editor and allows fixing them (or adding to dictionaries)
+    // using quick fixes.
+    "streetsidesoftware.code-spell-checker",
+    // French dictionnary for code spell checker
+    "streetsidesoftware.code-spell-checker-french",
+    // British english dictionnary for code spell checker (our clients are
+    // mostly european and use british english)
+    "streetsidesoftware.code-spell-checker-british-english",
+  ]
+}

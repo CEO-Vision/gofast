@@ -1,0 +1,8 @@
+name: GoFAST OG
+project: gofast_og
+type: module
+description: 'Provides functionality for Organic Groups in GoFAST.'
+core_version_requirement: ^10
+package: Custom
+dependencies:
+  - group:group

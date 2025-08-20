@@ -1,0 +1,6 @@
+services:
+  symfony_error_pages.error_subscriber:
+    class: Drupal\symfony_error_pages\EventSubscriber\ErrorPageSubscriber
+    tags:
+      - { name: event_subscriber }
+    arguments: ['@twig', '@kernel', '@request_stack']

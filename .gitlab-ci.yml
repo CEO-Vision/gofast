@@ -1,0 +1,101 @@
+stages:
+  - build-ci-image
+  - build-dev
+  - test
+
+default:
+  image: quay.io/podman/stable
+  interruptible: true
+  before_script:
+    - podman info
+
+# FIXME: put this into another project ? this might not change that much and would be wasteful
+# to run each time.
+build-ci-image:
+  stage: build-ci-image
+  script:
+    - podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - >
+      podman build
+      --file Dockerfile.ci-build
+      --tag d10-build-env
+      .
+    - mkdir podman-images
+    - podman save d10-build-env > podman-images/d10-build-env.tar
+  artifacts:
+    paths: [podman-images/d10-build-env.tar]
+
+.use-build-env:
+  before_script:
+    - podman load < podman-images/d10-build-env.tar
+    - >
+      podman create
+      --rm
+      --tty
+      --interactive
+      --name build
+      --volume "$(pwd):/mnt/repo"
+      --workdir "/mnt/repo"
+      d10-build-env
+    - podman start build
+
+composer-install-dev:
+  stage: build-dev
+  extends: .use-build-env
+  artifacts:
+    paths:
+      - vendor/
+      - core/
+      - modules/contrib
+  cache:
+    key: composer-home
+    paths: [.composer/cache/]
+  variables:
+    COMPOSER_HOME: '.composer'
+  script:
+    - podman exec build composer install --no-progress
+
+npm-install-dev:
+  stage: build-dev
+  extends: .use-build-env
+  artifacts:
+    paths:
+      - node_modules/
+  script:
+    # Use lock only ensures the right versions are used and that the file is correctly committed
+    - podman exec build bash -ic 'npm install'
+    - test -d node_modules
+
+test-phpunit:
+  extends: .use-build-env
+  needs:
+    - build-ci-image
+    - composer-install-dev
+  stage: test
+  script:
+    - mkdir test-results
+    - podman exec build composer run test:ci
+  coverage: '/^\s*Lines:\s*\d+.\d+\%/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: test-results/phpunit-cobertura-coverage.xml
+      junit: test-results/phpunit-junit-report.xml
+
+test-jest:
+  extends: .use-build-env
+  needs:
+    - build-ci-image
+    - npm-install-dev
+  stage: test
+  script:
+    - mkdir test-results
+    - podman exec build bash -ic 'npm run test:ci'
+  coverage: '/All files[^\|]*\|[^\|]*\s+([\d\.]+)/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: test-results/jest-coverage/cobertura-coverage.xml
+      junit: test-results/jest-junit-report.xml

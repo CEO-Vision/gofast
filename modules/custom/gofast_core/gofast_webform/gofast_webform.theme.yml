@@ -1,0 +1,6 @@
+gofast_webform.page_content:
+  template: 'gofast-webform-page-content'
+  path: 'templates'
+  variables:
+    nid: ''
+    hash: ''

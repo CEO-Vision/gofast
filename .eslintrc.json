@@ -1,0 +1,10 @@
+{
+    "extends": [
+        "./core/.eslintrc.json",
+        "plugin:vue/vue3-recommended"
+    ],
+    "parser": "vue-eslint-parser",
+    "rules": {
+      "vue/max-attributes-per-line": "off"
+    }
+}

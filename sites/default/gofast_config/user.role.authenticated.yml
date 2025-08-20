@@ -1,0 +1,27 @@
+uuid: dbdb4dd4-28b4-4415-979a-2cd63ef123ef
+langcode: en
+status: true
+dependencies:
+  config:
+    - rest.resource.node_access
+    - rest.resource.webform
+    - rest.resource.webform_submissions
+  module:
+    - comment
+    - rest
+    - system
+_core:
+  default_config_hash: cFrlqjtkTfvY3RGccjJkPf1SGIfJ942IrxTLWAO4mgA
+id: authenticated
+label: 'Authenticated user'
+weight: 1
+is_admin: false
+permissions:
+  - 'access comments'
+  - 'access content'
+  - 'restful get node_access'
+  - 'restful get webform'
+  - 'restful get webform_submissions'
+  - 'restful post node_access'
+  - 'restful post webform'
+  - 'restful post webform_submissions'

@@ -1,0 +1,14 @@
+name: gofast_webform
+type: module
+description: 'Provides functionality for the GoFAST webform module.'
+core_version_requirement: ^10
+package: Custom
+libraries:
+  - gofast/survey
+dependencies:
+  - gofast:gofast_core
+  - drupal:basic_auth
+  - drupal:rest
+  - drupal:restui
+  - drupal:serialization
+  

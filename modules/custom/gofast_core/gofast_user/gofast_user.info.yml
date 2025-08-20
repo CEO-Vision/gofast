@@ -1,0 +1,6 @@
+name: GoFAST User
+project: gofast_user
+type: module
+description: 'Provides functionality for the GoFAST user module.'
+core_version_requirement: ^10
+package: Custom

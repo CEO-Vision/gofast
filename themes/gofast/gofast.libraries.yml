@@ -1,0 +1,67 @@
+poppins:
+  version: 1.0
+  css:
+    theme:
+      https://fonts.googleapis.com/css?family=Poppins:300,400,500,600,700: 
+        type: external, 
+        minified: true,
+        weight: -10
+jquery:
+  version: 3.6.1
+  js:
+    https://code.jquery.com/jquery-3.6.1.min.js:
+      type: external, 
+      minified: true,
+      weight: -9
+keen:
+  version: 1.0
+  css:
+    theme:
+      css/keen/plugins.bundle.css:
+        minified: true,
+        weight: -6
+      css/keen/style.bundle.css:
+        minified: true,
+        weight: -7
+  js:
+    js/keen/plugins.bundle.js:
+      minified: true,
+      weight: -6
+    js/keen/scripts.bundle.js:
+      minified: true,
+      weight: -7
+    js/keen/style.bundle.js:
+      minified: true,
+      weight: -5
+app:
+  version: 1.0
+  js:
+    js/gofast/dist/vendors.js:
+      minified: true,
+      weight: -4
+    js/gofast/dist/apps.js:
+      minified: true,
+      weight: -4
+  css:
+    theme:
+      # js/gofast/dist/vendors.css:
+      #   minified: true,
+      #   weight: -4
+      sass/style.css:
+        minified: true,
+        weight: -4
+  dependencies:
+    - core/drupal
+    - core/jquery
+        
+survey:
+  version: 1.0
+  js:
+    js/gofast/dist/survey.js.gz:
+      minified: true,
+      weight: -3
+  css:
+    theme:
+      js/gofast/dist/survey.css.gz:
+        minified: true,
+        weight: -3

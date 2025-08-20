@@ -1,0 +1,59 @@
+<!--begin::Navbar-->
+<div
+	class="app-navbar flex-shrink-0">
+	<!--begin::Cart-->
+	<div
+		class="app-navbar-item ms-1 ms-lg-3">
+		<!--begin::Menu wrapper-->
+		<a href="/modal/nojs/cart" class="btn btn-icon btn-custom btn-icon-muted btn-active-light btn-active-color-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="{default: 'click', lg: 'hover'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+			<span style="padding: 0.5em;">
+				<i class="fas fa-shopping-basket fs-1 fa-fw"></i>
+			</span>
+		</a>
+		<!--end::Menu wrapper-->
+	</div>
+	<!--end::Cart-->
+	<!--begin::Languages-->
+	<div
+		class="app-navbar-item ms-1 ms-lg-3">
+		<!--begin::Menu wrapper-->
+		<div class="btn btn-icon btn-custom btn-icon-muted btn-active-light btn-active-color-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="{default: 'click', lg: 'hover'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+			<span class="symbol symbol-20px">
+				<img class="rounded" src="" alt=""/>
+			</span>
+		</div>
+		{% include '@gofast/templates/user/_languages-menu.html.twig' %}
+		<!--end::Menu wrapper-->
+	</div>
+	<!--end::Languages-->
+	<!--begin::About-->
+	<div
+		class="app-navbar-item ms-1 ms-lg-3">
+		<!--begin::Menu wrapper-->
+		<div class="btn btn-icon btn-custom btn-icon-muted btn-active-light btn-active-color-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="{default: 'click', lg: 'hover'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+			<span style="padding: 0.5em;">
+				<i class="fas fa-question fs-1 fa-fw"></i>
+			</span>
+		</div>
+		{% include '@gofast/templates/navigation/_gofast-about-menu.html.twig' %}
+		<!--end::Menu wrapper-->
+	</div>
+	<!--end::About-->
+	<!--begin::Theme mode-->
+	{# <div class="app-navbar-item ms-1 ms-lg-3">
+	{% include '@gofast/templates/partials/theme-mode/_main.html.twig' %}
+	    </div>
+	    <!--end::Theme mode--> #}
+	<!--begin::User menu-->
+		<div
+		class="app-navbar-item ms-2 ms-1 ms-lg-3" id="kt_header_user_menu_toggle"> <!--begin::Menu wrapper-->
+		<div class="cursor-pointer symbol symbol-35px symbol-md-40px" data-kt-menu-trigger="{default: 'click', lg: 'hover'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+            <div id="profile-avatar"></div>
+		</div>
+		{% include '@gofast/templates/user/_user-account-menu.html.twig' %}
+		<!--end::Menu wrapper-->
+	</div>
+	<!--end::User menu-->
+</div>
+<!--end::Navbar-->
+

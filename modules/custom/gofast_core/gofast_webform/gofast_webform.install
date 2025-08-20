@@ -1,0 +1,15 @@
+<?php
+
+/**
+ * @file
+ * Install, update, and uninstall functions for the gofast_webform module.
+ */
+
+/**
+ * Implements hook_uninstall().
+ *
+ * Needed to avoid duplicate entry errors when reimporting config.
+ */
+function gofast_webform_uninstall() {
+  \Drupal::configFactory()->getEditable('rest.resource.webform')->delete();
+}

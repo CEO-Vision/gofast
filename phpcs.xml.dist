@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<ruleset
+  name="GoFAST"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="vendor/squizlabs/php_codesniffer/phpcs.xsd"
+>
+  <description>PHP code sniffer configuration for GoFAST</description>
+
+  <!-- Default CLI arguments -->
+  <arg name="extensions" value="php,inc,module,theme,install,profile,test" />
+  <arg name="colors" />
+
+  <!-- Included file/directories -->
+  <file>./modules/custom/gofast_core</file>
+  <file>./themes/gofast</file>
+
+  <!-- Rule definitions -->
+  <rule ref="Drupal" /> <!-- extend Drupal standard -->
+  <rule ref="DrupalPractice" /> <!-- Use Drupal best practices standard -->
+
+  <rule ref="Generic.Metrics.CyclomaticComplexity">
+    <properties>
+      <property name="complexity" value="25" />
+    </properties>
+    <!-- Exclude error message variant for absolute complexity limit -->
+    <exclude name="Generic.Metrics.CyclomaticComplexity.MaxExceeded" />
+  </rule>
+
+  <rule ref="Generic.Metrics.NestingLevel">
+    <properties>
+        <property name="nestingLevel" value="6" />
+        <property name="absoluteNestingLevel" value="10" />
+    </properties>
+  </rule>
+
+  <rule ref="Generic.Strings.UnnecessaryStringConcat">
+    <properties>
+      <property name="allowMultiline" value="true" />
+    </properties>
+  </rule>
+
+  <rule ref="Generic.WhiteSpace.ArbitraryParenthesesSpacing">
+    <properties>
+      <property name="ignoreNewlines" value="true" />
+    </properties>
+  </rule>
+
+  <!-- Default raises warning if 35% of comment looks like valid code -->
+  <rule ref="Squiz.PHP.CommentedOutCode" >
+    <type>warning</type>
+  </rule>
+
+  <rule ref="SlevomatCodingStandard.PHP.ForbiddenClasses">
+    <properties>
+      <property name="forbiddenClasses" type="array">
+        <!-- Prevent using cached resource response -->
+        <element key="\Drupal\rest\ResourceResponse" value="\Drupal\rest\ModifiedResourceResponse" />
+      </property>
+    </properties>
+  </rule>
+</ruleset>

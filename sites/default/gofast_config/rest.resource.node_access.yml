@@ -1,0 +1,22 @@
+uuid: 8f15c6c0-c6b7-41a7-8c85-06d7cb0a4244
+langcode: en
+status: true
+dependencies:
+  module:
+    - basic_auth
+    - gofast_core
+    - serialization
+    - user
+id: node_access
+plugin_id: node_access
+granularity: resource
+configuration:
+  methods:
+    - GET
+    - POST
+  formats:
+    - json
+    - xml
+  authentication:
+    - basic_auth
+    - cookie

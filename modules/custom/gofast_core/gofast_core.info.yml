@@ -1,0 +1,17 @@
+name: GoFAST Core
+project: gofast_core
+type: module
+description: GoFAST Collaborative workspace module.
+version: 4.3.0
+Package: GoFAST Core
+core: 10.x
+core_version_requirement: ^10
+
+dependencies:
+  - gofast:gofast_user
+  - gofast:gofast_webform
+  - drupal:basic_auth
+  - drupal:rest
+  - drupal:restui
+  - drupal:serialization
+  - drupal:locale

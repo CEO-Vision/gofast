@@ -1,0 +1,5 @@
+name: 'Symfony Error Pages'
+type: module
+description: 'Provides Symfony-like error pages for Drupal.'
+core_version_requirement: ^10
+package: Custom

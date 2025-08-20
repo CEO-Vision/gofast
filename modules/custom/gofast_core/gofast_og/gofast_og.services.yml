@@ -1,0 +1,13 @@
+services:
+    gofast_og.access_check:
+        class: 'Drupal\gofast_og\Service\AccessServiceD7'
+        arguments: ['@entity_type.manager', '@logger.channel.gofast_og']
+        tags:
+            - { name: access_check, applies_to: _gofast_og_access_check }
+    gofast_og.route_subscriber:
+        class: 'Drupal\gofast_og\EventSubscriber\RouteSubscriber'
+        tags:
+            - { name: event_subscriber }
+    logger.channel.gofast_og:
+      class: Drupal\Core\Logger\LoggerChannel
+      arguments: ['gofast_og']

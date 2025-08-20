@@ -1,0 +1,16 @@
+name: GoFast
+type: theme
+base theme: false
+version: 1.0
+core_version_requirement: ^10
+libraries:
+  - gofast/poppins
+  - gofast/keen
+  - gofast/app
+  - gofast/survey
+regions:
+  header: Header
+  content: Content
+  sidebar_left: 'Sidebar navigation'
+  sidebar_left_browser: 'Sidebar navigation bis'
+  sidebar_right_chat: 'Chat Sidebar'

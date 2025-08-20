@@ -1,0 +1,7 @@
+gofast_user_picture:
+  template : '_gofast_user_picture'
+  path: 'templates'
+
+gofast_user_account_menu:
+  template: '_gofast_user_account_menu'
+  path: 'templates'

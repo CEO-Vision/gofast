@@ -1,0 +1,27 @@
+{# <div class="d-flex flex-column flex-root app-root" id="kt_app_root">
+	<div class="app-page  flex-column flex-column-fluid " id="kt_app_page">
+		<div id="kt_app_header" class="app-header h-55px">
+			{{ page.header }}
+		</div>
+		<div class="app-wrapper  flex-column flex-row-fluid " id="kt_app_wrapper">
+			<div id="kt_app_sidebar" class="app-sidebar  flex-column " data-kt-drawer="true" data-kt-drawer-name="app-sidebar" data-kt-drawer-activate="{default: true, lg: false}" data-kt-drawer-overlay="true" data-kt-drawer-width="225px" data-kt-drawer-direction="start" data-kt-drawer-toggle="#kt_app_sidebar_mobile_toggle">
+				{{ page.sidebar_left }}
+			</div>
+			<div class="d-flex flex-row-fluid h-100">
+				<div class="app-main flex-column flex-row-fluid my-5" id="kt_app_main">
+					<div class="d-flex flex-column flex-column-fluid">
+						<div id="kt_app_content" class="app-content  flex-column-fluid ">
+							<div id="kt_app_content_container" class="app-container  container-fluid ">
+								{{ page.content }}
+							</div>
+							
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div> #}
+<div id="page-container">
+	{{ page.content }}
+</div>

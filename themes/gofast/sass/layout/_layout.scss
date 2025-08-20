@@ -1,0 +1,59 @@
+*, *::before, *::after {
+  box-sizing: content-box;
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+  }
+
+  #kt_app_page {
+    height: 100%;
+  }
+
+  #kt_app_root {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+
+  #kt_app_wrapper {
+    flex: 1;
+    overflow: hidden;
+    height: 100%;
+  }
+
+
+  #kt_app_main {
+    flex: 1;
+    overflow: hidden; /* Empêche le scroll sur cet élément */
+  }
+
+  #kt_app_main>div {
+    height: 100%;
+  }
+
+  .app-content {
+    flex: 1; /* Utilise l'espace disponible */
+    overflow: hidden; /* Empêche le scroll sur cet élément */
+  }
+
+  #kt_app_content_container,
+  #kt_app_content_container > div,
+  .card-body > div,
+  #page-container,
+  #page-container > div,
+  #block-gofast-content,
+  #block-gofast-content > div{
+   height: 100%;
+  }
+
+  #page-manage-webform {
+    position: absolute;
+    top: 60px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+
